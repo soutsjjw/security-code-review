@@ -1,0 +1,971 @@
+category: LG
+ruleset_version: 2.0.0-rc1
+rules:
+- id: LG-01
+  title: 安全事件日誌記錄
+  category: LG
+  control_objective: 記錄有助偵測安全事件的必要資料
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: LG-01
+    legacy_title: 安全事件日誌記錄
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統執行登入、授權、敏感資料存取或安全相關操作
+    may_be_not_applicable_when: 完全沒有安全相關事件，須由功能盤點佐證
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 登入/授權/拒絕事件
+    - 稽核涵蓋範圍
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查登入失敗
+    - 授權拒絕
+    - 變更權限
+    - Token 事件
+    verification_method: source_and_test
+  assessment:
+    pass: 關鍵安全事件有一致紀錄且能追查
+    fail: 重要安全事件缺失且無替代日誌
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 日誌程式、事件測試、範例日誌
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 外部 IdP/WAF 的紀錄責任
+  remediation_guidance: 補齊安全事件與關聯識別碼
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.3.1
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.3.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-02
+  title: 管理者行為稽核
+  category: LG
+  control_objective: 確保管理者敏感操作可追溯
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: LG-02
+    legacy_title: 管理者行為稽核
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統具有管理員、特權操作、敏感讀取或匯出作業
+    may_be_not_applicable_when: 沒有應受稽核的特權活動
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 管理高權限操作
+    - 讀取個資與敏感資料事件
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查寫入
+    - 敏感讀取
+    - 匯出
+    - 核准與特權作業
+    verification_method: source_and_test
+  assessment:
+    pass: 應受稽核的管理行為具人員、時間、對象與結果
+    fail: 敏感管理作業無必要稽核
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Audit Action、Controller、測試事件
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 哪些讀取行為需稽核由資料分級決定
+  remediation_guidance: 建立特權與敏感資料存取稽核
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.3.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-03
+  title: 日誌內容完整性
+  category: LG
+  control_objective: 維持稽核事件的必要欄位與可用性
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: LG-03
+    legacy_title: 日誌內容完整性
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統產生安全或稽核日誌
+    may_be_not_applicable_when: 不產生需追蹤的安全／稽核紀錄，須有理由
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 事件時間/對象/來源/結果
+    - TraceId/CorrelationId
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 確認 Actor
+    - Action
+    - Timestamp
+    - Outcome
+    - Target
+    - TraceId
+    verification_method: source_and_test
+  assessment:
+    pass: 日誌欄位符合追溯需求且不過度收集個資
+    fail: 無法識別誰在何時操作何資源
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 事件 Schema、範例輸出、整合測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 跨系統追蹤識別碼
+  remediation_guidance: 採統一事件欄位與結構化紀錄
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.2.1
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-04
+  title: 統一日誌格式
+  category: LG
+  control_objective: 使事件可集中解析及關聯
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: LG-04
+    legacy_title: 統一日誌格式
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統有需被統一收集、關聯、查詢的日誌
+    may_be_not_applicable_when: 無正式日誌處理需求（需核准）
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 結構化欄位與時區
+    - 日誌集中平台解析
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 Serilog/NLog/平台日誌結構與時間格式
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 採可解析的統一格式與必要識別碼
+    fail: 關鍵系統日誌格式無法有效關聯
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Logger 設定、輸出範例、收集器
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: SIEM 收集格式及轉換規則
+  remediation_guidance: 採 JSON 結構化日誌與共同欄位
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.2.4
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-05
+  title: 日誌儲存容量管理
+  category: LG
+  control_objective: 避免日誌無限成長或過早遺失
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: LG-05
+    legacy_title: 日誌儲存容量管理
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統有日誌保存或容量管理責任
+    may_be_not_applicable_when: 所有日誌由外部平台全權代管且有佐證，仍需評估繼承控制
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 輪替/保留/容量策略
+    - 告警與實際儲存限制
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 Rolling
+    - Retention
+    - 容量上限與輪替
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 保存期限與容量管制符合政策
+    fail: 無限制累積或保存期間不足
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Logger/Logrotate 設定、磁碟政策
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 正式保留年限與集中儲存
+  remediation_guidance: 設定輪替、保留、磁碟監控
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.1.1
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-06
+  title: 時間戳記同步
+  category: LG
+  control_objective: 確保紀錄時間可比對
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: LG-06
+    legacy_title: 時間戳記同步
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統記錄時間戳並需跨事件追蹤
+    may_be_not_applicable_when: 無任何事件時間戳，須有證據
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - UTC/時區轉換
+    - NTP 同步及誤差證據
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 UTC/Timezone
+    - 時間源與同步機制
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 時間戳一致且主機同步符合允收誤差
+    fail: 日誌時間不一致導致追查失真
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 時間產生程式、系統同步設定
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: NTP/PTP 及時鐘偏差
+  remediation_guidance: 統一時間格式並監控同步
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.2.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-07
+  title: 日誌保護與備份
+  category: LG
+  control_objective: 避免日誌被竄改或未授權讀取
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: LG-07
+    legacy_title: 日誌保護與備份
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統儲存或處理安全、稽核或機敏日誌
+    may_be_not_applicable_when: 無需保護的安全／稽核日誌，須有證據
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 日誌權限/完整性
+    - 遠端傳送/備份/存留
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查存取 ACL
+    - 獨立存放
+    - 備份
+    - 不可竄改儲存
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 日誌得到適當隔離、權限與備份
+    fail: 非授權者可修改或刪除關鍵稽核日誌
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 檔案 ACL、遠端傳送、備份策略
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: SIEM/主機實際權限與復原測試
+  remediation_guidance: 最小 ACL、集中日誌及不可竄改策略
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.4.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.4.3
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-08
+  title: 日誌不記錄機敏資料
+  category: LG
+  control_objective: 防止密碼、Token 與個資意外寫入日誌
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: LG-08
+    legacy_title: 日誌不記錄機敏資料
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統會記錄請求、回應、事件、例外或操作日誌
+    may_be_not_applicable_when: 完全不記錄相關資訊且有證據
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - PII/密碼/Token/金鑰遮蔽
+    - 敏感日誌測試
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 追蹤 Request/Response logging
+    - 序列化與遮蔽規則
+    verification_method: source_and_test
+  assessment:
+    pass: 敏感資訊依分類遮蔽且測試通過
+    fail: 秘密或不應記錄的個資可被日誌取得
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Logger、過濾器、敏感欄位測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 實際收集器與 Debug 日誌
+  remediation_guidance: 加入遮蔽政策與自動檢測
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.2.5
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-09
+  title: 稽核處理失效應變
+  category: LG
+  control_objective: 處理稽核通道失效與佇列滿載
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: LG-09
+    legacy_title: 稽核處理失效應變
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統稽核管道會失敗、佇列滿載、丟棄或中斷
+    may_be_not_applicable_when: 沒有需可靠保留的稽核事件
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 日誌服務故障
+    - 佇列溢位、降級與告警
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查非同步寫入
+    - 失敗重試
+    - 佇列
+    - 降級與告警
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 稽核故障有定義的處理策略和可觀測性
+    fail: 重要稽核資料無聲遺失且未告警
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Queue、Retry、Fallback、負向測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 是否應 fail-closed 須按業務風險
+  remediation_guidance: 設重試、持久佇列、告警與明確降級
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-16.3.4
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: LG-10
+  title: 資料完整性雜湊
+  category: LG
+  control_objective: 保護高保證等級資料完整性
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: LG-10
+    legacy_title: 資料完整性雜湊
+    legacy_levels: 高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統依政策必須提供不可竄改或高保證的完整性驗證
+    may_be_not_applicable_when: 正式政策與風險評估未要求此類強控制
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 資料/紀錄完整性機制
+    - 適用要求與偵測能力
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 核對規範是否要求雜湊鏈
+    - 簽章或完整性驗證
+    verification_method: source_and_test
+  assessment:
+    pass: 採用所需的完整性驗證且金鑰安全
+    fail: 必要的完整性檢驗缺失或可被任意重算
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 簽章/雜湊流程、驗證機制、金鑰管理
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 哪些資料必須具完整性防竄改要求
+  remediation_guidance: 導入簽章或雜湊鏈與離線驗證
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 完整性雜湊須依適用性與完整性威脅核定，非一律所有系統強制。
+  references:
+    technical_requirements: []
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A09:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制

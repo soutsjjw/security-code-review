@@ -1,0 +1,71 @@
+﻿rule_id,title,legacy_level_unverified,asvs_verified_requirement_ids,asvs_mapping_status,owasp2025_suggested_categories,taiwan_guideline_clause_status,legal_applicability_status,approval_status
+AC-01,Session 逾時自動失效,普/中/高,v5.0.0-7.3.1;v5.0.0-7.3.2,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-02,登出後 Session 立即銷毀,普/中/高,v5.0.0-7.4.1,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-03,管理介面存取來源限制,普/中/高,v5.0.0-8.4.2,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-04,最小權限原則,中/高,v5.0.0-8.2.1,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-05,Process 以一般使用者權限執行,中/高,,pending,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-06,遠端存取授權過濾,普/中/高,v5.0.0-8.3.1,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-07,目錄瀏覽限制,普/中/高,v5.0.0-13.4.3,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AC-08,垂直/水平越權防護,普/中/高,v5.0.0-8.2.2,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-01,密碼強度規範,普/中/高,v5.0.0-6.2.5;v5.0.0-6.2.9,related_requirement_verified,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-02,密碼定期更換與歷史檢查,普/中/高,,pending,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-03,帳號鎖定機制,普/中/高,v5.0.0-6.1.1,related_requirement_verified,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-04,身分鑑別資訊不以明文傳輸,普/中/高,v5.0.0-12.2.1,related_requirement_verified,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-05,CAPTCHA 機制,中/高,,pending,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-06,密碼重設安全流程,中/高,,pending,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-07,鑑別資訊遮蔽／錯誤訊息不洩漏帳號存在,普/中/高,,pending,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-08,密碼加鹽雜湊儲存,中/高,,pending,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-09,多因素認證（MFA）,高,,pending,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+AU-10,連線來源識別,高,v5.0.0-15.3.4,related_requirement_verified,A07:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-01,SQL Injection 防護,普/中/高,v5.0.0-1.2.4,related_requirement_verified,A05:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-02,XSS / 輸出編碼,普/中/高,v5.0.0-1.2.1;v5.0.0-1.2.10,related_requirement_verified,A05:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-03,CSRF 防護,普/中/高,v5.0.0-3.5.1,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-04,Command Injection 防護,普/中/高,v5.0.0-1.2.5,related_requirement_verified,A05:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-05,伺服端輸入驗證,中/高,v5.0.0-2.2.1,related_requirement_verified,A05:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-06,檔案上傳限制,普/中/高,v5.0.0-5.2.2,related_requirement_verified,A05:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-07,Path Traversal 防護,普/中/高,v5.0.0-5.3.2,related_requirement_verified,A05:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+IN-08,SSRF 防護,中/高,v5.0.0-1.3.6,related_requirement_verified,A01:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+CR-01,機敏資料傳輸加密,中/高,v5.0.0-12.2.1;v5.0.0-12.3.1,related_requirement_verified,A04:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+CR-02,安全加密演算法,高,v5.0.0-11.3.2,related_requirement_verified,A04:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+CR-03,參數設定安全保護,高,v5.0.0-13.3.1,related_requirement_verified,A04:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+CR-04,機敏資料儲存加密,高,v5.0.0-14.2.4,related_requirement_verified,A04:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+CR-05,HTTP 安全標頭設定,普/中/高,v5.0.0-3.4.1;v5.0.0-3.4.2,related_requirement_verified,A02:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+CR-06,Cookie 安全屬性,普/中/高,v5.0.0-3.3.1;v5.0.0-3.3.2;v5.0.0-3.3.4,related_requirement_verified,A02:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+EH-01,錯誤訊息不洩漏敏感資訊,普/中/高,v5.0.0-16.5.1,related_requirement_verified,A10:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+EH-02,全域例外處理,普/中/高,v5.0.0-16.5.4,related_requirement_verified,A10:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+EH-03,資源正確釋放,普/中/高,v5.0.0-1.4.3,related_requirement_verified,A10:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+EH-04,嚴重錯誤通知機制,高,,pending,A10:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+EH-05,Debug 模式關閉,普/中/高,v5.0.0-13.4.2,related_requirement_verified,A02:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+EH-06,預設帳密與設定變更,普/中/高,,pending,A02:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-01,安全事件日誌記錄,普/中/高,v5.0.0-16.3.1;v5.0.0-16.3.2,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-02,管理者行為稽核,普/中/高,v5.0.0-16.3.2,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-03,日誌內容完整性,普/中/高,v5.0.0-16.2.1,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-04,統一日誌格式,普/中/高,v5.0.0-16.2.4,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-05,日誌儲存容量管理,普/中/高,v5.0.0-16.1.1,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-06,時間戳記同步,普/中/高,v5.0.0-16.2.2,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-07,日誌保護與備份,普/中/高,v5.0.0-16.4.2;v5.0.0-16.4.3,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-08,日誌不記錄機敏資料,普/中/高,v5.0.0-16.2.5,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-09,稽核處理失效應變,普/中/高,v5.0.0-16.3.4,related_requirement_verified,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+LG-10,資料完整性雜湊,高,,pending,A09:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+DP-01,依賴套件安全性,普/中/高,v5.0.0-15.1.2;v5.0.0-15.2.1,related_requirement_verified,A03:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+DP-02,外部元件預設密碼,普/中/高,,pending,A03:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+DP-03,不必要服務與 Port 關閉,普/中/高,,pending,A02:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+DP-04,軟體版本更新,普/中/高,v5.0.0-15.2.1,related_requirement_verified,A03:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-01,個資蒐集合法性,全等級,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-02,個資顯示去識別化,全等級,v5.0.0-14.2.6,related_requirement_verified,,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-03,個資傳輸加密,全等級,v5.0.0-12.2.1,related_requirement_verified,A04:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-04,個資存取日誌,全等級,v5.0.0-16.3.2,related_requirement_verified,,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-05,個資儲存加密,全等級,v5.0.0-14.2.4,related_requirement_verified,A04:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-06,遠端存取個資限制,全等級,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-07,個資刪除機制,全等級,v5.0.0-14.2.4,related_requirement_verified,,pending_clause_verification,per_project_review_required,pending_security_signoff
+PD-08,個資外洩通報機制,全等級,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-01,資料備份機制,普/中/高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-02,環境隔離,中/高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-03,高可用性架構,高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-04,系統文件管理,普/中/高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-05,系統源碼備份,普/中/高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-06,版本控制與變更管理,中/高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+BC-07,備援啟動演練,高,,pending,,pending_clause_verification,per_project_review_required,pending_security_signoff
+SI-01,CI/CD Pipeline 安全,中/高,,pending,A03:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+SI-02,第三方資源完整性（SRI）,中/高,,pending,A08:2025,pending_clause_verification,per_project_review_required,pending_security_signoff
+SI-03,反序列化安全,中/高,v5.0.0-1.5.2,related_requirement_verified,A08:2025,pending_clause_verification,per_project_review_required,pending_security_signoff

@@ -1,0 +1,607 @@
+category: BC
+ruleset_version: 2.0.0-rc1
+rules:
+- id: BC-01
+  title: 資料備份機制
+  category: BC
+  control_objective: 確保重要資料可復原
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: BC-01
+    legacy_title: 資料備份機制
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統持有需在故障後復原的資料或狀態
+    may_be_not_applicable_when: 沒有需復原資料或狀態，須營運單位確認
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - DB/檔案/金鑰備份
+    - 還原演練與 RPO/RTO
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 DB
+    - 上傳檔
+    - 金鑰
+    - 設定備份與還原測試
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 達到已定義 RPO/RTO 且有備份與演練證據
+    fail: 重要資料無備份或復原無法滿足要求
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 備份工作、儲存策略、還原記錄
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 正式維運備份平台與密鑰保存
+  remediation_guidance: 實施備份、隔離與定期復原演練
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: BC-02
+  title: 環境隔離
+  category: BC
+  control_objective: 避免開發測試與正式互相影響
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: BC-02
+    legacy_title: 環境隔離
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統存在開發、測試、正式等不同生命週期環境
+    may_be_not_applicable_when: 無多環境且有風險接受紀錄
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - dev/test/prod 環境隔離
+    - 機敏資料與金鑰共用
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查環境分離
+    - Secret
+    - 資料使用
+    - 功能開關
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 各環境有受控隔離且測試功能不進正式
+    fail: 正式可啟用未授權測試後門或共用敏感秘密
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 設定、部署流程、資料遮蔽策略
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 部署網段及權限分離
+  remediation_guidance: 隔離環境與機敏資料
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: BC-03
+  title: 高可用性架構
+  category: BC
+  control_objective: 維持高可用服務能力
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: BC-03
+    legacy_title: 高可用性架構
+    legacy_levels: 高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統明訂可用性目標、SLA 或高可用義務
+    may_be_not_applicable_when: 沒有正式高可用要求
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - SLA 與可用性要求
+    - 單點故障/備援架構
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 核對系統等級
+    - 容錯
+    - 負載平衡及故障切換
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 符合正式可用度與容錯要求
+    fail: 有高可用要求卻存在未處置單點故障
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 架構圖、健康檢查、切換測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 正式 SLA 與可用性目標
+  remediation_guidance: 依目標建置冗餘與故障切換
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 高可用性依 SLA/RTO/衝擊分析判定，不是所有批次或內部系統必備。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: BC-04
+  title: 系統文件管理
+  category: BC
+  control_objective: 維持足夠系統操作與安全文件
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: BC-04
+    legacy_title: 系統文件管理
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統正式運作並需部署、維護或事故處置
+    may_be_not_applicable_when: 非正式管理之一次性資產且經核准
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 系統/部署/營運/安全文件
+    - 版本、責任人與更新
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查架構
+    - 部署
+    - 復原
+    - 安全設定與 SOP 文件
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 文件受版本控管且可用於營運與事故處置
+    fail: 必要文件缺失或嚴重過時
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: README、部署指南、Runbook
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 文件是否反映正式環境
+  remediation_guidance: 補齊部署及故障處置文件
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: BC-05
+  title: 系統源碼備份
+  category: BC
+  control_objective: 確保原始碼及歷史版本可復原
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: BC-05
+    legacy_title: 系統源碼備份
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統原始碼／組態保存於 Git 等版控系統
+    may_be_not_applicable_when: 不含需要長期保存的版本資產，須核准
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - Git/代管平台備份
+    - 原始碼還原演練
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 Git 遠端
+    - 儲存庫備份及復原
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: Repo 及必要附件定期備份且可復原
+    fail: 無備份或唯一儲存庫故障將造成不可回復損失
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Git/Gitea 備份設定、復原測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 代管平台備份服務
+  remediation_guidance: 獨立備份並演練還原
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: BC-06
+  title: 版本控制與變更管理
+  category: BC
+  control_objective: 讓變更可追溯與可控
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: BC-06
+    legacy_title: 版本控制與變更管理
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統經過程式、設定或部署變更
+    may_be_not_applicable_when: 沒有需控管的變更，通常不適用於正式系統
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 審查/簽核/變更紀錄
+    - PR/CI 追溯性
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 PR
+    - 審核
+    - 分支保護
+    - 發版與 Migration
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: 程式及部署變更可追蹤且通過核准流程
+    fail: 重大變更可繞過必要審核或未留紀錄
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Git 規則、CI、審核紀錄
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 企業變更管理制度
+  remediation_guidance: 啟用 Branch Protection 與審核流程
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: BC-07
+  title: 備援啟動演練
+  category: BC
+  control_objective: 驗證備援機制在事故時可用
+  rule_version: 2.0.0-rc1
+  control_type: procedural
+  origin:
+    legacy_id: BC-07
+    legacy_title: 備援啟動演練
+    legacy_levels: 高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統具備備援方案且正式制度要求復原或切換演練
+    may_be_not_applicable_when: 沒有備援／DR 演練義務
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 容災啟動演練
+    - 切換時間、成功率與缺失追蹤
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 DR 計畫
+    - 測試紀錄與 RTO/RPO
+    verification_method: external_operating_evidence
+  assessment:
+    pass: 依規定完成備援啟動演練並追蹤問題
+    fail: 需要備援演練卻未執行或結果不符要求
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 演練報告、切換記錄、改善項目
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 實際機房及備援配置
+  remediation_guidance: 建立週期演練和改善追蹤
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 屬營運驗證控制，沒有演練紀錄不能只靠程式碼判通過。
+  references:
+    technical_requirements: []
+    risk_taxonomy: []
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制

@@ -1,0 +1,571 @@
+{
+  "ruleset_version": "2.0.0-rc1",
+  "project_id": "FORMAT_EXAMPLE_NOT_ASSESSMENT",
+  "git_revision": "0000000000000000000000000000000000000000",
+  "assessment_date": "2026-10-16",
+  "scope": "僅示範資料格式；不表示已掃描任何程式碼",
+  "checks": [
+    {
+      "id": "AC-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-07",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AC-08",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-07",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-08",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-09",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "AU-10",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-07",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "IN-08",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "CR-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "CR-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "CR-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "CR-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "CR-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "CR-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "EH-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "EH-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "EH-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "EH-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "EH-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "EH-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-07",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-08",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-09",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "LG-10",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "DP-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "DP-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "DP-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "DP-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-07",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "PD-08",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-04",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-05",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-06",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "BC-07",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "SI-01",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "SI-02",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    },
+    {
+      "id": "SI-03",
+      "status": "review",
+      "applicability_reason": "格式範例：尚未輸入專案功能資料",
+      "decision_reason": "尚未執行審查或蒐集證據",
+      "evidence": [],
+      "reviewer": "example_only"
+    }
+  ],
+  "findings": [],
+  "exceptions": []
+}

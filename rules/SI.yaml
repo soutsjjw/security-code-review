@@ -1,0 +1,283 @@
+category: SI
+ruleset_version: 2.0.0-rc1
+rules:
+- id: SI-01
+  title: CI/CD Pipeline 安全
+  category: SI
+  control_objective: 保護 CI/CD 供應鏈及建置權限
+  rule_version: 2.0.0-rc1
+  control_type: hybrid
+  origin:
+    legacy_id: SI-01
+    legacy_title: CI/CD Pipeline 安全
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統透過自動化 CI/CD、建置 Runner 或套件發布管線處理程式碼
+    may_be_not_applicable_when: 未使用 CI/CD，但仍須評估人工交付方式
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - CI workflow 權限
+    - Action/套件固定版及秘密
+    - 產物完整性與簽署
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 Workflow
+    - Action Pinning
+    - 權限
+    - Secret
+    - 產物來源
+    verification_method: source_plus_deployment_evidence
+  assessment:
+    pass: CI 最小權限且第三方建置步驟可信及受控
+    fail: 可由不可信工作流程竊取秘密或替換產物
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Workflow、Action 版本、Token 權限
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 公司自建 CI runner 安全與簽章政策
+  remediation_guidance: 固定可信版本、最小權限、分離秘密
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements: []
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A03:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: SI-02
+  title: 第三方資源完整性（SRI）
+  category: SI
+  control_objective: 避免第三方前端資源遭未授權替換
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: SI-02
+    legacy_title: 第三方資源完整性（SRI）
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 前端網頁在執行期載入第三方來源的可執行靜態資源
+    may_be_not_applicable_when: 無瀏覽器前端或沒有第三方執行期資源
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 遠端 CDN JS/CSS 載入
+    - SRI 或受控替代方式
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查外部 CDN 腳本
+    - SRI
+    - CSP
+    - 自託管資源
+    verification_method: source_and_test
+  assessment:
+    pass: 跨來源靜態資源採適當完整性策略或可信替代方案
+    fail: 應用第三方資源且缺少必要的完整性保障
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: HTML script/link、建置設定、CSP
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 動態內容不適用靜態 SRI 的情境
+  remediation_guidance: 使用 SRI、版本固定或自託管
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 全部本地打包且沒有跨來源程式碼下載時，可評估不適用，而非要求虛構 SRI。
+  references:
+    technical_requirements: []
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A08:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: SI-03
+  title: 反序列化安全
+  category: SI
+  control_objective: 防止反序列化觸發非預期行為
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: SI-03
+    legacy_title: 反序列化安全
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統反序列化不可信的外部資料
+    may_be_not_applicable_when: 無外部資料反序列化路徑
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - JSON/XML/Binary 反序列化
+    - 允許型別與執行副作用
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 查找 BinaryFormatter
+    - TypeNameHandling
+    - 泛型物件型別解析
+    verification_method: source_and_test
+  assessment:
+    pass: 只使用受控安全的反序列化設定
+    fail: 未信任資料可觸發危險型別建立或執行
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Serializer 設定、輸入來源、測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 歷史相容格式及第三方套件
+  remediation_guidance: 停用不安全反序列化並限縮型別
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-1.5.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A08:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制

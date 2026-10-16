@@ -1,0 +1,56 @@
+matrix_version: 1.0.0
+status: candidate_not_approved
+dimensions:
+  organization_security_responsibility:
+    values:
+    - A
+    - B
+    - C
+    - D
+    - E
+    - not_applicable
+    - unknown
+    definition: 依資通安全責任等級分級辦法，僅適用相關受管對象
+    owner: 法遵/資安
+  system_protection_needs:
+    values:
+    - 一般
+    - 中
+    - 高
+    - not_classified
+    definition: 依適用規範或組織核定分級，不由 AI 推定
+    owner: 系統所有人/資安
+  asvs_target:
+    values:
+    - L1
+    - L2
+    - L3
+    - not_selected
+    definition: 依獨立威脅/風險分析選擇，不與前述分級等同
+    owner: 資安架構
+  data_classification:
+    values:
+    - public
+    - internal
+    - confidential
+    - restricted
+    - unknown
+    owner: 資料擁有者
+  internet_exposure:
+    values:
+    - public
+    - partner
+    - private
+    - offline
+    - unknown
+    owner: 系統負責人
+rule_activation:
+  baseline: 必須逐項進行 applicability 判斷，所有 70 項均保留紀錄，不代表全部適用。
+  technical_applicability: 由系統功能、資料流、部署架構及控制責任決定。
+  mandatory_legal_controls: 依法規適用對象、最新施行狀態及對應附表逐條核定，禁止 AI 推測。
+  exception: 需資安核准、風險接受人、補償控制與截止日；法定免執行須遵循法定核准程序。
+decision_order:
+- 法律已生效且對主體適用
+- 契約強制義務
+- 核准企業政策
+- 技術風險合理建議

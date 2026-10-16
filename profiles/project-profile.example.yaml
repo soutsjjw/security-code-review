@@ -1,0 +1,42 @@
+profile_version: 2.0.0
+project_id: REPLACE_PROJECT_ID
+system_name: REPLACE_SYSTEM_NAME
+repository_root: /path/to/repository
+git_revision: REPLACE_FULL_COMMIT_SHA
+assessment_date: YYYY-MM-DD
+scope:
+  source_roots:
+  - src/
+  excluded_roots:
+  - '**/node_modules/**'
+  - '**/bin/**'
+  - '**/obj/**'
+  environments:
+  - production
+  includes_deployment_configuration: false
+architecture:
+  frameworks: []
+  application_types:
+  - web_api
+  external_idp: unknown
+  api_gateway: unknown
+data:
+  handles_personal_data: unknown
+  data_classification: unknown
+risk_profile:
+  organization_security_responsibility: unknown
+  system_protection_needs: not_classified
+  asvs_target: not_selected
+  internet_exposure: unknown
+control_owners:
+  application: system_team
+  identity: unknown
+  infrastructure: unknown
+  security_policy: security_team
+approved_company_policy:
+  policy_id: pending
+  version: pending
+  security_owner: pending
+notes:
+- unknown 不得解讀為 false 或 na
+- 不提供密碼、Token、個資原文

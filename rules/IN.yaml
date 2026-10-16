@@ -1,0 +1,786 @@
+category: IN
+ruleset_version: 2.0.0-rc1
+rules:
+- id: IN-01
+  title: SQL Injection 防護
+  category: IN
+  control_objective: 防止外部輸入改變 SQL 語意
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-01
+    legacy_title: SQL Injection 防護
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統產生、操作或執行 SQL 查詢
+    may_be_not_applicable_when: 未使用 SQL 或相關查詢組件
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 原生 SQL/ORM 查詢
+    - 不可信輸入到資料庫的流向
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 ORM Raw SQL
+    - 字串組合
+    - Stored Procedure 與動態排序
+    verification_method: source_and_test
+  assessment:
+    pass: 資料值使用參數化且識別字經允許清單限制
+    fail: 使用者輸入直接插入可執行 SQL
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: SQL 呼叫位置、來源追蹤、參數化證據
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 第三方查詢組件與 SP 內容
+  remediation_guidance: 採參數化查詢與識別字白名單
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-1.2.4
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A05:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-02
+  title: XSS / 輸出編碼
+  category: IN
+  control_objective: 防範 XSS 與不安全輸出內容
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-02
+    legacy_title: XSS / 輸出編碼
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 將不可信輸入輸出至 HTML、DOM、Script、CSV 或試算表相容格式
+    may_be_not_applicable_when: 沒有相關可執行內容或試算表輸出情境
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - HTML/JS 上下文編碼
+    - CSV/試算表公式起始字元
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 HTML
+    - JS
+    - DOM
+    - CSV
+    - 模板與輸出編碼
+    verification_method: source_and_test
+  assessment:
+    pass: 各輸出情境採正確編碼；CSV 公式注入另納入檢查
+    fail: 未信任內容可執行前端腳本或試算表公式
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 模板/匯出程式、來源到輸出追蹤
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: CSV Injection 與 XSS 應分別描述發現
+  remediation_guidance: 依輸出情境編碼及 CSV 公式前綴防護
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核同時涵蓋 XSS 和 CSV Formula Injection；兩者須分別記錄子檢核結果。
+  subchecks:
+  - key: xss
+    objective: 依輸出情境進行安全編碼/清理
+  - key: csv_formula_injection
+    objective: 匯出試算表值防止公式注入
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-1.2.1
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-1.2.10
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A05:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-03
+  title: CSRF 防護
+  category: IN
+  control_objective: 防止跨站請求偽造
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-03
+    legacy_title: CSRF 防護
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 具備 Cookie 或其他會自動附帶憑證的狀態變更操作
+    may_be_not_applicable_when: 無瀏覽器情境下的自動附帶憑證／狀態變更端點
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - Cookie 自動隨附的變更請求
+    - CSRF Token/SameSite/Origin 驗證
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查 Cookie 認證的狀態變更端點
+    - AntiForgery
+    - SameSite
+    - Origin
+    verification_method: source_and_test
+  assessment:
+    pass: 適用端點具可驗證 CSRF 防護或等效安全設計
+    fail: 可在跨站情境冒用使用者狀態變更
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: Cookie、API 授權、CSRF Token、測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: Bearer-only 與 Cookie 架構需分別判斷
+  remediation_guidance: 使用 AntiForgery Token 或等效限制
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 僅靠 SameSite 或 CORS 不必然充分；需確認認證機制、跨站威脅與伺服端防護。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-3.5.1
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A01:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-04
+  title: Command Injection 防護
+  category: IN
+  control_objective: 防止輸入變成系統命令
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-04
+    legacy_title: Command Injection 防護
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統可執行外部命令、Shell、Process 或腳本
+    may_be_not_applicable_when: 沒有任何應用程式控制的命令執行路徑
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - Process/Shell 呼叫點
+    - 命令字元與參數資料流
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 搜尋 Process.Start
+    - Shell
+    - 執行腳本及引數來源
+    verification_method: source_and_test
+  assessment:
+    pass: 命令與引數不可被未信任輸入任意控制
+    fail: 攻擊者可注入額外命令或 Shell 語法
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 命令呼叫、輸入流、白名單設定
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 背景 Job、外部工具是否存在
+  remediation_guidance: 避免 Shell 並隔離參數及權限
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-1.2.5
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A05:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-05
+  title: 伺服端輸入驗證
+  category: IN
+  control_objective: 確保伺服端輸入符合約束
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-05
+    legacy_title: 伺服端輸入驗證
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統處理不可信請求、訊息、檔案或 CLI 參數
+    may_be_not_applicable_when: 無任何跨信任邊界輸入，需可驗證
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - Endpoint/DTO 伺服端驗證
+    - 資料型別/長度/狀態機驗證
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 盤點 DTO
+    - Validator
+    - Model Binder 與業務邊界條件
+    verification_method: source_and_test
+  assessment:
+    pass: 重要約束於服務端驗證且拒絕非法狀態
+    fail: 僅前端驗證或缺少高風險欄位約束
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: DTO、Validator、API 負向測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 業務欄位合法值與界限
+  remediation_guidance: 集中驗證並補充邊界測試
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-2.2.1
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A05:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-06
+  title: 檔案上傳限制
+  category: IN
+  control_objective: 降低惡意上傳與檔案處理風險
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-06
+    legacy_title: 檔案上傳限制
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統接受上傳檔案或匯入外部檔案
+    may_be_not_applicable_when: 不存在檔案接收與處理流程
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 檔案型別/大小/內容驗證
+    - 儲存隔離、掃毒與處理流程
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查大小
+    - 類型
+    - 內容
+    - 儲存位置
+    - 下載授權與掃描流程
+    verification_method: source_and_test
+  assessment:
+    pass: 上傳限制符合檔案風險與組織政策
+    fail: 可上傳可執行內容或繞過路徑/類型限制
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 上傳 Handler、魔術位元、儲存 ACL、測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 是否需要 AV/CDR 或 PDF 主動內容檢查
+  remediation_guidance: 限制類型、隔離上傳區及掃描高風險檔案
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-5.2.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A05:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-07
+  title: Path Traversal 防護
+  category: IN
+  control_objective: 防止檔案路徑跳脫授權根目錄
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-07
+    legacy_title: Path Traversal 防護
+    legacy_levels: 普/中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 外部輸入會影響檔案路徑、檔名或讀寫位置
+    may_be_not_applicable_when: 沒有任何可受不可信資料影響的路徑操作
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - 路徑合成與檔案操作
+    - Zip Slip/符號連結/絕對路徑
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 檢查路徑正規化
+    - 拼接
+    - 相對路徑與符號連結
+    verification_method: source_and_test
+  assessment:
+    pass: 所有可控路徑被限制於允許根目錄
+    fail: 可用 ../ 或等效手法存取根目錄外檔案
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: 檔案 API、路徑處理及測試
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 主機符號連結、Volume 與 ACL
+  remediation_guidance: 固定根路徑、正規化並限制可控檔名
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-5.3.2
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A05:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制
+- id: IN-08
+  title: SSRF 防護
+  category: IN
+  control_objective: 避免伺服端被誘使連線內部資源
+  rule_version: 2.0.0-rc1
+  control_type: technical
+  origin:
+    legacy_id: IN-08
+    legacy_title: SSRF 防護
+    legacy_levels: 中/高
+    legal_equivalence_verified: false
+  applicability:
+    must_assess_when: 系統接收可影響伺服器對外連線目的地之資料
+    may_be_not_applicable_when: 不存在可由外部輸入控制之連線目的地
+    decision_criteria:
+    - 功能是否存在
+    - 系統處理資料分類
+    - 控制實際責任人
+    - 適用且已生效要求/合約政策
+    level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
+    no_evidence: review
+  inspection:
+    search_targets:
+    - HTTP 目的地與 DNS 解析
+    - URL allowlist、私網與重導向
+    review_instructions:
+    - 檢查相關程式碼、設定與呼叫鏈，確認是否有外部或平台控制責任。
+    - 記錄觸發條件、正常行為與繞過/失效情境。
+    - 將檢查結果與當前 Commit 及證據來源綁定，避免沿用前次專案結論。
+    legacy_inspection_hints:
+    - 追蹤 HTTP/DNS/URL 來源
+    - 跳轉與 IP 解析
+    verification_method: source_and_test
+  assessment:
+    pass: 可控目的地經允許清單及內網阻擋
+    fail: 可透過輸入使伺服端連到不允許的內網或 Metadata 端點
+    review: 缺少必要的程式碼、部署、測試或制度證據；不以關鍵字未命中推定符合。
+    not_applicable: 確認本系統沒有相關功能或控制義務，且具體記載不適用原因；若由其他層實作則應追查其證據。
+    compliance_priority:
+    - 適用且已施行的法律/強制規範
+    - 有效合約或受核准政策
+    - 本公司核准的安全基線
+    - 非強制參考標準
+  evidence_requirements:
+    what_to_collect: HTTP Client、URL 驗證、DNS/redirect 設定
+    minimum:
+    - 實際來源（檔案/組態/測試/制度或部署佐證）
+    - 證據與判定的因果說明
+    - 檢查日期及版本/環境識別
+    source_locator:
+    - repository_relative_path
+    - line_start
+    - line_end
+    - git_revision
+    external_locator:
+    - artifact_id
+    - owner
+    - evidence_date
+    redaction: 不得將個資、完整 Token、API Key、密碼寫入報告
+  manual_review: 外部網路防火牆是否有替代控制
+  remediation_guidance: 限制目標網域、IP 範圍及轉址
+  risk:
+    default_severity: not_preassigned
+    factors:
+    - 受影響資料敏感度
+    - 攻擊可行性與可利用路徑
+    - 暴露面
+    - 受影響使用者/系統範圍
+    - 既有補償控制
+    severity_required_for: validated_findings_only
+  normative_notes: 檢核要求須以核定適用矩陣、風險情境和控制責任判定；不得單以工具警示定性。
+  references:
+    technical_requirements:
+    - standard_id: OWASP-ASVS
+      version: 5.0.0
+      requirement_id: v5.0.0-1.3.6
+      mapping_status: verified_to_official_requirement
+      mapping_type: relevant_requirement_not_full_equivalence
+      source: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+    risk_taxonomy:
+    - standard_id: OWASP-TOP10
+      version: '2025'
+      category_id: A01:2025
+      mapping_type: suggested_risk_classification_not_a_compliance_clause
+    taiwan_web_guideline:
+      standard_id: NICS-WEB-GUIDE
+      version: '3.2'
+      mapping_status: document_version_verified_clause_mapping_pending
+    taiwan_legal_mapping:
+      status: not_determined_per_project
+      note: 不得將參考指引視為自動對所有機關/公司具法定強制力；須依適用對象核定。
+  governance:
+    control_owner: project_owner_or_delegated_provider
+    approval_status: pending_security_signoff
+    exception_policy: 不得由 AI 自行豁免；需填寫核准、期限、風險與補償控制

@@ -1,0 +1,54 @@
+registry_version: 1.0.0
+checked_on: '2026-10-16'
+caution: 本清冊記錄參考文獻與來源，不能單獨證明對特定公司／系統有法律約束力；參考文件的每條對應另行逐條核對。
+references:
+- id: OWASP-ASVS
+  name: OWASP Application Security Verification Standard
+  version: 5.0.0
+  type: technical_verification
+  status: verified
+  effective: 2025-05
+  url: https://github.com/OWASP/ASVS
+  reference_url: https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.json
+  citation_format: v5.0.0-X.Y.Z
+  authority: OWASP Foundation
+  note: ASVS L1-L3 是驗證保證分級，非臺灣系統普中高分級。
+- id: OWASP-TOP10
+  name: OWASP Top 10
+  version: '2025'
+  type: risk_taxonomy
+  status: verified
+  url: https://top10.owasp.org/2025/
+  authority: OWASP Foundation
+  note: 只作風險類別提示，不直接作合規條件。
+- id: OWASP-CODE-REVIEW
+  name: OWASP Secure Code Review Cheat Sheet
+  version: online-current
+  type: review_methodology
+  status: verified_web_resource
+  url: https://cheatsheetseries.owasp.org/cheatsheets/Secure_Code_Review_Cheat_Sheet.html
+  authority: OWASP Foundation
+- id: NICS-WEB-GUIDE
+  name: Web應用程式安全參考指引
+  version: v3.2_1141231
+  type: taiwan_guidance
+  status: version_verified_clause_mapping_pending
+  url: https://www.nics.nat.gov.tw/cybersecurity_resources/reference_guide/Common_Standards/
+  authority: 國家資通安全研究院
+  note: 官方頁面列出版本；尚未擷取並逐條核對壓縮檔內的正文及控制條號。
+- id: TW-CYBER-LEVEL
+  name: 資通安全責任等級分級辦法
+  version: '2026-01-07'
+  type: taiwan_regulation
+  status: verified
+  url: https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304
+  authority: 全國法規資料庫
+  note: 第 2 條機關責任等級 A-E；第 11 條另以附表九、十規範資通系統防護需求分級／基準。是否適用須依法定主體判斷。
+- id: TW-PDPA
+  name: 個人資料保護法
+  version: 2025-11-11-amendment
+  type: taiwan_regulation
+  status: partly_not_effective_verify_current_enacted_text
+  url: https://law.moj.gov.tw/LawClass/LawAll.aspx?PCode=I0050021
+  authority: 全國法規資料庫
+  note: 部分修正條文生效日期未定，不可直接當現行義務。
