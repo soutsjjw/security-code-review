@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Code Review 資安檢核報告</title>
+<style>
+
+:root {
+  --bg:#f7f7f5; --panel:#ffffff; --ink:#1d1f23; --muted:#646a73; --line:#e3e3df;
+  --code-bg:#f2f2ef; --accent:#1f5f8b;
+  --pass:#2e7d4f; --pass-bg:#e5f3ea; --fail:#b3261e; --fail-bg:#fbe7e5;
+  --review:#8a5a00; --review-bg:#fdf1d8; --na:#5b6470; --na-bg:#eceef1;
+  --high:#b3261e; --high-bg:#fbe7e5; --med:#b15c00; --med-bg:#fdeedb;
+  --low:#2f5fa8; --low-bg:#e5edf9; --info:#5b6470; --info-bg:#eceef1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#15171a; --panel:#1d2024; --ink:#e7e8ea; --muted:#9aa1ab; --line:#30343a;
+    --code-bg:#24282d; --accent:#7db7e0;
+    --pass:#7fd1a0; --pass-bg:#1f3529; --fail:#ff9a90; --fail-bg:#3d2422;
+    --review:#f0c066; --review-bg:#3a3020; --na:#aab2bd; --na-bg:#2a2e34;
+    --high:#ff9a90; --high-bg:#3d2422; --med:#f5b16a; --med-bg:#3a2b1c;
+    --low:#93b8f0; --low-bg:#1f2a3d; --info:#aab2bd; --info-bg:#2a2e34;
+  }
+}
+:root[data-theme="dark"] {
+    --bg:#15171a; --panel:#1d2024; --ink:#e7e8ea; --muted:#9aa1ab; --line:#30343a;
+    --code-bg:#24282d; --accent:#7db7e0;
+    --pass:#7fd1a0; --pass-bg:#1f3529; --fail:#ff9a90; --fail-bg:#3d2422;
+    --review:#f0c066; --review-bg:#3a3020; --na:#aab2bd; --na-bg:#2a2e34;
+    --high:#ff9a90; --high-bg:#3d2422; --med:#f5b16a; --med-bg:#3a2b1c;
+    --low:#93b8f0; --low-bg:#1f2a3d; --info:#aab2bd; --info-bg:#2a2e34;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.7 "Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif; }
+.wrap { max-width:1120px; margin:0 auto; padding:32px 16px 80px; }
+h1 { font-size:28px; margin:0 0 4px; letter-spacing:.02em; }
+h2 { font-size:20px; margin:48px 0 16px; padding-bottom:8px; border-bottom:2px solid var(--line); }
+h3 { font-size:17px; margin:0; }
+h4 { font-size:13px; margin:18px 0 6px; color:var(--muted); letter-spacing:.06em; }
+a { color:var(--accent); }
+code, .mono { font-family:"Cascadia Code",Consolas,"SFMono-Regular",monospace; font-size:.9em; }
+p code, li code, td code { background:var(--code-bg); padding:1px 5px; border-radius:4px; word-break:break-all; }
+.muted { color:var(--muted); } .small { font-size:13px; } .nowrap { white-space:nowrap; }
+.subtitle { color:var(--muted); margin:0 0 24px; }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:760px) { .grid2 { grid-template-columns:1fr; } }
+table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:13px; color:var(--muted); font-weight:600; }
+.info td:first-child { width:120px; color:var(--muted); white-space:nowrap; }
+.tablewrap { overflow-x:auto; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.stat { border-radius:8px; padding:12px; text-align:center; }
+.stat .n { font-size:26px; font-weight:700; line-height:1.2; }
+.stat .l { font-size:13px; }
+.bar { display:flex; height:10px; border-radius:5px; overflow:hidden; margin:14px 0 4px; }
+.seg { display:block; }
+.st-pass { background:var(--pass-bg); color:var(--pass); }
+.st-fail { background:var(--fail-bg); color:var(--fail); }
+.st-review { background:var(--review-bg); color:var(--review); }
+.st-na { background:var(--na-bg); color:var(--na); }
+.bar .st-pass { background:var(--pass); } .bar .st-fail { background:var(--fail); }
+.bar .st-review { background:var(--review); } .bar .st-na { background:var(--na); }
+.sev-high { background:var(--high-bg); color:var(--high); }
+.sev-med { background:var(--med-bg); color:var(--med); }
+.sev-low { background:var(--low-bg); color:var(--low); }
+.sev-info { background:var(--info-bg); color:var(--info); }
+.chip { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
+.risk { display:flex; align-items:center; gap:14px; margin-top:16px; padding:14px 16px; border-radius:8px; }
+.risk .lvl { font-size:22px; font-weight:700; }
+.fref { font-family:Consolas,monospace; font-size:12px; text-decoration:none; padding:0 5px;
+  border:1px solid var(--line); border-radius:4px; white-space:nowrap; }
+details.cl { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:12px; }
+details.cl summary { cursor:pointer; padding:12px 16px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-weight:600; }
+details.cl table { border-top:1px solid var(--line); }
+.checklist td:first-child { width:64px; } .checklist td:nth-child(4) { width:76px; }
+.filters { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
+.filters button { font:inherit; font-size:13px; padding:4px 12px; border-radius:999px; border:1px solid var(--line);
+  background:var(--panel); color:var(--ink); cursor:pointer; }
+.filters button.on { background:var(--ink); color:var(--panel); border-color:var(--ink); }
+.finding { background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--line);
+  border-radius:10px; padding:18px 20px; margin-bottom:18px; scroll-margin-top:16px; }
+.sevb-high { border-left-color:var(--high); } .sevb-med { border-left-color:var(--med); }
+.sevb-low { border-left-color:var(--low); } .sevb-info { border-left-color:var(--info); }
+.finding header { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.fid { font-weight:700; color:var(--muted); }
+.meta { display:flex; gap:24px; margin:10px 0 0; flex-wrap:wrap; }
+.meta div { display:flex; gap:8px; } .meta dt { color:var(--muted); font-size:13px; } .meta dd { margin:0; font-size:13px; }
+.locs { margin:0; padding-left:20px; } .locs li { margin:2px 0; }
+.ba { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+@media (max-width:860px) { .ba { grid-template-columns:1fr; } }
+.ba > div { min-width:0; }
+.ba-h { font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px 6px 0 0; }
+.ba-h.before { background:var(--fail-bg); color:var(--fail); }
+.ba-h.after { background:var(--pass-bg); color:var(--pass); }
+pre { margin:0; background:var(--code-bg); padding:12px; border-radius:0 0 6px 6px; overflow-x:auto;
+  font-size:12.5px; line-height:1.55; }
+.prio li { margin-bottom:10px; }
+.toc { display:flex; gap:14px; flex-wrap:wrap; font-size:14px; margin-bottom:8px; }
+footer { margin-top:48px; color:var(--muted); font-size:13px; }
+@media print {
+  body { background:#fff; font-size:12px; } .filters, .toc { display:none; }
+  details.cl { break-inside:avoid; } .finding { break-inside:avoid; } pre { white-space:pre-wrap; word-break:break-word; }
+  details:not([open]) > *:not(summary) { display:block; }
+}
+
+/* 通用模板附加樣式：不依賴任何 CDN 或外部套件 */
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.themebar { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.theme-toggle { font:inherit; font-size:13px; padding:5px 12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); cursor:pointer; }
+.empty { background:var(--panel); border:1px dashed var(--line); color:var(--muted); padding:18px; border-radius:8px; }
+.notice { border-left:4px solid var(--review); background:var(--review-bg); padding:10px 14px; margin:10px 0 22px; border-radius:5px; }
+.notice[hidden] { display:none; }
+.subtitle { word-break:break-word; }
+.small-code { font:12px/1.5 Consolas,monospace; }
+.ba .omitted { background:var(--code-bg); padding:12px; border-radius:0 0 6px 6px; color:var(--muted); font-size:13px; }
+.checklist tbody tr[hidden], .finding[hidden] { display:none !important; }
+.mono { overflow-wrap:anywhere; }
+.stat { min-width:0; }
+.grid2 > .panel { min-width:0; }
+.info { table-layout:fixed; }
+.info td:last-child { overflow-wrap:anywhere; word-break:break-word; }
+@media (max-width:650px) { .stats { grid-template-columns: repeat(2,1fr); } .wrap {padding-top:16px;} h1 {font-size:23px;} #severityStats { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
+@media print { .theme-toggle,.notice { display:none !important; } :root, :root[data-theme="dark"] {color-scheme:light; --bg:#fff; --panel:#fff; --ink:#1d1f23; --muted:#646a73; --line:#ddd; --code-bg:#f2f2ef; --accent:#1f5f8b;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="themebar">
+    <div>
+      <h1>Code Review 資安檢核報告</h1>
+      <p class="subtitle" id="subtitle">待載入審查資料</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="切換深色或淺色模式">切換主題</button>
+  </div>
+  <div id="loadNotice" class="notice" role="status" hidden></div>
+  <nav class="toc" aria-label="報告導覽">
+    <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
+    <a href="#strengths">既有優點</a><a href="#checklist">詳細檢核結果</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+  </nav>
+
+  <h2 id="summary">基本資訊與摘要</h2>
+  <div class="grid2">
+    <div class="panel"><table class="info"><tbody id="projectInfo"></tbody></table></div>
+    <div class="panel">
+      <div class="small muted" id="checkCountTitle">檢核項目結果</div>
+      <div class="bar" id="statusBar" aria-label="檢核項目狀態比例"></div>
+      <div class="stats" id="statusStats" style="margin-top:12px"></div>
+      <div class="small muted" id="findingCountTitle" style="margin-top:18px">發現項目</div>
+      <div class="stats" id="severityStats" style="margin-top:8px"></div>
+      <div class="risk sev-info" id="overallRisk" role="note"></div>
+    </div>
+  </div>
+
+  <h2 id="high">發現摘要</h2>
+  <div class="panel tablewrap" id="findingSummary"></div>
+
+  <h2 id="priority">優先改善項目排序</h2>
+  <div class="panel" id="priorityContent"></div>
+
+  <h2 id="strengths">既有優點</h2>
+  <div class="panel" id="strengthsContent"></div>
+
+  <h2 id="checklist">詳細檢核結果</h2>
+  <div class="filters" id="stFilter" aria-label="檢核結果篩選">
+    <button type="button" class="on" data-f="all" aria-pressed="true">全部</button>
+    <button type="button" data-f="fail" aria-pressed="false">不符合</button>
+    <button type="button" data-f="review" aria-pressed="false">待確認</button>
+    <button type="button" data-f="pass" aria-pressed="false">符合</button>
+    <button type="button" data-f="na" aria-pressed="false">不適用</button>
+    <button type="button" data-f="missing" aria-pressed="false">未評估</button>
+  </div>
+  <div id="checklistContent"></div>
+
+  <h2 id="findings">發現與改善建議</h2>
+  <div class="filters" id="sevFilter" aria-label="風險等級篩選">
+    <button type="button" class="on" data-f="all" aria-pressed="true">全部</button>
+    <button type="button" data-f="critical" aria-pressed="false">重大</button>
+    <button type="button" data-f="high" aria-pressed="false">高</button>
+    <button type="button" data-f="medium" aria-pressed="false">中</button>
+    <button type="button" data-f="low" aria-pressed="false">低</button>
+    <button type="button" data-f="info" aria-pressed="false">資訊</button>
+  </div>
+  <div id="findingDetails"></div>
+
+  <h2 id="scope">審查方法與限制</h2>
+  <div class="panel small" id="scopeContent"></div>
+  <footer id="reportFooter">本報告由 AI 輔助產出，結果應由開發與資安人員複核後採用。</footer>
+</div>
+<!-- 僅有此區塊須由未來 Renderer 注入安全序列化後的報告資料。 -->
+<script id="report-data" type="application/json">{"report_schema_version":"2.1.0","project":{"name":"跨系統報告展示（僅為虛構測試）","language_framework":"待提供","security_level":"待確認","personal_data":"待確認"},"assessment":{"ruleset_version":"2.0.0-rc1","project_id":"FORMAT_EXAMPLE_NOT_ASSESSMENT","git_revision":"0000000000000000000000000000000000000000","assessment_date":"2026-10-16","scope":"僅示範資料格式；不表示已掃描任何程式碼","checks":[{"id":"AC-01","status":"fail","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"演示用不符合狀態，並非真實查核結果","evidence":[{"kind":"source","description":"僅供 UI 演示的虛構程式碼","collected_on":"2026-10-18","source_version":"DEMO","path":"src/Example.cs","line_start":1,"line_end":2}],"reviewer":"example_only","finding_ids":["F-01"]},{"id":"AC-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AC-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AC-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AC-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AC-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AC-07","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AC-08","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-07","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-08","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-09","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"AU-10","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-07","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"IN-08","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"CR-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"CR-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"CR-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"CR-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"CR-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"CR-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"EH-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"EH-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"EH-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"EH-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"EH-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"EH-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-07","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-08","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-09","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"LG-10","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"DP-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"DP-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"DP-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"DP-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-07","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"PD-08","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-04","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-05","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-06","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"BC-07","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"SI-01","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"SI-02","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"},{"id":"SI-03","status":"review","applicability_reason":"格式範例：尚未輸入專案功能資料","decision_reason":"尚未執行審查或蒐集證據","evidence":[],"reviewer":"example_only"}],"findings":[{"id":"F-01","title":"演示：模擬存取控制問題（非實際漏洞）","severity":"high","check_ids":["AC-01"],"impact":"僅示範風險描述的排版，不具任何實際系統意義。","evidence":[{"kind":"source","description":"僅供 UI 演示的虛構程式碼","collected_on":"2026-10-18","source_version":"DEMO","path":"src/Example.cs","line_start":1,"line_end":2}],"remediation":"演示：於實際審查時填入經驗證的修正建議。"}],"exceptions":[]},"rules":[{"id":"AC-01","title":"Session 逾時自動失效","category":"AC","origin":{"legacy_levels":"普/中/高"}},{"id":"AC-02","title":"登出後 Session 立即銷毀","category":"AC","origin":{"legacy_levels":"普/中/高"}},{"id":"AC-03","title":"管理介面存取來源限制","category":"AC","origin":{"legacy_levels":"普/中/高"}},{"id":"AC-04","title":"最小權限原則","category":"AC","origin":{"legacy_levels":"中/高"}},{"id":"AC-05","title":"Process 以一般使用者權限執行","category":"AC","origin":{"legacy_levels":"中/高"}},{"id":"AC-06","title":"遠端存取授權過濾","category":"AC","origin":{"legacy_levels":"普/中/高"}},{"id":"AC-07","title":"目錄瀏覽限制","category":"AC","origin":{"legacy_levels":"普/中/高"}},{"id":"AC-08","title":"垂直/水平越權防護","category":"AC","origin":{"legacy_levels":"普/中/高"}},{"id":"AU-01","title":"密碼強度規範","category":"AU","origin":{"legacy_levels":"普/中/高"}},{"id":"AU-02","title":"密碼定期更換與歷史檢查","category":"AU","origin":{"legacy_levels":"普/中/高"}},{"id":"AU-03","title":"帳號鎖定機制","category":"AU","origin":{"legacy_levels":"普/中/高"}},{"id":"AU-04","title":"身分鑑別資訊不以明文傳輸","category":"AU","origin":{"legacy_levels":"普/中/高"}},{"id":"AU-05","title":"CAPTCHA 機制","category":"AU","origin":{"legacy_levels":"中/高"}},{"id":"AU-06","title":"密碼重設安全流程","category":"AU","origin":{"legacy_levels":"中/高"}},{"id":"AU-07","title":"鑑別資訊遮蔽／錯誤訊息不洩漏帳號存在","category":"AU","origin":{"legacy_levels":"普/中/高"}},{"id":"AU-08","title":"密碼加鹽雜湊儲存","category":"AU","origin":{"legacy_levels":"中/高"}},{"id":"AU-09","title":"多因素認證（MFA）","category":"AU","origin":{"legacy_levels":"高"}},{"id":"AU-10","title":"連線來源識別","category":"AU","origin":{"legacy_levels":"高"}},{"id":"IN-01","title":"SQL Injection 防護","category":"IN","origin":{"legacy_levels":"普/中/高"}},{"id":"IN-02","title":"XSS / 輸出編碼","category":"IN","origin":{"legacy_levels":"普/中/高"}},{"id":"IN-03","title":"CSRF 防護","category":"IN","origin":{"legacy_levels":"普/中/高"}},{"id":"IN-04","title":"Command Injection 防護","category":"IN","origin":{"legacy_levels":"普/中/高"}},{"id":"IN-05","title":"伺服端輸入驗證","category":"IN","origin":{"legacy_levels":"中/高"}},{"id":"IN-06","title":"檔案上傳限制","category":"IN","origin":{"legacy_levels":"普/中/高"}},{"id":"IN-07","title":"Path Traversal 防護","category":"IN","origin":{"legacy_levels":"普/中/高"}},{"id":"IN-08","title":"SSRF 防護","category":"IN","origin":{"legacy_levels":"中/高"}},{"id":"CR-01","title":"機敏資料傳輸加密","category":"CR","origin":{"legacy_levels":"中/高"}},{"id":"CR-02","title":"安全加密演算法","category":"CR","origin":{"legacy_levels":"高"}},{"id":"CR-03","title":"參數設定安全保護","category":"CR","origin":{"legacy_levels":"高"}},{"id":"CR-04","title":"機敏資料儲存加密","category":"CR","origin":{"legacy_levels":"高"}},{"id":"CR-05","title":"HTTP 安全標頭設定","category":"CR","origin":{"legacy_levels":"普/中/高"}},{"id":"CR-06","title":"Cookie 安全屬性","category":"CR","origin":{"legacy_levels":"普/中/高"}},{"id":"EH-01","title":"錯誤訊息不洩漏敏感資訊","category":"EH","origin":{"legacy_levels":"普/中/高"}},{"id":"EH-02","title":"全域例外處理","category":"EH","origin":{"legacy_levels":"普/中/高"}},{"id":"EH-03","title":"資源正確釋放","category":"EH","origin":{"legacy_levels":"普/中/高"}},{"id":"EH-04","title":"嚴重錯誤通知機制","category":"EH","origin":{"legacy_levels":"高"}},{"id":"EH-05","title":"Debug 模式關閉","category":"EH","origin":{"legacy_levels":"普/中/高"}},{"id":"EH-06","title":"預設帳密與設定變更","category":"EH","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-01","title":"安全事件日誌記錄","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-02","title":"管理者行為稽核","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-03","title":"日誌內容完整性","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-04","title":"統一日誌格式","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-05","title":"日誌儲存容量管理","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-06","title":"時間戳記同步","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-07","title":"日誌保護與備份","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-08","title":"日誌不記錄機敏資料","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-09","title":"稽核處理失效應變","category":"LG","origin":{"legacy_levels":"普/中/高"}},{"id":"LG-10","title":"資料完整性雜湊","category":"LG","origin":{"legacy_levels":"高"}},{"id":"DP-01","title":"依賴套件安全性","category":"DP","origin":{"legacy_levels":"普/中/高"}},{"id":"DP-02","title":"外部元件預設密碼","category":"DP","origin":{"legacy_levels":"普/中/高"}},{"id":"DP-03","title":"不必要服務與 Port 關閉","category":"DP","origin":{"legacy_levels":"普/中/高"}},{"id":"DP-04","title":"軟體版本更新","category":"DP","origin":{"legacy_levels":"普/中/高"}},{"id":"PD-01","title":"個資蒐集合法性","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-02","title":"個資顯示去識別化","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-03","title":"個資傳輸加密","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-04","title":"個資存取日誌","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-05","title":"個資儲存加密","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-06","title":"遠端存取個資限制","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-07","title":"個資刪除機制","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"PD-08","title":"個資外洩通報機制","category":"PD","origin":{"legacy_levels":"全等級"}},{"id":"BC-01","title":"資料備份機制","category":"BC","origin":{"legacy_levels":"普/中/高"}},{"id":"BC-02","title":"環境隔離","category":"BC","origin":{"legacy_levels":"中/高"}},{"id":"BC-03","title":"高可用性架構","category":"BC","origin":{"legacy_levels":"高"}},{"id":"BC-04","title":"系統文件管理","category":"BC","origin":{"legacy_levels":"普/中/高"}},{"id":"BC-05","title":"系統源碼備份","category":"BC","origin":{"legacy_levels":"普/中/高"}},{"id":"BC-06","title":"版本控制與變更管理","category":"BC","origin":{"legacy_levels":"中/高"}},{"id":"BC-07","title":"備援啟動演練","category":"BC","origin":{"legacy_levels":"高"}},{"id":"SI-01","title":"CI/CD Pipeline 安全","category":"SI","origin":{"legacy_levels":"中/高"}},{"id":"SI-02","title":"第三方資源完整性（SRI）","category":"SI","origin":{"legacy_levels":"中/高"}},{"id":"SI-03","title":"反序列化安全","category":"SI","origin":{"legacy_levels":"中/高"}}],"presentation":{"demo":true,"review_type":"資料契約格式驗證，尚未執行原始碼審查","reviewer":"schema-example-only","standards":[],"overall_risk":{"level":"review","summary":"演示資料，未經資安審查，不予判定風險。"},"priorities":[{"label":"演示排序（非正式期限）","finding_ids":["F-01"],"description":"只是為了測試 HTML 連結。"}],"strengths":[],"methods":["本報告僅使用虛構資料測試 UI，不代表實際掃描任何系統。"],"limitations":["所有風險發現均為虛構測試，不得作為正式資安結論。"],"finding_details":{"F-01":{"owasp_category":"DEMO","description":"這是虛構問題敘述，僅供測試。","risk":"這是虛構風險，僅供測試。","locations":[{"path":"src/Example.cs","line_start":1,"line_end":2}],"before_code":"// 僅供排版展示\nreturn example;","after_code":"// 僅供排版展示\nreturn checkedExample;"}},"footer":"演示／測試資料，不代表任何系統符合或不符合資安要求。"}}</script>
+<script>
+(() => {
+  'use strict';
+  const STATUS = {pass:['符合','st-pass'], fail:['不符合','st-fail'], review:['待確認','st-review'], na:['不適用','st-na'], missing:['未評估','st-na']};
+  const SEVERITY = {critical:['重大','sev-high'], high:['高','sev-high'], medium:['中','sev-med'], low:['低','sev-low'], info:['資訊','sev-info']};
+  const CATEGORIES = [
+    ['AC','一、存取控制（Access Control）'], ['AU','二、身分鑑別與認證（Authentication）'],
+    ['IN','三、注入攻擊防護（Injection Prevention）'], ['CR','四、加密機制與傳輸安全（Cryptography）'],
+    ['EH','五、錯誤處理與例外管理（Error Handling）'], ['LG','六、日誌稽核與監控（Logging & Monitoring）'],
+    ['DP','七、元件與依賴管理（Dependencies）'], ['PD','八、個資保護（Personal Data Protection）'],
+    ['BC','九、營運持續與備份（Business Continuity）'], ['SI','十、軟體完整性（Software Integrity）']
+  ];
+  const el = (tag, cls, value) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (value !== undefined && value !== null) n.textContent = String(value);
+    return n;
+  };
+  const $ = id => document.getElementById(id);
+  const text = (v, fallback='—') => v === undefined || v === null || v === '' ? fallback : String(v);
+  const asArray = value => Array.isArray(value) ? value : [];
+  const safeId = id => /^[A-Za-z][A-Za-z0-9_-]*$/.test(String(id || '')) ? String(id) : '';
+  const hrefRef = (target, caption, cls='fref') => {
+    const id = safeId(target);
+    if (!id) return el('span','mono small',caption);
+    const a=el('a',cls,caption); a.href='#'+id; return a;
+  };
+  const empty = (message) => el('p','muted small',message);
+  const chip = (label, klass) => el('span','chip '+klass,label);
+  const paragraph = (parent, label, value) => {
+    if (!value) return;
+    parent.append(el('h4',null,label),el('p',null,value));
+  };
+  const listOf = (items, parent, emptyText) => {
+    if (!items.length) { parent.append(empty(emptyText)); return; }
+    const ul=el('ul'); items.forEach(v=>ul.append(el('li',null,typeof v === 'string'?v:(v.text||v.description||'')))); parent.append(ul);
+  };
+  const appendFindingRefs=(parent, ids, validIds) => {
+    for(const id of asArray(ids)) {
+      if (!validIds.has(id)) continue;
+      parent.append(document.createTextNode(' '),hrefRef(id,id));
+    }
+  };
+  const notice = message => { const n=$('loadNotice'); n.hidden=false; n.textContent=message; };
+  const badgeData=(d)=> Array.isArray(d)?d:[String(d),'st-na'];
+
+  const container=$('report-data');
+  let report;
+  try {
+    if (container.textContent.trim()==='__REPORT_DATA_JSON__') throw Error('尚未注入報告 JSON');
+    report=JSON.parse(container.textContent);
+    if (!report || typeof report !== 'object' || !report.assessment) throw Error('報告須包含 assessment 物件');
+  } catch(err) {
+    notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
+    $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','findingDetails','scopeContent']) $(id).append(empty('尚無報告資料'));
+    initTheme(); return;
+  }
+
+  const assessment=report.assessment;
+  const project=report.project||{};
+  const presentation=report.presentation||{};
+  const findings=asArray(assessment.findings);
+  const checks=asArray(assessment.checks);
+  const rules=asArray(report.rules);
+  const checksById=new Map(checks.map(c=>[c.id,c]));
+  const findingsById=new Map(findings.map(f=>[f.id,f]));
+  const validFindingIds=new Set(findings.map(f=>f.id));
+  const details=presentation.finding_details||{};
+  const count=kind=>checks.filter(c=>c.status===kind).length;
+  const severity=kind=>findings.filter(f=>f.severity===kind || (kind==='medium' && f.severity==='med')).length;
+  const ruleCount=rules.length || checks.length;
+  if (ruleCount!==70 || checks.length!==70) notice('注意：本次資料未涵蓋完整 70 項檢核。請先執行 assessment 資料驗證，避免誤認已完成完整資安審查。');
+  if (presentation.demo) notice('演示資料（非真實審查）：此頁僅供驗證版型與互動功能，不代表任何系統的安全狀態。');
+  document.title=text(project.name,assessment.project_id||'系統')+'｜Code Review 資安檢核報告';
+  $('subtitle').textContent=[text(project.name,assessment.project_id||'未命名系統'),text(assessment.assessment_date,'日期待確認'),text(presentation.review_type,'AI 輔助靜態審查')].join(' ｜ ');
+
+  // 基本資訊
+  const info = [
+    ['系統名稱', text(project.name,assessment.project_id)], ['審查日期',assessment.assessment_date],
+    ['語言 / 框架',project.language_framework], ['審查範圍',assessment.scope],
+    ['安全等級',project.security_level], ['個資處理',project.personal_data],
+    ['規範依據',asArray(presentation.standards).join('、')||'待提供'],
+    ['審查者',presentation.reviewer], ['規則版本',assessment.ruleset_version],
+    ['Git Revision',assessment.git_revision]
+  ];
+  for(const [key,value] of info){const tr=el('tr'); tr.append(el('td',null,key),el('td',null,text(value)));$('projectInfo').append(tr);}
+
+  // 頂部統計全部從輸入資料計算，不接受硬編碼數字
+  const statusEntries=[['pass','符合'],['fail','不符合'],['review','待確認'],['na','不適用']];
+  const missing=Math.max(0,ruleCount-checks.length)+checks.filter(c=>!STATUS[c.status]||c.status==='missing').length;
+  $('checkCountTitle').textContent='檢核項目結果（共 '+checks.length+' 項'+(missing?'，未評估 '+missing+' 項':'')+'）';
+  const total=Math.max(1,checks.length);
+  for(const [key,label] of statusEntries){
+    const n=count(key),seg=el('span','seg '+STATUS[key][1]);
+    seg.style.flex=n?String(n):'0'; seg.title=label+' '+n; seg.setAttribute('aria-label',label+' '+n);
+    $('statusBar').append(seg);
+    const st=el('div','stat '+STATUS[key][1]); st.append(el('div','n',n),el('div','l',label)); $('statusStats').append(st);
+  }
+  $('findingCountTitle').textContent='發現項目（共 '+findings.length+' 項）';
+  const sevKeys=severity('critical')?['critical','high','medium','low','info']:['high','medium','low','info'];
+  for(const key of sevKeys){ const st=el('div','stat '+SEVERITY[key][1]); st.append(el('div','n',severity(key)),el('div','l',SEVERITY[key][0])); $('severityStats').append(st); }
+  $('severityStats').style.gridTemplateColumns='repeat('+sevKeys.length+',minmax(0,1fr))';
+  const overall=presentation.overall_risk||{}; const level=overall.level||'review';
+  $('overallRisk').className='risk '+(SEVERITY[level]?.[1]||'st-review');
+  const riskLabel=el('div');riskLabel.append(el('div','small','整體風險評估'),el('div','lvl',SEVERITY[level]?.[0]||'待確認'));
+  $('overallRisk').append(riskLabel,el('div','small',text(overall.summary,'未提供整體風險判定；應由審查人員確認，不可只由缺失數量推定。')));
+
+  // 發現摘要
+  if (!findings.length) $('findingSummary').append(empty('沒有已確認的弱點發現；不代表系統沒有安全風險。'));
+  else {
+    const table=el('table');const thead=el('thead');const htr=el('tr');
+    ['編號','等級','發現','對應檢核'].forEach(x=>htr.append(el('th',null,x)));thead.append(htr);table.append(thead);
+    const body=el('tbody');
+    for (const f of findings){ const tr=el('tr');
+      const td1=el('td');td1.append(hrefRef(f.id,f.id,'mono'));tr.append(td1);
+      const td2=el('td');td2.append(chip((SEVERITY[f.severity]||SEVERITY.info)[0],(SEVERITY[f.severity]||SEVERITY.info)[1]));tr.append(td2);
+      tr.append(el('td',null,f.title),el('td','mono small',asArray(f.check_ids).join('、')||'—'));body.append(tr);
+    }
+    table.append(body);$('findingSummary').append(table);
+  }
+
+  // 改善優先順序：可提供明確核定的 priorities，否則只依風險分組，不自行承諾 SLA
+  let groups=asArray(presentation.priorities);
+  if (!groups.length && findings.length) {
+    groups=[
+      {label:'優先（重大／高）',finding_ids:findings.filter(f=>['critical','high'].includes(f.severity)).map(f=>f.id),description:'依風險等級初步分組，處理期限須依公司政策核定。'},
+      {label:'次要（中）',finding_ids:findings.filter(f=>['medium','med'].includes(f.severity)).map(f=>f.id),description:'確認影響範圍並排入改善計畫。'},
+      {label:'例行（低／資訊）',finding_ids:findings.filter(f=>['low','info'].includes(f.severity)).map(f=>f.id),description:'納入版本改善與維護工作。'}
+    ].filter(g=>g.finding_ids.length);
+  }
+  if(!groups.length) $('priorityContent').append(empty('未提供已確認弱點的改善優先順序。'));
+  else {const ol=el('ol','prio');for(const g of groups){const li=el('li');li.append(el('strong',null,text(g.label)),document.createTextNode('：'));appendFindingRefs(li,g.finding_ids,validFindingIds);
+      if(g.description)li.append(el('div','muted small',g.description));ol.append(li);} $('priorityContent').append(ol);}
+
+  // 已驗證優點
+  listOf(asArray(presentation.strengths),$('strengthsContent'),'未提供已驗證的既有安全優點；不可自動推斷為符合。');
+
+  // 70 項檢核表
+  const canonicalRules=rules.length?rules:checks.map(c=>({id:c.id,title:c.title||c.id,category:String(c.id).split('-')[0]}));
+  for(const [cat,label] of CATEGORIES){
+    const group=canonicalRules.filter(r=>(r.category||String(r.id).split('-')[0])===cat);
+    if (!group.length) continue;
+    const d=el('details','cl');d.open=true;
+    const summary=el('summary');summary.append(el('span',null,label));
+    const counts=Object.fromEntries(statusEntries.map(([k])=>[k,group.filter(r=>checksById.get(r.id)?.status===k).length]));
+    const sub=statusEntries.filter(([k])=>counts[k]).map(([k,name])=>name+' '+counts[k]).join(' · ');
+    summary.append(el('span','muted small',sub||'尚未評估'));d.append(summary);
+    const wrap=el('div','tablewrap');const table=el('table','checklist');const thead=el('thead');const thtr=el('tr');
+    ['編號','檢核項目','等級','結果','說明 / 依據'].forEach(t=>thtr.append(el('th',null,t)));thead.append(thtr);table.append(thead);
+    const tbody=el('tbody');
+    for(const r of group){const c=checksById.get(r.id);const state=STATUS[c?.status]?c.status:'missing';
+      const tr=el('tr');tr.dataset.st=state;
+      const levels=r.origin?.legacy_levels||r.levels||r.applicability_level||'依 Profile';
+      tr.append(el('td','mono',r.id),el('td',null,r.title),el('td','small nowrap',levels));
+      const td4=el('td');td4.append(chip(STATUS[state][0],STATUS[state][1]));tr.append(td4);
+      const td5=el('td','small');const reason=c?text(c.decision_reason,'未提供判定理由'):'尚無審查結果';
+      td5.append(document.createTextNode(reason));
+      if(c?.status==='na'&&c.applicability_reason)td5.append(document.createTextNode('；不適用原因：'+c.applicability_reason));
+      const source=asArray(c?.evidence).find(e=>e.kind==='source'&&e.path);
+      if(source)td5.append(document.createTextNode(' ['+source.path+(source.line_start?':'+source.line_start+'-'+(source.line_end||source.line_start):'')+']'));
+      appendFindingRefs(td5,c?.finding_ids,validFindingIds);
+      tr.append(td5);tbody.append(tr);
+    }
+    table.append(tbody);wrap.append(table);d.append(wrap);$('checklistContent').append(d);
+  }
+  if(!canonicalRules.length) $('checklistContent').append(empty('尚未提供檢核規則目錄。'));
+
+  // 弱點明細
+  if(!findings.length) $('findingDetails').append(empty('無可展示的已確認發現。'));
+  for(const f of findings){
+    const sev=f.severity==='medium'?'med':f.severity;
+    const article=el('article','finding sevb-'+(sev==='critical'?'high':sev));article.id=safeId(f.id)||''; article.dataset.sev=f.severity;
+    const header=el('header');header.append(el('span','fid mono',f.id),chip((SEVERITY[f.severity]||SEVERITY.info)[0],(SEVERITY[f.severity]||SEVERITY.info)[1]),el('h3',null,f.title));article.append(header);
+    const dl=el('dl','meta');
+    const meta=[['對應檢核',asArray(f.check_ids).join('、')||'—']];
+    const extra=details[f.id]||{};
+    const owasp=extra.owasp_category||f.owasp_category;
+    if(owasp)meta.push(['OWASP',owasp]);
+    if(f.confidence)meta.push(['證據信心',f.confidence]);
+    for(const [k,v] of meta){const row=el('div');row.append(el('dt',null,k),el('dd','mono',v));dl.append(row);}article.append(dl);
+    const sourceLoc=asArray(extra.locations).length?extra.locations:asArray(f.evidence).filter(e=>e.kind==='source'&&e.path);
+    article.append(el('h4',null,'程式碼位置'));
+    if(!sourceLoc.length)article.append(empty('此項發現未提供程式碼位置，請參閱其他證據。'));
+    else {const ul=el('ul','locs');for(const loc of sourceLoc){let str=typeof loc==='string'?loc:text(loc.path);
+      if(typeof loc!=='string'&&loc.line_start)str+=':'+loc.line_start+(loc.line_end&&loc.line_end!==loc.line_start?'-'+loc.line_end:'');
+      const li=el('li');li.append(el('code',null,str));ul.append(li);}article.append(ul);}
+    paragraph(article,'問題描述',extra.description||f.description||f.impact);
+    paragraph(article,'風險',extra.risk||f.impact);
+    const before=extra.before_code??f.before_code, after=extra.after_code??f.after_code;
+    if(before||after){const ba=el('div','ba');
+      for(const [k,label,value] of [['before','Before',before],['after','After（建議）',after]]){
+        const col=el('div');col.append(el('div','ba-h '+k,label));
+        if(value){const pre=el('pre');pre.append(el('code',null,value));col.append(pre);}
+        else col.append(el('div','omitted','未提供'+label+'程式碼'));
+        ba.append(col);
+      } article.append(ba);
+    } else article.append(empty('未提供 Before / After 程式碼，請勿自動捏造範例。'));
+    paragraph(article,'修正建議',f.remediation);
+    $('findingDetails').append(article);
+  }
+
+  // 審查方法與限制
+  const scope=$('scopeContent');
+  const methods=asArray(presentation.methods);
+  const limits=asArray(presentation.limitations);
+  const statements=[...methods.map(t=>'方法：'+t),...limits.map(t=>'限制：'+t)];
+  if (!statements.length) statements.push('尚未提供審查方法與限制，請由審查人員補充。');
+  statements.push('本報告依 '+text(assessment.git_revision,'未註明的 Git Revision')+' 的審查資料產生；新版本程式碼應重新驗證。');
+  listOf(statements,scope,'');
+  if (presentation.footer) $('reportFooter').textContent=presentation.footer;
+
+  // 篩選功能（使用 hidden 而非自訂不安全 HTML）
+  const bindFilter=(id,selector,attribute)=>{
+    const box=$(id);
+    box.addEventListener('click',event=>{
+      const button=event.target.closest('button[data-f]');if(!button||!box.contains(button))return;
+      for(const b of box.querySelectorAll('button[data-f]')) {const active=b===button;b.classList.toggle('on',active);b.setAttribute('aria-pressed',String(active));}
+      const match=button.dataset.f;
+      for(const item of document.querySelectorAll(selector))item.hidden=(match!=='all'&&item.dataset[attribute]!==match);
+    });
+  };
+  bindFilter('stFilter','table.checklist tbody tr','st');
+  bindFilter('sevFilter','article.finding','sev');
+  initTheme();
+  let oldOpen=[];
+  window.addEventListener('beforeprint',()=>{oldOpen=[...document.querySelectorAll('details.cl')].map(d=>d.open);document.querySelectorAll('details.cl').forEach(d=>d.open=true);});
+  window.addEventListener('afterprint',()=>{document.querySelectorAll('details.cl').forEach((d,i)=>d.open=oldOpen[i]??true);});
+
+  function initTheme(){
+    const button=$('themeToggle');
+    const update=()=>button.textContent=document.documentElement.dataset.theme==='dark'?'切換為淺色':'切換為深色';
+    update();
+    button.addEventListener('click',()=>{const now=document.documentElement.dataset.theme;
+      const isDark=now?now==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme=isDark?'light':'dark';update();});
+  }
+})();
+</script>
+</body>
+</html>
