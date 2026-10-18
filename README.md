@@ -1,56 +1,36 @@
-# Security Code Review — 通用 HTML 模板 v2.1 (第一階段)
+# Security Code Review — HTML 報告 JSON Schema v2.1.0（第二階段）
 
-此套件僅完成 **(1) 建立通用 HTML 模板**，延續 `EDS_CodeReview_20261013.html` 的版面風格與功能。**不包含**正式的 JSON Schema 擴充、報告產生器、檔案／證據驗證器或任何真實資安掃描結論。
+目的：替已完成的跨系統通用 HTML 模板建立正式的 **report envelope** JSON Schema，**不修改原有 70 項規則**，亦不改變 `assessment.schema.json`（2.0.0-rc1）的結構。
 
-## 檔案
+## 交付檔案
 
-| 路徑 | 用途 |
-| --- | --- |
-| `templates/security-report.html` | 通用、單檔、離線可開啟的 HTML 模板；**不含特定系統資料** |
-| `examples/security-report-preview.html` | 已注入**純演示**的 70 項結果，直接開啟可檢查版面與互動 |
-| `examples/report-data.example.json` | 演示用的報告資料格式，不可作為正式審查證據 |
-| `docs/data-contract.md` | 資料欄位、注入方式、與現行 assessment schema 的關係 |
+| 路徑 | 用途 | 與 develop 分支比較 |
+| --- | --- | --- |
+| `schemas/report.schema.json` | HTML 報告資料外層結構與額外呈現欄位 | 新增 |
+| `schemas/assessment.schema.json` | 原有審查結果 Schema，作為 `$ref` 依賴 | **未變更（隨包附上以供離線測試）** |
+| `examples/report-data.example.json` | 可通過 Schema 的 70 筆 Review 純格式範例 | 新增 |
+| `tests/test_report_schema.py` | JSON Schema 契約正向／反向測試 | 新增 |
+| `docs/report-schema-contract.md` | 欄位、相容性與尚待第三階段驗證的限制 | 新增 |
 
-## 相容內容
+此套件中的範例**並非任何系統的資安掃描結果**；未提供真正的漏洞或改善證據。
 
-保留與 EDS HTML 對應的七個章節：
-1. 基本資訊與摘要（資訊表、四狀態統計、弱點嚴重度統計、整體風險）
-2. 發現摘要（弱點內部連結）
-3. 優先改善項目排序
-4. 既有優點
-5. 詳細檢核結果（十類、70 項，可收合與狀態篩選）
-6. 發現與改善建議（程式碼位置、Before/After、風險等級篩選）
-7. 審查方法與限制
+## 整合方式
 
-額外支援人工切換深色／淺色、系統深色模式、RWD、列印展開內容、無外部依賴及 DOM 安全渲染。
+把新檔案分別放入 `security-code-review` 儲存庫同名路徑；原有 `schemas/assessment.schema.json` 不需要替換。
 
-## 快速預覽
+HTML 模板仍使用 `templates/security-report.html`，不需變更。它會忽略新的頂層 `report_schema_version`，而使用 `project`、`assessment`、`rules`、`presentation` 呈現。
 
-用瀏覽器開啟 `examples/security-report-preview.html`。
+## 測試
 
-其中所有符合／不符合統計、弱點、檔案位置與程式碼都是**人工演示資料**，不代表 EDS 或其他系統的實際審查結果。頁面最上方顯示演示警示。
-
-直接開啟 `templates/security-report.html` 則會看到「尚未注入報告資料」，這是正常行為。
-
-## 後續接入現有 Skill
-
-建議放入你的 `security-code-review` 儲存庫：
-
-```text
-templates/
-  security-report.html
-examples/
-  security-report-preview.html
-  report-data.example.json
+```bash
+python -m pip install jsonschema referencing
+python -m unittest discover -s tests -p 'test_report_schema.py' -v
 ```
 
-本模板使用單一 `<script id="report-data" type="application/json">` 放置報告資料，提供固定的注入位置 `__REPORT_DATA_JSON__`；完整規格詳見 `docs/data-contract.md`。
+## 仍待第三階段實作
 
-後續實作第二階段 JSON Schema 時，可保留現有 `assessment.schema.json`，另定義 `report.schema.json` 描述模板用的 **report envelope**；第三階段再由 `generate_report.py` 將經驗證的審查結果與規則目錄組裝成報告，注入模板。
-
-## 注意
-
-- 模板不會自行判斷風險與檢核結果；統計數字從 `assessment.checks`、`assessment.findings` 計算。
-- 未提供的安全優點、Before/After 或方法限制，頁面會明確顯示缺少資訊，不會自行編造。
-- 70 項只是報告的規則數目；模板不能代替檢核引擎、證據驗證器與人工複核。
-- 渲染程式必須正確跳脫嵌入 `<script type="application/json">` 的 JSON；詳見資料契約的安全注意事項。
+- 根據實際 `assessment.json` 與 `rules.json` 建立報告資料。
+- 執行 `validate_assessment.py`，再執行 report.schema.json 驗證。
+- 驗證 `finding_ids`、`finding_details` 等交叉參照與程式碼證據真實性。
+- 將 JSON 安全注入 HTML 模板並產生單一離線 HTML。
+- 驗證統計、內部連結、報告內容與列印／篩選功能。
