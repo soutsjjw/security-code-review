@@ -1,33 +1,56 @@
-# Company Security Code Review — v2.0.0-rc1
+# Security Code Review — 通用 HTML 模板 v2.1 (第一階段)
 
-**定位：** 跨系統共用 70 項原始碼資安審查基準；無 EDS 或其他特定專案掃描結論。
-**狀態：** `candidate_pending_company_security_approval`。技術規則已標準化，但公司正式規範尚需資安／法遵簽核。
+此套件僅完成 **(1) 建立通用 HTML 模板**，延續 `EDS_CodeReview_20261013.html` 的版面風格與功能。**不包含**正式的 JSON Schema 擴充、報告產生器、檔案／證據驗證器或任何真實資安掃描結論。
 
-## 包含內容
-- `rules.yaml`、`rules.json` 與 `rules/*.yaml`：70 項共用規則，每項有適用／判定／檢查／證據／例外／風險／文獻欄位。
-- `docs/70-rules-standardized.md`：70 項逐條定義，完整可人工審閱。
-- `docs/traceability.csv`：與 ASVS 5.0.0 已核對需求號、OWASP 2025 建議風險類別、臺灣參考指引對照狀態。
-- `standards/standards-register.yaml`：標準版本、權威網址與施行注意。
-- `policies/applicability-matrix.yaml`：獨立分級與適用性原則。
-- `profiles/project-profile.example.yaml`：不同專案自己的配置。
-- `schemas/*`：規則及審查結果 JSON Schema。
-- `scripts/*`：一致性及證據驗證程式。
-- `examples/assessment.example.json`：70 項全部 Review 的**格式範例**，不是實際審查報告。
+## 檔案
 
-## 驗證
-```bash
-python scripts/validate_package.py
-python scripts/validate_assessment.py examples/assessment.example.json
+| 路徑 | 用途 |
+| --- | --- |
+| `templates/security-report.html` | 通用、單檔、離線可開啟的 HTML 模板；**不含特定系統資料** |
+| `examples/security-report-preview.html` | 已注入**純演示**的 70 項結果，直接開啟可檢查版面與互動 |
+| `examples/report-data.example.json` | 演示用的報告資料格式，不可作為正式審查證據 |
+| `docs/data-contract.md` | 資料欄位、注入方式、與現行 assessment schema 的關係 |
+
+## 相容內容
+
+保留與 EDS HTML 對應的七個章節：
+1. 基本資訊與摘要（資訊表、四狀態統計、弱點嚴重度統計、整體風險）
+2. 發現摘要（弱點內部連結）
+3. 優先改善項目排序
+4. 既有優點
+5. 詳細檢核結果（十類、70 項，可收合與狀態篩選）
+6. 發現與改善建議（程式碼位置、Before/After、風險等級篩選）
+7. 審查方法與限制
+
+額外支援人工切換深色／淺色、系統深色模式、RWD、列印展開內容、無外部依賴及 DOM 安全渲染。
+
+## 快速預覽
+
+用瀏覽器開啟 `examples/security-report-preview.html`。
+
+其中所有符合／不符合統計、弱點、檔案位置與程式碼都是**人工演示資料**，不代表 EDS 或其他系統的實際審查結果。頁面最上方顯示演示警示。
+
+直接開啟 `templates/security-report.html` 則會看到「尚未注入報告資料」，這是正常行為。
+
+## 後續接入現有 Skill
+
+建議放入你的 `security-code-review` 儲存庫：
+
+```text
+templates/
+  security-report.html
+examples/
+  security-report-preview.html
+  report-data.example.json
 ```
 
-## 如何用於新系統
-1. 將本套件放入 `.agents/skills/security-code-review/` 或 Agent 支援的 Skill 位置。
-2. 建立系統專屬 `project-profile.yaml` 並由負責人確認。
-3. 輸入：`依 security-code-review Skill 對目前專案執行 70 項資安審查，輸出 assessment.json。`
-4. 驗證所有規則的 evidence、狀態與來源版本，再產生 HTML 報告。
+本模板使用單一 `<script id="report-data" type="application/json">` 放置報告資料，提供固定的注入位置 `__REPORT_DATA_JSON__`；完整規格詳見 `docs/data-contract.md`。
+
+後續實作第二階段 JSON Schema 時，可保留現有 `assessment.schema.json`，另定義 `report.schema.json` 描述模板用的 **report envelope**；第三階段再由 `generate_report.py` 將經驗證的審查結果與規則目錄組裝成報告，注入模板。
 
 ## 注意
-- 70 項不是完整 OWASP ASVS，不能自稱已完整通過 ASVS 等級驗證。
-- 已對應的 ASVS 條號是**相關技術要求**，並非 70 項與 ASVS 一對一、完全等價。
-- Web 安全參考指引 v3.2 的具體條款，未取得原始附件逐條比對前仍標記 `pending`。
-- 臺灣個人資料保護法 2025-11-11 的部分修正條文施行日未定，需採實際施行條文進行判斷。
+
+- 模板不會自行判斷風險與檢核結果；統計數字從 `assessment.checks`、`assessment.findings` 計算。
+- 未提供的安全優點、Before/After 或方法限制，頁面會明確顯示缺少資訊，不會自行編造。
+- 70 項只是報告的規則數目；模板不能代替檢核引擎、證據驗證器與人工複核。
+- 渲染程式必須正確跳脫嵌入 `<script type="application/json">` 的 JSON；詳見資料契約的安全注意事項。

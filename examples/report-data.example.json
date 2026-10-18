@@ -1,0 +1,1295 @@
+{
+  "project": {
+    "name": "範例系統（示意資料）",
+    "language_framework": "ASP.NET Core / Vue（僅為範例）",
+    "security_level": "待主管機關或公司核定",
+    "personal_data": "待確認"
+  },
+  "assessment": {
+    "ruleset_version": "2.0.0-rc1",
+    "project_id": "DEMO-ONLY",
+    "git_revision": "0000000000000000000000000000000000000000",
+    "assessment_date": "2026-10-18",
+    "scope": "示意專案與模擬規則結果，沒有掃描真實原始碼",
+    "checks": [
+      {
+        "id": "AC-01",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-02",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-03",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-04",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-05",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-06",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-07",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AC-08",
+        "status": "fail",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：檢核條件未滿足，請以實際原始碼取證。",
+        "evidence": [],
+        "reviewer": "範例資料產生器",
+        "finding_ids": [
+          "F-01"
+        ]
+      },
+      {
+        "id": "AU-01",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-02",
+        "status": "na",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：假設該系統未使用相關功能，正式報告需具體確認。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-03",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-04",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-05",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-06",
+        "status": "na",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：假設該系統未使用相關功能，正式報告需具體確認。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-07",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-08",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-09",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "AU-10",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-01",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-02",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-03",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-04",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-05",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-06",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-07",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "IN-08",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "CR-01",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "CR-02",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "CR-03",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "CR-04",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "CR-05",
+        "status": "fail",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：檢核條件未滿足，請以實際原始碼取證。",
+        "evidence": [],
+        "reviewer": "範例資料產生器",
+        "finding_ids": [
+          "F-02"
+        ]
+      },
+      {
+        "id": "CR-06",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "EH-01",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "EH-02",
+        "status": "pass",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：已取得設定及測試佐證（僅為版型示例）。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "EH-03",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "EH-04",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "EH-05",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "EH-06",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-01",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-02",
+        "status": "fail",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：檢核條件未滿足，請以實際原始碼取證。",
+        "evidence": [],
+        "reviewer": "範例資料產生器",
+        "finding_ids": [
+          "F-04"
+        ]
+      },
+      {
+        "id": "LG-03",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-04",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-05",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-06",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-07",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-08",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-09",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "LG-10",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "DP-01",
+        "status": "fail",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：檢核條件未滿足，請以實際原始碼取證。",
+        "evidence": [],
+        "reviewer": "範例資料產生器",
+        "finding_ids": [
+          "F-03"
+        ]
+      },
+      {
+        "id": "DP-02",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "DP-03",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "DP-04",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-01",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-02",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-03",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-04",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-05",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-06",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-07",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "PD-08",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-01",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-02",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-03",
+        "status": "na",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：假設該系統未使用相關功能，正式報告需具體確認。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-04",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-05",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-06",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "BC-07",
+        "status": "na",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：假設該系統未使用相關功能，正式報告需具體確認。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "SI-01",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "SI-02",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      },
+      {
+        "id": "SI-03",
+        "status": "review",
+        "applicability_reason": "演示：本項僅供呈現資料格式，未進行實際適用性判定。",
+        "decision_reason": "演示：待補完整程式或環境佐證，尚不能判定符合。",
+        "evidence": [],
+        "reviewer": "範例資料產生器"
+      }
+    ],
+    "findings": [
+      {
+        "id": "F-01",
+        "title": "資源查詢缺少資料歸屬驗證（演示）",
+        "severity": "high",
+        "check_ids": [
+          "AC-08"
+        ],
+        "impact": "示意：登入者可能藉由替換資源 ID 存取非所屬資料。",
+        "evidence": [
+          {
+            "kind": "source",
+            "path": "src/Example/ResourceController.cs",
+            "line_start": 42,
+            "line_end": 51,
+            "description": "演示來源位置，並非真實檔案",
+            "collected_on": "2026-10-18",
+            "source_version": "DEMO"
+          }
+        ],
+        "remediation": "在伺服器端依使用者身分及資源歸屬篩選查詢，補充越權測試。",
+        "confidence": "medium"
+      },
+      {
+        "id": "F-02",
+        "title": "安全回應標頭配置不完整（演示）",
+        "severity": "medium",
+        "check_ids": [
+          "CR-05"
+        ],
+        "impact": "示意：缺少適用的安全標頭可能增加瀏覽器端攻擊風險。",
+        "evidence": [
+          {
+            "kind": "configuration",
+            "description": "演示：安全標頭組態尚未完整",
+            "collected_on": "2026-10-18",
+            "source_version": "DEMO"
+          }
+        ],
+        "remediation": "依前後端部署方式設定適用的安全標頭並以 HTTP 回應驗證。"
+      },
+      {
+        "id": "F-03",
+        "title": "相依套件掃描發現待處理元件（演示）",
+        "severity": "low",
+        "check_ids": [
+          "DP-01"
+        ],
+        "impact": "示意：須依受影響元件與實際執行環境評估可利用性。",
+        "evidence": [
+          {
+            "kind": "scan",
+            "description": "演示套件掃描結果（非真實掃描）",
+            "collected_on": "2026-10-18",
+            "source_version": "DEMO"
+          }
+        ],
+        "remediation": "確認修補版本、部署可達性及相依鏈，再依風險更新套件。"
+      },
+      {
+        "id": "F-04",
+        "title": "管理操作稽核欄位不一致（演示）",
+        "severity": "info",
+        "check_ids": [
+          "LG-02"
+        ],
+        "impact": "示意：稽核資訊可能無法完整還原操作脈絡。",
+        "evidence": [
+          {
+            "kind": "source",
+            "path": "src/Example/AuditMiddleware.cs",
+            "line_start": 12,
+            "line_end": 25,
+            "description": "示意程式碼位置，非真實來源",
+            "collected_on": "2026-10-18",
+            "source_version": "DEMO"
+          }
+        ],
+        "remediation": "統一行為、主體、時間、結果及 TraceId 等必要欄位。"
+      }
+    ]
+  },
+  "rules": [
+    {
+      "id": "AC-01",
+      "title": "Session 逾時自動失效",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AC-02",
+      "title": "登出後 Session 立即銷毀",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AC-03",
+      "title": "管理介面存取來源限制",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AC-04",
+      "title": "最小權限原則",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "AC-05",
+      "title": "Process 以一般使用者權限執行",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "AC-06",
+      "title": "遠端存取授權過濾",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AC-07",
+      "title": "目錄瀏覽限制",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AC-08",
+      "title": "垂直/水平越權防護",
+      "category": "AC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AU-01",
+      "title": "密碼強度規範",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AU-02",
+      "title": "密碼定期更換與歷史檢查",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AU-03",
+      "title": "帳號鎖定機制",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AU-04",
+      "title": "身分鑑別資訊不以明文傳輸",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AU-05",
+      "title": "CAPTCHA 機制",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "AU-06",
+      "title": "密碼重設安全流程",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "AU-07",
+      "title": "鑑別資訊遮蔽／錯誤訊息不洩漏帳號存在",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "AU-08",
+      "title": "密碼加鹽雜湊儲存",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "AU-09",
+      "title": "多因素認證（MFA）",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "AU-10",
+      "title": "連線來源識別",
+      "category": "AU",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "IN-01",
+      "title": "SQL Injection 防護",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "IN-02",
+      "title": "XSS / 輸出編碼",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "IN-03",
+      "title": "CSRF 防護",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "IN-04",
+      "title": "Command Injection 防護",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "IN-05",
+      "title": "伺服端輸入驗證",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "IN-06",
+      "title": "檔案上傳限制",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "IN-07",
+      "title": "Path Traversal 防護",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "IN-08",
+      "title": "SSRF 防護",
+      "category": "IN",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "CR-01",
+      "title": "機敏資料傳輸加密",
+      "category": "CR",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "CR-02",
+      "title": "安全加密演算法",
+      "category": "CR",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "CR-03",
+      "title": "參數設定安全保護",
+      "category": "CR",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "CR-04",
+      "title": "機敏資料儲存加密",
+      "category": "CR",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "CR-05",
+      "title": "HTTP 安全標頭設定",
+      "category": "CR",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "CR-06",
+      "title": "Cookie 安全屬性",
+      "category": "CR",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "EH-01",
+      "title": "錯誤訊息不洩漏敏感資訊",
+      "category": "EH",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "EH-02",
+      "title": "全域例外處理",
+      "category": "EH",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "EH-03",
+      "title": "資源正確釋放",
+      "category": "EH",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "EH-04",
+      "title": "嚴重錯誤通知機制",
+      "category": "EH",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "EH-05",
+      "title": "Debug 模式關閉",
+      "category": "EH",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "EH-06",
+      "title": "預設帳密與設定變更",
+      "category": "EH",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-01",
+      "title": "安全事件日誌記錄",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-02",
+      "title": "管理者行為稽核",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-03",
+      "title": "日誌內容完整性",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-04",
+      "title": "統一日誌格式",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-05",
+      "title": "日誌儲存容量管理",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-06",
+      "title": "時間戳記同步",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-07",
+      "title": "日誌保護與備份",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-08",
+      "title": "日誌不記錄機敏資料",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-09",
+      "title": "稽核處理失效應變",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "LG-10",
+      "title": "資料完整性雜湊",
+      "category": "LG",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "DP-01",
+      "title": "依賴套件安全性",
+      "category": "DP",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "DP-02",
+      "title": "外部元件預設密碼",
+      "category": "DP",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "DP-03",
+      "title": "不必要服務與 Port 關閉",
+      "category": "DP",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "DP-04",
+      "title": "軟體版本更新",
+      "category": "DP",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "PD-01",
+      "title": "個資蒐集合法性",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-02",
+      "title": "個資顯示去識別化",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-03",
+      "title": "個資傳輸加密",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-04",
+      "title": "個資存取日誌",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-05",
+      "title": "個資儲存加密",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-06",
+      "title": "遠端存取個資限制",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-07",
+      "title": "個資刪除機制",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "PD-08",
+      "title": "個資外洩通報機制",
+      "category": "PD",
+      "origin": {
+        "legacy_levels": "全等級"
+      }
+    },
+    {
+      "id": "BC-01",
+      "title": "資料備份機制",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "BC-02",
+      "title": "環境隔離",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "BC-03",
+      "title": "高可用性架構",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "BC-04",
+      "title": "系統文件管理",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "BC-05",
+      "title": "系統源碼備份",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "普/中/高"
+      }
+    },
+    {
+      "id": "BC-06",
+      "title": "版本控制與變更管理",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "BC-07",
+      "title": "備援啟動演練",
+      "category": "BC",
+      "origin": {
+        "legacy_levels": "高"
+      }
+    },
+    {
+      "id": "SI-01",
+      "title": "CI/CD Pipeline 安全",
+      "category": "SI",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "SI-02",
+      "title": "第三方資源完整性（SRI）",
+      "category": "SI",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    },
+    {
+      "id": "SI-03",
+      "title": "反序列化安全",
+      "category": "SI",
+      "origin": {
+        "legacy_levels": "中/高"
+      }
+    }
+  ],
+  "presentation": {
+    "demo": true,
+    "review_type": "UI 預覽（非真實掃描）",
+    "standards": [
+      "公司共用 70 項規則（候選版）",
+      "OWASP ASVS 5.0.0（相關技術參照）"
+    ],
+    "reviewer": "HTML 模板演示",
+    "overall_risk": {
+      "level": "review",
+      "summary": "此頁使用人工建構的演示資料，未對任何實際系統進行風險評估。"
+    },
+    "strengths": [
+      "演示：共用規則與評估結果分離，避免沿用其他系統的判定。",
+      "演示：保留來源程式碼定位與修正前後對照欄位。"
+    ],
+    "priorities": [
+      {
+        "label": "優先處理（示意）",
+        "finding_ids": [
+          "F-01"
+        ],
+        "description": "排序僅供驗證呈現，不代表實際 SLA。"
+      },
+      {
+        "label": "依序處理（示意）",
+        "finding_ids": [
+          "F-02",
+          "F-03",
+          "F-04"
+        ],
+        "description": "正式報告依風險、業務影響及公司政策核定。"
+      }
+    ],
+    "methods": [
+      "依共用規則編號產生模擬 70 項審查結果，用來測試 HTML 版型。"
+    ],
+    "limitations": [
+      "無實際 Code Review、套件掃描、動態測試及部署佐證。",
+      "所有程式碼與檔案路徑僅為示意，不能據此判定真實系統風險。"
+    ],
+    "finding_details": {
+      "F-01": {
+        "owasp_category": "A01:2025",
+        "description": "演示：API 只確認使用者已登入，卻未限制特定資源的資料歸屬。",
+        "risk": "示意：可能發生水平越權讀取。",
+        "before_code": "// 以下僅為示意程式碼，不代表任何實際系統\nreturn repository.FindById(resourceId);",
+        "after_code": "// 以下僅為示意修正\nreturn repository.FindOwnedById(resourceId, currentUser.Id);"
+      },
+      "F-02": {
+        "owasp_category": "A02:2025",
+        "description": "演示：伺服器尚未針對實際網頁的安全需求配置適用的回應標頭。",
+        "before_code": "// 示意：回應未設定必要的安全標頭",
+        "after_code": "// 示意：應由適用政策決定標頭及其值\nresponse.Headers[\"X-Content-Type-Options\"] = \"nosniff\";"
+      },
+      "F-03": {
+        "description": "演示：發現待分析的相依套件警示，需確認漏洞是否影響產品程式。"
+      },
+      "F-04": {
+        "description": "演示：部分管理操作的日誌缺少一致的欄位。"
+      }
+    }
+  }
+}
