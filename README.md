@@ -1,175 +1,105 @@
-# Security Code Review — 跨系統資安審查 Skill（整合版 v2.1.1）
+# Security Code Review Skill v2.1.2
 
-此套件將原有 **70 項資安檢核（規則集 `2.0.0-rc1`）** 與 **HTML 報告功能（Report Schema `2.1.0`）** 整合。適用於不同系統，不包含任何 EDS 實際審查結果。**公司資安正式核定仍待完成**。
+公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
-> **重要：** 先前 `security-code-review-reporting-v2.1.0.zip` 僅包含報告功能增補檔案，未包含 `SKILL.md`，不能直接當完整 Skill 安裝。此整合版已具備 `SKILL.md`、70 項規則、模板、Schema 與程式。
+## 快速使用
 
-## 1. 需要先安裝什麼？
+1. 安裝本 Skill（見下節），重新開啟 Codex／Claude Code 工作階段。
+2. **開啟欲檢查的專案目錄**，在 Codex 對話輸入：
 
-| 使用目標 | 必要條件 |
-| --- | --- |
-| 讓 Codex / Claude Code 辨識 Skill | Codex / Claude Code、能存取的 `SKILL.md` 目錄；**不要求 Python** |
-| 依規則進行 AI 靜態審查 | Agent 有權限讀取受測專案原始碼；不一定需要 Python |
-| 執行目前的 `validate_*.py`、`generate_report.py` | **Python 3.10+** |
-| 產出 EDS 風格 HTML、驗證 JSON、核對來源行號 | **Python 3.10+** 及 `requirements.txt` 依賴 |
-| 開啟完成的 HTML | 瀏覽器；不需要 Python |
+   ```text
+   $security-code-review
+   ```
 
-如無法安裝 Python，仍可使用純文字審查 Skill，但**無法使用這一版既有的 Python 報告產生與自動驗證程式**。未來若改寫成 Node.js 或單檔執行檔，才能免安裝 Python。
+   或指定另一個專案：
 
-## 2. 安裝 Skill
+   ```text
+   $security-code-review /path/to/project
+   ```
 
-此套件使用標準的 `SKILL.md` 目錄式 Skill，與 GitHub 插件／MCP 連線並非同一種安裝方式。安裝的重點是 **整個資料夾**，不能只複製 `SKILL.md`。
+   也可以指定檢核範圍，如 `$security-code-review src/Api`。Claude Code 改用 `/security-code-review`。**這是 Agent 的聊天指令，不是 PowerShell／Bash 的系統命令。**
+3. Agent 自動盤點專案、完成 70 項檢核，將 `assessment.json` 和專案資訊寫在受測專案內，再呼叫 Python 產生與驗證報告。
 
-### A. Codex：所有專案共用（推薦）
+**報告一律輸出至受測專案，不會寫入安裝的 Skill 資料夾：**
 
-macOS、Linux、WSL，在解壓縮 ZIP 的位置執行：
+```text
+你的專案/
+└── reports/security-code-review/
+    ├── assessment.json
+    ├── project.json
+    ├── presentation.json      # 有佐證時才產生
+    ├── report.json
+    └── CodeReview_YYYYMMDD.html
+```
+
+沒有外部環境、部署與人工佐證的控制項應標 `review`；不能只靠規則搜尋就宣稱符合。
+
+## 安裝（只需一次）
+
+**Codex 全域共用**：將整個 `security-code-review/` 資料夾放到 `~/.agents/skills/security-code-review/`（Windows：`%USERPROFILE%\.agents\skills\security-code-review\`）。
+
+**Codex 單一專案**：放到 `<專案>/.agents/skills/security-code-review/`。
+
+**Claude Code**：使用 `~/.claude/skills/security-code-review/`，或專案的 `.claude/skills/security-code-review/`。
+
+例如在 macOS／Linux／WSL 解壓下載的 ZIP 後：
 
 ```bash
 mkdir -p "$HOME/.agents/skills"
-cp -R security-code-review-skill-v2.1.1 "$HOME/.agents/skills/security-code-review"
+cp -R security-code-review "$HOME/.agents/skills/security-code-review"
+```
+
+Windows PowerShell：
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
+Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skills\security-code-review"
+```
+
+從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需先將此 v2.1.2 套件提交到該分支**，否則遠端不會包含最新版功能。
+
+## Python 是否必要？
+
+- Skill **辨識及 AI 閱讀程式碼不需要** Python。
+- **目前的 HTML 產生、JSON／HTML 驗證需要 Python 3.10+** 與 `requirements.txt` 依賴。只需安裝一次，不用每次手動執行三個程式。
+
+Codex 全域安裝範例（從任意目錄安裝依賴）：
+
+```bash
+python -m pip install -r "$HOME/.agents/skills/security-code-review/requirements.txt"
 ```
 
 PowerShell：
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
-Copy-Item -Recurse -Force .\security-code-review-skill-v2.1.1 "$env:USERPROFILE\.agents\skills\security-code-review"
+py -3 -m pip install -r "$env:USERPROFILE\.agents\skills\security-code-review\requirements.txt"
 ```
 
-確認檔案為：
+如公司限制全域安裝，請由系統管理者採公司核准的虛擬環境。依賴為 `jsonschema`、`referencing`、`PyYAML`。
 
-```text
-~/.agents/skills/security-code-review/
-├── SKILL.md
-├── rules/
-├── schemas/
-├── scripts/
-├── templates/
-└── requirements.txt
-```
+## 為何從受測專案執行，而不是 Skill 目錄？
 
-重新開啟 Codex 工作階段，要求：`使用 security-code-review Skill，對目前專案執行 70 項資安檢核。`
+- **Skill 目錄只負責規則與工具**；Agent 讀取其中的 `SKILL.md`、規則、Schema 與 Python 程式。
+- **受測專案是工作目錄**；原始碼搜尋、Git Revision、路徑與行號、報告輸出都相對受測專案。
+- `complete_review.py` 只是 Agent 最後呼叫的整合流程，**不會單獨掃描原始碼**；`assessment.json` 必須先由 Agent 真正審查後建立。
 
-### B. Codex：只供單一專案使用
-
-在**受測專案的根目錄**執行（macOS／Linux／WSL）：
+在受測專案根目錄執行時，Agent 內部呼叫的指令概念如下（使用者通常不需要操作）：
 
 ```bash
-mkdir -p .agents/skills
-cp -R /path/to/security-code-review-skill-v2.1.1 .agents/skills/security-code-review
+python <SKILL_ROOT>/scripts/complete_review.py --target .
 ```
 
-此模式會讓該專案共享 Skill；若需供多個系統使用，建議用 A 的個人共用安裝，或由公司統一部署。
+本程式會自動執行 `validate_assessment.py`、`generate_report.py`、`validate_report.py`，從受測專案的 `assessment_date` 決定 HTML 檔名，並開啟來源檔嚴格核對。
 
-### C. Claude Code
+## 維護人員測試
 
-安裝在個人全域路徑（macOS／Linux／WSL）：
-
-```bash
-mkdir -p "$HOME/.claude/skills"
-cp -R security-code-review-skill-v2.1.1 "$HOME/.claude/skills/security-code-review"
-```
-
-或複製到**受測專案**的 `.claude/skills/security-code-review/`。重新開啟 Claude Code，輸入 `/security-code-review` 啟動；若未顯示，請確認 `SKILL.md` 路徑與 Skill 名稱。
-
-### D. 直接由 GitHub 私有儲存庫安裝
-
-**前提：** 需先將本整合套件檔案合併並提交至 [GitHub `develop` 分支](https://github.com/soutsjjw/security-code-review/tree/develop)，否則目前 GitHub 的版本可能仍缺少報告產生器。
-
-在已設定 GitHub SSH 權限的環境中：
-
-```bash
-mkdir -p "$HOME/.agents/skills"
-git clone --branch develop --depth 1 \
-  git@github.com:soutsjjw/security-code-review.git \
-  "$HOME/.agents/skills/security-code-review"
-```
-
-此儲存庫根目錄本身已有 `SKILL.md`，因此可直接 clone 至 Skill 目錄，不要再多包一層無 `SKILL.md` 的資料夾。更新時在安裝目錄執行 `git pull --ff-only`。
-
-## 3. 安裝 Python 與相依套件（需要產生 HTML 時）
-
-確認版本：
-
-```bash
-python --version
-```
-
-請使用 Python **3.10 或以上**。在 Skill 目錄執行：
-
-```bash
-python -m pip install -r requirements.txt
-python scripts/validate_package.py
-python scripts/validate_assessment.py examples/assessment.example.json
-```
-
-若 Windows 無 `python` 指令，使用 `py -3` 代替，如 `py -3 -m pip install -r requirements.txt`。
-
-建議於公司核准的虛擬環境安裝相依套件，避免影響其他專案。`requirements.txt` 包含 `jsonschema`、`referencing`、`PyYAML`，其中 `PyYAML` 是原有 `validate_package.py` 所需。
-
-## 4. 執行 70 項檢核與產生 HTML
-
-以下命令可從 Skill 目錄執行，請將 `/path/to/scanned-project` 改成**受測系統的真實原始碼根目錄**。
-
-1. 由 Codex／Claude Code 依 `SKILL.md` 與專案內容建立 `reports/assessment.json`。不要把 `examples/*.json` 當作真實掃描結果。
-2. 建立 `reports/project.json`，例如：
-
-```json
-{
-  "name": "受測系統名稱",
-  "language_framework": "ASP.NET Core"
-}
-```
-
-3. 在 Skill 根目錄執行：
-
-```bash
-python scripts/validate_assessment.py reports/assessment.json
-python scripts/generate_report.py \
-  --assessment reports/assessment.json \
-  --project reports/project.json \
-  --source-root /path/to/scanned-project \
-  --strict-sources \
-  --save-report reports/report.json \
-  --output reports/CodeReview_YYYYMMDD.html
-python scripts/validate_report.py \
-  --report reports/report.json \
-  --html reports/CodeReview_YYYYMMDD.html \
-  --source-root /path/to/scanned-project \
-  --strict-sources
-```
-
-> 上述輸入路徑為**相對目前工作目錄**的示例，須先建立好對應 JSON；若從受測專案目錄執行，可改用 Skill 根目錄的 `scripts/` 絕對路徑。`presentation.json` 為選填，含改善優先順序、既有安全優點等資料；不應虛構。
-
-### 只想測試 HTML 產生器
-
-```bash
-python scripts/generate_report.py \
-  --report examples/demo-with-finding.report.json \
-  --allow-demo \
-  --output reports/demo.html
-python scripts/validate_report.py --html reports/demo.html --allow-demo
-```
-
-此範例使用**虛構測試資料**，不是對任何真實系統完成掃描。
-
-## 5. 驗收
+在 Skill 根目錄執行（只供維護者驗收，不是一般使用流程）：
 
 ```bash
 python scripts/validate_package.py
 python -m unittest discover -s tests -v
 ```
 
-產出 HTML 後用瀏覽器開啟，確認 70 項結果、篩選、Before／After、RWD、深色模式與列印功能。
+主要檔案：`SKILL.md`、`rules/`、`schemas/`、`templates/security-report.html`、`scripts/complete_review.py`、`scripts/generate_report.py` 與 `scripts/validate_report.py`。
 
-**限制：** 通過 JSON/HTML 的結構與來源驗證，並不等於資安漏洞真實性已由人工確認，也不代表公司政策或法規符合性已完成認證。
-
-## 文件索引
-
-- `SKILL.md`：Agent 檢核及報告產生流程。
-- `docs/70-rules-standardized.md`：70 項規則。
-- `schemas/assessment.schema.json`、`schemas/report.schema.json`：資料結構。
-- `templates/security-report.html`：通用離線 HTML。
-- `scripts/generate_report.py`：產生 HTML。
-- `scripts/validate_report.py`：驗證 HTML。
-- `docs/SKILL-integration.md`：從舊版升級提示。
+> 注意：檢核格式與來源檔案驗證通過，不等於資安問題已經過動態測試，亦不代表已取得法遵或公司資安簽核。

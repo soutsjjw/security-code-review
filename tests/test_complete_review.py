@@ -1,0 +1,64 @@
+"""驗證在被審查專案根目錄之外安裝 Skill 時仍能正確輸出。"""
+import copy
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+from report_common import load_json
+
+
+class CompleteReviewTests(unittest.TestCase):
+    def test_target_outside_skill_generates_reports(self):
+        example = load_json(SKILL_ROOT / 'examples/report-data.example.json')
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            target = base / 'another-project'
+            target.mkdir()
+            output = target / 'reports/security-code-review'
+            output.mkdir(parents=True)
+            a = copy.deepcopy(example['assessment'])
+            a['project_id'] = 'another-project'
+            a['git_revision'] = 'a' * 40
+            a['assessment_date'] = '2026-10-18'
+            (output / 'assessment.json').write_text(json.dumps(a, ensure_ascii=False), encoding='utf-8')
+            p = {'name':'整合測試系統', 'language_framework':'測試程式語言'}
+            (output / 'project.json').write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
+            (output / 'presentation.json').write_text(json.dumps({
+                'methods':['唯讀來源檢查（測試資料）'],
+                'limitations':['測試資料均為待確認；不是實際審查']
+            }, ensure_ascii=False), encoding='utf-8')
+            cmd = [sys.executable, str(SKILL_ROOT / 'scripts/complete_review.py'), '--target', str(target)]
+            run = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertTrue((output / 'CodeReview_20261018.html').is_file())
+            self.assertTrue((output / 'report.json').is_file())
+            self.assertEqual(json.loads((output / 'report.json').read_text('utf-8'))['project']['name'], '整合測試系統')
+            self.assertFalse((SKILL_ROOT / 'reports').exists())
+
+    def test_missing_inputs_are_rejected_without_writing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            run = subprocess.run([sys.executable, str(SKILL_ROOT/'scripts/complete_review.py'), '--target', str(target)],
+                                 cwd=target, capture_output=True, text=True)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertFalse((target/'reports/security-code-review/report.json').exists())
+
+    def test_rejects_skill_root_as_target(self):
+        run = subprocess.run([sys.executable, str(SKILL_ROOT/'scripts/complete_review.py'), '--target', str(SKILL_ROOT)],
+                             capture_output=True, text=True)
+        self.assertNotEqual(run.returncode, 0)
+
+    def test_rejects_output_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = subprocess.run([sys.executable, str(SKILL_ROOT/'scripts/complete_review.py'),
+                                  '--target', str(tmp), '--output-dir', '../../outside'],
+                                 capture_output=True, text=True)
+            self.assertNotEqual(run.returncode, 0)
+
+if __name__ == '__main__':
+    unittest.main()

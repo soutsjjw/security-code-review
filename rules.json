@@ -5,7 +5,7 @@
   "title": "跨系統原始碼資安檢核基準（70 項）",
   "release_status": "candidate_pending_company_security_approval",
   "prepared_date": "2026-10-16",
-  "scope": "公司共用：Web API、網站、行動端、背景服務；依專案適用性篩選，不包含任何 EDS 審查結果",
+  "scope": "公司共用：Web API、網站、行動端、背景服務；依專案適用性篩選，規則檔不包含個別系統的審查結果",
   "standards_registry_file": "standards/standards-register.yaml",
   "governance_documents": [
     "docs/standardization-policy.md",
