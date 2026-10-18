@@ -1,2 +1,4 @@
+# 70項規則驗證 / HTML 報告產生與驗證所需套件
 jsonschema>=4.18,<5
 referencing>=0.34,<1
+PyYAML>=6.0,<7

@@ -1,7 +1,7 @@
 ---
 name: security-code-review
-version: 2.0.0-rc1
-description: 公司共用之 70 項跨系統原始碼資安檢核，依規範及專案適用條件執行審查並輸出證據化 JSON。
+version: 2.1.1-rc1
+description: 公司共用之 70 項跨系統原始碼資安檢核，依規範及專案適用條件執行審查，產生證據化 JSON 與 EDS 風格 HTML 報告。
 ---
 
 # Security Code Review — 70 項跨系統共用標準
@@ -36,3 +36,13 @@ description: 公司共用之 70 項跨系統原始碼資安檢核，依規範及
 - `docs/standardization-policy.md`：規範優先序、來源與分級
 - `docs/applicability-and-exceptions.md`：適用、例外及判定
 - `docs/approval-checklist.md`：公司正式發布前必要簽核
+
+
+## HTML 報告產生與驗證（v2.1 整合）
+1. Skill 目錄與被審查系統可能不同；找出本 `SKILL.md` 所在的絕對路徑作為 `SKILL_ROOT`，並由該位置解析 `rules.json`、`schemas/`、`scripts/`、`templates/`。
+2. 完成檢核後先將 70 項審查結果寫入受測專案的 `reports/assessment.json`，包含真實 Git Revision 及證據，執行 `python <SKILL_ROOT>/scripts/validate_assessment.py reports/assessment.json`。
+3. 建立 `reports/project.json`（系統顯示資訊）與可選 `reports/presentation.json`；不得沿用任何舊系統缺失與數字，也不可捏造修正期限、Before / After 或安全優點。
+4. 從受測專案根目錄執行：`python <SKILL_ROOT>/scripts/generate_report.py --assessment reports/assessment.json --project reports/project.json --source-root . --strict-sources --save-report reports/report.json --output reports/CodeReview_YYYYMMDD.html`。若有 `presentation.json`，加上 `--presentation reports/presentation.json`。
+5. 驗證：`python <SKILL_ROOT>/scripts/validate_report.py --report reports/report.json --html reports/CodeReview_YYYYMMDD.html --source-root . --strict-sources`。
+6. 只有程式結束狀態為 0，才可說「報告結構與來源驗證通過」；不能稱漏洞已被動態驗證或已通過公司資安認證。
+7. 產生及驗證報告的現行腳本**需要 Python 3.10+** 與 `requirements.txt`；純 Skill 指令的讀取則不需要 Python。
