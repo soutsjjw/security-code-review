@@ -13,6 +13,7 @@ from scope_inventory import build_scope_inventory
 from security_level import infer_security_level
 from review_queue import load_owasp_2025_categories
 from system_baseline import build_system_baseline, review_from_report
+from web_guide import build_web_guide_index
 
 
 def parse_args():
@@ -77,6 +78,7 @@ def main() -> int:
         mapping_rules = load_json(a.rules)
         source_rules = mapping_rules['rules'] if isinstance(mapping_rules, dict) else mapping_rules
         mapped_owasp = load_owasp_2025_categories(source_rules)
+        data['web_guide_v32'] = build_web_guide_index(source_rules)
         for report_rule in data['rules']:
             report_rule['owasp_2025_categories'] = [
                 {"id": item["id"], "title": item["title"], "coverage_gap": item["coverage_gap"]}
@@ -90,6 +92,9 @@ def main() -> int:
             tw_label = '資通系統防護基準驗證實務 V1.3（普／中／高獨立驗證）'
             if tw_label not in standards:
                 standards.append(tw_label)
+            guide_label = 'WEB應用程式安全參考指引 V3.2（ASP.NET/.NET 與通用 Web 控制）'
+            if guide_label not in standards:
+                standards.append(guide_label)
         # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
         project = data['project']
         if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E', '不適用'):
