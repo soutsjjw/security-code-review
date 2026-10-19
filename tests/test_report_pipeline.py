@@ -1,5 +1,6 @@
 """報告產生器／驗證器端到端正負向測試。"""
 import copy
+import os
 import json
 import subprocess
 import sys
@@ -30,7 +31,8 @@ class ReportingTests(unittest.TestCase):
                 [sys.executable, str(HERE / 'scripts/source_reader.py'),
                  '--source-root', str(root), '--path', source.name,
                  '--start', '1', '--end', '1'],
-                text=True, capture_output=True, encoding='utf-8'
+                text=True, capture_output=True, encoding='utf-8',
+                env=dict(os.environ, PYTHONIOENCODING='cp950')
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('1: 驗證失敗次數控制', result.stdout)
@@ -42,9 +44,11 @@ class ReportingTests(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, str(HERE / 'scripts/source_reader.py'),
                  '--source-root', str(root), '--path', '../outside.cs'],
-                text=True, capture_output=True, encoding='utf-8'
+                text=True, capture_output=True, encoding='utf-8',
+                env=dict(os.environ, PYTHONIOENCODING='cp950')
             )
             self.assertNotEqual(result.returncode, 0)
+            self.assertIn('來源路徑必須是相對路徑', result.stderr)
 
     def test_mixed_source_encodings(self):
         variants = [('utf8.cs', 'utf-8'), ('bom.cs', 'utf-8-sig'),
