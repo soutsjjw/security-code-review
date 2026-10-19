@@ -2442,7 +2442,8 @@
               "verification_mode",
               "related_rule_ids",
               "review_focus",
-              "implementation_topics"
+              "implementation_topics",
+              "pdf_page"
             ],
             "properties": {
               "id": {
@@ -2539,6 +2540,11 @@
                   },
                   "additionalProperties": false
                 }
+              },
+              "pdf_page": {
+                "type": "integer",
+                "minimum": 42,
+                "maximum": 252
               }
             },
             "additionalProperties": false
