@@ -59,7 +59,7 @@ def main() -> int:
             }
         # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
         project = data['project']
-        if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E'):
+        if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E', '不適用'):
             if 'security_level_assessment' not in project:
                 encodings = tuple(x.strip() for x in a.source_encodings.split(',') if x.strip())
                 project['security_level_assessment'] = infer_security_level(
