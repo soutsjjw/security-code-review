@@ -271,6 +271,13 @@ class ReportingTests(unittest.TestCase):
                    '--project',str(project),'--presentation',str(presentation),'--allow-demo','--output',str(html),'--save-report',str(generated)]
             done = subprocess.run(cmd, text=True, capture_output=True)
             self.assertEqual(done.returncode, 0, done.stdout+done.stderr)
+            report = json.loads(generated.read_text(encoding='utf-8'))
+            rule_map = {r['id']: r for r in report['rules']}
+            self.assertIn('A01:2025', [x['id'] for x in rule_map['IN-08']['owasp_2025_categories']])
+            self.assertNotIn('A10:2025', [x['id'] for x in rule_map['IN-08']['owasp_2025_categories']])
+            self.assertIn('A03:2025', [x['id'] for x in rule_map['SI-01']['owasp_2025_categories']])
+            self.assertIn('id="owasp2025Content"', html.read_text(encoding='utf-8'))
+            self.assertTrue(any('OWASP Top 10:2025' in s for s in report['presentation']['standards']))
             result = subprocess.run([sys.executable, str(HERE/'scripts/validate_report.py'),
                                      '--html',str(html),'--report',str(generated),'--allow-demo'],
                                     capture_output=True,text=True)
