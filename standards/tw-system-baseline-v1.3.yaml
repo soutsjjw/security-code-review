@@ -365,13 +365,13 @@ controls:
   - id: "TW-SB-2.3.2.1"
     source_section: "2.3.2.1"
     domain: "營運持續計畫"
-    title: "訂定服務中斷後重新恢復之最大可容忍中斷時間（RTO）"
+    title: "訂定服務中斷至恢復之最大可容忍中斷時間要求"
     pdf_page: 77
     applicable_levels: ["普", "中", "高"]
     verification_mode: external
     related_rule_ids: ["BC-03"]
     mapping_type: related_control_not_equivalent
-    review_focus: "依第 2.3.2.1 節核對「訂定服務中斷後重新恢復之最大可容忍中斷時間（RTO）」之實作、驗證與適用條件"
+    review_focus: "依第 2.3.2.1 節核對「訂定服務中斷至恢復之最大可容忍中斷時間要求」之實作、驗證與適用條件"
     expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
   - id: "TW-SB-2.3.2.2"
     source_section: "2.3.2.2"
@@ -442,13 +442,13 @@ controls:
   - id: "TW-SB-2.4.2.3"
     source_section: "2.4.2.3"
     domain: "識別與鑑別"
-    title: "具備帳戶鎖定或機關自建之失敗驗證防護機制"
+    title: "身分驗證失敗達五次後至少十五分鐘禁止再嘗試，或採用機關自建之失敗驗證機制"
     pdf_page: 89
     applicable_levels: ["普", "中", "高"]
     verification_mode: source
     related_rule_ids: ["AU-03"]
     mapping_type: related_control_not_equivalent
-    review_focus: "依第 2.4.2.3 節核對「具備帳戶鎖定或機關自建之失敗驗證防護機制」之實作、驗證與適用條件"
+    review_focus: "依第 2.4.2.3 節核對「身分驗證失敗達五次後至少十五分鐘禁止再嘗試，或採用機關自建之失敗驗證機制」之實作、驗證與適用條件"
     expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
   - id: "TW-SB-2.4.2.4"
     source_section: "2.4.2.4"
