@@ -62,3 +62,12 @@ references:
   url: https://cert.tanet.edu.tw/prog/index.php
   checklist_file: standards/tacert-v2-checklist.yaml
   note: 原始 PDF 共 11 頁；第二章 OWASP 風險分類引用 2021 版，與專案的 OWASP Top 10:2025 分開呈現。檢核含靜態程式、主機、網路、政策及動態測試，不代表全部能從程式碼驗證。
+- id: TW-SYSTEM-PROTECTION-BASELINE
+  name: 資通系統防護基準驗證實務
+  version: V1.3 (115/06/03)
+  type: taiwan_system_protection_baseline_validation_guidance
+  status: supplied_pdf_80_controls_mapped
+  authority: 國家資通安全研究院
+  legal_basis: 資通安全責任等級分級辦法第11條附表九及附表十
+  checklist_file: standards/tw-system-baseline-v1.3.yaml
+  note: 第二層七構面27類80項，普45/中62/高80。分級與機關 A-E 不同。原 PDF 附件一只有起始頁。非所有項目能由原始碼判定，也不因 70 項 Pass 推定符合。
