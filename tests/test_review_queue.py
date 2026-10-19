@@ -24,6 +24,8 @@ class ReviewQueueTests(unittest.TestCase):
                          [rule["id"] for rule in rules[:10]])
         self.assertTrue(output["next_checks"][0]["search_targets"])
         self.assertEqual(output["tacert_v2_supplemental_items"], 39)
+        self.assertEqual(output["owasp_top10_2025_categories"], 10)
+        self.assertTrue(any(v["owasp_2025_categories"] for v in output["next_checks"]))
         self.assertTrue(any(x["tacert_v2_checks"] for x in output["next_checks"]))
 
     def test_tacert_v2_mappings_have_source_and_external_checks(self):
@@ -35,6 +37,17 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertEqual(all_checks["TACERT-V2-D01"]["pdf_page"], 6)
         self.assertEqual(all_checks["TACERT-V2-P10"]["verification_mode"], "hybrid")
         self.assertEqual(all_checks["TACERT-V2-R04"]["verification_mode"], "source")
+
+    def test_owasp_2025_mapping_and_ssrf(self):
+        from review_queue import load_owasp_2025_categories
+        _, rules = load_rules()
+        mapping = load_owasp_2025_categories(rules)
+        ids = {item["id"] for per_rule in mapping.values() for item in per_rule}
+        self.assertEqual(ids, {f"A{i:02d}:2025" for i in range(1, 11)})
+        self.assertIn("A01:2025", [item["id"] for item in mapping["IN-08"]])
+        self.assertNotIn("A10:2025", [item["id"] for item in mapping["IN-08"]])
+        self.assertIn("A03:2025", [item["id"] for item in mapping["SI-01"]])
+        self.assertIn("A10:2025", [item["id"] for item in mapping["EH-02"]])
 
     def test_only_remaining_checks_are_scheduled(self):
         _, rules = load_rules()
