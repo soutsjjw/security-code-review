@@ -272,6 +272,10 @@ class ReportingTests(unittest.TestCase):
             done = subprocess.run(cmd, text=True, capture_output=True)
             self.assertEqual(done.returncode, 0, done.stdout+done.stderr)
             report = json.loads(generated.read_text(encoding='utf-8'))
+            self.assertEqual(report['system_baseline']['total_controls'], 80)
+            self.assertIsNone(report['system_baseline']['applicable_controls'])
+            self.assertEqual(report['system_baseline']['status_counts'], {'pending_level': 80})
+            self.assertIn('id="systemBaselineContent"', html.read_text(encoding='utf-8'))
             rule_map = {r['id']: r for r in report['rules']}
             self.assertIn('A01:2025', [x['id'] for x in rule_map['IN-08']['owasp_2025_categories']])
             self.assertNotIn('A10:2025', [x['id'] for x in rule_map['IN-08']['owasp_2025_categories']])
