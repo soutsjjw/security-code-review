@@ -43,7 +43,11 @@ def load_web_guide(rules: list[dict]) -> dict:
                     or topic.get("verification_mode") not in ("source", "hybrid", "external")
                     or not topic.get("review_focus")
                     or not set(topic.get("related_rule_ids", [])).issubset(valid_ids)
-                    or not isinstance(topic.get("pdf_page"), int)):
+                    or not isinstance(topic.get("pdf_page"), int)
+                    or not topic.get("levels_evidence")
+                    or not isinstance(topic.get("observed_levels"), list)
+                    or not topic["observed_levels"]
+                    or any(level not in ("普", "中", "高") for level in topic["observed_levels"])):
                 raise ValueError("V3.2 細部條次無效：" + str(topic.get("id")))
     return doc
 
@@ -63,6 +67,8 @@ def web_guide_review_hints(rules: list[dict]) -> dict[str, list[dict]]:
                     "id": t["id"], "section": t["source_section"], "pdf_page": t["pdf_page"],
                     "title": t["title"], "verification_mode": t["verification_mode"],
                     "review_focus": t["review_focus"],
+                    "observed_levels": t["observed_levels"],
+                    "levels_evidence": t["levels_evidence"],
                 } for t in related_topics],
                 "mapping_type": cat["mapping_type"],
                 "tech_scope": "ASP.NET/.NET 與通用 Web 控制（不含 Java/PHP 範例）",
@@ -92,6 +98,8 @@ def build_web_guide_index(rules: list[dict]) -> dict:
                 "id": t["id"], "section": t["source_section"], "pdf_page": t["pdf_page"],
                 "title": t["title"], "verification_mode": t["verification_mode"],
                 "review_focus": t["review_focus"],
+                "observed_levels": t["observed_levels"],
+                "levels_evidence": t["levels_evidence"],
             } for t in c["implementation_topics"]],
         } for c in doc["controls"]],
     }
