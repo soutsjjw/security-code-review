@@ -58,6 +58,27 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 
 從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需確認目標 `develop` 分支包含最新版套件**，否則遠端不會包含最新版功能。
 
+## Codex `/goal` 完整審查指令
+
+若所使用的 Codex 版本支援 `/goal`，可在**受測專案的 Codex 對話**中輸入以下完整指令（不是 PowerShell／Bash 指令）。目標是完成全部 70 項審查後才交付報告；是否能於單次執行內完成，仍取決於 Codex 的執行環境與資源限制。
+
+```text
+/goal 使用 $security-code-review Skill，完整執行目前專案的全部 70 項資安檢核。
+
+完成條件：
+1. 逐項實際審查全部 70 條規則，確認 execution.state 均為 completed。
+2. 載入既有 assessment.json，保留所有已發現弱點及證據。
+3. 發現弱點時寫入 Finding，不修改原始碼、不要求先修復。
+4. 缺少部署、政策或動態測試證據時，記錄已完成的靜態分析及待確認事項，繼續其他檢核。
+5. 每批保存結果，自動繼續下一批，直到 70/70。
+6. 執行 complete_review.py，成功產生並驗證 HTML 與 JSON 報告。
+7. 只有在真正無法繼續的執行錯誤或資源限制時才停止，並保留進度及說明原因。
+
+在完成以上條件前，不得將部分檢核結果視為最終交付。
+```
+
+此指令不會取代逐項查核，也不能將尚未執行的項目標為 `completed`。若環境不支援 `/goal`，仍可執行 `$security-code-review`，由 Agent 依下述佇列迴圈進行檢核。
+
 ## 70 項審查的實際執行迴圈
 
 單次 `$security-code-review` 由 Codex 自動進行下列工作：
