@@ -179,6 +179,21 @@
             }
           ],
           "additionalProperties": false
+        },
+        "protection_demand_level": {
+          "type": "string",
+          "enum": [
+            "普",
+            "中",
+            "高",
+            "待確認"
+          ],
+          "description": "個別資通系統防護需求分級，與機關資安責任等級 A-E 完全不同"
+        },
+        "protection_demand_level_basis": {
+          "type": "string",
+          "minLength": 1,
+          "description": "普／中／高分級來源、核定或可核對之具體依據"
         }
       },
       "additionalProperties": false,
@@ -203,6 +218,27 @@
           "then": {
             "required": [
               "security_level_basis"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "protection_demand_level"
+            ],
+            "properties": {
+              "protection_demand_level": {
+                "enum": [
+                  "普",
+                  "中",
+                  "高"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "protection_demand_level_basis"
             ]
           }
         }
@@ -2071,6 +2107,248 @@
               }
             },
             "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "system_baseline": {
+      "type": "object",
+      "description": "V1.3 80項獨立防護基準對照；70 項 Code Review 不等於 80 項符合。無人工驗證預設待確認/未評估。",
+      "required": [
+        "standard_id",
+        "version",
+        "revision_date",
+        "source_title",
+        "demand_level",
+        "demand_level_basis",
+        "total_controls",
+        "applicable_controls",
+        "status_counts",
+        "assessment_note",
+        "controls"
+      ],
+      "properties": {
+        "standard_id": {
+          "const": "TW-SYSTEM-PROTECTION-BASELINE"
+        },
+        "version": {
+          "const": "V1.3"
+        },
+        "revision_date": {
+          "const": "2026-06-03"
+        },
+        "source_title": {
+          "const": "資通系統防護基準驗證實務"
+        },
+        "demand_level": {
+          "enum": [
+            "普",
+            "中",
+            "高",
+            "待確認"
+          ]
+        },
+        "demand_level_basis": {
+          "type": "string"
+        },
+        "total_controls": {
+          "const": 80
+        },
+        "applicable_controls": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 80
+        },
+        "status_counts": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "pending_level",
+              "not_assessed",
+              "not_applicable_by_level",
+              "pass",
+              "fail",
+              "review",
+              "na"
+            ]
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "assessment_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "controls": {
+          "type": "array",
+          "minItems": 80,
+          "maxItems": 80,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "section",
+              "domain",
+              "title",
+              "pdf_page",
+              "applicable_levels",
+              "verification_mode",
+              "related_rule_ids",
+              "expected_evidence",
+              "applicable",
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^TW-SB-2\\.[1-7]\\.\\d+\\.\\d+$"
+              },
+              "section": {
+                "type": "string",
+                "pattern": "^2\\.[1-7]\\.\\d+\\.\\d+$"
+              },
+              "domain": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "pdf_page": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 169
+              },
+              "applicable_levels": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "普",
+                    "中",
+                    "高"
+                  ]
+                }
+              },
+              "verification_mode": {
+                "enum": [
+                  "source",
+                  "hybrid",
+                  "external"
+                ]
+              },
+              "related_rule_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                }
+              },
+              "expected_evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "applicable": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "pending_level",
+                  "not_assessed",
+                  "not_applicable_by_level",
+                  "pass",
+                  "fail",
+                  "review",
+                  "na"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reviewer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "verified_on": {
+                "type": "string",
+                "format": "date"
+              },
+              "evidence": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "pass",
+                        "fail"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "reason",
+                    "reviewer",
+                    "verified_on",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "review",
+                        "na"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "reason",
+                    "reviewer",
+                    "verified_on",
+                    "evidence"
+                  ]
+                }
+              }
+            ]
           }
         }
       },
