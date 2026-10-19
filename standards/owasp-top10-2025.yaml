@@ -1,0 +1,91 @@
+# OWASP Top 10 2025 官方風險分類；不可當作十條獨立合規條文。
+# TACERT V2 原始文件仍引用 OWASP Top 10 2021。
+standard_id: OWASP-TOP10
+version: "2025"
+classification_type: risk_taxonomy
+source_url: https://top10.owasp.org/2025/
+notes:
+  - "類別對照只表示與原 70 項規則有關聯，不代表已完整覆蓋或符合。"
+  - "SSRF 歸屬 A01:2025；A10:2025 為異常條件處理不當。"
+  - "缺少部署、治理與動態測試證據時保留待確認，不得推定符合。"
+categories:
+  - id: A01:2025
+    title: "存取控制失效"
+    english_name: "Broken Access Control"
+    url: https://top10.owasp.org/2025/A01_2025-Broken_Access_Control/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["AC-01", "AC-02", "AC-03", "AC-04", "AC-06", "AC-07", "AC-08", "IN-03", "IN-08", "PD-06"]
+    review_steps: "核對端點與物件級授權、跨租戶存取、請求偽造與 SSRF 目的地驗證。"
+    coverage_gap: "角色/物件繞過測試及出口網路限制需額外證據。"
+  - id: A02:2025
+    title: "安全設定錯誤"
+    english_name: "Security Misconfiguration"
+    url: https://top10.owasp.org/2025/A02_2025-Security_Misconfiguration/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["EH-01", "EH-05", "EH-06", "AC-03", "AC-05", "AC-07", "CR-03", "CR-05", "CR-06", "DP-03", "BC-02"]
+    review_steps: "查核 Debug/預設設定、目錄瀏覽、不必要服務、TLS/安全標頭、Cookie 和 IaC/部署設定。"
+    coverage_gap: "主機/雲端平台實際執行組態需要部署證據。"
+  - id: A03:2025
+    title: "軟體供應鏈失效"
+    english_name: "Software Supply Chain Failures"
+    url: https://top10.owasp.org/2025/A03_2025-Software_Supply_Chain_Failures/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["DP-01", "DP-04", "SI-01", "SI-02", "BC-06"]
+    review_steps: "查核直接與間接相依版本、SBOM、簽章/可信來源、建置權限、CI/CD 與交付工件完整性。"
+    coverage_gap: "原 70 項未完整涵蓋工件來源證明、開發工具鏈、職責分離與供應商治理，需補充人工或平台證據。"
+  - id: A04:2025
+    title: "加密機制失效"
+    english_name: "Cryptographic Failures"
+    url: https://top10.owasp.org/2025/A04_2025-Cryptographic_Failures/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["CR-01", "CR-02", "CR-03", "CR-04", "AU-04", "AU-08", "PD-03", "PD-05"]
+    review_steps: "查核敏感資料傳輸/儲存的加密、弱演算法、憑證、金鑰管理與密碼儲存。"
+    coverage_gap: "KMS、憑證部署與輪替歷程需額外證據。"
+  - id: A05:2025
+    title: "注入攻擊"
+    english_name: "Injection"
+    url: https://top10.owasp.org/2025/A05_2025-Injection/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["IN-01", "IN-02", "IN-04", "IN-05", "IN-06", "IN-07", "SI-03"]
+    review_steps: "追蹤使用者輸入至 SQL、HTML/JS、命令、模板、路徑或反序列化程式碼，核對參數化及適當編碼。"
+    coverage_gap: "可利用性可能需要動態測試；不自動執行侵入性測試。"
+  - id: A06:2025
+    title: "不安全設計"
+    english_name: "Insecure Design"
+    url: https://top10.owasp.org/2025/A06_2025-Insecure_Design/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["AC-04", "AU-03", "IN-05", "BC-03", "BC-07", "PD-01"]
+    review_steps: "檢視商業邏輯濫用、設計威脅、密碼鎖定濫用、分權、速率控制與安全預設。"
+    coverage_gap: "原有規則僅部分涵蓋威脅模型、濫用案例、設計審查與風險決策。"
+  - id: A07:2025
+    title: "身分驗證失效"
+    english_name: "Authentication Failures"
+    url: https://top10.owasp.org/2025/A07_2025-Authentication_Failures/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["AU-01", "AU-02", "AU-03", "AU-04", "AU-05", "AU-06", "AU-07", "AU-08", "AU-09", "AU-10", "AC-01", "AC-02"]
+    review_steps: "查核登入、重設、MFA、Session/Token、密碼儲存、帳號枚舉與暴力破解防護。"
+    coverage_gap: "IdP/SSO 與實際節流效果需部署/測試證據。"
+  - id: A08:2025
+    title: "軟體或資料完整性失效"
+    english_name: "Software or Data Integrity Failures"
+    url: https://top10.owasp.org/2025/A08_2025-Software_or_Data_Integrity_Failures/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["SI-01", "SI-02", "SI-03", "LG-10", "BC-06"]
+    review_steps: "查核反序列化信任邊界、資料與工件完整性、第三方資源 SRI、更新與部署驗證。"
+    coverage_gap: "CI/CD 工件簽章及部署後防竄改需額外證據；不同於 A03 供應鏈風險。"
+  - id: A09:2025
+    title: "安全日誌與告警失效"
+    english_name: "Security Logging and Alerting Failures"
+    url: https://top10.owasp.org/2025/A09_2025-Security_Logging_and_Alerting_Failures/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["LG-01", "LG-02", "LG-03", "LG-04", "LG-05", "LG-06", "LG-07", "LG-08", "LG-09", "LG-10", "EH-04", "PD-04"]
+    review_steps: "查核安全事件紀錄、稽核完整性、敏感資訊保護、告警條件、接收與通報升級。"
+    coverage_gap: "只有程式記錄日誌不能證明 SOC 告警被送達或處理，需操作/演練證據。"
+  - id: A10:2025
+    title: "異常條件處理不當"
+    english_name: "Mishandling of Exceptional Conditions"
+    url: https://top10.owasp.org/2025/A10_2025-Mishandling_of_Exceptional_Conditions/
+    mapping_type: related_risk_not_full_coverage
+    related_rule_ids: ["EH-01", "EH-02", "EH-03", "EH-04", "LG-09", "BC-07"]
+    review_steps: "檢查錯誤/逾時/重試/資源耗盡、交易失敗回滾、失敗預設拒絕（fail-closed）及授權例外。"
+    coverage_gap: "原 70 項未完整涵蓋跨服務異常與交易一致性、故障注入；需專項測試/設計證據。"
