@@ -283,7 +283,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   const levelDisplay = official ? project.security_level+' 級（已提供正式分級）'
       : project.security_level==='不適用' ? '不適用'
       : preliminaryLevel ? prelim.level+' 級（初步研判，非正式核定）' : '待確認';
+  const notApplicable = project.security_level==='不適用';
   const levelExplanation = official ? text(project.security_level_basis,'未提供正式分級依據')
+      : notApplicable ? text(project.security_level_basis,'依提供之適用性資料標記不適用；本次程式碼審查不代替法規適用性核定。')
       : text(prelim.basis,'缺乏機關業務、維運及核定資料，無法僅依程式碼判斷法定等級。');
   const levelEvidence = asArray(prelim.evidence).map(e=>e.path+':'+e.line_start).join('、');
   const levelMissing = asArray(prelim.missing_information).join('；');
@@ -298,8 +300,8 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     ['已審查檔案類型',coverage ? asArray(coverage.file_types).join('、')||'未記錄' : '未提供'],
     ['資通安全責任等級（A～E）',levelDisplay],
     ['安全等級判斷說明',levelExplanation],
-    ['初步研判佐證',!official&&levelEvidence?levelEvidence:'無'],
-    ['尚待確認資訊',!official?(levelMissing||'機關業務與核定資料'):'以核定資料為準'],
+    ['初步研判佐證',!official&&!notApplicable&&levelEvidence?levelEvidence:'無'],
+    ['尚待確認資訊',!official&&!notApplicable?(levelMissing||'機關業務與核定資料'):'以提供之適用性／核定資料為準'],
     ['個資處理',project.personal_data],
     ['規範依據',asArray(presentation.standards).join('、')||'待提供'],
     ['審查者',presentation.reviewer], ['規則版本',assessment.ruleset_version],
