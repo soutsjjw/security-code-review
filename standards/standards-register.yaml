@@ -20,7 +20,8 @@ references:
   status: verified
   url: https://top10.owasp.org/2025/
   authority: OWASP Foundation
-  note: 只作風險類別提示，不直接作合規條件。
+  checklist_file: standards/owasp-top10-2025.yaml
+  note: 十類 A01～A10 的版本化交叉映射與覆蓋缺口；SSRF 屬 A01，A10 是異常條件處理；只作風險分類，不直接作合規條件。
 - id: OWASP-CODE-REVIEW
   name: OWASP Secure Code Review Cheat Sheet
   version: online-current
