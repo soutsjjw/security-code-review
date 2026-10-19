@@ -19,6 +19,7 @@ class NicsWebGuideV32Tests(unittest.TestCase):
         doc = load_web_guide(self.rules)
         self.assertEqual(doc["version"], "V3.2")
         self.assertEqual(len(doc["controls"]), 29)
+        self.assertTrue(all(isinstance(c["pdf_page"], int) for c in doc["controls"]))
         topics = [t for c in doc["controls"] for t in c["implementation_topics"]]
         self.assertEqual(len(topics), 35)
         self.assertTrue(all(t["observed_levels"] and t["levels_evidence"] for t in topics))
