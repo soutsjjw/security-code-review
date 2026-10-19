@@ -25,6 +25,20 @@ class CompleteReviewTests(unittest.TestCase):
             a['project_id'] = 'another-project'
             a['git_revision'] = 'a' * 40
             a['assessment_date'] = '2026-10-18'
+            # 測試流程以人工合成的完成狀態驗證驗收管線，並非實際安全掃描。
+            for c in a['checks']:
+                c['execution'] = {
+                    'state': 'completed', 'methods': ['integration_fixture'],
+                    'summary': f"整合測試依序驗證 {c['id']} 的審查流程與報告產生",
+                    'inspected_paths': []
+                }
+                c['decision_reason'] = f"已完成 {c['id']} 的測試資料處理；因缺外部環境佐證維持 review"
+            (target / 'IdentityService.cs').write_bytes('// 中文註解：身份檢查\n'.encode('cp950'))
+            a['checks'][0]['evidence'] = [{
+                'kind': 'source', 'description': '核對 CP950 原始碼的來源檔與行號',
+                'collected_on': '2026-10-18', 'source_version': 'test',
+                'path': 'IdentityService.cs', 'line_start': 1, 'line_end': 1
+            }]
             (output / 'assessment.json').write_text(json.dumps(a, ensure_ascii=False), encoding='utf-8')
             p = {'name':'整合測試系統', 'language_framework':'測試程式語言'}
             (output / 'project.json').write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')

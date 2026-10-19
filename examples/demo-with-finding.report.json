@@ -32,7 +32,12 @@
         "reviewer": "example_only",
         "finding_ids": [
           "F-01"
-        ]
+        ],
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-02",
@@ -40,7 +45,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-03",
@@ -48,7 +58,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-04",
@@ -56,7 +71,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-05",
@@ -64,7 +84,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-06",
@@ -72,7 +97,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-07",
@@ -80,7 +110,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AC-08",
@@ -88,7 +123,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-01",
@@ -96,7 +136,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-02",
@@ -104,7 +149,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-03",
@@ -112,7 +162,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-04",
@@ -120,7 +175,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-05",
@@ -128,7 +188,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-06",
@@ -136,7 +201,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-07",
@@ -144,7 +214,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-08",
@@ -152,7 +227,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-09",
@@ -160,7 +240,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "AU-10",
@@ -168,7 +253,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-01",
@@ -176,7 +266,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-02",
@@ -184,7 +279,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-03",
@@ -192,7 +292,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-04",
@@ -200,7 +305,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-05",
@@ -208,7 +318,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-06",
@@ -216,7 +331,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-07",
@@ -224,7 +344,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "IN-08",
@@ -232,7 +357,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "CR-01",
@@ -240,7 +370,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "CR-02",
@@ -248,7 +383,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "CR-03",
@@ -256,7 +396,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "CR-04",
@@ -264,7 +409,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "CR-05",
@@ -272,7 +422,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "CR-06",
@@ -280,7 +435,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "EH-01",
@@ -288,7 +448,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "EH-02",
@@ -296,7 +461,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "EH-03",
@@ -304,7 +474,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "EH-04",
@@ -312,7 +487,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "EH-05",
@@ -320,7 +500,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "EH-06",
@@ -328,7 +513,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-01",
@@ -336,7 +526,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-02",
@@ -344,7 +539,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-03",
@@ -352,7 +552,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-04",
@@ -360,7 +565,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-05",
@@ -368,7 +578,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-06",
@@ -376,7 +591,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-07",
@@ -384,7 +604,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-08",
@@ -392,7 +617,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-09",
@@ -400,7 +630,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "LG-10",
@@ -408,7 +643,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "DP-01",
@@ -416,7 +656,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "DP-02",
@@ -424,7 +669,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "DP-03",
@@ -432,7 +682,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "DP-04",
@@ -440,7 +695,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-01",
@@ -448,7 +708,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-02",
@@ -456,7 +721,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-03",
@@ -464,7 +734,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-04",
@@ -472,7 +747,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-05",
@@ -480,7 +760,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-06",
@@ -488,7 +773,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-07",
@@ -496,7 +786,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "PD-08",
@@ -504,7 +799,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-01",
@@ -512,7 +812,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-02",
@@ -520,7 +825,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-03",
@@ -528,7 +838,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-04",
@@ -536,7 +851,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-05",
@@ -544,7 +864,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-06",
@@ -552,7 +877,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "BC-07",
@@ -560,7 +890,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "SI-01",
@@ -568,7 +903,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "SI-02",
@@ -576,7 +916,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       },
       {
         "id": "SI-03",
@@ -584,7 +929,12 @@
         "applicability_reason": "格式範例：尚未輸入專案功能資料",
         "decision_reason": "尚未執行審查或蒐集證據",
         "evidence": [],
-        "reviewer": "example_only"
+        "reviewer": "example_only",
+        "execution": {
+          "state": "pending",
+          "methods": [],
+          "summary": "僅供演示的格式範例，尚未執行任何程式碼檢查。"
+        }
       }
     ],
     "findings": [

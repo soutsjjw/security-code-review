@@ -21,6 +21,56 @@ class ReportingTests(unittest.TestCase):
     def fresh(self):
         return copy.deepcopy(self.example)
 
+    def test_mixed_source_encodings(self):
+        variants = [('utf8.cs', 'utf-8'), ('bom.cs', 'utf-8-sig'),
+                    ('utf16.cs', 'utf-16'), ('cp950.cs', 'cp950')]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for filename, encoding in variants:
+                with self.subTest(encoding=encoding):
+                    (root / filename).write_bytes('中文程式碼檢查\n'.encode(encoding))
+                    data = self.fresh()
+                    data['assessment']['checks'][0]['evidence'] = [{
+                        'kind': 'source', 'description': '核對實際來源檔案的編碼與行號',
+                        'collected_on': '2026-10-16', 'source_version': 'fixture',
+                        'path': filename, 'line_start': 1, 'line_end': 1
+                    }]
+                    result = validate_data(data, allow_demo=True, source_root=root, strict_sources=True)
+                    self.assertEqual(result.errors, [])
+                    if encoding == 'cp950':
+                        self.assertIn('cp950', ' '.join(result.warnings))
+
+    def test_binary_source_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'broken.cs').write_bytes(b'\xff\x00\xff\x00')
+            data = self.fresh()
+            data['assessment']['checks'][0]['evidence'] = [{
+                'kind': 'source', 'description': '不可讀的來源檔案須回報失敗',
+                'collected_on': '2026-10-16', 'source_version': 'fixture',
+                'path': 'broken.cs', 'line_start': 1, 'line_end': 1
+            }]
+            result = validate_data(data, allow_demo=True, source_root=root, strict_sources=True)
+            self.assertIn('來源檔無法讀取', ' '.join(result.errors))
+
+    def test_formal_pending_rejected(self):
+        data = self.fresh()
+        data['presentation']['demo'] = False
+        data['assessment']['git_revision'] = 'a' * 40
+        result = validate_data(data)
+        self.assertIn('尚未完成實際檢核', ' '.join(result.errors))
+
+    def test_formal_mass_placeholder_rejected(self):
+        data = self.fresh()
+        data['presentation']['demo'] = False
+        data['assessment']['git_revision'] = 'a' * 40
+        for c in data['assessment']['checks']:
+            c['execution'] = {'state': 'completed', 'methods': ['source_review'],
+                              'summary': '全部檢核使用相同的內容作為執行摘要，沒有各自查核紀錄'}
+            c['decision_reason'] = '全部項目皆填寫相同內容，缺少逐項查核的區別與依據'
+        result = validate_data(data)
+        self.assertIn('共用相同結論', ' '.join(result.errors))
+
     def test_positive_demo(self):
         data = self.fresh()
         self.assertFalse(validate_data(data, allow_demo=True).errors)

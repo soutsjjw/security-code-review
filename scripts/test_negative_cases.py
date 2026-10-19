@@ -9,7 +9,7 @@ base=json.loads((ROOT/'examples/assessment.example.json').read_text('utf-8'))
 def run_case(obj, expected_ok, label):
  with tempfile.TemporaryDirectory() as d:
   f=Path(d)/'assessment.json';f.write_text(json.dumps(obj,ensure_ascii=False),encoding='utf-8')
-  p=subprocess.run([sys.executable,str(validator),str(f)],capture_output=True,text=True)
+  p=subprocess.run([sys.executable,str(validator),str(f),'--allow-demo'],capture_output=True,text=True)
   if (p.returncode==0)!=expected_ok:
    print('FAILED',label,p.stdout,p.stderr);sys.exit(1)
   print('PASS',label)

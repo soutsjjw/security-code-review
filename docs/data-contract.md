@@ -90,3 +90,14 @@ safe_json = json.dumps(report, ensure_ascii=False).replace('<', '\\u003c').repla
 HTML 模板使用 `textContent`、`createElement` 建立頁面，避免將來自審查資料的內容直接放進 `innerHTML`。
 
 正式 Generator 須另外執行 JSON Schema、來源行號、統計與報告完整性驗證。**本交付物尚未實作該 Generator。**
+
+
+## 逐項檢核執行紀錄（v2.1.3）
+
+每筆 `checks[]` 新增必要 `execution`，例如：
+
+```json
+{"state":"completed","methods":["source_review","configuration_review"],"summary":"已查閱登入授權流程及相關組態；缺少部署環境資訊尚待確認","inspected_paths":["src/Auth/AccessPolicy.cs"]}
+```
+
+`execution.state` 可為 `pending`、`completed` 或 `blocked`；正式報告要求全部 completed。`status=review` 可搭配 completed，意指完成可執行的查核而仍缺外部證據。欄位自填不能作為實際執行的獨立證明。

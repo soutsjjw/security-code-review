@@ -2,7 +2,7 @@
 
 ## 設計
 
-`report.schema.json` 使用 JSON Schema Draft 2020-12，並透過相對 `$ref: "assessment.schema.json"` 引用既有 v2.0.0-rc1 審查結果 Schema；避免讓報告專用欄位污染核心審查紀錄。
+`report.schema.json` 使用 JSON Schema Draft 2020-12，並透過相對 `$ref: "assessment.schema.json"` 引用規則集 2.0.0-rc1 的審查結果 Schema；避免讓報告專用欄位污染核心審查紀錄。
 
 ```text
 report.json
@@ -18,7 +18,7 @@ report.json
 | 部分 | 必要欄位 | 補充說明 |
 | --- | --- | --- |
 | `project` | `name` | 可選 `language_framework`、`security_level`、`personal_data`、`attributes`；所有值皆須由各專案提供，不能套用 EDS。 |
-| `assessment` | 原有七項必要欄位 | 引用不變的 `assessment.schema.json`；70 項檢核結果、Finding、證據與例外繼續由核心結構保存。 |
+| `assessment` | 原有七項必要欄位 | 核心 `assessment.schema.json` 已增加各項檢核的必要 `execution` 欄位；Finding、證據及例外繼續保存於核心結構。 |
 | `rules` | `id`、`title`、`category`（70 筆） | 必須涵蓋目前完整 70 個規則 ID，且每個只能出現一次；允許完整規則物件額外欄位。 |
 | `presentation` | 物件可為 `{}` | 所有視覺欄位均可選；不得為了美觀捏造不存在的內容。 |
 
@@ -40,7 +40,8 @@ report.json
 
 ## 相容性、限制與安全
 
-- 原始 `assessment.json` 仍須通過現有 `scripts/validate_assessment.py`；本 Schema 只增補必要的靜態規則，沒有取代原有驗證程序。
+- **相容性變更**：`assessment.checks[]` 新增必要的 `execution`：`state`（pending/completed/blocked）、`methods`（檢查方法）、`summary`（逐項審查摘要）、可選 `inspected_paths`（實際查核檔案）。正式報告的 70 項皆須 completed，不能把未執行項目填為 review。
+- Schema 驗證欄位結構；`validate_assessment.py` 和 `validate_report.py` 的正式模式會拒絕 pending／blocked 與重複佔位文字。既有缺少 execution 的評估資料必須重新實際檢核後補齊。
 - 新 Schema 可阻擋：不完整的 70 項規則、重複規則 ID、錯誤分類、無證據 `pass`／`fail`、缺乏理由的 `na`、非法風險等級、錯誤的程式碼位置結構。
 - **JSON Schema 無法單獨驗證**：Finding ID 是否真的出現在 `assessment.findings`；來源檔是否存在與行號是否合法；`line_end >= line_start`；修正程式碼是否正確；規則版本與現有規則檔內容是否一致；例外有無簽核。這些須由第三階段的程式驗證。
 - 透過 Schema 驗證不代表完成程式碼安全審查，也不代表通過公司資安標準。

@@ -36,6 +36,15 @@ class ReportSchemaTests(unittest.TestCase):
         self.assertEqual(len(self.example['assessment']['checks']), 70)
         self.assertEqual({x['status'] for x in self.example['assessment']['checks']}, {'review'})
 
+    def test_execution_is_required(self):
+        data = copy.deepcopy(self.example)
+        data['assessment']['checks'][0].pop('execution')
+        self.assertTrue(self.errors(data))
+
+    def test_demo_pending_is_structurally_valid(self):
+        self.assertEqual({c['execution']['state'] for c in self.example['assessment']['checks']}, {'pending'})
+        self.assertEqual(self.errors(self.example), [])
+
     def test_missing_report_schema_version_rejected(self):
         data = copy.deepcopy(self.example)
         data.pop('report_schema_version')
