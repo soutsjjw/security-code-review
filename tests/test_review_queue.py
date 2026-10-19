@@ -23,6 +23,18 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertEqual([x["id"] for x in output["next_checks"]],
                          [rule["id"] for rule in rules[:10]])
         self.assertTrue(output["next_checks"][0]["search_targets"])
+        self.assertEqual(output["tacert_v2_supplemental_items"], 39)
+        self.assertTrue(any(x["tacert_v2_checks"] for x in output["next_checks"]))
+
+    def test_tacert_v2_mappings_have_source_and_external_checks(self):
+        _, rules = load_rules()
+        from review_queue import load_tacert_v2_checks
+        mapped = load_tacert_v2_checks(rules)
+        all_checks = {item["id"]: item for items in mapped.values() for item in items}
+        self.assertEqual(len(all_checks), 39)
+        self.assertEqual(all_checks["TACERT-V2-D01"]["pdf_page"], 6)
+        self.assertEqual(all_checks["TACERT-V2-P10"]["verification_mode"], "hybrid")
+        self.assertEqual(all_checks["TACERT-V2-R04"]["verification_mode"], "source")
 
     def test_only_remaining_checks_are_scheduled(self):
         _, rules = load_rules()

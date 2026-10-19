@@ -29,6 +29,24 @@ for r in j['rules']:
  for ref in r['references']['technical_requirements']:
   if not ref['requirement_id'].startswith('v5.0.0-'):errors.append('unversioned ASVS reference')
   if ref['mapping_type']!='relevant_requirement_not_full_equivalence':errors.append('invalid mapping type')
+
+# TACERT V2 補充檢核必須與文件段落及原 70 項保持一致。
+checklist=yaml.safe_load((ROOT/'standards/tacert-v2-checklist.yaml').read_text('utf-8'))
+entries=checklist.get('checks',[])
+tacert_ids=[c.get('id') for c in entries]
+if len(entries)!=39 or len(tacert_ids)!=len(set(tacert_ids)):
+ errors.append('TACERT V2 checks must be 39 unique entries')
+for prefix,expected in [('R',12),('D',14),('P',13)]:
+ if sum(x.startswith('TACERT-V2-'+prefix) for x in tacert_ids)!=expected:
+  errors.append(f'TACERT V2 {prefix} count mismatch')
+for c in entries:
+ if c.get('verification_mode') not in ('source','hybrid','external'):
+  errors.append(f"TACERT V2 invalid verification_mode: {c.get('id')}")
+ if not c.get('review_steps') or not c.get('expected_evidence') or not c.get('pdf_page'):
+  errors.append(f"TACERT V2 incomplete content: {c.get('id')}")
+ if not c.get('related_rule_ids') or not set(c['related_rule_ids']).issubset(set(ids)):
+  errors.append(f"TACERT V2 unknown mapped rule: {c.get('id')}")
+
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)

@@ -23,6 +23,15 @@ argument-hint: "[專案路徑或檢核範圍]"
 4. 未明確指定路徑時，**永遠不要把 `SKILL_ROOT` 當作受測目錄**。
 5. 設 `SKILL_ROOT` 為目前 `SKILL.md` 的實際所在目錄（或其絕對路徑）；從此載入 `rules/`、`schemas/`、`scripts/`、`templates/`。
 
+## TACERT「網站安全管理指南」V2 補充檢核
+
+- 文件：臺灣學術網路危機處理中心，《網站安全管理指南》，2022 年 8 月修訂 V2（PDF 11 頁）。檢核對照：`standards/tacert-v2-checklist.yaml`。
+- 現有 70 項規則維持不變；另外以 **12 項常見缺失＋14 項網站安全檢測＋13 類防護措施（共 39 個補充檢核焦點）** 加強查核。這 39 個焦點不代表另外執行 39 個獨立規則，也不得把 70 項進度虛增。
+- `review_queue.py` 的 `next_checks[].tacert_v2_checks` 會列出對應 TACERT 焦點、PDF 頁碼、檢查方向及證據要求。Agent 應對各項適用焦點實際查核，將結論、未取得之證據及 TACERT 項目 ID 寫入**原有規則的** `decision_reason`／`execution.summary`；證據仍依既有 Schema 存入 `evidence`。
+- 可從原始碼與版控組態核對的項目採靜態查核；防火牆、RDP、Port 掃描、Windows 事件、登錄檔、惡意軟體防護、DDoS、備份還原、滲透測試等需部署/營運/動態佐證。缺少證據時 **不得假稱 Pass，也不得假稱實際掃描**，記錄已做的靜態分析與待確認範圍後繼續其他項目。
+- 相同風險僅記錄一個 Finding，可關聯多條規則；`related_rule_ids` 只是補充對照，**不是完整規範等價映射**。如 TACERT 建議「管理員定期變更密碼」，須先核對目前適用政策與等效控制，不直接以缺少輪替機制宣稱違反法律。
+- 本版第二章 OWASP Top 10 列的是 **2021** 風險分類，不能直接引用為 **OWASP Top 10 2025**。二者於 `standards/standards-register.yaml` 分列。
+
 ## 自動審查流程
 
 **重要：本 Skill 的使用者交付物是 70 項完整資安審查報告，不是弱點速報、待辦清單或要求先修復的建議。**

@@ -52,3 +52,12 @@ references:
   url: https://law.moj.gov.tw/LawClass/LawAll.aspx?PCode=I0050021
   authority: 全國法規資料庫
   note: 部分修正條文生效日期未定，不可直接當現行義務。
+- id: TACERT-WEBSITE-V2
+  name: 臺灣學術網路危機處理中心「網站安全管理指南」
+  version: V2 (2022-08)
+  type: security_operations_and_website_guidance
+  status: supplied_pdf_content_mapped
+  authority: 臺灣學術網路危機處理中心（TACERT）
+  url: https://cert.tanet.edu.tw/prog/index.php
+  checklist_file: standards/tacert-v2-checklist.yaml
+  note: 原始 PDF 共 11 頁；第二章 OWASP 風險分類引用 2021 版，與專案的 OWASP Top 10:2025 分開呈現。檢核含靜態程式、主機、網路、政策及動態測試，不代表全部能從程式碼驗證。

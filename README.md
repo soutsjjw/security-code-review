@@ -58,6 +58,16 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 
 從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需確認目標 `develop` 分支包含最新版套件**，否則遠端不會包含最新版功能。
 
+## TACERT V2：網站安全管理指南
+
+已整合 **臺灣學術網路危機處理中心（TACERT）《網站安全管理指南》2022-08 修訂 V2**：在原有 70 項規則上，補充 39 個可追溯檢核焦點（第二章 12 項常見缺失、第四章 14 項安全檢測、第五章 13 類防護措施）。
+
+- 對照清單：`standards/tacert-v2-checklist.yaml`（TACERT 項目 ID、來源 PDF 頁碼、檢查方法、預期證據及既有規則 ID）。
+- 自動佇列：`review_queue.py` 在對應的 `next_checks[].tacert_v2_checks` 提供審查提示；AI 實際查核後將 TACERT ID、完成的靜態分析及需補證據事項寫入原有規則的審查理由與摘要，不更動 70 項規則進度模型。
+- **無法以原始碼判定的防毒、主機防火牆、RDP、Port 掃描、事件檢視器、檔案異動、DDoS、還原演練及滲透測試，須列為待確認**；不得以未發現程式碼證據判定安全，也不能宣稱已做動態測試。
+- 文件中的 OWASP Top 10 採 **2021** 版，與本 Skill 的 **OWASP Top 10 2025** 風險分類分別引用。
+- 本次採補充檢核，不虛增成 109 條獨立規則；後續若需新增正式規則，須同步更新規則集、Schema、報告驗證與測試。
+
 ## Codex `/goal` 完整審查指令
 
 若所使用的 Codex 版本支援 `/goal`，可在**受測專案的 Codex 對話**中輸入以下完整指令（不是 PowerShell／Bash 指令）。目標是完成全部 70 項審查後才交付報告；是否能於單次執行內完成，仍取決於 Codex 的執行環境與資源限制。

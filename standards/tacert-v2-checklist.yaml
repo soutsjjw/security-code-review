@@ -1,0 +1,409 @@
+# 來源：臺灣學術網路危機處理中心（TACERT），《網站安全管理指南》2022 年 8 月修訂 V2。
+# PDF 頁碼採封面為第 1 頁的實際 PDF 頁碼，並非文件印刷頁碼。
+# 本檔是對原 70 項的補充檢核；related_rule_ids 表示相關而非規範等價。
+standard_id: TACERT-WEBSITE-V2
+version: "V2"
+revision_date: "2022-08"
+document_title: "網站安全管理指南"
+publisher: "臺灣學術網路危機處理中心（TACERT）"
+source_site: "https://cert.tanet.edu.tw/prog/index.php"
+source_sections:
+  R: "第二章：學術網路常見安全缺失（12 項）"
+  D: "第四章：網站安全檢測（14 項）"
+  P: "第五章：網站安全防護措施（13 項）"
+notes:
+  - "第二章的 OWASP Top 10 為 2021 版背景風險分類，不得標註成 OWASP Top 10 2025。"
+  - "外部主機、網路與制度的檢查不能只靠原始碼判斷；缺少證據須標示待確認，不能視為符合。"
+  - "管理員密碼定期更換等指引內容須依適用政策與等效控制判斷，不應不分情境直接宣稱違規。"
+  - "同一控制可對照數條原有規則；不得將本補充檢核對照認作法規強制適用或完整等效。"
+checks:
+  - id: TACERT-V2-R01
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-01"
+    pdf_page: 4
+    title: "多台主機使用相同管理帳密"
+    verification_mode: hybrid
+    review_steps: "追查部署設定、帳號設定或 IaC 中重複使用的管理憑證，確認分離管理策略"
+    expected_evidence: "去識別化帳號配置、密碼管理政策及主機稽核紀錄"
+    related_rule_ids: ["AU-01", "AU-02", "EH-06"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R02
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-02"
+    pdf_page: 4
+    title: "445、3389 等高風險埠不必要開放"
+    verification_mode: external
+    review_steps: "檢視防火牆、容器、IaC 與實際埠口暴露面；確認業務必要性"
+    expected_evidence: "防火牆規則、Port 掃描結果、業務核准紀錄"
+    related_rule_ids: ["DP-03", "AC-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R03
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-03"
+    pdf_page: 4
+    title: "管理者密碼變更策略"
+    verification_mode: hybrid
+    review_steps: "檢視適用的管理者密碼輪替、事件觸發變更策略；不得將定期輪替一律視為強制要求"
+    expected_evidence: "帳號政策與變更紀錄"
+    related_rule_ids: ["AU-02", "AU-01"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R04
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-04"
+    pdf_page: 4
+    title: "上傳檔案格式與存取權限限制"
+    verification_mode: source
+    review_steps: "確認允許的檔案類型、內容檢查、存放位置、執行權限與讀寫授權"
+    expected_evidence: "上傳處理程式與儲存設定"
+    related_rule_ids: ["IN-06", "AC-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R05
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-05"
+    pdf_page: 4
+    title: "持續檢視網站狀態"
+    verification_mode: hybrid
+    review_steps: "核對登入異常、錯誤率、網站可用性與維運監控責任及告警"
+    expected_evidence: "監控設定、告警及檢視紀錄"
+    related_rule_ids: ["LG-01", "LG-02"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R06
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-06"
+    pdf_page: 4
+    title: "網站主機網路共用資料夾風險"
+    verification_mode: external
+    review_steps: "確認主機對外檔案共用及不必要的網路芳鄰服務是否限制"
+    expected_evidence: "主機共享設定、連線清單"
+    related_rule_ids: ["DP-03", "AC-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R07
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-07"
+    pdf_page: 4
+    title: "網站主機防毒保護"
+    verification_mode: external
+    review_steps: "核對惡意軟體防護產品部署、掃描排程及更新狀態"
+    expected_evidence: "防毒狀態報表、掃描紀錄"
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R08
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-08"
+    pdf_page: 5
+    title: "網站主機防火牆啟用"
+    verification_mode: external
+    review_steps: "查核主機防火牆是否啟用、預設拒絕及輸入規則"
+    expected_evidence: "防火牆設定匯出、主機稽核結果"
+    related_rule_ids: ["DP-03", "AC-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R09
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-09"
+    pdf_page: 5
+    title: "主機與應用漏洞修補"
+    verification_mode: hybrid
+    review_steps: "追查元件版本及已知漏洞；部署與修補狀態另需佐證"
+    expected_evidence: "依賴清單、套件版本、弱點與修補報告"
+    related_rule_ids: ["DP-01", "DP-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R10
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-10"
+    pdf_page: 5
+    title: "植入挖礦程式偵測"
+    verification_mode: external
+    review_steps: "檢查異常程序、排程工作、資源使用率及出站連線"
+    expected_evidence: "端點偵測紀錄、程序清單、網路流量"
+    related_rule_ids: ["LG-01", "DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R11
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-11"
+    pdf_page: 5
+    title: "RDP 來源 IP 限制"
+    verification_mode: external
+    review_steps: "查核遠端桌面開放範圍、IP 限制及 VPN/跳板政策"
+    expected_evidence: "RDP 與防火牆設定、遠端連線紀錄"
+    related_rule_ids: ["AC-03", "AC-06"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-R12
+    section: "第二章：網站風險－學術網路常見安全缺失"
+    source_item: "R-12"
+    pdf_page: 5
+    title: "網頁與 URL 輸入驗證"
+    verification_mode: source
+    review_steps: "追蹤不可信輸入至 HTML/JS、SQL 或其他可執行位置；核對驗證與編碼"
+    expected_evidence: "輸入處理與輸出編碼程式碼、測試"
+    related_rule_ids: ["IN-02", "IN-05"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D01
+    section: "第四章：網站安全檢測"
+    source_item: "D-01"
+    pdf_page: 6
+    title: "異常主機登入事件"
+    verification_mode: external
+    review_steps: "檢視 Windows 事件紀錄登入類型 3 與 10，辨識異常來源 IP"
+    expected_evidence: "安全事件記錄、登入來源分析"
+    related_rule_ids: ["LG-01", "LG-02"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D02
+    section: "第四章：網站安全檢測"
+    source_item: "D-02"
+    pdf_page: 6
+    title: "網站日誌異常來源 IP"
+    verification_mode: hybrid
+    review_steps: "核對 Web 存取日誌之異常來源、失敗模式、掃描行為及告警"
+    expected_evidence: "Web 日誌樣本與監控規則"
+    related_rule_ids: ["LG-01", "LG-07"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D03
+    section: "第四章：網站安全檢測"
+    source_item: "D-03"
+    pdf_page: 6
+    title: "主機應用程式對外連線"
+    verification_mode: external
+    review_steps: "檢視程序至外部網路的實際連線、非預期目的地"
+    expected_evidence: "連線紀錄、EDR 或網路監控報告"
+    related_rule_ids: ["LG-01", "DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D04
+    section: "第四章：網站安全檢測"
+    source_item: "D-04"
+    pdf_page: 6
+    title: "主機應用程式運作情形"
+    verification_mode: external
+    review_steps: "盤點執行中服務與程序，核對非預期執行檔"
+    expected_evidence: "程序清單、主機稽核紀錄"
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D05
+    section: "第四章：網站安全檢測"
+    source_item: "D-05"
+    pdf_page: 6
+    title: "網站檔案存取情形"
+    verification_mode: hybrid
+    review_steps: "核對檔案存取稽核、異常寫入及最小授權設定"
+    expected_evidence: "檔案 ACL、稽核日誌"
+    related_rule_ids: ["LG-02", "AC-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D06
+    section: "第四章：網站安全檢測"
+    source_item: "D-06"
+    pdf_page: 6
+    title: "登錄檔與開機啟動項異常"
+    verification_mode: external
+    review_steps: "檢視 Windows 登錄檔及開機自動啟動項的新增異常"
+    expected_evidence: "登錄檔、排程工作與自啟清單"
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D07
+    section: "第四章：網站安全檢測"
+    source_item: "D-07"
+    pdf_page: 6
+    title: "應用程式安裝與系統更新紀錄"
+    verification_mode: external
+    review_steps: "確認安裝軟體來源、使用情形、更新與修補紀錄"
+    expected_evidence: "軟體資產清單、修補歷程"
+    related_rule_ids: ["DP-01", "DP-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D08
+    section: "第四章：網站安全檢測"
+    source_item: "D-08"
+    pdf_page: 6
+    title: "主機防火牆輸入規則"
+    verification_mode: external
+    review_steps: "檢視入站流量白名單、特別是高風險管理埠"
+    expected_evidence: "防火牆入站規則"
+    related_rule_ids: ["DP-03", "AC-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D09
+    section: "第四章：網站安全檢測"
+    source_item: "D-09"
+    pdf_page: 6
+    title: "主機防毒掃描"
+    verification_mode: external
+    review_steps: "檢查防毒引擎及病毒碼更新、掃描結果與警示"
+    expected_evidence: "防毒掃描報告"
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D10
+    section: "第四章：網站安全檢測"
+    source_item: "D-10"
+    pdf_page: 6
+    title: "網站主機埠口掃描"
+    verification_mode: external
+    review_steps: "比對服務埠與對外可達性，不得把 IaC 配置當作實際開埠證明"
+    expected_evidence: "授權的 Port 掃描結果"
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D11
+    section: "第四章：網站安全檢測"
+    source_item: "D-11"
+    pdf_page: 6
+    title: "網站程式檔案遭修改"
+    verification_mode: hybrid
+    review_steps: "核對部署工件與版本庫的雜湊差異、非預期竄改"
+    expected_evidence: "檔案完整性結果、版本差異"
+    related_rule_ids: ["LG-10", "SI-01"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D12
+    section: "第四章：網站安全檢測"
+    source_item: "D-12"
+    pdf_page: 6
+    title: "Windows 系統目錄異常檔案"
+    verification_mode: external
+    review_steps: "檢視 Windows 系統資料夾新增與異常修改"
+    expected_evidence: "主機基線與異動清單"
+    related_rule_ids: ["LG-10"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D13
+    section: "第四章：網站安全檢測"
+    source_item: "D-13"
+    pdf_page: 6
+    title: "資源回收桶異常檔案"
+    verification_mode: external
+    review_steps: "檢查資源回收桶異常可執行檔與植入跡象"
+    expected_evidence: "主機稽核紀錄"
+    related_rule_ids: ["LG-01"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-D14
+    section: "第四章：網站安全檢測"
+    source_item: "D-14"
+    pdf_page: 6
+    title: "系統管理者資料夾異常檔案"
+    verification_mode: external
+    review_steps: "查核管理帳戶資料夾非預期新增或修改的檔案"
+    expected_evidence: "檔案異動監控結果"
+    related_rule_ids: ["LG-10", "LG-02"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P01
+    section: "第五章：網站安全防護措施"
+    source_item: "P-01"
+    pdf_page: 7
+    title: "備份策略與還原"
+    verification_mode: hybrid
+    review_steps: "檢查備份規劃、增量/差異及完整備份、遠端安全儲存、定期還原驗證"
+    expected_evidence: "備份設定、成功紀錄、復原演練"
+    related_rule_ids: ["BC-01", "BC-05", "BC-07"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P02
+    section: "第五章：網站安全防護措施"
+    source_item: "P-02"
+    pdf_page: 7
+    title: "網路監控"
+    verification_mode: external
+    review_steps: "核對內部網路入侵偵測及異常流量告警"
+    expected_evidence: "監控規則、告警及事件處理紀錄"
+    related_rule_ids: ["LG-01", "LG-02"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P03
+    section: "第五章：網站安全防護措施"
+    source_item: "P-03"
+    pdf_page: 7
+    title: "防火牆及 DDoS 預防"
+    verification_mode: external
+    review_steps: "確認不必要的埠關閉、流量防護、清洗機制與應變程序"
+    expected_evidence: "防火牆組態、DDoS 防護與演練紀錄"
+    related_rule_ids: ["DP-03", "BC-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P04
+    section: "第五章：網站安全防護措施"
+    source_item: "P-04"
+    pdf_page: 8
+    title: "防毒軟體及病毒碼更新"
+    verification_mode: external
+    review_steps: "核對伺服器的惡意軟體即時防護、定期更新與掃描結果"
+    expected_evidence: "EDR/防毒管理平台紀錄"
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P05
+    section: "第五章：網站安全防護措施"
+    source_item: "P-05"
+    pdf_page: 8
+    title: "不必要應用程序與服務管理"
+    verification_mode: hybrid
+    review_steps: "辨識停用或未維護元件、服務與不必要功能"
+    expected_evidence: "服務清單、IaC/部署設定、維運確認"
+    related_rule_ids: ["DP-03", "DP-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P06
+    section: "第五章：網站安全防護措施"
+    source_item: "P-06"
+    pdf_page: 8
+    title: "作業系統安全管理"
+    verification_mode: external
+    review_steps: "檢視主機管理帳號強度、憑證處置、更新及系統備份"
+    expected_evidence: "OS 組態、政策、更新與備份紀錄"
+    related_rule_ids: ["AU-01", "AU-02", "DP-04", "BC-01"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P07
+    section: "第五章：網站安全防護措施"
+    source_item: "P-07"
+    pdf_page: 8
+    title: "軟體更新與漏洞修補"
+    verification_mode: hybrid
+    review_steps: "核對應用與 OS 版本、修補程序；備份不視為修補替代"
+    expected_evidence: "相依套件清單、修補單及主機修補證據"
+    related_rule_ids: ["DP-01", "DP-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P08
+    section: "第五章：網站安全防護措施"
+    source_item: "P-08"
+    pdf_page: 9
+    title: "密碼管理與存取權限"
+    verification_mode: hybrid
+    review_steps: "核對最小權限、各帳號獨立性、管理員密碼策略與上傳執行檔限制"
+    expected_evidence: "權限設計、密碼政策、上傳程式碼及 ACL"
+    related_rule_ids: ["AC-04", "AU-01", "AU-02", "IN-06"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P09
+    section: "第五章：網站安全防護措施"
+    source_item: "P-09"
+    pdf_page: 9
+    title: "網站程式碼審查"
+    verification_mode: source
+    review_steps: "執行原始碼與設定查核，包含身分鑑別、資料流、加密與 SQL 注入"
+    expected_evidence: "程式碼位置、呼叫鏈與查核 Finding"
+    related_rule_ids: ["IN-01", "IN-05", "AU-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P10
+    section: "第五章：網站安全防護措施"
+    source_item: "P-10"
+    pdf_page: 9
+    title: "HTTPS 傳輸安全"
+    verification_mode: hybrid
+    review_steps: "追查敏感資料通道與 HTTPS/TLS 強制使用；檢查實際憑證與版本需部署佐證"
+    expected_evidence: "TLS 設定、路由設定及部署檢測"
+    related_rule_ids: ["CR-01", "AU-04"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P11
+    section: "第五章：網站安全防護措施"
+    source_item: "P-11"
+    pdf_page: 10
+    title: "系統與網站日誌保存"
+    verification_mode: hybrid
+    review_steps: "檢視日誌分離、容量、保存歸檔、備份、異常分析與定期檢視"
+    expected_evidence: "日誌配置、保存政策與分析紀錄"
+    related_rule_ids: ["LG-01", "LG-05", "LG-07"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P12
+    section: "第五章：網站安全防護措施"
+    source_item: "P-12"
+    pdf_page: 10
+    title: "安全遠端管理與內容更新"
+    verification_mode: hybrid
+    review_steps: "檢視 MFA/金鑰、IP 與 VPN 限制、SSH/HTTPS、最小權限、預設帳密及檔案共用"
+    expected_evidence: "遠端管理設定、網路政策與登入紀錄"
+    related_rule_ids: ["AC-03", "AC-04", "AU-09", "EH-06", "DP-03"]
+    mapping_type: related_control_not_full_equivalence
+  - id: TACERT-V2-P13
+    section: "第五章：網站安全防護措施"
+    source_item: "P-13"
+    pdf_page: 10
+    title: "網站安全掃描與滲透測試"
+    verification_mode: external
+    review_steps: "核對定期掃描 Web/動態內容/基礎網路、工具更新、滲透測試及弱點改善追蹤"
+    expected_evidence: "掃描結果、滲透測試報告、追蹤與複測紀錄"
+    related_rule_ids: ["DP-01", "DP-04", "SI-01"]
+    mapping_type: related_control_not_full_equivalence

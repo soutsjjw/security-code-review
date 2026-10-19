@@ -6,12 +6,32 @@ import argparse
 import json
 import subprocess
 import sys
+import yaml
 from collections import Counter
 from datetime import date
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
+TACERT_V2_FILE = SKILL_ROOT / "standards" / "tacert-v2-checklist.yaml"
+
+
+def load_tacert_v2_checks(rules: list[dict]) -> dict[str, list[dict]]:
+    """將 TACERT V2 各補充要求掛到既有規則；不變更 70 項身分與進度模型。"""
+    data = yaml.safe_load(TACERT_V2_FILE.read_text(encoding="utf-8"))
+    mapped = {rule["id"]: [] for rule in rules}
+    for entry in data["checks"]:
+        for rid in entry["related_rule_ids"]:
+            if rid not in mapped:
+                raise ValueError(f"TACERT V2 檢核對應未知規則：{rid}")
+            mapped[rid].append({
+                "id": entry["id"], "title": entry["title"],
+                "pdf_page": entry["pdf_page"],
+                "verification_mode": entry["verification_mode"],
+                "review_steps": entry["review_steps"],
+                "expected_evidence": entry["expected_evidence"],
+            })
+    return mapped
 
 
 def load_rules() -> tuple[dict, list[dict]]:
@@ -74,10 +94,12 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
     illegal = sorted(set(states) - {"pending", "completed", "blocked"})
     if illegal:
         raise ValueError("無效執行狀態：" + ", ".join(illegal))
+    tacert_by_rule = load_tacert_v2_checks(rules)
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     selected = remaining[:batch_size]
     return {
         "total": 70,
+        "tacert_v2_supplemental_items": 39,
         "completed": states.get("completed", 0),
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
@@ -92,12 +114,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
             "inspection_hints": r.get("inspection", {}).get("legacy_inspection_hints", []),
             "verification_method": r.get("inspection", {}).get("verification_method", ""),
             "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
-            "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", "")
+            "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
+            "tacert_v2_checks": tacert_by_rule[r["id"]]
         } for r in selected],
         "instruction": ("已完成全部 70 項，執行 complete_review.py 並驗證 HTML/JSON。"
                         if not remaining else
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
-                        "不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
+                        "逐項納入 tacert_v2_checks 可驗證內容，無部署/動態佐證時清楚記錄待確認；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
 
 
