@@ -21,6 +21,7 @@ class NicsWebGuideV32Tests(unittest.TestCase):
         self.assertEqual(len(doc["controls"]), 29)
         topics = [t for c in doc["controls"] for t in c["implementation_topics"]]
         self.assertEqual(len(topics), 35)
+        self.assertTrue(all(t["observed_levels"] and t["levels_evidence"] for t in topics))
         self.assertEqual(len({t["source_section"] for t in topics}), 35)
         counts = {area: sum(c["source_section"].startswith(area + ".") for c in doc["controls"])
                   for area in ("4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7")}
@@ -45,6 +46,7 @@ class NicsWebGuideV32Tests(unittest.TestCase):
         cat = next(c for c in doc["controls"] if c["source_section"] == "4.5.3")
         entry = next(t for t in cat["implementation_topics"] if t["source_section"] == "4.5.3.4")
         self.assertEqual(entry["pdf_page"], 207)
+        self.assertEqual(entry["observed_levels"], ["中", "高"])
         self.assertIn("CR-05", entry["related_rule_ids"])
         self.assertIn("unsafe-inline", entry["review_focus"])
         self.assertIn("unsafe-eval", entry["review_focus"])
