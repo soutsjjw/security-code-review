@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.6
+# Security Code Review Skill v2.1.7
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -116,6 +116,20 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 - 檔案來源 PDF **不含完整附件一檢核表**；本次只引用正文 80 項和條次，不聲稱已取得附件完整內容。
 
 單一指令仍是 `$security-code-review`，輸出的原始碼審查依然以 70/70 完成為前提。**80 項符合性屬獨立驗證**，缺部署／制度／動態測試記錄時不得宣稱已通過全部基準。
+
+## WEB 應用程式安全參考指引 V3.2：.NET 審查整合
+
+來源：《WEB應用程式安全參考指引》V3.2（114/12/31）。依 PDF 第 4 章整理 **7 大安全構面、29 類控制措施、35 個明確細部條次**，與現有 70 項規則關聯，**不增加成 99/105 項獨立 Code Review 規則**。
+
+- **保留 ASP.NET/.NET 與技術無關的 Web 安全要求；排除 Java、PHP 的程式碼範例、函式庫、技術專屬檢測。** 原有 70 項在其他專案中仍按真實程式碼語言進行通用查核，不因本文件的排除而省略原始碼。
+- 對照資料：`standards/nics-web-guide-v3.2.yaml`（條次、PDF 頁碼、查核方向、相關原有規則、原始碼／混合／外部佐證類型）。
+- 審查佇列 `review_queue.py`：在 `next_checks[].web_guide_v32_checks` 提供 ASP.NET/.NET 與通用 Web 檢查提示，發現缺陷仍依原有規則寫入 Finding 並保留證據。
+- `report.json.web_guide_v32` 與 HTML 新增指引版本化索引；**是技術依據對照，不代表已全部符合或完成外部測試**。
+- 特別強化 **4.5.3.4 HTTP 安全標頭**（既有 `CR-05`），須檢查實際設定值、有效性及 CSP 限制，文件範例出現 `unsafe-inline`、`unsafe-eval`，不得當成建議的安全預設值。
+- V3.2 第 3 章引用 **OWASP Top 10:2021**；OWASP Top 10:2025 依現有獨立標準維護。
+- 上傳 PDF 253 頁最後一頁只有附件 1～3 的標題，**沒有完整附件內容**，不聲稱取得附件的獨立查檢表。
+
+操作仍為 `$security-code-review`，原有 70 項、TACERT 39 焦點、OWASP 2025 十類及 V1.3 80 項獨立防護基準均不變。
 
 ## Codex `/goal` 完整審查指令
 
