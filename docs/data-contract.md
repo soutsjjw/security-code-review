@@ -32,6 +32,8 @@
 
 **project**：每個專案自己的報告標頭資訊。依《資通安全責任等級分級辦法》（115 年 1 月 7 日修正）第 2 至 10 條，`security_level` 只表示**機關資通安全責任等級**，可填 `A`／`B`／`C`／`D`／`E`／`待確認`／`不適用`。未提供時報告顯示「待確認」；填 A～E 級須提供非空白的 `security_level_basis`（權責單位分級認定或核定的日期、文號或其他可核對依據）。不得由原始碼弱點數量自行推定等級。與系統防護需求分級（第 11 條／附表九）和 `presentation.overall_risk` 不同。法規：https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304
 
+**security_level_assessment**：由 Agent 隨 70 項實際審查自動初判，或由報告產生器從 completed 的 inspected_paths 擷取角色／權限程式碼作第 6 條 C 級技術線索。格式為 `{status,level,basis,evidence:[{path,line_start,line_end}],missing_information:[string]}`；無法判定時存「待確認」與原因，不中斷審查，亦不得寫成已核定的 `security_level`。
+
 **presentation**：HTML 顯示所需的額外資料；無資料時顯示明確提示。
 
 ## presentation 選填欄位
