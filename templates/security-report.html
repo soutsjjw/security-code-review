@@ -543,7 +543,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       const tbody=el('tbody');
       for (const cat of cats) {
         const tr=el('tr');
-        tr.append(el('td','small',cat.section+' '+cat.title));
+        tr.append(el('td','small',cat.section+' '+cat.title+'（PDF '+cat.pdf_page+' 頁）'));
         tr.append(el('td','small mono',asArray(cat.related_rule_ids).join('、')));
         tr.append(el('td','small',cat.verification_mode==='source'?'原始碼':cat.verification_mode==='hybrid'?'原始碼＋外部':'外部佐證'));
         const cell=el('td','small');
