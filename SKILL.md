@@ -1,6 +1,6 @@
 ---
 name: security-code-review
-version: 2.1.4-rc1
+version: 2.1.5-rc1
 description: 對目前專案或指定目錄執行公司共用的 70 項原始碼資安審查，驗證證據並自動產生通用離線 HTML 與 JSON 報告。
 argument-hint: "[專案路徑或檢核範圍]"
 ---
@@ -25,9 +25,28 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 ## 自動審查流程
 
+**重要：本 Skill 的使用者交付物是 70 項完整資安審查報告，不是弱點速報、待辦清單或要求先修復的建議。**
+單次執行須主動持續查核直到 70 項完成且 HTML／JSON 驗證通過；僅有真正無法繼續的環境／工具錯誤才停止。
+不得因發現 1～3 項風險、完成少量來源查證、缺少外部部署資訊或看到仍有 pending 就結束並要求使用者再次呼叫 Skill。
+
+### 必須執行的佇列迴圈（Codex／Claude Code）
+
+1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**立即**執行：
+   ```bash
+   python <SKILL_ROOT>/scripts/review_queue.py --target <TARGET_ROOT> --init --batch-size 10
+   ```
+   此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
+2. 使用工具輸出的 `next_checks`、`search_targets`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋、唯讀原始碼檢視、追蹤呼叫與組態、紀錄各項證據、方法和判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核但部署或動態測試仍待確認的規則可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
+3. **每完成一項／每批立即保存** `TARGET_ROOT/reports/security-code-review/assessment.json`，保持既有 Findings 與其他已完成項目，不得將已知風險清空；然後再次執行上方佇列命令（不必重新初始化也可移除 `--init`）。
+4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
+5. 由 Agent 內部呼叫 `complete_review.py`，產出最終 `CodeReview_YYYYMMDD.html`、`report.json` 並驗證。最終答覆優先交付這兩個路徑、70 項狀態摘要與 Finding 數；改善建議應收錄於報告中，不要在最終訊息中先要求修復。
+
+**注意**：`review_queue.py` 只負責初始化、呈現下一批規則及進度計數，不會自行完成原始碼的 70 項判斷。Agent 必須實際使用程式碼／設定證據逐項分析；不得把佇列已列出 70 個 ID 當作審查完成。
+
+
 1. 讀取 `standards/standards-register.yaml`、`policies/applicability-matrix.yaml` 與 `rules/{AC,AU,IN,CR,EH,LG,DP,PD,BC,SI}.yaml`，共 70 項；不得跳過、增加或重編 ID。
 2. 盤點 `TARGET_ROOT` 的語言、框架、認證授權、資料流、儲存、相依套件、部署與 CI/CD；根據 `profiles/project-profile.example.yaml` 辨識適用情境。排除 `.git/`、`reports/`、`.agents/skills/`、`.claude/skills/` 與生成物／相依套件目錄，避免把 Skill 本身當成受測程式碼；不要排除專案的 CI 設定。缺乏政策資料時不擅自決定法規適用級別。
-3. **必須實際逐項執行 70 項檢核，不能只填入 70 個 ID 或一律設為 review 就結束。** 依每條規則的 `inspection.search_targets`、`applicability` 與證據要求搜尋目標專案、追蹤程式碼呼叫鏈並核對組態；可分批掃描，但必須持續直到 70 項各自完成，才允許產製報告。一次呼叫應自動持續，不因找到高風險問題而暫停。每完成一組就將結果保存到受測專案的 `reports/security-code-review/assessment.json`，重新啟動時先載入已查核結果並僅補做尚未完成的 ID；不得憑空標記完成。
+3. **必須按前述佇列迴圈逐項完成 70 項檢核，不能只填入 70 個 ID 或一律設為 review 就結束。** 依每條規則的 `inspection.search_targets`、`applicability` 與證據要求搜尋目標專案、追蹤程式碼呼叫鏈並核對組態；可分批掃描，但必須持續直到 70 項各自完成，才允許產製報告。一次呼叫應自動持續，不因找到高風險問題而暫停。每完成一組就將結果保存到受測專案的 `reports/security-code-review/assessment.json`，重新啟動時先載入已查核結果並僅補做尚未完成的 ID；不得憑空標記完成。
    - 對每項填寫 `execution: {state, methods, summary, inspected_paths?}`；掃描中為 `pending`，已實際執行檢核才標 `completed`，出現無法進行的真正錯誤標 `blocked`。
    - `status` 仍為 `pass`、`fail`、`review` 或 `na`。**review 代表已分析但仍缺部署／政策／人工／動態佐證**，需記錄已完成分析與待補證據，不等於尚未審查；不可隨意推定 pass。
    - **審查是識別風險並產出報告，不是修復程式。** 發現密碼鎖定、例外訊息、TOTP 或任何疑似漏洞時，立即將已確認風險保存為 `assessment.findings[]`、將相應檢核狀態更新為 `fail` 或證據尚不足時 `review`，並保存檔案、行號、佐證、影響、改善建議與信心水準。接著**繼續剩餘檢核**，不得把「需要優先處理／修復」當作停止掃描、要求使用者先改程式或提前交付部分結果的理由。風險優先級僅用於最後報告排序，所有改碼與修補皆屬後續獨立工作。
@@ -47,7 +66,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 
    Windows Python Launcher 可使用 `py -3` 代替 `python`。程式從 `SKILL_ROOT` 載入規則、Schema 和 HTML 模板，將所有報告寫在 `TARGET_ROOT/reports/security-code-review/`，並串接原有檢核 JSON、HTML 生成及最終驗證。
 6. 若 Python 或相依套件尚未安裝，清楚提示一次性安裝指令 `python -m pip install -r <SKILL_ROOT>/requirements.txt`，**不要自行變更全域環境或假稱 HTML 已產生**。如果工具執行環境允許隔離虛擬環境，可先取得使用者許可再安裝。
-7. 逐項確認 `completed` 數量為 70 才執行報告程序。若仍有 `pending`／`blocked`，應優先繼續查核其餘項目；僅真正的執行阻礙或工作階段限制才回報中斷，並列出已保存的進度及續跑方式。**不要以 3 個優先弱點或部分分析代替最終 HTML／JSON**。只有三階段程式都返回 0，才能回報 HTML／JSON 已驗證；列出實際路徑、弱點數與未能驗證的範圍。原始碼取證須填相對 `TARGET_ROOT` 的檔案與真實行號，避免輸出 Token、密碼與個資。
+7. 逐項確認 `completed` 數量為 70 才執行報告程序。若仍有 `pending`／`blocked`，必須主動執行佇列迴圈查核其餘項目；**只有真正無法繼續的執行阻礙才回報中斷**，並列出已保存的進度與確切錯誤，不得因一般審查工作尚多就結束。**不要以 3 個優先弱點或部分分析代替最終 HTML／JSON**。只有三階段程式都返回 0，才能回報 HTML／JSON 已驗證；列出實際路徑、弱點數與未能驗證的範圍。原始碼取證須填相對 `TARGET_ROOT` 的檔案與真實行號，避免輸出 Token、密碼與個資。
 
 ## 報告輸出位置
 
@@ -62,6 +81,8 @@ argument-hint: "[專案路徑或檢核範圍]"
 ```
 
 ## 執行與交付準則
+
+- 除非確有阻斷錯誤，**禁止回覆「70 項都是 pending／只有三項發現／請下次續跑」並直接結束**；那只是尚未開始佇列迴圈。必須立即啟動查核直到 `ready_for_report=true`。
 
 - 使用者只下達一次 `$security-code-review`；Agent 應自行分析、持續審查與產生報告，不因風險發現或唯讀編碼回退詢問「是否繼續／是否先修復／是否允許解碼」。
 - 分批完成 70 項時，持續更新暫存審查資料。只有實際檢核完成才能把 `execution.state` 由 `pending` 改成 `completed`。

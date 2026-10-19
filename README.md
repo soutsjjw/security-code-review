@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.4
+# Security Code Review Skill v2.1.5
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -57,6 +57,17 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 ```
 
 從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需確認目標 `develop` 分支包含最新版套件**，否則遠端不會包含最新版功能。
+
+## 70 項審查的實際執行迴圈
+
+單次 `$security-code-review` 由 Codex 自動進行下列工作：
+
+1. 呼叫 `scripts/review_queue.py --target <TARGET_ROOT> --init --batch-size 10`。若既有 `assessment.json`，保留所有 Finding 與查核結果。
+2. 依工具列出的待辦規則實際讀取受測程式、追蹤呼叫鏈、驗證證據；發現弱點就寫入 Finding，**不要先修補**。
+3. 每批完成就儲存 `assessment.json`、再次取得下一批，直到 `ready_for_report=true`（70 項皆已審查）。缺外部證據時採已查核的 `review`，不得直接跳過，也不得因此結束工作。
+4. 由 Agent 執行 `complete_review.py`，自動產生並驗證報告後交付 HTML／JSON 路徑。
+
+排程工具只提供待檢核佇列與進度統計，**不是會自動判斷漏洞的靜態掃描器**；70 項實質查核仍須由 Codex 完成。若遇到真實阻斷錯誤才停止，並說明原因。
 
 ## 混合來源編碼及完整檢核
 
