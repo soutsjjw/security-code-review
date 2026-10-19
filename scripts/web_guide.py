@@ -34,6 +34,7 @@ def load_web_guide(rules: list[dict]) -> dict:
         if (row.get("id") != "NICS-WEB-" + row.get("source_section", "")
                 or row.get("mapping_type") != "related_guidance_not_full_equivalence"
                 or row.get("verification_mode") not in ("source", "hybrid", "external")
+                or not isinstance(row.get("pdf_page"), int)
                 or not row.get("review_focus")
                 or not set(row.get("related_rule_ids", [])).issubset(valid_ids)):
             raise ValueError("V3.2 控制對照或查核方向不完整：" + str(row.get("id")))
@@ -61,6 +62,7 @@ def web_guide_review_hints(rules: list[dict]) -> dict[str, list[dict]]:
             related_topics = [t for t in cat["implementation_topics"] if rid in t["related_rule_ids"]]
             mapped[rid].append({
                 "id": cat["id"], "section": cat["source_section"], "title": cat["title"],
+                "pdf_page": cat["pdf_page"],
                 "verification_mode": cat["verification_mode"],
                 "review_focus": cat["review_focus"],
                 "implementation_topics": [{
@@ -91,6 +93,7 @@ def build_web_guide_index(rules: list[dict]) -> dict:
         "assessment_note": "此為技術檢查指引與原有 70 項的一對多交叉索引；無獨立符合性判定或新進度數量。",
         "controls": [{
             "id": c["id"], "section": c["source_section"], "title": c["title"],
+            "pdf_page": c["pdf_page"],
             "verification_mode": c["verification_mode"],
             "related_rule_ids": c["related_rule_ids"],
             "review_focus": c["review_focus"],
