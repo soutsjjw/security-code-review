@@ -16,7 +16,8 @@
       "Java",
       "PHP"
     ],
-    "note": "排除 Java 與 PHP 程式碼範例、框架 API 與語言專屬檢查提示；不影響原有 70 項對其他受測檔案之通用審查。"
+    "note": "排除 Java 與 PHP 程式碼範例、框架 API 與語言專屬檢查提示；不影響原有 70 項對其他受測檔案之通用審查。",
+    "level_usage_note": "observed_levels 為該細部條次關聯實作表至少一項建議出現的普／中／高等級；若同節含多個實作項目，並不代表每個細項都適用所有列出的級別，不可依此直接推定合規或自動 N/A。"
   },
   "owasp_reference_in_document": "OWASP Top 10:2021",
   "latest_owasp_covered_separately": "OWASP Top 10:2025",
@@ -52,7 +53,13 @@
             "AC-02"
           ],
           "verification_mode": "source",
-          "review_focus": "確認伺服器端閒置時間與登出後憑證/Session 撤銷；文件提供至多30分鐘建議，依適用級別與系統政策檢查"
+          "review_focus": "確認伺服器端閒置時間與登出後憑證/Session 撤銷；文件提供至多30分鐘建議，依適用級別與系統政策檢查",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 43 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.1.1.2",
@@ -63,7 +70,13 @@
             "AC-03"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢視 ASP.NET 管理端存取限制與 Proxy Header 信任邊界；用戶端可控制的 X-Forwarded-For 不得直接視為可信"
+          "review_focus": "檢視 ASP.NET 管理端存取限制與 Proxy Header 信任邊界；用戶端可控制的 X-Forwarded-For 不得直接視為可信",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 49 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -91,7 +104,12 @@
             "AC-05"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查角色/服務帳號最小權限，實際主機權限需外部證據"
+          "review_focus": "檢查角色/服務帳號最小權限，實際主機權限需外部證據",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 54 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -120,7 +138,13 @@
             "AC-08"
           ],
           "verification_mode": "source",
-          "review_focus": "檢查 ASP.NET Middleware/Filter 或授權服務是否集中拒絕未授權呼叫"
+          "review_focus": "檢查 ASP.NET Middleware/Filter 或授權服務是否集中拒絕未授權呼叫",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 61 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.1.3.2",
@@ -132,7 +156,13 @@
             "AC-08"
           ],
           "verification_mode": "source",
-          "review_focus": "避免個別控制器略過集中授權規則"
+          "review_focus": "避免個別控制器略過集中授權規則",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "本節引用 4.1.3.1 同一實作建議表"
         }
       ]
     },
@@ -158,7 +188,13 @@
             "LG-01"
           ],
           "verification_mode": "source",
-          "review_focus": "核對重要登入與資源事件的日誌呼叫"
+          "review_focus": "核對重要登入與資源事件的日誌呼叫",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 70 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.2.1.2",
@@ -169,7 +205,13 @@
             "LG-02"
           ],
           "verification_mode": "source",
-          "review_focus": "檢查管理功能審計事件及主體識別"
+          "review_focus": "檢查管理功能審計事件及主體識別",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "本節引用 4.2.1.1 同一實作建議表"
         }
       ]
     },
@@ -198,7 +240,13 @@
             "LG-08"
           ],
           "verification_mode": "source",
-          "review_focus": "核對日誌時間、事件類型、主體與敏感資訊遮蔽"
+          "review_focus": "核對日誌時間、事件類型、主體與敏感資訊遮蔽",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 74 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -223,7 +271,13 @@
             "LG-05"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查設定與容量告警，實際容量另佐證"
+          "review_focus": "檢查設定與容量告警，實際容量另佐證",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 78 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -277,7 +331,13 @@
             "LG-07"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查日誌讀取權限設定及權限稽核"
+          "review_focus": "檢查日誌讀取權限設定及權限稽核",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 95 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.2.6.2",
@@ -289,7 +349,11 @@
             "BC-01"
           ],
           "verification_mode": "external",
-          "review_focus": "外部日誌備份策略及執行紀錄"
+          "review_focus": "外部日誌備份策略及執行紀錄",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 98 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.2.6.3",
@@ -301,7 +365,11 @@
             "CR-04"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查加密設定與實際金鑰控管"
+          "review_focus": "檢查加密設定與實際金鑰控管",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 101 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -328,7 +396,13 @@
             "BC-05"
           ],
           "verification_mode": "external",
-          "review_focus": "備份週期、版本及還原測試證據"
+          "review_focus": "備份週期、版本及還原測試證據",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 106 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -355,7 +429,11 @@
             "BC-07"
           ],
           "verification_mode": "external",
-          "review_focus": "替代服務及切換演練記錄"
+          "review_focus": "替代服務及切換演練記錄",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 108 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -381,7 +459,11 @@
             "AU-09"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "查核 MFA 實作與身分提供者政策"
+          "review_focus": "查核 MFA 實作與身分提供者政策",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 110 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -412,7 +494,13 @@
             "AU-02"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "比對系統政策，定期輪替須依適用政策與等效控制判斷"
+          "review_focus": "比對系統政策，定期輪替須依適用政策與等效控制判斷",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 117 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.4.2.2",
@@ -423,7 +511,13 @@
             "AU-02"
           ],
           "verification_mode": "source",
-          "review_focus": "檢查是否與前三次歷史密碼重複（需先核對適用政策）"
+          "review_focus": "檢查是否與前三次歷史密碼重複（需先核對適用政策）",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 119 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.4.2.3",
@@ -434,7 +528,13 @@
             "AU-03"
           ],
           "verification_mode": "source",
-          "review_focus": "依文件的失敗驗證保護建議查核；不能只看是否有鎖定函式"
+          "review_focus": "依文件的失敗驗證保護建議查核；不能只看是否有鎖定函式",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 123 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.4.2.4",
@@ -446,7 +546,13 @@
             "CR-01"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查認證資訊傳輸與實際 TLS 強制"
+          "review_focus": "檢查認證資訊傳輸與實際 TLS 強制",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 134 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.4.2.5",
@@ -458,7 +564,12 @@
             "AU-05"
           ],
           "verification_mode": "source",
-          "review_focus": "速率限制、鎖定與風險防護，不以有 CAPTCHA 函式便判通過"
+          "review_focus": "速率限制、鎖定與風險防護，不以有 CAPTCHA 函式便判通過",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 135 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.4.2.6",
@@ -469,7 +580,12 @@
             "AU-06"
           ],
           "verification_mode": "source",
-          "review_focus": "檢查令牌時效、不可重用、不可預測與身分核實"
+          "review_focus": "檢查令牌時效、不可重用、不可預測與身分核實",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 142 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -494,7 +610,13 @@
             "AU-07"
           ],
           "verification_mode": "source",
-          "review_focus": "遮罩、帳號枚舉與錯誤資訊洩漏"
+          "review_focus": "遮罩、帳號枚舉與錯誤資訊洩漏",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 149 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -521,7 +643,12 @@
             "AU-08"
           ],
           "verification_mode": "source",
-          "review_focus": "檢查密碼專用的安全 KDF、鹽與敏感資料不明文"
+          "review_focus": "檢查密碼專用的安全 KDF、鹽與敏感資料不明文",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 151 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -561,7 +688,13 @@
             "BC-04"
           ],
           "verification_mode": "external",
-          "review_focus": "提供安全需求與核准證據"
+          "review_focus": "提供安全需求與核准證據",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 160 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -620,7 +753,13 @@
             "IN-08"
           ],
           "verification_mode": "source",
-          "review_focus": "核對真實資料流及注入、越權風險；本文背景 OWASP 為 2021，2025 另以現有目錄對照"
+          "review_focus": "核對真實資料流及注入、越權風險；本文背景 OWASP 為 2021，2025 另以現有目錄對照",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 165 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.5.3.2",
@@ -633,7 +772,13 @@
             "EH-03"
           ],
           "verification_mode": "source",
-          "review_focus": "檢查例外路徑、敏感訊息及資源釋放"
+          "review_focus": "檢查例外路徑、敏感訊息及資源釋放",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 191 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.5.3.3",
@@ -644,7 +789,11 @@
             "EH-04"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "程式通知邏輯與監控通知送達需分開佐證"
+          "review_focus": "程式通知邏輯與監控通知送達需分開佐證",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 200 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.5.3.4",
@@ -656,7 +805,12 @@
             "CR-06"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查 CSP/HSTS/nosniff/X-Frame-Options/Referrer-Policy/Permissions-Policy；不要沿用文件的 unsafe-inline 或 unsafe-eval 範例視為安全"
+          "review_focus": "檢查 CSP/HSTS/nosniff/X-Frame-Options/Referrer-Policy/Permissions-Policy；不要沿用文件的 unsafe-inline 或 unsafe-eval 範例視為安全",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 207 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -701,7 +855,13 @@
             "DP-04"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "核對組態/套件版本，部署主機狀態另佐證"
+          "review_focus": "核對組態/套件版本，部署主機狀態另佐證",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 212 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.5.5.2",
@@ -713,7 +873,13 @@
             "EH-06"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "檢查來源與部署密碼政策"
+          "review_focus": "檢查來源與部署密碼政策",
+          "observed_levels": [
+            "普",
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 216 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -782,7 +948,12 @@
             "AU-04"
           ],
           "verification_mode": "hybrid",
-          "review_focus": "查驗 TLS/HTTPS 配置與實際憑證"
+          "review_focus": "查驗 TLS/HTTPS 配置與實際憑證",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 220 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.6.1.2",
@@ -793,7 +964,11 @@
             "CR-02"
           ],
           "verification_mode": "source",
-          "review_focus": "查驗程式庫與加密演算法使用"
+          "review_focus": "查驗程式庫與加密演算法使用",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 233 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -820,7 +995,11 @@
             "CR-04"
           ],
           "verification_mode": "source",
-          "review_focus": "確認密碼、金鑰與機敏資料的持久化儲存方式"
+          "review_focus": "確認密碼、金鑰與機敏資料的持久化儲存方式",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 239 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         },
         {
           "id": "NICS-WEB-4.6.2.2",
@@ -832,7 +1011,11 @@
             "CR-04"
           ],
           "verification_mode": "source",
-          "review_focus": "安全金鑰管理與資料加密"
+          "review_focus": "安全金鑰管理與資料加密",
+          "observed_levels": [
+            "高"
+          ],
+          "levels_evidence": "PDF 第 241 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     },
@@ -889,7 +1072,12 @@
             "IN-05"
           ],
           "verification_mode": "source",
-          "review_focus": "所有不可信資料須有伺服器端驗證並使用具脈絡的編碼"
+          "review_focus": "所有不可信資料須有伺服器端驗證並使用具脈絡的編碼",
+          "observed_levels": [
+            "中",
+            "高"
+          ],
+          "levels_evidence": "PDF 第 245 頁起，本節實作建議表的 ◎ 欄位（可能位於後續頁）"
         }
       ]
     }
