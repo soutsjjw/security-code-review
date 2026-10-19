@@ -10,6 +10,7 @@ from pathlib import Path
 from report_common import ROOT, load_json, render_html, validate_data, validate_html
 from source_reader import DEFAULT_LEGACY_ENCODINGS
 from scope_inventory import build_scope_inventory
+from security_level import infer_security_level
 
 
 def parse_args():
@@ -56,6 +57,14 @@ def main() -> int:
                 ],
                 'presentation': load_json(a.presentation) if a.presentation else {},
             }
+        # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
+        project = data['project']
+        if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E'):
+            if 'security_level_assessment' not in project:
+                encodings = tuple(x.strip() for x in a.source_encodings.split(',') if x.strip())
+                project['security_level_assessment'] = infer_security_level(
+                    data['assessment'], a.source_root, encodings
+                )
         if a.source_root is not None:
             data['scope_inventory'] = build_scope_inventory(data['assessment'], a.source_root)
         result = validate_data(data, rules_path=a.rules, schema_dir=a.schema_dir,
