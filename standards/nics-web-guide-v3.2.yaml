@@ -1,0 +1,897 @@
+# V3.2 第4章 29 類控制、35 個明確細部條次的技術交叉索引（JSON 為 YAML 1.2 有效子集）。
+# 標題與提示為摘要，不是原文完整條款或附件查檢表。
+{
+  "standard_id": "NICS-WEB-GUIDE",
+  "version": "V3.2",
+  "revision_date": "2025-12-31",
+  "source_title": "WEB應用程式安全參考指引",
+  "source_pdf_pages": 253,
+  "source_chapter": "4. Web 應用程式安全開發實務",
+  "scope": {
+    "included": [
+      "ASP.NET/.NET-specific guidance",
+      "Technology-neutral Web security controls"
+    ],
+    "excluded_implementation_technologies": [
+      "Java",
+      "PHP"
+    ],
+    "note": "排除 Java 與 PHP 程式碼範例、框架 API 與語言專屬檢查提示；不影響原有 70 項對其他受測檔案之通用審查。"
+  },
+  "owasp_reference_in_document": "OWASP Top 10:2021",
+  "latest_owasp_covered_separately": "OWASP Top 10:2025",
+  "attachment_status": "上傳的 253 頁 PDF 最後一頁僅列附件 1、2、3 標題，未包含附件正文，故不聲稱已整合附件的詳細規則。",
+  "mapping_type": "related_guidance_not_full_equivalence",
+  "category_count": 29,
+  "implementation_topic_count": 35,
+  "controls": [
+    {
+      "id": "NICS-WEB-4.1.1",
+      "source_section": "4.1.1",
+      "title": "帳號管理",
+      "pdf_page": 43,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AU-01",
+        "AU-10",
+        "LG-01"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "檢查 Session 閒置逾時與登出銷毀、管理端入口限制、帳號生命週期及異常活動；需政策與帳號紀錄佐證",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.1.1.1",
+          "source_section": "4.1.1.1",
+          "pdf_page": 43,
+          "title": "Session 閒置逾時及登出銷毀",
+          "related_rule_ids": [
+            "AC-01",
+            "AC-02"
+          ],
+          "verification_mode": "source",
+          "review_focus": "確認伺服器端閒置時間與登出後憑證/Session 撤銷；文件提供至多30分鐘建議，依適用級別與系統政策檢查"
+        },
+        {
+          "id": "NICS-WEB-4.1.1.2",
+          "source_section": "4.1.1.2",
+          "pdf_page": 49,
+          "title": "管理介面依指定來源與條件限制",
+          "related_rule_ids": [
+            "AC-03"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢視 ASP.NET 管理端存取限制與 Proxy Header 信任邊界；用戶端可控制的 X-Forwarded-For 不得直接視為可信"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.1.2",
+      "source_section": "4.1.2",
+      "title": "最小權限",
+      "pdf_page": 54,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AC-04",
+        "AC-05",
+        "AC-08"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "檢查角色/物件權限與應用程序執行權限；實際 OS/DB 權限需部署證據",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.1.2.1",
+          "source_section": "4.1.2.1",
+          "pdf_page": 54,
+          "title": "依職責分配最低權限",
+          "related_rule_ids": [
+            "AC-04",
+            "AC-05"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查角色/服務帳號最小權限，實際主機權限需外部證據"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.1.3",
+      "source_section": "4.1.3",
+      "title": "遠端存取",
+      "pdf_page": 61,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AC-03",
+        "AC-06",
+        "AC-08",
+        "CR-01"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認 ASP.NET 授權中介軟體或集中授權檢查、遠端登入來源及受信任代理設定",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.1.3.1",
+          "source_section": "4.1.3.1",
+          "pdf_page": 61,
+          "title": "遠端存取授權集中驗證",
+          "related_rule_ids": [
+            "AC-06",
+            "AC-08"
+          ],
+          "verification_mode": "source",
+          "review_focus": "檢查 ASP.NET Middleware/Filter 或授權服務是否集中拒絕未授權呼叫"
+        },
+        {
+          "id": "NICS-WEB-4.1.3.2",
+          "source_section": "4.1.3.2",
+          "pdf_page": 69,
+          "title": "集中檢查資訊系統使用者授權",
+          "related_rule_ids": [
+            "AC-06",
+            "AC-08"
+          ],
+          "verification_mode": "source",
+          "review_focus": "避免個別控制器略過集中授權規則"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.2.1",
+      "source_section": "4.2.1",
+      "title": "稽核事件",
+      "pdf_page": 70,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-01",
+        "LG-02"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "核對登入失敗、重要資料變更與管理者操作事件紀錄及可追溯性",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.2.1.1",
+          "source_section": "4.2.1.1",
+          "pdf_page": 70,
+          "title": "紀錄特定稽核事件",
+          "related_rule_ids": [
+            "LG-01"
+          ],
+          "verification_mode": "source",
+          "review_focus": "核對重要登入與資源事件的日誌呼叫"
+        },
+        {
+          "id": "NICS-WEB-4.2.1.2",
+          "source_section": "4.2.1.2",
+          "pdf_page": 74,
+          "title": "記錄管理者帳號操作",
+          "related_rule_ids": [
+            "LG-02"
+          ],
+          "verification_mode": "source",
+          "review_focus": "檢查管理功能審計事件及主體識別"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.2.2",
+      "source_section": "4.2.2",
+      "title": "稽核紀錄內容",
+      "pdf_page": 74,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-03",
+        "LG-04",
+        "LG-08"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "核對使用者識別碼、正確時戳、功能、事件與結果，避免日誌個資與機密外洩",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.2.2.1",
+          "source_section": "4.2.2.1",
+          "pdf_page": 74,
+          "title": "日誌欄位完整與統一記錄機制",
+          "related_rule_ids": [
+            "LG-03",
+            "LG-04",
+            "LG-08"
+          ],
+          "verification_mode": "source",
+          "review_focus": "核對日誌時間、事件類型、主體與敏感資訊遮蔽"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.2.3",
+      "source_section": "4.2.3",
+      "title": "稽核儲存容量",
+      "pdf_page": 78,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-05"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "檢查日誌容量與滿載處理設定；實際容量政策及監控需佐證",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.2.3.1",
+          "source_section": "4.2.3.1",
+          "pdf_page": 78,
+          "title": "確保稽核紀錄儲存容量",
+          "related_rule_ids": [
+            "LG-05"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查設定與容量告警，實際容量另佐證"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.2.4",
+      "source_section": "4.2.4",
+      "title": "稽核處理失效之回應",
+      "pdf_page": null,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-09",
+        "EH-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認日誌寫入失敗/儲存滿載時的告警與安全降級，不得僅因捕捉例外就視為通過",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.2.5",
+      "source_section": "4.2.5",
+      "title": "時戳及校時",
+      "pdf_page": null,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-06"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "檢查時間格式與統一時區，部署系統時間同步需外部佐證",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.2.6",
+      "source_section": "4.2.6",
+      "title": "稽核資訊之保護",
+      "pdf_page": 95,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-07",
+        "LG-08",
+        "LG-10"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "核對日誌授權、敏感欄位、完整性保護及異地備份；保留與還原證據另驗",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.2.6.1",
+          "source_section": "4.2.6.1",
+          "pdf_page": 95,
+          "title": "稽核資訊存取限制",
+          "related_rule_ids": [
+            "LG-07"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查日誌讀取權限設定及權限稽核"
+        },
+        {
+          "id": "NICS-WEB-4.2.6.2",
+          "source_section": "4.2.6.2",
+          "pdf_page": 98,
+          "title": "異地備份稽核紀錄",
+          "related_rule_ids": [
+            "LG-07",
+            "BC-01"
+          ],
+          "verification_mode": "external",
+          "review_focus": "外部日誌備份策略及執行紀錄"
+        },
+        {
+          "id": "NICS-WEB-4.2.6.3",
+          "source_section": "4.2.6.3",
+          "pdf_page": 101,
+          "title": "稽核資訊加密保護",
+          "related_rule_ids": [
+            "LG-07",
+            "CR-04"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查加密設定與實際金鑰控管"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.3.1",
+      "source_section": "4.3.1",
+      "title": "資訊系統備份",
+      "pdf_page": 106,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-01",
+        "BC-05"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "查核備份設定、頻率與還原測試，不能以原始碼存在推論備份成功",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.3.1.1",
+          "source_section": "4.3.1.1",
+          "pdf_page": 106,
+          "title": "系統原始碼與資料備份",
+          "related_rule_ids": [
+            "BC-01",
+            "BC-05"
+          ],
+          "verification_mode": "external",
+          "review_focus": "備份週期、版本及還原測試證據"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.3.2",
+      "source_section": "4.3.2",
+      "title": "資訊系統備援",
+      "pdf_page": 108,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-03",
+        "BC-07"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "核對服務備援/切換與演練證據，不以原始碼自行判定可用性",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.3.2.1",
+          "source_section": "4.3.2.1",
+          "pdf_page": 108,
+          "title": "原服務中斷時啟動備援",
+          "related_rule_ids": [
+            "BC-03",
+            "BC-07"
+          ],
+          "verification_mode": "external",
+          "review_focus": "替代服務及切換演練記錄"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.4.1",
+      "source_section": "4.4.1",
+      "title": "內部使用者之識別與鑑別",
+      "pdf_page": 110,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AU-01",
+        "AU-09"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "核對內部帳號驗證、MFA 及外部 IdP 控制責任",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.4.1.1",
+          "source_section": "4.4.1.1",
+          "pdf_page": 110,
+          "title": "內部帳號多重身分驗證",
+          "related_rule_ids": [
+            "AU-09"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "查核 MFA 實作與身分提供者政策"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.4.2",
+      "source_section": "4.4.2",
+      "title": "身分鑑別管理",
+      "pdf_page": 117,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-01",
+        "AU-02",
+        "AU-03",
+        "AU-04",
+        "AU-05",
+        "AU-06"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "查核密碼政策、歷史、失敗次數防護、驗證資料加密及重設流程，依適用政策判定",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.4.2.1",
+          "source_section": "4.4.2.1",
+          "pdf_page": 117,
+          "title": "密碼複雜度及長度效期",
+          "related_rule_ids": [
+            "AU-01",
+            "AU-02"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "比對系統政策，定期輪替須依適用政策與等效控制判斷"
+        },
+        {
+          "id": "NICS-WEB-4.4.2.2",
+          "source_section": "4.4.2.2",
+          "pdf_page": 119,
+          "title": "密碼歷史重複限制",
+          "related_rule_ids": [
+            "AU-02"
+          ],
+          "verification_mode": "source",
+          "review_focus": "檢查是否與前三次歷史密碼重複（需先核對適用政策）"
+        },
+        {
+          "id": "NICS-WEB-4.4.2.3",
+          "source_section": "4.4.2.3",
+          "pdf_page": 123,
+          "title": "登入失敗次數與鎖定",
+          "related_rule_ids": [
+            "AU-03"
+          ],
+          "verification_mode": "source",
+          "review_focus": "依文件的失敗驗證保護建議查核；不能只看是否有鎖定函式"
+        },
+        {
+          "id": "NICS-WEB-4.4.2.4",
+          "source_section": "4.4.2.4",
+          "pdf_page": 134,
+          "title": "身分鑑別資料不明文傳輸",
+          "related_rule_ids": [
+            "AU-04",
+            "CR-01"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查認證資訊傳輸與實際 TLS 強制"
+        },
+        {
+          "id": "NICS-WEB-4.4.2.5",
+          "source_section": "4.4.2.5",
+          "pdf_page": 135,
+          "title": "自動化登入或密碼變更防護",
+          "related_rule_ids": [
+            "AU-03",
+            "AU-05"
+          ],
+          "verification_mode": "source",
+          "review_focus": "速率限制、鎖定與風險防護，不以有 CAPTCHA 函式便判通過"
+        },
+        {
+          "id": "NICS-WEB-4.4.2.6",
+          "source_section": "4.4.2.6",
+          "pdf_page": 142,
+          "title": "身分驗證後的一次性密碼重設符記",
+          "related_rule_ids": [
+            "AU-06"
+          ],
+          "verification_mode": "source",
+          "review_focus": "檢查令牌時效、不可重用、不可預測與身分核實"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.4.3",
+      "source_section": "4.4.3",
+      "title": "鑑別資訊回饋",
+      "pdf_page": 149,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-07"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認密碼欄位遮蔽、錯誤訊息不洩漏帳號存在及認證資訊",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.4.3.1",
+          "source_section": "4.4.3.1",
+          "pdf_page": 149,
+          "title": "遮蔽鑑別過程中的敏感資訊",
+          "related_rule_ids": [
+            "AU-07"
+          ],
+          "verification_mode": "source",
+          "review_focus": "遮罩、帳號枚舉與錯誤資訊洩漏"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.4.4",
+      "source_section": "4.4.4",
+      "title": "加密模組鑑別",
+      "pdf_page": 151,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-08",
+        "CR-02",
+        "CR-03"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認帳號密碼使用具鹽強雜湊及加密金鑰不硬編碼",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.4.4.1",
+          "source_section": "4.4.4.1",
+          "pdf_page": 151,
+          "title": "密碼安全雜湊保存",
+          "related_rule_ids": [
+            "AU-08"
+          ],
+          "verification_mode": "source",
+          "review_focus": "檢查密碼專用的安全 KDF、鹽與敏感資料不明文"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.4.5",
+      "source_section": "4.4.5",
+      "title": "非內部使用者之識別與鑑別",
+      "pdf_page": null,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AU-01",
+        "AU-07",
+        "AC-01"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認對外使用者身分鑑別邊界及匿名/已登入資源存取權限",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.5.1",
+      "source_section": "4.5.1",
+      "title": "安全開發生命週期－需求",
+      "pdf_page": 160,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "需要明確安全需求與驗收基準等文件證據",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.5.1.1",
+          "source_section": "4.5.1.1",
+          "pdf_page": 160,
+          "title": "系統發展需求階段安全要求",
+          "related_rule_ids": [
+            "BC-04"
+          ],
+          "verification_mode": "external",
+          "review_focus": "提供安全需求與核准證據"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.5.2",
+      "source_section": "4.5.2",
+      "title": "安全開發生命週期－設計",
+      "pdf_page": null,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04",
+        "SI-01",
+        "AC-08"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "需要威脅建模、風險分析與設計審查紀錄",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.5.3",
+      "source_section": "4.5.3",
+      "title": "安全開發生命週期－開發",
+      "pdf_page": 165,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "IN-01",
+        "IN-02",
+        "IN-03",
+        "IN-04",
+        "IN-05",
+        "IN-06",
+        "IN-07",
+        "IN-08",
+        "EH-01",
+        "EH-02",
+        "EH-04",
+        "CR-05",
+        "CR-06"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "依真實資料流檢查注入、越權、CSRF、錯誤資訊及 HTTP 安全標頭；CSP 需檢查值的有效性",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.5.3.1",
+          "source_section": "4.5.3.1",
+          "pdf_page": 165,
+          "title": "避免常見 Web 軟體弱點",
+          "related_rule_ids": [
+            "IN-01",
+            "IN-02",
+            "IN-03",
+            "IN-04",
+            "IN-05",
+            "IN-06",
+            "IN-07",
+            "IN-08"
+          ],
+          "verification_mode": "source",
+          "review_focus": "核對真實資料流及注入、越權風險；本文背景 OWASP 為 2021，2025 另以現有目錄對照"
+        },
+        {
+          "id": "NICS-WEB-4.5.3.2",
+          "source_section": "4.5.3.2",
+          "pdf_page": 191,
+          "title": "錯誤與例外安全處理",
+          "related_rule_ids": [
+            "EH-01",
+            "EH-02",
+            "EH-03"
+          ],
+          "verification_mode": "source",
+          "review_focus": "檢查例外路徑、敏感訊息及資源釋放"
+        },
+        {
+          "id": "NICS-WEB-4.5.3.3",
+          "source_section": "4.5.3.3",
+          "pdf_page": 200,
+          "title": "嚴重錯誤通知",
+          "related_rule_ids": [
+            "EH-04"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "程式通知邏輯與監控通知送達需分開佐證"
+        },
+        {
+          "id": "NICS-WEB-4.5.3.4",
+          "source_section": "4.5.3.4",
+          "pdf_page": 207,
+          "title": "HTTP 六項安全標頭",
+          "related_rule_ids": [
+            "CR-05",
+            "CR-06"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查 CSP/HSTS/nosniff/X-Frame-Options/Referrer-Policy/Permissions-Policy；不要沿用文件的 unsafe-inline 或 unsafe-eval 範例視為安全"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.5.4",
+      "source_section": "4.5.4",
+      "title": "安全開發生命週期－測試",
+      "pdf_page": null,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "DP-01",
+        "SI-01"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "正式源碼掃描/弱點掃描/滲透測試須另外提供已執行的報告及複測證據",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.5.5",
+      "source_section": "4.5.5",
+      "title": "安全開發生命週期－部署維運",
+      "pdf_page": 212,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "DP-02",
+        "DP-03",
+        "DP-04",
+        "EH-05",
+        "EH-06",
+        "BC-02"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "查核補丁、預設/空白密碼、不必要服務及組態；實際主機狀況須部署證據",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.5.5.1",
+          "source_section": "4.5.5.1",
+          "pdf_page": 212,
+          "title": "部署環境更新修補及最小服務",
+          "related_rule_ids": [
+            "DP-03",
+            "DP-04"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "核對組態/套件版本，部署主機狀態另佐證"
+        },
+        {
+          "id": "NICS-WEB-4.5.5.2",
+          "source_section": "4.5.5.2",
+          "pdf_page": 216,
+          "title": "避免預設或空白密碼",
+          "related_rule_ids": [
+            "DP-02",
+            "EH-06"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "檢查來源與部署密碼政策"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.5.6",
+      "source_section": "4.5.6",
+      "title": "安全開發生命週期－委外",
+      "pdf_page": null,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "委外開發安全條款與驗收要求屬契約、政策或驗收文件",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.5.7",
+      "source_section": "4.5.7",
+      "title": "獲得程序",
+      "pdf_page": null,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "DP-01",
+        "BC-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "供應商/元件採購安全驗證與核准紀錄，非單純程式碼檢查",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.5.8",
+      "source_section": "4.5.8",
+      "title": "資訊系統文件",
+      "pdf_page": null,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04",
+        "BC-06"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "架構圖、安全需求、組態、版本變更與正式文件需核實",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.6.1",
+      "source_section": "4.6.1",
+      "title": "傳輸之機密性與完整性",
+      "pdf_page": 220,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "CR-01",
+        "CR-02",
+        "AU-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "檢查 TLS/HTTPS、弱加密演算法與憑證使用；正式部署加密設定另需檢證",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.6.1.1",
+          "source_section": "4.6.1.1",
+          "pdf_page": 220,
+          "title": "傳輸保護機制",
+          "related_rule_ids": [
+            "CR-01",
+            "AU-04"
+          ],
+          "verification_mode": "hybrid",
+          "review_focus": "查驗 TLS/HTTPS 配置與實際憑證"
+        },
+        {
+          "id": "NICS-WEB-4.6.1.2",
+          "source_section": "4.6.1.2",
+          "pdf_page": 233,
+          "title": "不採用已遭破解演算法",
+          "related_rule_ids": [
+            "CR-02"
+          ],
+          "verification_mode": "source",
+          "review_focus": "查驗程式庫與加密演算法使用"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.6.2",
+      "source_section": "4.6.2",
+      "title": "資料儲存之安全",
+      "pdf_page": 239,
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "CR-03",
+        "CR-04",
+        "PD-05"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認敏感資料靜置加密、金鑰隔離與秘密資訊設定",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.6.2.1",
+          "source_section": "4.6.2.1",
+          "pdf_page": 239,
+          "title": "機密資料儲存情境與風險",
+          "related_rule_ids": [
+            "CR-04"
+          ],
+          "verification_mode": "source",
+          "review_focus": "確認密碼、金鑰與機敏資料的持久化儲存方式"
+        },
+        {
+          "id": "NICS-WEB-4.6.2.2",
+          "source_section": "4.6.2.2",
+          "pdf_page": 241,
+          "title": "機密資訊加密儲存",
+          "related_rule_ids": [
+            "CR-03",
+            "CR-04"
+          ],
+          "verification_mode": "source",
+          "review_focus": "安全金鑰管理與資料加密"
+        }
+      ]
+    },
+    {
+      "id": "NICS-WEB-4.7.1",
+      "source_section": "4.7.1",
+      "title": "漏洞修復",
+      "pdf_page": null,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "DP-01",
+        "DP-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "驗證套件/版本/漏洞處理與修補紀錄，不能因未發現套件 CVE 判定全面符合",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.7.2",
+      "source_section": "4.7.2",
+      "title": "資訊系統監控",
+      "pdf_page": null,
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-01",
+        "EH-04"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "核實監測告警、觸發回報及處置紀錄",
+      "implementation_topics": []
+    },
+    {
+      "id": "NICS-WEB-4.7.3",
+      "source_section": "4.7.3",
+      "title": "軟體及資訊完整性",
+      "pdf_page": 245,
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "IN-05",
+        "LG-10",
+        "SI-01",
+        "SI-02",
+        "SI-03"
+      ],
+      "mapping_type": "related_guidance_not_full_equivalence",
+      "review_focus": "確認伺服器端輸入驗證、可信元件來源及檔案/工件完整性；實際監控另佐證",
+      "implementation_topics": [
+        {
+          "id": "NICS-WEB-4.7.3.1",
+          "source_section": "4.7.3.1",
+          "pdf_page": 245,
+          "title": "伺服器端使用者輸入合法性驗證",
+          "related_rule_ids": [
+            "IN-05"
+          ],
+          "verification_mode": "source",
+          "review_focus": "所有不可信資料須有伺服器端驗證並使用具脈絡的編碼"
+        }
+      ]
+    }
+  ]
+}
