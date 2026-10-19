@@ -48,6 +48,17 @@ class ReportingTests(unittest.TestCase):
                 env=dict(os.environ, PYTHONIOENCODING='cp950')
             )
             self.assertNotEqual(result.returncode, 0)
+            self.assertIn('路徑不得超出受測專案', result.stderr)
+
+    def test_source_reader_cli_rejects_absolute_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, str(HERE / 'scripts/source_reader.py'),
+                 '--source-root', tmp, '--path', 'C:/outside.cs'],
+                text=True, capture_output=True, encoding='utf-8',
+                env=dict(os.environ, PYTHONIOENCODING='cp950')
+            )
+            self.assertNotEqual(result.returncode, 0)
             self.assertIn('來源路徑必須是相對路徑', result.stderr)
 
     def test_mixed_source_encodings(self):
