@@ -35,6 +35,11 @@ def main() -> int:
     import argparse
     import sys
 
+    # Windows 重導向管線可能是 CP950；包含 argparse 錯誤訊息也統一輸出 UTF-8。
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(description="安全解碼來源檔，不需互動確認也不會修改原檔")
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--path", required=True, help="相對於 source-root 的檔案路徑")
@@ -59,8 +64,6 @@ def main() -> int:
         return 2
     if encoding in encodings:
         print(f"WARN: {candidate}: 使用候選舊式編碼 {encoding} 唯讀解碼，請在審查限制記錄", file=sys.stderr)
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
     for line_no, line in enumerate(source.splitlines(), 1):
         if args.start <= line_no <= args.end:
             print(f"{line_no}: {line}")
