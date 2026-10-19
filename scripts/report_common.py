@@ -9,6 +9,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
+from system_baseline import validate_system_baseline
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -156,6 +157,8 @@ def validate_data(
         result.errors.append('assessment.ruleset_version 與 rules.json 的規則版本不符')
 
     result.errors.extend(completion_errors(assessment['checks'], allow_demo=allow_demo))
+    if 'system_baseline' in data:
+        result.errors.extend(validate_system_baseline(data['project'], data['system_baseline']))
     checks = {c['id']: c for c in assessment['checks']}
     if len(checks) != 70 or set(checks) != set(master):
         result.errors.append('assessment.checks 必須包含 70 個不重複且與規則主檔相符的 ID')
@@ -380,7 +383,7 @@ def validate_html(html: str, data: dict[str, Any], template: str | None = None) 
         result.errors.append('HTML 內嵌資料與 report.json 不一致')
     essential = {'summary', 'high', 'priority', 'strengths', 'checklist', 'findings', 'scope',
                  'stFilter', 'sevFilter', 'themeToggle', 'report-data', 'statusStats',
-                 'severityStats', 'checklistContent', 'findingDetails', 'owasp2025Content'}
+                 'severityStats', 'checklistContent', 'findingDetails', 'owasp2025Content', 'systemBaselineContent'}
     if not essential.issubset(set(tree.ids)):
         result.errors.append('HTML 缺少必要節點：' + ', '.join(sorted(essential - set(tree.ids))))
     for link in tree.hash_links:
