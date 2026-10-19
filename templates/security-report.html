@@ -141,7 +141,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="loadNotice" class="notice" role="status" hidden></div>
   <nav class="toc" aria-label="報告導覽">
     <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
-    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
   </nav>
 
   <h2 id="summary">基本資訊與摘要</h2>
@@ -180,6 +180,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     <button type="button" data-f="missing" aria-pressed="false">未評估</button>
   </div>
   <div id="checklistContent"></div>
+
+  <h2 id="owasp2025">OWASP Top 10:2025 風險分類對照</h2>
+  <div class="panel" id="owasp2025Content"></div>
 
   <h2 id="findings">發現與改善建議</h2>
   <div class="filters" id="sevFilter" aria-label="風險等級篩選">
@@ -253,7 +256,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   } catch(err) {
     notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
-    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;
   }
 
@@ -422,6 +425,37 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     table.append(tbody);wrap.append(table);d.append(wrap);$('checklistContent').append(d);
   }
   if(!canonicalRules.length) $('checklistContent').append(empty('尚未提供檢核規則目錄。'));
+
+  // OWASP Top 10:2025 僅為風險分類與既有規則的交叉索引；結果不能當成全類別通過。
+  const owContainer=$('owasp2025Content');
+  const owCategories=new Map();
+  for(const r of canonicalRules) {
+    for(const item of asArray(r.owasp_2025_categories)) {
+      if(!owCategories.has(item.id)) owCategories.set(item.id,{
+        id:item.id, title:item.title, coverage_gap:item.coverage_gap, rule_ids:[]});
+      owCategories.get(item.id).rule_ids.push(r.id);
+    }
+  }
+  if(!owCategories.size) {
+    owContainer.append(empty('本報告未包含 OWASP Top 10:2025 的版本化風險對照，不能據此宣稱已完成十類風險檢查。'));
+  } else {
+    owContainer.append(el('p','small muted','以下為 OWASP Top 10:2025 的風險類別與既有檢核關聯，不是十項符合／不符合的獨立判定。各關聯檢核狀態僅供追蹤，並需確認未涵蓋範圍與外部證據。TACERT V2 原始文件仍引用 2021 版。'));
+    const wrap=el('div','tablewrap'), table=el('table'), header=el('thead'), hr=el('tr');
+    ['OWASP 2025 類別','關聯規則','關聯檢核結果','尚需確認的範圍'].forEach(t=>hr.append(el('th',null,t)));
+    header.append(hr);table.append(header);
+    const body=el('tbody');
+    for(const item of [...owCategories.values()].sort((a,b)=>a.id.localeCompare(b.id))) {
+      const tr=el('tr');
+      tr.append(el('td',null,item.id+' '+item.title));
+      tr.append(el('td','small mono',item.rule_ids.join('、')));
+      const counts=Object.fromEntries(statusEntries.map(([k])=>[k,item.rule_ids.filter(id=>checksById.get(id)?.status===k).length]));
+      const labels=statusEntries.filter(([k])=>counts[k]).map(([k,name])=>name+' '+counts[k]).join(' · ');
+      tr.append(el('td','small',labels||'未提供結果'));
+      tr.append(el('td','small',item.coverage_gap||'需依系統與外部證據確認完整性'));
+      body.append(tr);
+    }
+    table.append(body);wrap.append(table);owContainer.append(wrap);
+  }
 
   // 弱點明細
   if(!findings.length) $('findingDetails').append(empty('無可展示的已確認發現。'));
