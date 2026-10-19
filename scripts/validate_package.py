@@ -87,6 +87,23 @@ for control in baseline_controls:
  if not set(control['related_rule_ids']).issubset(set(ids)):
   errors.append(f"TW baseline references unknown 70-rule ID: {control['id']}")
 
+# V3.2 Web 指引應包含第 4 章 29 類/35 個細部條次，並嚴格排除 Java/PHP 專屬範例。
+from web_guide import load_web_guide
+guide=load_web_guide(j['rules'])
+guide_categories=guide['controls']
+guide_topics=[t for c in guide_categories for t in c['implementation_topics']]
+if len(guide_categories)!=29 or len(guide_topics)!=35:
+ errors.append('NICS Web guide V3.2 must have 29 categories and 35 detailed topics')
+if guide['scope']['excluded_implementation_technologies']!=['Java','PHP']:
+ errors.append('NICS Web guide must exclude Java and PHP implementation examples')
+for obj in [*guide_categories,*guide_topics]:
+ focus=obj['review_focus'].lower()
+ if 'servlet' in focus or 'jsp' in focus or 'php' in focus:
+  errors.append(f"NICS V3.2 contains excluded implementation language hint: {obj['id']}")
+header=next((t for t in guide_topics if t['source_section']=='4.5.3.4'),None)
+if not header or header['pdf_page']!=207 or not {'CR-05','CR-06'}.issubset(header['related_rule_ids']):
+ errors.append('NICS V3.2 HTTP security header crosswalk missing')
+
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)
