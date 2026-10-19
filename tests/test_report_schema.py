@@ -95,6 +95,30 @@ class ReportSchemaTests(unittest.TestCase):
             data['project'].pop('security_level_basis', None)
             self.assertEqual(self.errors(data), [])
 
+    def test_security_level_preliminary_contract(self):
+        data = copy.deepcopy(self.example)
+        preliminary = {
+            'status': 'preliminary', 'level': 'C',
+            'basis': '已審查角色與權限管理程式碼',
+            'evidence': [{'path': 'src/Api.cs', 'line_start': 11, 'line_end': 11}],
+            'missing_information': ['機關維運與核定結果']
+        }
+        data['project']['security_level_assessment'] = preliminary
+        self.assertEqual(self.errors(data), [])
+        preliminary['evidence'] = []
+        self.assertTrue(self.errors(data))
+        preliminary['status'] = 'undetermined'
+        self.assertTrue(self.errors(data))
+
+    def test_security_level_unknown_contract(self):
+        data = copy.deepcopy(self.example)
+        data['project']['security_level_assessment'] = {
+            'status': 'undetermined', 'level': '待確認',
+            'basis': '未取得機關維運資料', 'evidence': [],
+            'missing_information': ['機關維運與核定結果']
+        }
+        self.assertEqual(self.errors(data), [])
+
     def test_invalid_overall_risk_rejected(self):
         data = copy.deepcopy(self.example)
         data['presentation']['overall_risk']['level'] = 'severe'
