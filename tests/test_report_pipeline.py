@@ -11,6 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE / 'scripts'))
 from report_common import load_json, render_html, validate_data, validate_html, extract_html_report
+from security_level import infer_security_level
 
 
 class ReportingTests(unittest.TestCase):
@@ -210,6 +211,39 @@ class ReportingTests(unittest.TestCase):
             self.assertEqual(validate_html(html, data, self.template).errors, [])
             self.assertEqual(len(extract_html_report(html)[0]['assessment']['findings']), 1)
 
+    def test_auto_security_level_inference_from_completed_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'api').mkdir()
+            (root / 'api' / 'Users.cs').write_text(
+                '// [Authorize(Roles = "Ignored")]\n'
+                '[Authorize(Roles = "Admin")]\n', encoding='utf-8'
+            )
+            data = self.fresh()
+            data['assessment']['checks'][0]['execution'].update(
+                state='completed', methods=['source review'],
+                summary='Reviewed access controls in Users.cs',
+                inspected_paths=['api/Users.cs']
+            )
+            assessment = infer_security_level(data['assessment'], root)
+            self.assertEqual(assessment['status'], 'preliminary')
+            self.assertEqual(assessment['level'], 'C')
+            self.assertEqual(assessment['evidence'][0]['line_start'], 2)
+            data['project']['security_level_assessment'] = assessment
+            self.assertEqual(validate_data(data, allow_demo=True, source_root=root).errors, [])
+            data['assessment']['checks'][0]['execution']['inspected_paths'] = []
+            self.assertIn('inspected_paths', ' '.join(
+                validate_data(data, allow_demo=True, source_root=root).errors))
+
+    def test_auto_security_level_unknown_when_unreviewed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'api.cs').write_text('[Authorize(Roles = "Admin")]\n')
+            assessment = infer_security_level(self.fresh()['assessment'], root)
+            self.assertEqual(assessment['status'], 'undetermined')
+            self.assertEqual(assessment['level'], '待確認')
+            self.assertTrue(assessment['missing_information'])
+
     def test_security_level_display_and_basis(self):
         data = self.fresh()
         data['project']['security_level'] = 'C'
@@ -219,6 +253,7 @@ class ReportingTests(unittest.TestCase):
         self.assertIn('資通安全責任等級（A～E）', page)
         self.assertIn('資通安全責任等級分級辦法', page)
         self.assertIn("project.security_level+' 級'", page)
+        self.assertIn('安全等級判斷說明', page)
         self.assertEqual(validate_html(page, data, self.template).errors, [])
 
     def test_cli_generate_and_validate(self):
