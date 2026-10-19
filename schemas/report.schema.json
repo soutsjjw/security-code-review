@@ -2353,6 +2353,176 @@
         }
       },
       "additionalProperties": false
+    },
+    "web_guide_v32": {
+      "type": "object",
+      "description": "WEB 應用程式安全參考指引 V3.2 第4章29類及35個細部條次索引，不包含 Java/PHP 語言專屬範例。",
+      "required": [
+        "standard_id",
+        "version",
+        "revision_date",
+        "scope",
+        "owasp_reference_in_document",
+        "attachment_status",
+        "category_count",
+        "implementation_topic_count",
+        "assessment_note",
+        "controls"
+      ],
+      "properties": {
+        "standard_id": {
+          "const": "NICS-WEB-GUIDE"
+        },
+        "version": {
+          "const": "V3.2"
+        },
+        "revision_date": {
+          "const": "2025-12-31"
+        },
+        "scope": {
+          "type": "object",
+          "required": [
+            "included",
+            "excluded_implementation_technologies",
+            "note"
+          ],
+          "properties": {
+            "included": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "excluded_implementation_technologies": {
+              "const": [
+                "Java",
+                "PHP"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "owasp_reference_in_document": {
+          "const": "OWASP Top 10:2021"
+        },
+        "attachment_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category_count": {
+          "const": 29
+        },
+        "implementation_topic_count": {
+          "const": 35
+        },
+        "assessment_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "controls": {
+          "type": "array",
+          "minItems": 29,
+          "maxItems": 29,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "section",
+              "title",
+              "verification_mode",
+              "related_rule_ids",
+              "review_focus",
+              "implementation_topics"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^NICS-WEB-4\\.[1-7]\\.\\d+$"
+              },
+              "section": {
+                "type": "string",
+                "pattern": "^4\\.[1-7]\\.\\d+$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "verification_mode": {
+                "enum": [
+                  "source",
+                  "hybrid",
+                  "external"
+                ]
+              },
+              "related_rule_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                }
+              },
+              "review_focus": {
+                "type": "string",
+                "minLength": 1
+              },
+              "implementation_topics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "section",
+                    "pdf_page",
+                    "title",
+                    "verification_mode",
+                    "review_focus"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^NICS-WEB-4\\.[1-7]\\.\\d+\\.\\d+$"
+                    },
+                    "section": {
+                      "type": "string",
+                      "pattern": "^4\\.[1-7]\\.\\d+\\.\\d+$"
+                    },
+                    "pdf_page": {
+                      "type": "integer",
+                      "minimum": 42,
+                      "maximum": 252
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "verification_mode": {
+                      "enum": [
+                        "source",
+                        "hybrid",
+                        "external"
+                      ]
+                    },
+                    "review_focus": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
