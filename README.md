@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.2
+# Security Code Review Skill v2.1.3
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -18,7 +18,7 @@
    ```
 
    也可以指定檢核範圍，如 `$security-code-review src/Api`。Claude Code 改用 `/security-code-review`。**這是 Agent 的聊天指令，不是 PowerShell／Bash 的系統命令。**
-3. Agent 自動盤點專案、完成 70 項檢核，將 `assessment.json` 和專案資訊寫在受測專案內，再呼叫 Python 產生與驗證報告。
+3. Agent 自動盤點專案、**逐項完成 70 項實際檢核**，將 `assessment.json` 和專案資訊寫在受測專案內，再呼叫 Python 產生與驗證報告。
 
 **報告一律輸出至受測專案，不會寫入安裝的 Skill 資料夾：**
 
@@ -32,7 +32,7 @@
     └── CodeReview_YYYYMMDD.html
 ```
 
-沒有外部環境、部署與人工佐證的控制項應標 `review`；不能只靠規則搜尋就宣稱符合。
+已查核但缺少外部環境、部署與人工佐證的控制項可標 `review`，不可將尚未執行者填為 `review`。每項須附 `execution`（`state`、`methods`、`summary`、可選 `inspected_paths`）；正式報告僅接受全部 `completed`。
 
 ## 安裝（只需一次）
 
@@ -57,6 +57,12 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 ```
 
 從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需先將此 v2.1.2 套件提交到該分支**，否則遠端不會包含最新版功能。
+
+## 混合來源編碼及完整檢核
+
+來源程式碼可為 UTF-8、UTF-8-BOM、帶 BOM 的 UTF-16；遇到舊式編碼時預設依序嘗試 CP950、CP1252，並於報告驗證提出警告（此回退不代表百分之百辨識正確）。可在 Agent 內部呼叫時指定 `--source-encodings cp950,cp1252`，絕不修改受測程式碼。JSON／HTML 輸出仍統一 UTF-8。
+
+`status=review` 代表「已執行審查但仍待外部證據」，不是尚未檢核。未完成或阻斷的項目需保留 `execution.state=pending/blocked`，並使正式報告驗證失敗；逐項完成後再產生 HTML。腳本只驗證審查資料，不會取代 Codex 的程式碼分析。
 
 ## Python 是否必要？
 

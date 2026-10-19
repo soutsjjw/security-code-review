@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from report_common import ROOT, extract_html_report, load_json, validate_data, validate_html
+from source_reader import DEFAULT_LEGACY_ENCODINGS
 
 
 def main() -> int:
@@ -19,6 +20,7 @@ def main() -> int:
     p.add_argument('--template', type=Path, default=ROOT/'templates/security-report.html')
     p.add_argument('--source-root', type=Path)
     p.add_argument('--strict-sources', action='store_true')
+    p.add_argument('--source-encodings', default=','.join(DEFAULT_LEGACY_ENCODINGS))
     p.add_argument('--allow-demo', action='store_true')
     args = p.parse_args()
     if args.report is None and args.html is None:
@@ -33,7 +35,8 @@ def main() -> int:
             data, _ = extract_html_report(html)
         result = validate_data(data, rules_path=args.rules, schema_dir=args.schema_dir,
                                source_root=args.source_root, strict_sources=args.strict_sources,
-                               allow_demo=args.allow_demo)
+                               allow_demo=args.allow_demo,
+                               source_encodings=tuple(x.strip() for x in args.source_encodings.split(',') if x.strip()))
         if html is not None:
             template = args.template.read_text(encoding='utf-8')
             checked = validate_html(html, data, template)

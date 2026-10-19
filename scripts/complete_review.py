@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description='完成受測專案的資安報告；輸出到該專案的 reports/security-code-review/')
     p.add_argument('--target', type=Path, default=Path.cwd(), help='受測專案根目錄（預設：目前工作目錄）')
     p.add_argument('--output-dir', default='reports/security-code-review', help='受測專案內報告目錄，相對路徑')
+    p.add_argument('--source-encodings', default='cp950,cp1252', help='舊式來源編碼回退順序')
     return p.parse_args()
 
 
@@ -62,11 +63,11 @@ def main() -> int:
         [sys.executable, str(SKILL_ROOT / 'scripts/validate_assessment.py'), str(assessment)],
         [sys.executable, str(SKILL_ROOT / 'scripts/generate_report.py'),
          '--assessment', str(assessment), '--project', str(project),
-         '--source-root', str(target), '--strict-sources',
+         '--source-root', str(target), '--strict-sources', '--source-encodings', args.source_encodings,
          '--save-report', str(report), '--output', str(html)],
         [sys.executable, str(SKILL_ROOT / 'scripts/validate_report.py'),
          '--report', str(report), '--html', str(html),
-         '--source-root', str(target), '--strict-sources'],
+         '--source-root', str(target), '--strict-sources', '--source-encodings', args.source_encodings],
     ]
     if presentation.is_file():
         steps[1].extend(['--presentation', str(presentation)])

@@ -3,16 +3,19 @@ import json,sys,re
 from pathlib import Path
 from datetime import date
 from jsonschema import Draft202012Validator,FormatChecker
+from review_completion import completion_errors
 
 ROOT=Path(__file__).resolve().parent.parent
-if len(sys.argv)!=2:
- print('Usage: python scripts/validate_assessment.py assessment.json');sys.exit(2)
+if len(sys.argv) not in (2,3) or (len(sys.argv)==3 and sys.argv[2]!='--allow-demo'):
+ print('Usage: python scripts/validate_assessment.py assessment.json [--allow-demo]');sys.exit(2)
 p=Path(sys.argv[1])
+allow_demo='--allow-demo' in sys.argv[2:]
 data=json.loads(p.read_text('utf-8'))
 schema=json.loads((ROOT/'schemas/assessment.schema.json').read_text('utf-8'))
 errs=[e.message for e in Draft202012Validator(schema,format_checker=FormatChecker()).iter_errors(data)]
 valid={r['id'] for r in json.loads((ROOT/'rules.json').read_text('utf-8'))['rules']}
 checks=data.get('checks',[]); ids=[c.get('id') for c in checks]
+errs.extend(completion_errors(checks, allow_demo=allow_demo))
 if set(ids)!=valid or len(ids)!=len(valid): errs.append('checks ID must cover 70 rules exactly once')
 finding_ids={f.get('id') for f in data.get('findings',[])}
 if len(finding_ids)!=len(data.get('findings',[])): errs.append('duplicate finding IDs')
@@ -40,7 +43,7 @@ for e in data.get('exceptions',[]):
  try:
   if date.fromisoformat(e['expires_on'])<date.fromisoformat(data['assessment_date']):errs.append(f"exception {e['id']}: expired")
  except (KeyError,ValueError):pass
-print(f"70 項檢核：{len(checks)}；發現：{len(finding_ids)}；例外：{len(exc_ids)}")
+print(f"70 項檢核：{len(checks)}；已執行：{sum(c.get('execution',{}).get('state')=='completed' for c in checks)}；發現：{len(finding_ids)}；例外：{len(exc_ids)}")
 if errs:
  for e in errs:print('ERROR:',e,file=sys.stderr)
  sys.exit(1)

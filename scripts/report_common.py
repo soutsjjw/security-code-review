@@ -13,6 +13,8 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
+from source_reader import DEFAULT_LEGACY_ENCODINGS, read_source_text
+from review_completion import completion_errors
 
 ROOT = Path(__file__).resolve().parents[1]
 SLOT_RE = re.compile(r'(<script\s+id="report-data"\s+type="application/json">)(.*?)(</script>)', re.DOTALL)
@@ -69,7 +71,7 @@ def get_schema_validator(schema_dir: Path) -> Draft202012Validator:
     return Draft202012Validator(report_schema, registry=registry, format_checker=FormatChecker())
 
 
-def _verify_line(item: dict[str, Any], label: str, source_root: Path | None, result: Result, strict_sources: bool):
+def _verify_line(item: dict[str, Any], label: str, source_root: Path | None, result: Result, strict_sources: bool, source_encodings: tuple[str, ...]):
     src_path = item.get('path')
     if not src_path:
         return
@@ -100,8 +102,12 @@ def _verify_line(item: dict[str, Any], label: str, source_root: Path | None, res
         (result.errors if strict_sources else result.warnings).append(f'{label}: 缺少來源行號')
         return
     try:
-        with resolved.open('r', encoding='utf-8-sig') as fp:
-            num_lines = sum(1 for _ in fp)
+        text, encoding = read_source_text(resolved, source_encodings)
+        num_lines = len(text.splitlines())
+        if encoding in source_encodings:
+            warning = f'{src_path}: 使用舊編碼 {encoding} 解碼來源檔，請核對編碼'
+            if warning not in result.warnings:
+                result.warnings.append(warning)
     except (OSError, UnicodeError) as exc:
         (result.errors if strict_sources else result.warnings).append(f'{label}: 來源檔無法讀取：{exc}')
         return
@@ -112,7 +118,8 @@ def _verify_line(item: dict[str, Any], label: str, source_root: Path | None, res
 def validate_data(
     data: dict[str, Any], *, rules_path: Path | None = None,
     schema_dir: Path | None = None, source_root: Path | None = None,
-    strict_sources: bool = False, allow_demo: bool = False
+    strict_sources: bool = False, allow_demo: bool = False,
+    source_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS
 ) -> Result:
     result = Result()
     rules_path = rules_path or ROOT / 'rules.json'
@@ -147,6 +154,7 @@ def validate_data(
     if isinstance(master_doc, dict) and assessment['ruleset_version'] != master_doc.get('ruleset_version'):
         result.errors.append('assessment.ruleset_version 與 rules.json 的規則版本不符')
 
+    result.errors.extend(completion_errors(assessment['checks'], allow_demo=allow_demo))
     checks = {c['id']: c for c in assessment['checks']}
     if len(checks) != 70 or set(checks) != set(master):
         result.errors.append('assessment.checks 必須包含 70 個不重複且與規則主檔相符的 ID')
@@ -171,13 +179,13 @@ def validate_data(
                 result.errors.append(f'{c["id"]}: {fid} 未反向列入該檢核編號')
         for e in c['evidence']:
             if e.get('kind') == 'source':
-                _verify_line(e, c['id'], source_root, result, strict_sources)
+                _verify_line(e, c['id'], source_root, result, strict_sources, source_encodings)
             elif e.get('kind') in ('deployment', 'operating_record', 'policy') and not e.get('artifact_id'):
                 result.errors.append(f'{c["id"]}: 外部證據缺少 artifact_id')
     for f in assessment['findings']:
         for e in f['evidence']:
             if e.get('kind') == 'source':
-                _verify_line(e, f['id'], source_root, result, strict_sources)
+                _verify_line(e, f['id'], source_root, result, strict_sources, source_encodings)
             elif e.get('kind') in ('deployment', 'operating_record', 'policy') and not e.get('artifact_id'):
                 result.errors.append(f'{f["id"]}: 外部證據缺少 artifact_id')
 
@@ -212,7 +220,7 @@ def validate_data(
             result.errors.append(f'finding_details: 不存在的 {fid}')
             continue
         for loc in extra.get('locations', []):
-            _verify_line(loc, fid + ' 顯示位置', source_root, result, strict_sources)
+            _verify_line(loc, fid + ' 顯示位置', source_root, result, strict_sources, source_encodings)
             supported = any(
                 e.get('kind') == 'source' and e.get('path', '').replace('\\', '/') == loc['path'].replace('\\', '/')
                 and e.get('line_start', 0) <= loc['line_start']
@@ -244,7 +252,7 @@ def validate_data(
                 if not resolved.is_relative_to(source_root.resolve()) or not resolved.is_file():
                     continue
                 try:
-                    lines = resolved.read_text(encoding='utf-8-sig').splitlines()
+                    lines = read_source_text(resolved, source_encodings)[0].splitlines()
                     candidate = '\n'.join(lines[ev['line_start']-1:ev['line_end']])
                     candidates.append(candidate)
                 except (OSError, UnicodeError, KeyError):
@@ -253,8 +261,13 @@ def validate_data(
                 (result.errors if strict_sources else result.warnings).append(
                     f'{fid}: Before 程式碼與已引用的來源檔行號內容不一致（遮蔽內容請於 evidence.redacted 標示）'
                 )
-            if not candidates and all(e.get('redacted') for e in sources):
-                result.warnings.append(f'{fid}: Before 程式碼來源已遮蔽，無法進行文字一致性驗證')
+            if not candidates:
+                if all(e.get('redacted') for e in sources):
+                    result.warnings.append(f'{fid}: Before 程式碼來源已遮蔽，無法進行文字一致性驗證')
+                else:
+                    (result.errors if strict_sources else result.warnings).append(
+                        f'{fid}: 沒有可讀的未遮蔽來源片段，無法核對 Before 程式碼'
+                    )
     if pres.get('demo') and not allow_demo:
         result.errors.append('演示資料不可當成正式報告；測試時須指定 --allow-demo')
     if not pres.get('demo') and assessment['git_revision'].strip('0') == '':

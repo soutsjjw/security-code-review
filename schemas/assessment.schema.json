@@ -43,7 +43,8 @@
           "applicability_reason",
           "decision_reason",
           "evidence",
-          "reviewer"
+          "reviewer",
+          "execution"
         ],
         "properties": {
           "id": {
@@ -138,6 +139,44 @@
             "items": {
               "type": "string"
             }
+          },
+          "execution": {
+            "type": "object",
+            "required": [
+              "state",
+              "methods",
+              "summary"
+            ],
+            "properties": {
+              "state": {
+                "enum": [
+                  "pending",
+                  "completed",
+                  "blocked"
+                ]
+              },
+              "methods": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              },
+              "summary": {
+                "type": "string",
+                "minLength": 10
+              },
+              "inspected_paths": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

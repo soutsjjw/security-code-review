@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from report_common import ROOT, load_json, render_html, validate_data, validate_html
+from source_reader import DEFAULT_LEGACY_ENCODINGS
 
 
 def parse_args():
@@ -22,6 +23,7 @@ def parse_args():
     p.add_argument('--template', type=Path, default=ROOT/'templates/security-report.html')
     p.add_argument('--source-root', type=Path, help='被審查程式碼的實際根目錄，用於路徑與行號檢查')
     p.add_argument('--strict-sources', action='store_true', help='來源檔缺失或行號不合法時禁止產生報告')
+    p.add_argument('--source-encodings', default=','.join(DEFAULT_LEGACY_ENCODINGS), help='UTF-8 無法解碼時的舊編碼，例如 cp950,cp1252')
     p.add_argument('--allow-demo', action='store_true', help='僅供測試：允許 presentation.demo=true')
     p.add_argument('--save-report', type=Path, help='同步保存標準化 report.json；須與 --output 不同')
     p.add_argument('--output', '-o', required=True, type=Path, help='輸出完整 HTML 路徑')
@@ -55,7 +57,8 @@ def main() -> int:
             }
         result = validate_data(data, rules_path=a.rules, schema_dir=a.schema_dir,
                                source_root=a.source_root, strict_sources=a.strict_sources,
-                               allow_demo=a.allow_demo)
+                               allow_demo=a.allow_demo,
+                               source_encodings=tuple(x.strip() for x in a.source_encodings.split(',') if x.strip()))
         result.print()
         if not result.ok:
             return 1
