@@ -141,7 +141,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="loadNotice" class="notice" role="status" hidden></div>
   <nav class="toc" aria-label="報告導覽">
     <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
-    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#webGuide32">Web 指引 V3.2</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
   </nav>
 
   <h2 id="summary">基本資訊與摘要</h2>
@@ -186,6 +186,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
 
   <h2 id="baselineV13">資通系統防護基準 V1.3（獨立驗證）</h2>
   <div class="panel" id="systemBaselineContent"></div>
+
+  <h2 id="webGuide32">WEB 應用程式安全參考指引 V3.2 技術對照</h2>
+  <div class="panel" id="webGuideContent"></div>
 
   <h2 id="findings">發現與改善建議</h2>
   <div class="filters" id="sevFilter" aria-label="風險等級篩選">
@@ -259,7 +262,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   } catch(err) {
     notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
-    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','webGuideContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;
   }
 
@@ -516,6 +519,44 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       }
       table.append(body);wrap.append(table);details.append(wrap);baseContainer.append(details);
     }
+  }
+
+  // V3.2 為技術檢查指引；不是原有 70 項或獨立 80 項之外的符合性結論。
+  const wgContainer=$('webGuideContent');
+  const wg=report.web_guide_v32;
+  if(!wg || !Array.isArray(wg.controls) || wg.controls.length!==29) {
+    wgContainer.append(empty('尚無 WEB 應用程式安全參考指引 V3.2 的版本化對照。'));
+  } else {
+    wgContainer.append(el('p','small muted',
+      '依 V3.2 第 4 章彙整 29 類控制及 35 個細部技術條次。技術範圍：ASP.NET/.NET 與通用 Web 安全控制；不納入 Java、PHP 的專屬實作範例。此表的關聯規則狀態不是 V3.2 符合性結論，缺部署或實測證據仍須待確認。'));
+    wgContainer.append(el('p','small muted',
+      '原文件的 OWASP 分類為 Top 10:2021；2025 類別另行對照。提供的 PDF 未包含附件 1～3 的內容，故未聲稱附件查檢表已驗證。'));
+    const categories = ['4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
+    for (const group of categories) {
+      const cats = wg.controls.filter(c=>String(c.section).startsWith(group+'.'));
+      if(!cats.length) continue;
+      const details=el('details','cl');details.open=true;
+      details.append(el('summary',null,group+' 安全構面（'+cats.length+' 類）'));
+      const wrap=el('div','tablewrap'),table=el('table'),hd=el('thead'),hr=el('tr');
+      ['條次／控制措施','關聯規則','查核方式','檢測重點／來源細節'].forEach(x=>hr.append(el('th',null,x)));
+      hd.append(hr);table.append(hd);
+      const tbody=el('tbody');
+      for (const cat of cats) {
+        const tr=el('tr');
+        tr.append(el('td','small',cat.section+' '+cat.title));
+        tr.append(el('td','small mono',asArray(cat.related_rule_ids).join('、')));
+        tr.append(el('td','small',cat.verification_mode==='source'?'原始碼':cat.verification_mode==='hybrid'?'原始碼＋外部':'外部佐證'));
+        const cell=el('td','small');
+        cell.append(el('p',null,cat.review_focus));
+        for(const topic of asArray(cat.implementation_topics)) {
+          cell.append(el('p','small',topic.section+'（PDF '+topic.pdf_page+' 頁）：'+topic.title+'。'+topic.review_focus));
+        }
+        if(!asArray(cat.implementation_topics).length) cell.append(el('p','small muted','此類別沒有另外編號的細部技術條次；保留章節級對照。'));
+        tr.append(cell);tbody.append(tr);
+      }
+      table.append(tbody);wrap.append(table);details.append(wrap);wgContainer.append(details);
+    }
+    wgContainer.append(el('p','small muted','檢核結論與證據請參閱 70 項原始碼審查；不得從這份指引對照表自動推定通過。'));
   }
 
   // 弱點明細
