@@ -1,0 +1,892 @@
+# 依《資通系統防護基準驗證實務》V1.3（115/06/03）第 2 章 80 項控制措施編目。
+# 僅整理標題/控制條次/適用等級及核查摘要；未附原始 PDF（其版權屬資通安全署）。
+standard_id: TW-SYSTEM-PROTECTION-BASELINE
+version: "V1.3"
+revision_date: "2026-06-03"
+document_title: "資通系統防護基準驗證實務"
+publisher: "國家資通安全研究院"
+source_legal_basis: "資通安全責任等級分級辦法第11條附表九/十"
+control_count: 80
+level_counts: {普: 45, 中: 62, 高: 80}
+note: "本清單為第二層防護基準對照；非原 70 項程式碼規則、非自動法遵結論。上傳 PDF 的附件檢核表僅見首頁。"
+controls:
+  - id: "TW-SB-2.1.1.1"
+    source_section: "2.1.1.1"
+    domain: "存取控制"
+    title: "建立帳號管理機制，包含帳號申請、建立、修改、啟用、停用及刪除程序"
+    pdf_page: 18
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["AU-01", "AC-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.1 節核對「建立帳號管理機制，包含帳號申請、建立、修改、啟用、停用及刪除程序」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.1.1.2"
+    source_section: "2.1.1.2"
+    domain: "存取控制"
+    title: "已逾期之臨時或緊急帳號應刪除或禁用"
+    pdf_page: 20
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AU-01", "AU-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.2 節核對「已逾期之臨時或緊急帳號應刪除或禁用」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.1.3"
+    source_section: "2.1.1.3"
+    domain: "存取控制"
+    title: "資通系統閒置帳號應禁用"
+    pdf_page: 22
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AU-01", "AC-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.3 節核對「資通系統閒置帳號應禁用」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.1.4"
+    source_section: "2.1.1.4"
+    domain: "存取控制"
+    title: "定期審核資通系統帳號之申請、建立、修改、啟用、停用及刪除"
+    pdf_page: 23
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["AU-01", "LG-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.4 節核對「定期審核資通系統帳號之申請、建立、修改、啟用、停用及刪除」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.1.1.5"
+    source_section: "2.1.1.5"
+    domain: "存取控制"
+    title: "機關應定義各系統之閒置時間或可使用期限與使用情況及條件"
+    pdf_page: 24
+    applicable_levels: ["中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AC-01", "AU-10"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.5 節核對「機關應定義各系統之閒置時間或可使用期限與使用情況及條件」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.1.6"
+    source_section: "2.1.1.6"
+    domain: "存取控制"
+    title: "逾越許可之閒置時間或可使用期限時，系統應自動將使用者登出"
+    pdf_page: 26
+    applicable_levels: ["中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AC-01", "AC-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.6 節核對「逾越許可之閒置時間或可使用期限時，系統應自動將使用者登出」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.1.1.7"
+    source_section: "2.1.1.7"
+    domain: "存取控制"
+    title: "應依機關規定之情況及條件使用資通系統"
+    pdf_page: 28
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AC-03", "AC-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.7 節核對「應依機關規定之情況及條件使用資通系統」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.1.8"
+    source_section: "2.1.1.8"
+    domain: "存取控制"
+    title: "監控資通系統帳號，如發現帳號違常使用時回報管理者"
+    pdf_page: 29
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-01", "LG-02", "EH-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.1.8 節核對「監控資通系統帳號，如發現帳號違常使用時回報管理者」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.2.1"
+    source_section: "2.1.2.1"
+    domain: "存取控制"
+    title: "採最小權限原則，僅允許執行指派任務所需之授權存取"
+    pdf_page: 31
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AC-04", "AC-05", "AC-08"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.2.1 節核對「採最小權限原則，僅允許執行指派任務所需之授權存取」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.1.3.1"
+    source_section: "2.1.3.1"
+    domain: "存取控制"
+    title: "各類遠端存取應先取得授權，建立限制、組態、連線需求及文件化"
+    pdf_page: 35
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AC-06", "AC-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.3.1 節核對「各類遠端存取應先取得授權，建立限制、組態、連線需求及文件化」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.3.2"
+    source_section: "2.1.3.2"
+    domain: "存取控制"
+    title: "使用者之權限檢查作業應於伺服器端完成"
+    pdf_page: 38
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AC-08", "AC-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.3.2 節核對「使用者之權限檢查作業應於伺服器端完成」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.1.3.3"
+    source_section: "2.1.3.3"
+    domain: "存取控制"
+    title: "應監控遠端存取內部網段或系統後臺之連線"
+    pdf_page: 41
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["AC-06", "LG-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.3.3 節核對「應監控遠端存取內部網段或系統後臺之連線」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.1.3.4"
+    source_section: "2.1.3.4"
+    domain: "存取控制"
+    title: "遠端存取應採用加密機制"
+    pdf_page: 42
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["CR-01", "AU-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.3.4 節核對「遠端存取應採用加密機制」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.1.3.5"
+    source_section: "2.1.3.5"
+    domain: "存取控制"
+    title: "遠端存取來源應為機關預先定義及管理之存取控制點"
+    pdf_page: 45
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AC-03", "AC-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.1.3.5 節核對「遠端存取來源應為機關預先定義及管理之存取控制點」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.2.1.1"
+    source_section: "2.2.1.1"
+    domain: "事件日誌與可歸責性"
+    title: "訂定日誌紀錄週期及留存政策，並保留日誌至少六個月"
+    pdf_page: 47
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["LG-07", "LG-05"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.1.1 節核對「訂定日誌紀錄週期及留存政策，並保留日誌至少六個月」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.2.1.2"
+    source_section: "2.2.1.2"
+    domain: "事件日誌與可歸責性"
+    title: "確保資通系統可記錄特定事件並決定記錄之事件"
+    pdf_page: 49
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["LG-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.1.2 節核對「確保資通系統可記錄特定事件並決定記錄之事件」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.2.1.3"
+    source_section: "2.2.1.3"
+    domain: "事件日誌與可歸責性"
+    title: "應記錄資通系統管理者帳號所執行之各項功能"
+    pdf_page: 50
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["LG-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.1.3 節核對「應記錄資通系統管理者帳號所執行之各項功能」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.2.1.4"
+    source_section: "2.2.1.4"
+    domain: "事件日誌與可歸責性"
+    title: "應定期審查機關保留之資通系統日誌"
+    pdf_page: 51
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["LG-01", "LG-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.1.4 節核對「應定期審查機關保留之資通系統日誌」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.2.2.1"
+    source_section: "2.2.2.1"
+    domain: "事件日誌與可歸責性"
+    title: "日誌應含事件類型、時間、位置、使用者身分等資訊且格式一致"
+    pdf_page: 53
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["LG-03", "LG-04", "LG-08"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.2.1 節核對「日誌應含事件類型、時間、位置、使用者身分等資訊且格式一致」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.2.3.1"
+    source_section: "2.2.3.1"
+    domain: "事件日誌與可歸責性"
+    title: "依據日誌儲存需求配置所需儲存容量"
+    pdf_page: 57
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-05"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.3.1 節核對「依據日誌儲存需求配置所需儲存容量」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.2.4.1"
+    source_section: "2.2.4.1"
+    domain: "事件日誌與可歸責性"
+    title: "資通系統於日誌處理失效時應採取適當行動"
+    pdf_page: 58
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-09", "EH-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.4.1 節核對「資通系統於日誌處理失效時應採取適當行動」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.2.4.2"
+    source_section: "2.2.4.2"
+    domain: "事件日誌與可歸責性"
+    title: "需要即時通報之日誌處理失效事件應於期限內警告特定人員"
+    pdf_page: 60
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-09", "EH-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.4.2 節核對「需要即時通報之日誌處理失效事件應於期限內警告特定人員」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.2.5.1"
+    source_section: "2.2.5.1"
+    domain: "事件日誌與可歸責性"
+    title: "資通系統日誌時戳應可對應 UTC 或 GMT"
+    pdf_page: 61
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["LG-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.5.1 節核對「資通系統日誌時戳應可對應 UTC 或 GMT」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.2.5.2"
+    source_section: "2.2.5.2"
+    domain: "事件日誌與可歸責性"
+    title: "系統內部時鐘應定期與基準時間源同步"
+    pdf_page: 62
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["LG-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.5.2 節核對「系統內部時鐘應定期與基準時間源同步」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.2.6.1"
+    source_section: "2.2.6.1"
+    domain: "事件日誌與可歸責性"
+    title: "日誌之存取管理僅限有權限使用者"
+    pdf_page: 66
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-07", "AC-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.6.1 節核對「日誌之存取管理僅限有權限使用者」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.2.6.2"
+    source_section: "2.2.6.2"
+    domain: "事件日誌與可歸責性"
+    title: "應運用雜湊或其他適當方式確保日誌完整性"
+    pdf_page: 67
+    applicable_levels: ["中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-10", "LG-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.6.2 節核對「應運用雜湊或其他適當方式確保日誌完整性」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.2.6.3"
+    source_section: "2.2.6.3"
+    domain: "事件日誌與可歸責性"
+    title: "定期備份日誌至原系統外之其他實體系統"
+    pdf_page: 69
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["LG-07", "BC-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.2.6.3 節核對「定期備份日誌至原系統外之其他實體系統」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.1.1"
+    source_section: "2.3.1.1"
+    domain: "營運持續計畫"
+    title: "訂定資料可容忍損失之時間要求（RPO）"
+    pdf_page: 71
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.1.1 節核對「訂定資料可容忍損失之時間要求（RPO）」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.1.2"
+    source_section: "2.3.1.2"
+    domain: "營運持續計畫"
+    title: "執行資料備份"
+    pdf_page: 72
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["BC-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.1.2 節核對「執行資料備份」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.3.1.3"
+    source_section: "2.3.1.3"
+    domain: "營運持續計畫"
+    title: "定期測試備份資料，以驗證備份媒體可靠性及資訊完整性"
+    pdf_page: 74
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-01", "BC-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.1.3 節核對「定期測試備份資料，以驗證備份媒體可靠性及資訊完整性」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.1.4"
+    source_section: "2.3.1.4"
+    domain: "營運持續計畫"
+    title: "將備份還原納入營運持續計畫演練"
+    pdf_page: 75
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["BC-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.1.4 節核對「將備份還原納入營運持續計畫演練」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.1.5"
+    source_section: "2.3.1.5"
+    domain: "營運持續計畫"
+    title: "建立資料異地備份機制"
+    pdf_page: 76
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["BC-01", "BC-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.1.5 節核對「建立資料異地備份機制」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.2.1"
+    source_section: "2.3.2.1"
+    domain: "營運持續計畫"
+    title: "訂定服務中斷後重新恢復之最大可容忍中斷時間（RTO）"
+    pdf_page: 77
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.2.1 節核對「訂定服務中斷後重新恢復之最大可容忍中斷時間（RTO）」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.2.2"
+    source_section: "2.3.2.2"
+    domain: "營運持續計畫"
+    title: "定期測試原服務中斷時於最大可容忍中斷時間內提供替代服務"
+    pdf_page: 79
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-03", "BC-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.2.2 節核對「定期測試原服務中斷時於最大可容忍中斷時間內提供替代服務」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.3.2.3"
+    source_section: "2.3.2.3"
+    domain: "營運持續計畫"
+    title: "將備援啟動納入營運持續計畫演練"
+    pdf_page: 81
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["BC-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.3.2.3 節核對「將備援啟動納入營運持續計畫演練」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.4.1.1"
+    source_section: "2.4.1.1"
+    domain: "識別與鑑別"
+    title: "識別及鑑別使用者並禁止使用共用帳號"
+    pdf_page: 81
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AU-01", "AU-10"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.1.1 節核對「識別及鑑別使用者並禁止使用共用帳號」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.4.1.2"
+    source_section: "2.4.1.2"
+    domain: "識別與鑑別"
+    title: "對資通系統存取採取多因子鑑別技術"
+    pdf_page: 83
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AU-09"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.1.2 節核對「對資通系統存取採取多因子鑑別技術」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.4.2.1"
+    source_section: "2.4.2.1"
+    domain: "識別與鑑別"
+    title: "使用預設密碼初次登入時應立即變更"
+    pdf_page: 85
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["EH-06", "DP-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.1 節核對「使用預設密碼初次登入時應立即變更」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.2.2"
+    source_section: "2.4.2.2"
+    domain: "識別與鑑別"
+    title: "身分驗證相關資訊不以明文傳輸"
+    pdf_page: 87
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-04", "CR-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.2 節核對「身分驗證相關資訊不以明文傳輸」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.2.3"
+    source_section: "2.4.2.3"
+    domain: "識別與鑑別"
+    title: "具備帳戶鎖定或機關自建之失敗驗證防護機制"
+    pdf_page: 89
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.3 節核對「具備帳戶鎖定或機關自建之失敗驗證防護機制」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.2.4"
+    source_section: "2.4.2.4"
+    domain: "識別與鑑別"
+    title: "密碼須符合最低複雜度並依機關密碼效期規定變更"
+    pdf_page: 91
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AU-01", "AU-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.4 節核對「密碼須符合最低複雜度並依機關密碼效期規定變更」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.4.2.5"
+    source_section: "2.4.2.5"
+    domain: "識別與鑑別"
+    title: "密碼變更時不可與前三次使用過之密碼相同"
+    pdf_page: 93
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.5 節核對「密碼變更時不可與前三次使用過之密碼相同」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.2.6"
+    source_section: "2.4.2.6"
+    domain: "識別與鑑別"
+    title: "第四與第五點對外部使用者得由機關自行規範"
+    pdf_page: 94
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["AU-01", "AU-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.6 節核對「第四與第五點對外部使用者得由機關自行規範」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.4.2.7"
+    source_section: "2.4.2.7"
+    domain: "識別與鑑別"
+    title: "身分驗證機制應防範自動化登入或密碼更換嘗試"
+    pdf_page: 95
+    applicable_levels: ["中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-05", "AU-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.7 節核對「身分驗證機制應防範自動化登入或密碼更換嘗試」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.2.8"
+    source_section: "2.4.2.8"
+    domain: "識別與鑑別"
+    title: "密碼重設需重新確認身分並發送一次性且具時效性符記"
+    pdf_page: 96
+    applicable_levels: ["中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.2.8 節核對「密碼重設需重新確認身分並發送一次性且具時效性符記」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.3.1"
+    source_section: "2.4.3.1"
+    domain: "識別與鑑別"
+    title: "遮蔽鑑別過程中之資訊"
+    pdf_page: 99
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-07"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.3.1 節核對「遮蔽鑑別過程中之資訊」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.4.3.2"
+    source_section: "2.4.3.2"
+    domain: "識別與鑑別"
+    title: "密碼應經雜湊或其他適當方式處理後儲存"
+    pdf_page: 100
+    applicable_levels: ["中", "高"]
+    verification_mode: source
+    related_rule_ids: ["AU-08"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.4.3.2 節核對「密碼應經雜湊或其他適當方式處理後儲存」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.5.1.1"
+    source_section: "2.5.1.1"
+    domain: "系統與服務獲得"
+    title: "確認系統安全需求包含機密性、可用性、完整性"
+    pdf_page: 102
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.1.1 節核對「確認系統安全需求包含機密性、可用性、完整性」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.2.1"
+    source_section: "2.5.2.1"
+    domain: "系統與服務獲得"
+    title: "依系統功能與要求識別威脅並進行風險分析及評估"
+    pdf_page: 104
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-04", "SI-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.2.1 節核對「依系統功能與要求識別威脅並進行風險分析及評估」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.2.2"
+    source_section: "2.5.2.2"
+    domain: "系統與服務獲得"
+    title: "將風險評估結果回饋安全需求並修正"
+    pdf_page: 108
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.2.2 節核對「將風險評估結果回饋安全需求並修正」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.3.1"
+    source_section: "2.5.3.1"
+    domain: "系統與服務獲得"
+    title: "針對安全需求實作必要控制措施"
+    pdf_page: 109
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["AC-04", "AU-01", "IN-05"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.3.1 節核對「針對安全需求實作必要控制措施」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.3.2"
+    source_section: "2.5.3.2"
+    domain: "系統與服務獲得"
+    title: "避免軟體常見漏洞及實作必要控制措施"
+    pdf_page: 111
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["IN-01", "IN-02", "IN-04", "IN-05"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.3.2 節核對「避免軟體常見漏洞及實作必要控制措施」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.5.3.3"
+    source_section: "2.5.3.3"
+    domain: "系統與服務獲得"
+    title: "發生錯誤時使用者頁面不顯示詳細錯誤訊息"
+    pdf_page: 112
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["EH-01", "EH-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.3.3 節核對「發生錯誤時使用者頁面不顯示詳細錯誤訊息」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.5.3.4"
+    source_section: "2.5.3.4"
+    domain: "系統與服務獲得"
+    title: "執行源碼掃描安全檢測並具備檢測及修補紀錄"
+    pdf_page: 114
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["SI-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.3.4 節核對「執行源碼掃描安全檢測並具備檢測及修補紀錄」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.3.5"
+    source_section: "2.5.3.5"
+    domain: "系統與服務獲得"
+    title: "系統發生嚴重錯誤時應具備通知機制"
+    pdf_page: 116
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["EH-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.3.5 節核對「系統發生嚴重錯誤時應具備通知機制」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.4.1"
+    source_section: "2.5.4.1"
+    domain: "系統與服務獲得"
+    title: "執行弱點掃描安全檢測"
+    pdf_page: 117
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["DP-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.4.1 節核對「執行弱點掃描安全檢測」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.4.2"
+    source_section: "2.5.4.2"
+    domain: "系統與服務獲得"
+    title: "執行滲透測試安全檢測"
+    pdf_page: 119
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["IN-01", "AC-08"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.4.2 節核對「執行滲透測試安全檢測」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.5.1"
+    source_section: "2.5.5.1"
+    domain: "系統與服務獲得"
+    title: "部署環境應針對資安威脅更新與修補"
+    pdf_page: 122
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["DP-04", "DP-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.5.1 節核對「部署環境應針對資安威脅更新與修補」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.5.2"
+    source_section: "2.5.5.2"
+    domain: "系統與服務獲得"
+    title: "識別並關閉不必要服務及埠口"
+    pdf_page: 124
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["DP-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.5.2 節核對「識別並關閉不必要服務及埠口」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.5.3"
+    source_section: "2.5.5.3"
+    domain: "系統與服務獲得"
+    title: "資通系統不使用預設密碼"
+    pdf_page: 128
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["DP-02", "EH-06"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.5.3 節核對「資通系統不使用預設密碼」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.5.4"
+    source_section: "2.5.5.4"
+    domain: "系統與服務獲得"
+    title: "執行系統源碼備份"
+    pdf_page: 129
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-05"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.5.4 節核對「執行系統源碼備份」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.5.5"
+    source_section: "2.5.5.5"
+    domain: "系統與服務獲得"
+    title: "維運階段應執行版本控制與變更管理"
+    pdf_page: 131
+    applicable_levels: ["中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["BC-06", "SI-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.5.5 節核對「維運階段應執行版本控制與變更管理」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.6.1"
+    source_section: "2.5.6.1"
+    domain: "系統與服務獲得"
+    title: "委外開發應依系統等級將安全需求納入委外契約"
+    pdf_page: 133
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.6.1 節核對「委外開發應依系統等級將安全需求納入委外契約」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.5.7.1"
+    source_section: "2.5.7.1"
+    domain: "系統與服務獲得"
+    title: "識別第三方軟體、服務、函式庫或其他元件"
+    pdf_page: 134
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["DP-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.7.1 節核對「識別第三方軟體、服務、函式庫或其他元件」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.7.2"
+    source_section: "2.5.7.2"
+    domain: "系統與服務獲得"
+    title: "開發、測試及正式作業環境應區隔"
+    pdf_page: 135
+    applicable_levels: ["中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["BC-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.7.2 節核對「開發、測試及正式作業環境應區隔」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.5.8.1"
+    source_section: "2.5.8.1"
+    domain: "系統與服務獲得"
+    title: "儲存與管理系統發展生命週期相關文件"
+    pdf_page: 137
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: external
+    related_rule_ids: ["BC-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.5.8.1 節核對「儲存與管理系統發展生命週期相關文件」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.6.1.1"
+    source_section: "2.6.1.1"
+    domain: "系統與通訊保護"
+    title: "採用加密機制防止傳輸內容未授權揭露或修改"
+    pdf_page: 139
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["CR-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.6.1.1 節核對「採用加密機制防止傳輸內容未授權揭露或修改」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.6.1.2"
+    source_section: "2.6.1.2"
+    domain: "系統與通訊保護"
+    title: "使用公開且經國際機構驗證之未遭破解演算法"
+    pdf_page: 140
+    applicable_levels: ["高"]
+    verification_mode: source
+    related_rule_ids: ["CR-02"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.6.1.2 節核對「使用公開且經國際機構驗證之未遭破解演算法」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.6.1.3"
+    source_section: "2.6.1.3"
+    domain: "系統與通訊保護"
+    title: "加密金鑰或憑證應定期更換"
+    pdf_page: 144
+    applicable_levels: ["高"]
+    verification_mode: hybrid
+    related_rule_ids: ["CR-02", "CR-03"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.6.1.3 節核對「加密金鑰或憑證應定期更換」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.6.1.4"
+    source_section: "2.6.1.4"
+    domain: "系統與通訊保護"
+    title: "伺服器端金鑰保管應訂定管理規範並採防護措施"
+    pdf_page: 146
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["CR-03", "CR-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.6.1.4 節核對「伺服器端金鑰保管應訂定管理規範並採防護措施」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.6.2.1"
+    source_section: "2.6.2.1"
+    domain: "系統與通訊保護"
+    title: "重要組態設定與機密資訊應加密或採其他適當儲存保護"
+    pdf_page: 148
+    applicable_levels: ["高"]
+    verification_mode: source
+    related_rule_ids: ["CR-03", "CR-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.6.2.1 節核對「重要組態設定與機密資訊應加密或採其他適當儲存保護」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.7.1.1"
+    source_section: "2.7.1.1"
+    domain: "系統與資訊完整性"
+    title: "漏洞修復應測試有效性與潛在影響並定期更新"
+    pdf_page: 150
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["DP-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.1.1 節核對「漏洞修復應測試有效性與潛在影響並定期更新」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.7.1.2"
+    source_section: "2.7.1.2"
+    domain: "系統與資訊完整性"
+    title: "定期確認資通系統相關漏洞修復狀態"
+    pdf_page: 153
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["DP-01", "DP-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.1.2 節核對「定期確認資通系統相關漏洞修復狀態」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.7.2.1"
+    source_section: "2.7.2.1"
+    domain: "系統與資訊完整性"
+    title: "發現被入侵跡象時應通報特定人員"
+    pdf_page: 154
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-01", "PD-08"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.2.1 節核對「發現被入侵跡象時應通報特定人員」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.7.2.2"
+    source_section: "2.7.2.2"
+    domain: "系統與資訊完整性"
+    title: "監控資通系統以偵測攻擊與未授權連線及使用"
+    pdf_page: 155
+    applicable_levels: ["中", "高"]
+    verification_mode: external
+    related_rule_ids: ["LG-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.2.2 節核對「監控資通系統以偵測攻擊與未授權連線及使用」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.7.2.3"
+    source_section: "2.7.2.3"
+    domain: "系統與資訊完整性"
+    title: "使用自動化工具監控通信流量並分析異常或未授權活動"
+    pdf_page: 157
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["LG-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.2.3 節核對「使用自動化工具監控通信流量並分析異常或未授權活動」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
+  - id: "TW-SB-2.7.3.1"
+    source_section: "2.7.3.1"
+    domain: "系統與資訊完整性"
+    title: "使用者輸入資料合法性檢查應置於應用系統伺服器端"
+    pdf_page: 158
+    applicable_levels: ["普", "中", "高"]
+    verification_mode: source
+    related_rule_ids: ["IN-05"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.3.1 節核對「使用者輸入資料合法性檢查應置於應用系統伺服器端」之實作、驗證與適用條件"
+    expected_evidence: "已實際檢閱的原始碼與組態路徑、程式邏輯及必要測試紀錄"
+  - id: "TW-SB-2.7.3.2"
+    source_section: "2.7.3.2"
+    domain: "系統與資訊完整性"
+    title: "以完整性驗證工具偵測特定軟體與資訊未授權變更"
+    pdf_page: 160
+    applicable_levels: ["中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-10", "SI-01"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.3.2 節核對「以完整性驗證工具偵測特定軟體與資訊未授權變更」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.7.3.3"
+    source_section: "2.7.3.3"
+    domain: "系統與資訊完整性"
+    title: "發現完整性違反時應實施指定安全保護措施"
+    pdf_page: 161
+    applicable_levels: ["中", "高"]
+    verification_mode: hybrid
+    related_rule_ids: ["LG-10", "EH-04"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.3.3 節核對「發現完整性違反時應實施指定安全保護措施」之實作、驗證與適用條件"
+    expected_evidence: "程式碼/組態與部署、操作或測試證據，無法取得部分須明列待確認"
+  - id: "TW-SB-2.7.3.4"
+    source_section: "2.7.3.4"
+    domain: "系統與資訊完整性"
+    title: "定期執行軟體與資訊完整性檢查"
+    pdf_page: 163
+    applicable_levels: ["高"]
+    verification_mode: external
+    related_rule_ids: ["LG-10"]
+    mapping_type: related_control_not_equivalent
+    review_focus: "依第 2.7.3.4 節核對「定期執行軟體與資訊完整性檢查」之實作、驗證與適用條件"
+    expected_evidence: "政策、核准、維運、實測、演練或第三方檢測紀錄；原始碼不得作為已執行驗證之替代證明"
