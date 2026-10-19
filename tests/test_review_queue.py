@@ -25,6 +25,8 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertTrue(output["next_checks"][0]["search_targets"])
         self.assertEqual(output["tacert_v2_supplemental_items"], 39)
         self.assertEqual(output["owasp_top10_2025_categories"], 10)
+        self.assertEqual(output["system_baseline_v13_controls"], 80)
+        self.assertTrue(any(x["system_baseline_v13_controls"] for x in output["next_checks"]))
         self.assertTrue(any(v["owasp_2025_categories"] for v in output["next_checks"]))
         self.assertTrue(any(x["tacert_v2_checks"] for x in output["next_checks"]))
 
