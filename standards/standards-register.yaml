@@ -33,10 +33,11 @@ references:
   name: Web應用程式安全參考指引
   version: v3.2_1141231
   type: taiwan_guidance
-  status: version_verified_clause_mapping_pending
+  status: supplied_pdf_chapter4_29_categories_35_topics_mapped
+  checklist_file: standards/nics-web-guide-v3.2.yaml
   url: https://www.nics.nat.gov.tw/cybersecurity_resources/reference_guide/Common_Standards/
   authority: 國家資通安全研究院
-  note: 官方頁面列出版本；尚未擷取並逐條核對壓縮檔內的正文及控制條號。
+  note: 上傳 V3.2 PDF 第4章29類、35個細部技術條次已建立交叉索引，僅採 ASP.NET/.NET 及通用 Web 要求，排除 Java/PHP 技術實作；末頁只有附件標題，未取得完整附件。第3章採 OWASP 2021，2025 另列。
 - id: TW-CYBER-LEVEL
   name: 資通安全責任等級分級辦法
   version: '2026-01-07'
