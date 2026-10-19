@@ -11,6 +11,7 @@ from report_common import ROOT, load_json, render_html, validate_data, validate_
 from source_reader import DEFAULT_LEGACY_ENCODINGS
 from scope_inventory import build_scope_inventory
 from security_level import infer_security_level
+from review_queue import load_owasp_2025_categories
 
 
 def parse_args():
@@ -57,6 +58,21 @@ def main() -> int:
                 ],
                 'presentation': load_json(a.presentation) if a.presentation else {},
             }
+        # 官方 2025 風險類別與既有規則僅為「相關」對照，並非十項合規結果。
+        # --report 模式也重新按版本化清單產生分類，不相信舊報告中過時的關聯。
+        mapping_rules = load_json(a.rules)
+        source_rules = mapping_rules['rules'] if isinstance(mapping_rules, dict) else mapping_rules
+        mapped_owasp = load_owasp_2025_categories(source_rules)
+        for report_rule in data['rules']:
+            report_rule['owasp_2025_categories'] = [
+                {"id": item["id"], "title": item["title"], "coverage_gap": item["coverage_gap"]}
+                for item in mapped_owasp.get(report_rule["id"], [])
+            ]
+        standards = data['presentation'].setdefault('standards', [])
+        if isinstance(standards, list):
+            label = 'OWASP Top 10:2025（風險分類，非合規判定）'
+            if label not in standards:
+                standards.append(label)
         # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
         project = data['project']
         if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E', '不適用'):
