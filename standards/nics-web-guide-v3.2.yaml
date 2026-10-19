@@ -30,7 +30,7 @@
       "id": "NICS-WEB-4.1.1",
       "source_section": "4.1.1",
       "title": "帳號管理",
-      "pdf_page": 43,
+      "pdf_page": 42,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "AC-01",
@@ -117,7 +117,7 @@
       "id": "NICS-WEB-4.1.3",
       "source_section": "4.1.3",
       "title": "遠端存取",
-      "pdf_page": 61,
+      "pdf_page": 60,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "AC-03",
@@ -285,7 +285,7 @@
       "id": "NICS-WEB-4.2.4",
       "source_section": "4.2.4",
       "title": "稽核處理失效之回應",
-      "pdf_page": null,
+      "pdf_page": 85,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "LG-09",
@@ -299,7 +299,7 @@
       "id": "NICS-WEB-4.2.5",
       "source_section": "4.2.5",
       "title": "時戳及校時",
-      "pdf_page": null,
+      "pdf_page": 90,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "LG-06"
@@ -312,7 +312,7 @@
       "id": "NICS-WEB-4.2.6",
       "source_section": "4.2.6",
       "title": "稽核資訊之保護",
-      "pdf_page": 95,
+      "pdf_page": 94,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "LG-07",
@@ -377,7 +377,7 @@
       "id": "NICS-WEB-4.3.1",
       "source_section": "4.3.1",
       "title": "資訊系統備份",
-      "pdf_page": 106,
+      "pdf_page": 105,
       "verification_mode": "external",
       "related_rule_ids": [
         "BC-01",
@@ -410,7 +410,7 @@
       "id": "NICS-WEB-4.3.2",
       "source_section": "4.3.2",
       "title": "資訊系統備援",
-      "pdf_page": 108,
+      "pdf_page": 107,
       "verification_mode": "external",
       "related_rule_ids": [
         "BC-03",
@@ -471,7 +471,7 @@
       "id": "NICS-WEB-4.4.2",
       "source_section": "4.4.2",
       "title": "身分鑑別管理",
-      "pdf_page": 117,
+      "pdf_page": 116,
       "verification_mode": "source",
       "related_rule_ids": [
         "AU-01",
@@ -593,7 +593,7 @@
       "id": "NICS-WEB-4.4.3",
       "source_section": "4.4.3",
       "title": "鑑別資訊回饋",
-      "pdf_page": 149,
+      "pdf_page": 148,
       "verification_mode": "source",
       "related_rule_ids": [
         "AU-07"
@@ -624,7 +624,7 @@
       "id": "NICS-WEB-4.4.4",
       "source_section": "4.4.4",
       "title": "加密模組鑑別",
-      "pdf_page": 151,
+      "pdf_page": 150,
       "verification_mode": "source",
       "related_rule_ids": [
         "AU-08",
@@ -656,7 +656,7 @@
       "id": "NICS-WEB-4.4.5",
       "source_section": "4.4.5",
       "title": "非內部使用者之識別與鑑別",
-      "pdf_page": null,
+      "pdf_page": 160,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "AU-01",
@@ -702,7 +702,7 @@
       "id": "NICS-WEB-4.5.2",
       "source_section": "4.5.2",
       "title": "安全開發生命週期－設計",
-      "pdf_page": null,
+      "pdf_page": 161,
       "verification_mode": "external",
       "related_rule_ids": [
         "BC-04",
@@ -717,7 +717,7 @@
       "id": "NICS-WEB-4.5.3",
       "source_section": "4.5.3",
       "title": "安全開發生命週期－開發",
-      "pdf_page": 165,
+      "pdf_page": 164,
       "verification_mode": "source",
       "related_rule_ids": [
         "IN-01",
@@ -818,7 +818,7 @@
       "id": "NICS-WEB-4.5.4",
       "source_section": "4.5.4",
       "title": "安全開發生命週期－測試",
-      "pdf_page": null,
+      "pdf_page": 211,
       "verification_mode": "external",
       "related_rule_ids": [
         "DP-01",
@@ -887,7 +887,7 @@
       "id": "NICS-WEB-4.5.6",
       "source_section": "4.5.6",
       "title": "安全開發生命週期－委外",
-      "pdf_page": null,
+      "pdf_page": 217,
       "verification_mode": "external",
       "related_rule_ids": [
         "BC-04"
@@ -900,7 +900,7 @@
       "id": "NICS-WEB-4.5.7",
       "source_section": "4.5.7",
       "title": "獲得程序",
-      "pdf_page": null,
+      "pdf_page": 218,
       "verification_mode": "external",
       "related_rule_ids": [
         "DP-01",
@@ -914,7 +914,7 @@
       "id": "NICS-WEB-4.5.8",
       "source_section": "4.5.8",
       "title": "資訊系統文件",
-      "pdf_page": null,
+      "pdf_page": 219,
       "verification_mode": "external",
       "related_rule_ids": [
         "BC-04",
@@ -1023,7 +1023,7 @@
       "id": "NICS-WEB-4.7.1",
       "source_section": "4.7.1",
       "title": "漏洞修復",
-      "pdf_page": null,
+      "pdf_page": 243,
       "verification_mode": "hybrid",
       "related_rule_ids": [
         "DP-01",
@@ -1037,7 +1037,7 @@
       "id": "NICS-WEB-4.7.2",
       "source_section": "4.7.2",
       "title": "資訊系統監控",
-      "pdf_page": null,
+      "pdf_page": 243,
       "verification_mode": "external",
       "related_rule_ids": [
         "LG-01",
