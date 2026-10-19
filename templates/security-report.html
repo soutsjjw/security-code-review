@@ -528,7 +528,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     wgContainer.append(empty('尚無 WEB 應用程式安全參考指引 V3.2 的版本化對照。'));
   } else {
     wgContainer.append(el('p','small muted',
-      '依 V3.2 第 4 章彙整 29 類控制及 35 個細部技術條次。技術範圍：ASP.NET/.NET 與通用 Web 安全控制；不納入 Java、PHP 的專屬實作範例。此表的關聯規則狀態不是 V3.2 符合性結論，缺部署或實測證據仍須待確認。'));
+      '依 V3.2 第 4 章彙整 29 類控制及 35 個細部技術條次。技術範圍：ASP.NET/.NET 與通用 Web 安全控制；不納入 Java、PHP 的專屬實作範例。細項的普／中／高是對應實作表出現等級的聯集，不代表同節每一子要求皆適用；關聯規則不是 V3.2 合規結論，缺部署或實測證據仍待確認。'));
     wgContainer.append(el('p','small muted',
       '原文件的 OWASP 分類為 Top 10:2021；2025 類別另行對照。提供的 PDF 未包含附件 1～3 的內容，故未聲稱附件查檢表已驗證。'));
     const categories = ['4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
@@ -549,7 +549,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
         const cell=el('td','small');
         cell.append(el('p',null,cat.review_focus));
         for(const topic of asArray(cat.implementation_topics)) {
-          cell.append(el('p','small',topic.section+'（PDF '+topic.pdf_page+' 頁）：'+topic.title+'。'+topic.review_focus));
+          cell.append(el('p','small',topic.section+'（PDF '+topic.pdf_page+' 頁；表格涵蓋等級：'+asArray(topic.observed_levels).join('、')+'）：'+topic.title+'。'+topic.review_focus));
         }
         if(!asArray(cat.implementation_topics).length) cell.append(el('p','small muted','此類別沒有另外編號的細部技術條次；保留章節級對照。'));
         tr.append(cell);tbody.append(tr);
