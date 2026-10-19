@@ -18,10 +18,17 @@ report.json
 
 | 部分 | 必要欄位 | 補充說明 |
 | --- | --- | --- |
-| `project` | `name` | 可選 `language_framework`、`security_level`、`personal_data`、`attributes`；所有值皆須由各專案提供，不能套用 EDS。 |
+| `project` | `name` | 可選 `language_framework`、`security_level`、`security_level_basis`、`personal_data`、`attributes`；`security_level` 僅允許 A～E／待確認／不適用，A～E 必須附分級依據。 |
 | `assessment` | 原有七項必要欄位 | 核心 `assessment.schema.json` 已增加各項檢核的必要 `execution` 欄位；Finding、證據及例外繼續保存於核心結構。 |
 | `rules` | `id`、`title`、`category`（70 筆） | 必須涵蓋目前完整 70 個規則 ID，且每個只能出現一次；允許完整規則物件額外欄位。 |
 | `presentation` | 物件可為 `{}` | 所有視覺欄位均可選；不得為了美觀捏造不存在的內容。 |
+
+## 機關資通安全責任等級
+
+- 依《資通安全責任等級分級辦法》（115 年 1 月 7 日修正）第 2 至 10 條，機關依業務與維運責任區分 A～E 級；同時符合多個等級者依第 9 條以最高等級為原則，實際核定／調整程序依第 3、10 條辦理。
+- `project.security_level` 僅代表**機關資通安全責任等級**；無可核對的權責單位資料時填「待確認」，對法規非適用對象可填「不適用」。不得由掃描結果自動指定法定等級。
+- 指定 A～E 級時須填 `project.security_level_basis`（認定／核定佐證）；資通系統防護需求分級（第 11 條及附表九）及程式碼整體風險 `presentation.overall_risk` 應分別判斷。
+- 法規：https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304
 
 ## 審查範圍與相容性
 

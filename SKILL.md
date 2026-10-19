@@ -63,7 +63,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 4. 在 **受測專案**（非 Skill）建立 `reports/security-code-review/`，並寫入：
    - `assessment.json`：符合 `schemas/assessment.schema.json` 的 70 項檢核、已驗證 Finding、真實 Git Revision 與證據。
-   - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`。
+   - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`。`security_level` 僅表示《資通安全責任等級分級辦法》第 2 至 10 條的**機關資通安全責任等級**，限定 A／B／C／D／E／待確認／不適用；缺少權責單位資料時填「待確認」或省略，填 A～E 時須有 `security_level_basis`（核定／認定資訊）。不得由程式碼弱點或 AI 推定；與資通系統防護需求分級及程式碼整體風險分開。
    - `presentation.json`（選用）：真實審查方法／限制、改善優先序及 Before / After。不可補造程式碼、風險或安全優點。
 5. **只有 70 項 `execution.state=completed` 才能開始報告階段。** 從 `TARGET_ROOT` 作為工作目錄，由 Agent 自動呼叫：
 

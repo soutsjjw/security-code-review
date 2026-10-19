@@ -32,8 +32,16 @@
         },
         "security_level": {
           "type": "string",
-          "minLength": 1,
-          "pattern": "\\S"
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "待確認",
+            "不適用"
+          ],
+          "description": "《資通安全責任等級分級辦法》第2至10條之機關責任等級；不是程式碼風險等級。"
         },
         "personal_data": {
           "type": "string",
@@ -45,9 +53,40 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "security_level_basis": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "A～E級必填，記錄核定／認定單位、日期、文號或其他可核對依據。"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "security_level"
+            ],
+            "properties": {
+              "security_level": {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "security_level_basis"
+            ]
+          }
+        }
+      ]
     },
     "assessment": {
       "allOf": [

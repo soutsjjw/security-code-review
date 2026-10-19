@@ -210,6 +210,17 @@ class ReportingTests(unittest.TestCase):
             self.assertEqual(validate_html(html, data, self.template).errors, [])
             self.assertEqual(len(extract_html_report(html)[0]['assessment']['findings']), 1)
 
+    def test_security_level_display_and_basis(self):
+        data = self.fresh()
+        data['project']['security_level'] = 'C'
+        data['project']['security_level_basis'] = '權責單位分級認定紀錄'
+        self.assertEqual(validate_data(data, allow_demo=True).errors, [])
+        page = render_html(self.template, data)
+        self.assertIn('資通安全責任等級（A～E）', page)
+        self.assertIn('資通安全責任等級分級辦法', page)
+        self.assertIn("project.security_level+' 級'", page)
+        self.assertEqual(validate_html(page, data, self.template).errors, [])
+
     def test_cli_generate_and_validate(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)

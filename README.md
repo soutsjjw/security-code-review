@@ -104,6 +104,24 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 python "$env:USERPROFILE\.agents\skills\security-code-review\scripts\source_reader.py" --source-root . --path "src/Infrastructure/Identity/IdentityService.cs" --start 550 --end 600
 ```
 
+## 報告安全等級（法定 A～E 分級）
+
+「基本資訊與摘要」的**資通安全責任等級（A～E）**係指機關等級，依《資通安全責任等級分級辦法》（民國 115 年 1 月 7 日修正）第 2 至 10 條分級，A 至 E 由高至低；同時符合多個等級依第 9 條採最高等級，實際核定程序仍由權責單位辦理。
+
+`reports/security-code-review/project.json` 的 `security_level` 僅接受 `A`、`B`、`C`、`D`、`E`、`待確認`、`不適用`。未有權責單位確認資料時填「待確認」或省略；法規非適用對象可標示「不適用」。指定 A～E 級時，必須填入 `security_level_basis` 記錄可核對的認定／核定依據，不得由 AI、程式碼或弱點數量推定。
+
+```json
+{
+  "name": "受測系統",
+  "security_level": "B",
+  "security_level_basis": "示例：權責單位核定日期、文號或其他可核對資訊"
+}
+```
+
+未取得核定資訊時使用 `"security_level": "待確認"`。此法定分級與「整體風險評估」及資通系統防護需求分級（第 11 條、附表九）**不同**。
+
+法規來源：https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304
+
 ## 報告審查範圍與檔案數
 
 `assessment.scope` 是文字範圍，不是掃描檔案數。報告在「基本資訊與摘要」增加專案數、**有逐檔紀錄的實際審查檔案數**、盤點檔案數、排除檔案數與檔案類型；「審查檔案明細」顯示專案、排除原因與檔案清單及其 70 項規則的關聯。

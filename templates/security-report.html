@@ -146,7 +146,8 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
 
   <h2 id="summary">基本資訊與摘要</h2>
   <div class="grid2">
-    <div class="panel"><table class="info"><tbody id="projectInfo"></tbody></table></div>
+    <div class="panel"><table class="info"><tbody id="projectInfo"></tbody></table>
+      <p class="small muted" id="securityLevelNote">資通安全責任等級 A～E 級係依<a href="https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304">《資通安全責任等級分級辦法》</a>第 2 至 10 條認定的機關等級，須依權責單位核定或確認資料填報；不代表程式碼風險評分，也不得由本次掃描自動判定。</p></div>
     <div class="panel">
       <div class="small muted" id="checkCountTitle">檢核項目結果</div>
       <div class="bar" id="statusBar" aria-label="檢核項目狀態比例"></div>
@@ -284,7 +285,8 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     ['盤點檔案數',coverage ? coverage.inventory_file_count : '未提供'],
     ['排除檔案數',coverage ? coverage.excluded_file_count : '未提供'],
     ['已審查檔案類型',coverage ? asArray(coverage.file_types).join('、')||'未記錄' : '未提供'],
-    ['安全等級',project.security_level], ['個資處理',project.personal_data],
+    ['資通安全責任等級（A～E）', ['A','B','C','D','E'].includes(project.security_level) ? project.security_level+' 級' : text(project.security_level,'待確認')],
+    ['分級依據／核定資訊',project.security_level_basis], ['個資處理',project.personal_data],
     ['規範依據',asArray(presentation.standards).join('、')||'待提供'],
     ['審查者',presentation.reviewer], ['規則版本',assessment.ruleset_version],
     ['Git Revision',assessment.git_revision]

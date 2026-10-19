@@ -1,6 +1,6 @@
-# 通用 HTML 模板資料契約（建議草案）
+# 通用 HTML 模板資料契約
 
-這份契約是為 HTML 顯示層設計的 **report envelope**，不會覆寫或自行修改目前 `schemas/assessment.schema.json`。正式 JSON Schema 與 Generator 仍屬後續階段。
+這份契約是為 HTML 顯示層設計的 **report envelope**，不會覆寫或自行修改 `schemas/assessment.schema.json`。正式 Schema 與報告產生器分別為 `schemas/report.schema.json`、`scripts/generate_report.py`。
 
 ## 最上層
 
@@ -9,7 +9,7 @@
   "project": {
     "name": "系統名稱",
     "language_framework": "主要語言與框架",
-    "security_level": "由業務／資安核定的等級或待確認",
+    "security_level": "待確認",
     "personal_data": "是／否／待確認"
   },
   "assessment": {
@@ -30,7 +30,7 @@
 
 **rules**：來自相同規則版本的 `rules.json` 的 `rules` 陣列，可以是完整規則，顯示至少使用 `id`、`title`、`category`、`origin.legacy_levels`。務必與此次評估使用的規則版本一致，不要混入其他專案的檢核結果。
 
-**project**：每個專案自己的報告標頭資訊。不得寫死 EDS 專案資訊。
+**project**：每個專案自己的報告標頭資訊。依《資通安全責任等級分級辦法》（115 年 1 月 7 日修正）第 2 至 10 條，`security_level` 只表示**機關資通安全責任等級**，可填 `A`／`B`／`C`／`D`／`E`／`待確認`／`不適用`。未提供時報告顯示「待確認」；填 A～E 級須提供非空白的 `security_level_basis`（權責單位分級認定或核定的日期、文號或其他可核對依據）。不得由原始碼弱點數量自行推定等級。與系統防護需求分級（第 11 條／附表九）和 `presentation.overall_risk` 不同。法規：https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304
 
 **presentation**：HTML 顯示所需的額外資料；無資料時顯示明確提示。
 

@@ -75,6 +75,26 @@ class ReportSchemaTests(unittest.TestCase):
         data['assessment']['checks'][0].update(status='na', applicability_reason='無')
         self.assertTrue(self.errors(data))
 
+    def test_invalid_security_level_rejected(self):
+        data = copy.deepcopy(self.example)
+        data['project']['security_level'] = '高'
+        self.assertTrue(self.errors(data))
+
+    def test_security_level_requires_basis(self):
+        data = copy.deepcopy(self.example)
+        data['project']['security_level'] = 'B'
+        data['project'].pop('security_level_basis', None)
+        self.assertTrue(self.errors(data))
+        data['project']['security_level_basis'] = '主管機關核定文號與日期'
+        self.assertEqual(self.errors(data), [])
+
+    def test_security_level_unknown_and_na(self):
+        for value in ('待確認', '不適用'):
+            data = copy.deepcopy(self.example)
+            data['project']['security_level'] = value
+            data['project'].pop('security_level_basis', None)
+            self.assertEqual(self.errors(data), [])
+
     def test_invalid_overall_risk_rejected(self):
         data = copy.deepcopy(self.example)
         data['presentation']['overall_risk']['level'] = 'severe'
