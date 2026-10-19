@@ -104,9 +104,13 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 python "$env:USERPROFILE\.agents\skills\security-code-review\scripts\source_reader.py" --source-root . --path "src/Infrastructure/Identity/IdentityService.cs" --start 550 --end 600
 ```
 
-## 報告安全等級（法定 A～E 分級）
+## 報告安全等級（審查時自動初判法定 A～E 級）
 
 「基本資訊與摘要」的**資通安全責任等級（A～E）**係指機關等級，依《資通安全責任等級分級辦法》（民國 115 年 1 月 7 日修正）第 2 至 10 條分級，A 至 E 由高至低；同時符合多個等級依第 9 條採最高等級，實際核定程序仍由權責單位辦理。
+
+**無需在執行 Skill 前先提供分級。** Agent 隨 70 項審查自動比對已查核的程式碼、設定、權限控管與業務文件，能提出具體線索時於報告顯示「初步研判」與佐證，無法判斷時顯示「待確認」及原因，不中斷 70 項檢核。若 Agent 未產生初判，`generate_report.py` 會從完成審查的 `execution.inspected_paths` 自動搜尋明確角色／權限管理程式碼，作為第 6 條 C 級**技術條件線索**；無線索則記錄尚缺的機關業務、維運與核定資訊。此結果不能證明法定核定、不能排除較高的 A／B 級，亦不能以無線索推定 D／E 級。
+
+`project.security_level_assessment` 會儲存自動初判（`status`、`level`、`basis`、已審查證據路徑與行號、`missing_information`），並在 HTML「安全等級判斷說明」呈現。只有**已核定的等級**才設定 `security_level`。
 
 `reports/security-code-review/project.json` 的 `security_level` 僅接受 `A`、`B`、`C`、`D`、`E`、`待確認`、`不適用`。未有權責單位確認資料時填「待確認」或省略；法規非適用對象可標示「不適用」。指定 A～E 級時，必須填入 `security_level_basis` 記錄可核對的認定／核定依據，不得由 AI、程式碼或弱點數量推定。
 
@@ -118,7 +122,7 @@ python "$env:USERPROFILE\.agents\skills\security-code-review\scripts\source_read
 }
 ```
 
-未取得核定資訊時使用 `"security_level": "待確認"`。此法定分級與「整體風險評估」及資通系統防護需求分級（第 11 條、附表九）**不同**。
+未取得核定資訊時可省略 `security_level` 或填「待確認」，系統會自動產生初判或待確認說明。此法定分級與「整體風險評估」及資通系統防護需求分級（第 11 條、附表九）**不同**。
 
 法規來源：https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304
 
