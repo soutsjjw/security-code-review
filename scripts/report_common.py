@@ -159,6 +159,19 @@ def validate_data(
     checks = {c['id']: c for c in assessment['checks']}
     if len(checks) != 70 or set(checks) != set(master):
         result.errors.append('assessment.checks 必須包含 70 個不重複且與規則主檔相符的 ID')
+    # 安全等級初判證據只能引用已完成檢核的真實審查路徑。
+    preliminary = data['project'].get('security_level_assessment')
+    if preliminary:
+        inspected = {
+            str(path).replace('\\', '/')
+            for check in assessment['checks'] if check.get('execution', {}).get('state') == 'completed'
+            for path in check.get('execution', {}).get('inspected_paths', [])
+        }
+        for ev in preliminary['evidence']:
+            rel = ev['path'].replace('\\', '/')
+            if rel not in inspected:
+                result.errors.append(f'安全等級初判證據 {rel}: 不在已完成檢核的 inspected_paths')
+            _verify_line(ev, '安全等級初判', source_root, result, strict_sources, source_encodings)
     findings = {f['id']: f for f in assessment['findings']}
     for f in assessment['findings']:
         fid = f['id']
