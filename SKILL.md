@@ -1,6 +1,6 @@
 ---
 name: security-code-review
-version: 2.1.5-rc1
+version: 2.1.6-rc1
 description: 對目前專案或指定目錄執行公司共用的 70 項原始碼資安審查，驗證證據並自動產生通用離線 HTML 與 JSON 報告。
 argument-hint: "[專案路徑或檢核範圍]"
 ---
@@ -39,6 +39,17 @@ argument-hint: "[專案路徑或檢核範圍]"
 - **新重點**：A03 供應鏈（傳遞相依、SBOM、受信任來源、CI/CD、工件簽章與發佈控制）；A09 記錄外還需驗證告警與應變；A10 錯誤／逾時／交易失敗與 fail-closed；SSRF 對應 A01:2025。
 - 一個既有規則可能涉及多個 OWASP 類別，但不因此重複計數 Finding；`OWASP Top 10:2025` 是風險分類，**不將類別對照或關聯規則 Pass 直接視為該類別完全符合**。制度、平台或動態項目待佐證時保留 `review` 與說明。
 - 從舊版續用的 `assessment.json` 若先前已完成，**不可僅因對照新增而宣稱 2025 已實際審查**；須核對舊證據是否涵蓋新重點，對缺漏部分重新分析並留下真實查核紀錄。 `report.json` 和 HTML 會呈現版本化風險對照及覆蓋限制。
+
+## 《資通系統防護基準驗證實務》V1.3 第二層驗證
+
+- 國家資通安全研究院 115/06/03 V1.3 之第 2 章包含七構面、27 類、**80 項控制措施**。以 `standards/tw-system-baseline-v1.3.yaml` 為第二層版本化清冊，保存原文 2.x 條次、PDF 頁碼、適用「普／中／高」、查核型態（source/hybrid/external）、證據方向與原 70 項相關規則。
+- **不得修改或重新編號原 70 項，也不得將 80 項加總成 150 個 Code Review 規則**。佇列 `next_checks[].system_baseline_v13_controls` 是源碼檢查參照；對 source/hybrid 可閱讀程式碼與設定，external 需政策、正式工具掃描、滲透測試、部署、演練或營運紀錄。將已檢查方向及待補證據註記於相關 70 項的審查摘要，不得謊稱已完成獨立驗證。
+- 系統防護需求等級「普／中／高」（附表九／十）**與**機關責任等級「A～E」不同。依 `project.protection_demand_level` 及 `protection_demand_level_basis` 取得正式依據決定適用數（普 45、中 62、高 80）；若證據不足則不填值或設為「待確認」，不可因看見特定程式碼而推定正式級別。
+- `report.json.system_baseline` 與 HTML 的獨立章節記錄各項狀態。不提供另外的真實驗證資料時，自動標示 `pending_level`／`not_assessed`／`not_applicable_by_level`；**既有 70 項 Pass 不會推論成防護基準 Pass**。
+- 在受測專案的 `reports/security-code-review/baseline_assessment.json` 可記錄經實際核對的獨立項目：`{ "controls": [{ "id": "TW-SB-2.1.3.2", "status": "review", "reason": "已檢查原始碼，尚待實機授權測試", "reviewer": "審核人員", "verified_on": "2026-10-20", "evidence": [] }] }`。需完整理由、日期和審核者，`pass/fail` 更須有具體獨立佐證路徑或外部工件編號。
+- 只對確實完成的項目寫入人工決定，無佐證不得填 `pass`；也不要把人工基準結果寫進原有 `assessment.json.checks`。如果舊版報告已有 Finding 或已審查結果，一律保留；補充基準不須清空原紀錄。
+- PDF 的附件一僅見起始頁，未取得完整附件，故對照以第 2 章 80 項內容為準；不是聲稱已比對完整附表影本。
+- `complete_review.py` 仍在受測專案執行，沿用 `$security-code-review`。只有 70/70 審查完成才產生報告；獨立防護基準項目可保留待確認，不影響既有交付條件，但不可對外宣稱整體符合性驗證完成。
 
 ## 自動審查流程
 
