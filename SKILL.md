@@ -63,7 +63,9 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 4. 在 **受測專案**（非 Skill）建立 `reports/security-code-review/`，並寫入：
    - `assessment.json`：符合 `schemas/assessment.schema.json` 的 70 項檢核、已驗證 Finding、真實 Git Revision 與證據。
-   - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`。`security_level` 僅表示《資通安全責任等級分級辦法》第 2 至 10 條的**機關資通安全責任等級**，限定 A／B／C／D／E／待確認／不適用；缺少權責單位資料時填「待確認」或省略，填 A～E 時須有 `security_level_basis`（核定／認定資訊）。不得由程式碼弱點或 AI 推定；與資通系統防護需求分級及程式碼整體風險分開。
+   - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`。Agent **須在 70 項程式碼審查時同步嘗試法定 A～E 級的初步研判**，不先要求使用者填級別，亦不因缺少資訊中斷審查。依《資通安全責任等級分級辦法》第 4～10 條查證已實際讀取的程式碼、權限區分、設定、設計及業務文件與服務覆蓋範圍；證據充足時寫入 `project.security_level_assessment`，包含 `status:"preliminary"`、`level:"A～E之一"`、`basis`（規定條次及具體理由）、`evidence:[{path,line_start,line_end}]`（須已列入 completed 的 inspected_paths）及 `missing_information`。不可僅憑登入功能、漏洞數推定 A／B 級；C 級權限管理只是第 6 條**技術條件線索**，尚需確認機關維運事實及更高級別是否適用；未找到權限程式碼不能推斷 D／E 級。
+   - 若證據不足，Agent 應記錄 `security_level_assessment: {status:"undetermined",level:"待確認",basis:"無法判定原因",evidence:[],missing_information:["待核對機關業務及核定資料"]}`，報告顯示說明，**不詢問使用者且繼續其餘 70 項審查**。若未填初判，報告產生器自動檢視 completed 規則的 inspected_paths，以具體角色／權限管理程式碼提出 C 級技術線索，否則自動記錄「待確認」原因。
+   - `security_level`（A～E）只用於已提供的**正式**認定／核定資料，並需 `security_level_basis`；AI 初判不得寫入此欄。正式分級優先顯示，與程式碼整體風險、資通系統防護需求分級分開。
    - `presentation.json`（選用）：真實審查方法／限制、改善優先序及 Before / After。不可補造程式碼、風險或安全優點。
 5. **只有 70 項 `execution.state=completed` 才能開始報告階段。** 從 `TARGET_ROOT` 作為工作目錄，由 Agent 自動呼叫：
 
