@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.5
+# Security Code Review Skill v2.1.6
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -78,6 +78,44 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 - 2025 重要差異：**A03 軟體供應鏈失效**（不僅是過時元件）、**A09 安全日誌與告警**、**A10 異常條件處理不當**；**SSRF 屬 A01:2025**，不再是 2021 的 A10。
 - TACERT 2022 年的 V2 PDF 仍保留其 **OWASP Top 10:2021** 原始引用；2025 依據是另外新增的官方版本，**不改寫歷史文件**。
 - 如果先前的 `assessment.json` 已標記完成，不能因新的 2025 對照自動宣稱重新審查；應核對當時實際查核證據並重新執行未涵蓋的安全查核。
+
+## 資通系統防護基準驗證實務 V1.3（第二層：80 項控制措施）
+
+正式依據：《資通系統防護基準驗證實務》V1.3（國家資通安全研究院，115/06/03），對照《資通安全責任等級分級辦法》第 11 條及附表九、十。清冊：`standards/tw-system-baseline-v1.3.yaml`。
+
+- 保留**原 70 項程式碼規則**及 TACERT/OWASP 對照；另建立 **80 項獨立系統防護基準**，不是 70+80 個程式碼檢核或額外 80 個已執行檢測。
+- 文件第 2 章七構面、27 類控制措施分級：**普 45 項、中 62 項、高 80 項**。僅以受測系統的 `project.protection_demand_level`（普／中／高／待確認）決定適用項目，不以機關資安責任 A～E 或弱點數量換算。
+- Agent 的原有審查佇列 `next_checks[].system_baseline_v13_controls` 提供關聯控制、原文條次、適用級別、原始碼可檢視部分及應備佐證；**不是獨立符合性結果**。
+- 完整報告 `report.json` 新增 `system_baseline`（80 筆、適用等級、各項狀態、條次、原規則關聯、佐證資訊），HTML 增加「資通系統防護基準 V1.3（獨立驗證）」。
+- **預設全部未獨立驗證**（沒有分級為 `pending_level`，有分級但無足夠證據為 `not_assessed`，不屬該分級者為 `not_applicable_by_level`）。原 70 項 `pass` 絕不自動推出基準 `pass`。
+- 有正式分級佐證時，可在受測專案的 `reports/security-code-review/project.json` 加入：
+  ```json
+  {
+    "name": "受測系統",
+    "protection_demand_level": "中",
+    "protection_demand_level_basis": "範例：系統防護需求分級之核定紀錄或可核對依據"
+  }
+  ```
+  若無依據，請保留「待確認」；不影響原 70 項審查。
+- 有實際人工／外部佐證後，可選擇建立 `reports/security-code-review/baseline_assessment.json`，完整評估資訊由 `complete_review.py` 自動帶入報告，**不改動既有 assessment.json**：
+  ```json
+  {
+    "controls": [
+      {
+        "id": "TW-SB-2.1.3.2",
+        "status": "pass",
+        "reason": "已核對伺服器端授權呼叫鏈及實際功能測試",
+        "reviewer": "資安審核者",
+        "verified_on": "2026-10-20",
+        "evidence": ["授權測試紀錄 ART-01、程式碼路徑與行號"]
+      }
+    ]
+  }
+  ```
+  上例**僅為格式示範，不是真實審查結果**。狀態可為 `pass/fail/review/na`；pass/fail 需有非空證據參照、審核者、日期及理由，否則拒絕報告驗證。**不得將 AI 自行推斷、掃描佇列已列出或不存在之測試填作佐證**。
+- 檔案來源 PDF **不含完整附件一檢核表**；本次只引用正文 80 項和條次，不聲稱已取得附件完整內容。
+
+單一指令仍是 `$security-code-review`，輸出的原始碼審查依然以 70/70 完成為前提。**80 項符合性屬獨立驗證**，缺部署／制度／動態測試記錄時不得宣稱已通過全部基準。
 
 ## Codex `/goal` 完整審查指令
 
