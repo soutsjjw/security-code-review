@@ -47,6 +47,28 @@ for c in entries:
  if not c.get('related_rule_ids') or not set(c['related_rule_ids']).issubset(set(ids)):
   errors.append(f"TACERT V2 unknown mapped rule: {c.get('id')}")
 
+
+# OWASP Top 10:2025 為十個風險分類，不是十個合規要求。
+owasp=yaml.safe_load((ROOT/'standards/owasp-top10-2025.yaml').read_text('utf-8'))
+categories=owasp.get('categories', [])
+if owasp.get('version')!='2025' or len(categories)!=10:
+ errors.append('OWASP Top 10 2025 must have ten official categories')
+if [c.get('id') for c in categories]!=[f'A{i:02d}:2025' for i in range(1,11)]:
+ errors.append('OWASP Top 10 2025 ID/order mismatch')
+for cat in categories:
+ if cat.get('mapping_type')!='related_risk_not_full_coverage':
+  errors.append(f"OWASP category is not marked as partial mapping: {cat.get('id')}")
+ if not cat.get('review_steps') or not cat.get('coverage_gap'):
+  errors.append(f"OWASP missing review guidance or coverage gap: {cat.get('id')}")
+ if not cat.get('url','').startswith('https://top10.owasp.org/2025/'):
+  errors.append(f"OWASP invalid official URL: {cat.get('id')}")
+ if not cat.get('related_rule_ids') or not set(cat['related_rule_ids']).issubset(set(ids)):
+  errors.append(f"OWASP unknown mapped rule: {cat.get('id')}")
+a01=next((cat for cat in categories if cat.get('id')=='A01:2025'), {})
+a10=next((cat for cat in categories if cat.get('id')=='A10:2025'), {})
+if 'IN-08' not in a01.get('related_rule_ids',[]) or 'IN-08' in a10.get('related_rule_ids',[]):
+ errors.append('OWASP 2025 SSRF belongs to A01, not A10')
+
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)
