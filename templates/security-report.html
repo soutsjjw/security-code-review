@@ -141,7 +141,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="loadNotice" class="notice" role="status" hidden></div>
   <nav class="toc" aria-label="報告導覽">
     <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
-    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
   </nav>
 
   <h2 id="summary">基本資訊與摘要</h2>
@@ -183,6 +183,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
 
   <h2 id="owasp2025">OWASP Top 10:2025 風險分類對照</h2>
   <div class="panel" id="owasp2025Content"></div>
+
+  <h2 id="baselineV13">資通系統防護基準 V1.3（獨立驗證）</h2>
+  <div class="panel" id="systemBaselineContent"></div>
 
   <h2 id="findings">發現與改善建議</h2>
   <div class="filters" id="sevFilter" aria-label="風險等級篩選">
@@ -256,7 +259,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   } catch(err) {
     notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
-    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;
   }
 
@@ -302,6 +305,8 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     ['排除檔案數',coverage ? coverage.excluded_file_count : '未提供'],
     ['已審查檔案類型',coverage ? asArray(coverage.file_types).join('、')||'未記錄' : '未提供'],
     ['資通安全責任等級（A～E）',levelDisplay],
+    ['資通系統防護需求等級（普／中／高）',report.system_baseline?.demand_level||'待確認'],
+    ['系統防護需求分級依據',report.system_baseline?.demand_level_basis||'尚缺適用等級及其可核對依據'],
     ['安全等級判斷說明',levelExplanation],
     ['初步研判佐證',!official&&!notApplicable&&levelEvidence?levelEvidence:'無'],
     ['尚待確認資訊',!official&&!notApplicable?(levelMissing||'機關業務與核定資料'):'以提供之適用性／核定資料為準'],
@@ -455,6 +460,62 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       body.append(tr);
     }
     table.append(body);wrap.append(table);owContainer.append(wrap);
+  }
+
+  // 第二層法定系統防護基準，不與 70 項程式碼檢核相加。
+  const baseContainer=$('systemBaselineContent');
+  const baseline=report.system_baseline||null;
+  if(!baseline || !Array.isArray(baseline.controls) || baseline.controls.length!==80) {
+    baseContainer.append(empty('尚未提供完整的 V1.3（80 項）獨立防護基準對照。不可從程式碼檢核推定符合。'));
+  } else {
+    const title=el('p','small muted',
+      '此節依《資通系統防護基準驗證實務》V1.3 顯示 80 項獨立控制措施。與機關 A～E 責任等級不同；未提供系統普／中／高分級時適用性待確認。原始碼 Pass、掃描提示、未提供實測或政策紀錄，皆不代表控制措施符合。');
+    baseContainer.append(title);
+    const countMap=baseline.status_counts||{};
+    const levelLabel=baseline.demand_level||'待確認';
+    const countLabel=(k)=>countMap[k]||0;
+    const summary=el('p','small',
+      '系統防護需求等級：'+levelLabel+
+      '；適用控制：'+(baseline.applicable_controls===null?'待確認':baseline.applicable_controls)+'／80'+
+      '；已獨立確認符合 '+countLabel('pass')+
+      '、不符合 '+countLabel('fail')+
+      '、人工待確認 '+countLabel('review')+
+      '、未評估 '+countLabel('not_assessed')+
+      '、分級待確認 '+countLabel('pending_level'));
+    baseContainer.append(summary);
+    const statusNames={pending_level:'分級待確認',not_assessed:'未評估',
+      not_applicable_by_level:'依分級不適用',pass:'符合（有獨立佐證）',
+      fail:'不符合（有獨立佐證）',review:'待確認',na:'不適用（具理由）'};
+    const modeNames={source:'程式碼',hybrid:'程式碼＋外部',external:'外部證據'};
+    const groupNames=['存取控制','事件日誌與可歸責性','營運持續計畫','識別與鑑別',
+      '系統與服務獲得','系統與通訊保護','系統與資訊完整性'];
+    for(const domain of groupNames) {
+      const items=baseline.controls.filter(c=>c.domain===domain);
+      if(!items.length)continue;
+      const details=el('details','cl');details.open=true;
+      details.append(el('summary',null,domain+'（'+items.length+' 項）'));
+      const wrap=el('div','tablewrap'),table=el('table');
+      const head=el('thead'),trHead=el('tr');
+      ['條次','控制措施','適用等級','檢證方式','獨立驗證狀態','佐證與理由'].forEach(x=>trHead.append(el('th',null,x)));
+      head.append(trHead);table.append(head);
+      const body=el('tbody');
+      for(const item of items) {
+        const tr=el('tr');
+        tr.append(el('td','small mono',item.section),
+          el('td','small',item.title),
+          el('td','small',asArray(item.applicable_levels).join('、')),
+          el('td','small',modeNames[item.verification_mode]||'待確認'));
+        const st=el('td','small',statusNames[item.status]||'資料異常');
+        tr.append(st);
+        const ev=asArray(item.evidence).join('；');
+        const note=item.reason ? item.reason+(ev?'；證據：'+ev:'') :
+          item.status==='not_applicable_by_level' ? '依系統防護需求分級判定' :
+          item.status==='pending_level' ? '尚無可核對的普／中／高系統分級' :
+          '尚無獨立驗證結果。需佐證：'+item.expected_evidence;
+        tr.append(el('td','small',note));body.append(tr);
+      }
+      table.append(body);wrap.append(table);details.append(wrap);baseContainer.append(details);
+    }
   }
 
   // 弱點明細
