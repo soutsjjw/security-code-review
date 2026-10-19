@@ -2384,7 +2384,8 @@
           "required": [
             "included",
             "excluded_implementation_technologies",
-            "note"
+            "note",
+            "level_usage_note"
           ],
           "properties": {
             "included": {
@@ -2401,6 +2402,10 @@
               ]
             },
             "note": {
+              "type": "string",
+              "minLength": 1
+            },
+            "level_usage_note": {
               "type": "string",
               "minLength": 1
             }
@@ -2482,7 +2487,9 @@
                     "pdf_page",
                     "title",
                     "verification_mode",
-                    "review_focus"
+                    "review_focus",
+                    "observed_levels",
+                    "levels_evidence"
                   ],
                   "properties": {
                     "id": {
@@ -2510,6 +2517,22 @@
                       ]
                     },
                     "review_focus": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_levels": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "minItems": 1,
+                      "items": {
+                        "enum": [
+                          "普",
+                          "中",
+                          "高"
+                        ]
+                      }
+                    },
+                    "levels_evidence": {
                       "type": "string",
                       "minLength": 1
                     }
