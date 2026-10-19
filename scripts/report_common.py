@@ -15,6 +15,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 from source_reader import DEFAULT_LEGACY_ENCODINGS, read_source_text
 from review_completion import completion_errors
+from scope_inventory import build_scope_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 SLOT_RE = re.compile(r'(<script\s+id="report-data"\s+type="application/json">)(.*?)(</script>)', re.DOTALL)
@@ -268,6 +269,20 @@ def validate_data(
                     (result.errors if strict_sources else result.warnings).append(
                         f'{fid}: 沒有可讀的未遮蔽來源片段，無法核對 Before 程式碼'
                     )
+    # 核對實際審查路徑與自動計算的統計，禁止手動造假計數。
+    if source_root is not None:
+        try:
+            actual_scope = build_scope_inventory(assessment, source_root)
+            if 'scope_inventory' in data and data['scope_inventory'] != actual_scope:
+                result.errors.append('scope_inventory 與實際來源／inspected_paths 不一致')
+            if not actual_scope['reviewed_files'] and not pres.get('demo'):
+                result.warnings.append('尚無 execution.inspected_paths，不能宣稱已審查全部檔案')
+            if actual_scope['declared_project_count'] is None and not pres.get('demo'):
+                result.warnings.append('尚未提供 scope_details.projects，無法確認審查專案數')
+        except (ValueError, OSError) as exc:
+            result.errors.append(f'審查範圍或檔案明細無法驗證：{exc}')
+    elif 'scope_inventory' in data:
+        result.warnings.append('未提供 --source-root，無法核對 scope_inventory')
     if pres.get('demo') and not allow_demo:
         result.errors.append('演示資料不可當成正式報告；測試時須指定 --allow-demo')
     if not pres.get('demo') and assessment['git_revision'].strip('0') == '':

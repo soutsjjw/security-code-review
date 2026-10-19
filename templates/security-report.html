@@ -141,7 +141,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="loadNotice" class="notice" role="status" hidden></div>
   <nav class="toc" aria-label="報告導覽">
     <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
-    <a href="#strengths">既有優點</a><a href="#checklist">詳細檢核結果</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
   </nav>
 
   <h2 id="summary">基本資訊與摘要</h2>
@@ -156,6 +156,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       <div class="risk sev-info" id="overallRisk" role="note"></div>
     </div>
   </div>
+
+  <h2 id="scopeFiles">審查檔案明細</h2>
+  <div class="panel" id="scopeFilesContent"></div>
 
   <h2 id="high">發現摘要</h2>
   <div class="panel tablewrap" id="findingSummary"></div>
@@ -249,13 +252,14 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   } catch(err) {
     notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
-    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','findingDetails','scopeContent']) $(id).append(empty('尚無報告資料'));
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;
   }
 
   const assessment=report.assessment;
   const project=report.project||{};
   const presentation=report.presentation||{};
+  const coverage=report.scope_inventory||null;
   const findings=asArray(assessment.findings);
   const checks=asArray(assessment.checks);
   const rules=asArray(report.rules);
@@ -275,6 +279,11 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   const info = [
     ['系統名稱', text(project.name,assessment.project_id)], ['審查日期',assessment.assessment_date],
     ['語言 / 框架',project.language_framework], ['審查範圍',assessment.scope],
+    ['已審查專案數量',coverage ? text(coverage.reviewed_project_count,'未提供專案對照') : '未提供'],
+    ['有逐檔紀錄的檔案數',coverage ? coverage.reviewed_file_count : '未提供'],
+    ['盤點檔案數',coverage ? coverage.inventory_file_count : '未提供'],
+    ['排除檔案數',coverage ? coverage.excluded_file_count : '未提供'],
+    ['已審查檔案類型',coverage ? asArray(coverage.file_types).join('、')||'未記錄' : '未提供'],
     ['安全等級',project.security_level], ['個資處理',project.personal_data],
     ['規範依據',asArray(presentation.standards).join('、')||'待提供'],
     ['審查者',presentation.reviewer], ['規則版本',assessment.ruleset_version],
@@ -301,6 +310,40 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   $('overallRisk').className='risk '+(SEVERITY[level]?.[1]||'st-review');
   const riskLabel=el('div');riskLabel.append(el('div','small','整體風險評估'),el('div','lvl',SEVERITY[level]?.[0]||'待確認'));
   $('overallRisk').append(riskLabel,el('div','small',text(overall.summary,'未提供整體風險判定；應由審查人員確認，不可只由缺失數量推定。')));
+
+  // 已審查檔案必須來自 completed 的逐檔紀錄，不得以盤點檔案代替。
+  const scopeFiles=$('scopeFilesContent');
+  const scopeTable=(headers, rows)=>{
+    const wrap=el('div','tablewrap'), table=el('table'), head=el('thead'), hr=el('tr');
+    headers.forEach(h=>hr.append(el('th',null,h))); head.append(hr); table.append(head);
+    const body=el('tbody');
+    rows.forEach(values=>{
+      const tr=el('tr');
+      values.forEach(v=>tr.append(el('td','small mono',v)));
+      body.append(tr);
+    });
+    table.append(body); wrap.append(table); return wrap;
+  };
+  if(!coverage) {
+    scopeFiles.append(empty('未提供實際審查檔案統計；不可由審查範圍文字推定已檢查整個專案。'));
+  } else {
+    scopeFiles.append(el('p','small muted','統計基準為產生報告當下的受測工作目錄；「已審查」僅計 completed 檢核的 execution.inspected_paths，不代表所有盤點檔案已審查，也不保證與 Git Revision 完全相同。'));
+    scopeFiles.append(el('h4',null,'審查專案明細'));
+    if(asArray(coverage.projects).length) {
+      scopeFiles.append(scopeTable(['專案名稱','專案目錄','有逐檔紀錄的檔案數'],
+        coverage.projects.map(p=>[p.name,p.path,p.reviewed_file_count])));
+    } else scopeFiles.append(empty('未提供 scope_details.projects，無法確認多專案審查數量。'));
+    scopeFiles.append(el('h4',null,'排除範圍'));
+    if(asArray(coverage.excluded_paths).length) {
+      scopeFiles.append(scopeTable(['排除路徑／規則','排除原因','檔案數'],
+        coverage.excluded_paths.map(p=>[p.path,p.reason,p.file_count])));
+    } else scopeFiles.append(empty('目前沒有符合排除規則的檔案。'));
+    scopeFiles.append(el('h4',null,'實際審查檔案清單（已去重）'));
+    if(asArray(coverage.reviewed_files).length) {
+      scopeFiles.append(scopeTable(['審查檔案','關聯檢核項目'],
+        coverage.reviewed_files.map(p=>[p.path,asArray(p.check_ids).join('、')])));
+    } else scopeFiles.append(empty('尚未記錄 execution.inspected_paths，不能宣稱已審查全部檔案。'));
+  }
 
   // 發現摘要
   if (!findings.length) $('findingSummary').append(empty('沒有已確認的弱點發現；不代表系統沒有安全風險。'));

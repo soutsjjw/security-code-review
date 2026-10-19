@@ -34,6 +34,12 @@ class CompleteReviewTests(unittest.TestCase):
                 }
                 c['decision_reason'] = f"已完成 {c['id']} 的測試資料處理；因缺外部環境佐證維持 review"
             (target / 'IdentityService.cs').write_bytes('// 中文註解：身份檢查\n'.encode('cp950'))
+            a['scope_details'] = {'projects': [{'name': 'Identity', 'path': '.'}],
+                                  'excluded_paths': [{'path': 'bin', 'reason': '建置輸出'}]}
+            (target / 'bin').mkdir()
+            (target / 'bin' / 'generated.dll').write_bytes(b'compiled')
+            a['checks'][0]['execution']['inspected_paths'] = ['IdentityService.cs']
+            a['checks'][1]['execution']['inspected_paths'] = ['IdentityService.cs']
             a['checks'][0]['evidence'] = [{
                 'kind': 'source', 'description': '核對 CP950 原始碼的來源檔與行號',
                 'collected_on': '2026-10-18', 'source_version': 'test',
@@ -51,7 +57,15 @@ class CompleteReviewTests(unittest.TestCase):
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertTrue((output / 'CodeReview_20261018.html').is_file())
             self.assertTrue((output / 'report.json').is_file())
-            self.assertEqual(json.loads((output / 'report.json').read_text('utf-8'))['project']['name'], '整合測試系統')
+            report_data = json.loads((output / 'report.json').read_text('utf-8'))
+            self.assertEqual(report_data['project']['name'], '整合測試系統')
+            inv = report_data['scope_inventory']
+            self.assertEqual(inv['reviewed_file_count'], 1)
+            self.assertEqual(inv['reviewed_project_count'], 1)
+            self.assertEqual(inv['reviewed_files'][0]['check_ids'],
+                             sorted([a['checks'][0]['id'], a['checks'][1]['id']]))
+            self.assertGreaterEqual(inv['excluded_file_count'], 1)
+            self.assertIn('審查檔案明細', (output / 'CodeReview_20261018.html').read_text('utf-8'))
             self.assertFalse((SKILL_ROOT / 'reports').exists())
 
     def test_missing_inputs_are_rejected_without_writing(self):

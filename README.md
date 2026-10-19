@@ -104,6 +104,26 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 python "$env:USERPROFILE\.agents\skills\security-code-review\scripts\source_reader.py" --source-root . --path "src/Infrastructure/Identity/IdentityService.cs" --start 550 --end 600
 ```
 
+## 報告審查範圍與檔案數
+
+`assessment.scope` 是文字範圍，不是掃描檔案數。報告在「基本資訊與摘要」增加專案數、**有逐檔紀錄的實際審查檔案數**、盤點檔案數、排除檔案數與檔案類型；「審查檔案明細」顯示專案、排除原因與檔案清單及其 70 項規則的關聯。
+
+在 `assessment.json` 原有七項必要欄位之外，Agent 可記錄：
+
+```json
+"scope_details": {
+  "projects": [
+    {"name": "WebAPI", "path": "src/WebAPI"},
+    {"name": "Core", "path": "src/Core"}
+  ],
+  "excluded_paths": [
+    {"path": "src/Legacy", "reason": "不在本次審查範圍"}
+  ]
+}
+```
+
+單一專案可使用 `{"name":"系統名稱","path":"."}`。每項實際檢查的檔案路徑必須寫入對應 `execution.inspected_paths`；盤點到檔案不等於完成審查。統計由 Python 根據**報告產生時的工作目錄**自動計算，不手動輸入檔案／專案數。未提供專案對照時，報告會顯示「未提供」，不假設只有一個專案。統計與 Git Revision 可能不完全一致，應確認版本。
+
 ## Python 是否必要？
 
 - Skill **辨識及 AI 閱讀程式碼不需要** Python。

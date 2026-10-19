@@ -8,6 +8,7 @@
 report.json
 ├── report_schema_version  # 固定 "2.1.0"
 ├── project                # 不同系統的標頭資訊
+├── scope_inventory        # 自動盤點與完成審查的逐檔紀錄（提供 source-root 時）
 ├── assessment             # 原本 70 項審查結果；ruleset_version = "2.0.0-rc1"
 ├── rules                  # 70 項規則顯示資訊（可用完整規則物件或最小投影）
 └── presentation           # 僅報告呈現用途
@@ -21,6 +22,14 @@ report.json
 | `assessment` | 原有七項必要欄位 | 核心 `assessment.schema.json` 已增加各項檢核的必要 `execution` 欄位；Finding、證據及例外繼續保存於核心結構。 |
 | `rules` | `id`、`title`、`category`（70 筆） | 必須涵蓋目前完整 70 個規則 ID，且每個只能出現一次；允許完整規則物件額外欄位。 |
 | `presentation` | 物件可為 `{}` | 所有視覺欄位均可選；不得為了美觀捏造不存在的內容。 |
+
+## 審查範圍與相容性
+
+- `assessment.scope` 仍是文字描述。新增可選 `scope_details.projects=[{name,path}]` 與 `scope_details.excluded_paths=[{path,reason}]`（皆相對受測根目錄）；沒有專案對照不得自動假設為 1 個專案。
+- `execution.inspected_paths` 只填入各 completed 規則確實讀取核對的檔案。盤點到的檔案不等於已檢查。
+- `scope_inventory` 是工具生成的選用報告欄位：`inventory_file_count`、`eligible_file_count`、`excluded_file_count`、`reviewed_file_count`（跨規則去重）、`reviewed_files`（每檔關聯規則）、`file_types`、`projects`、`excluded_paths`、`declared_project_count`、`reviewed_project_count`。
+- `reviewed_project_count` 只計算明確宣告且至少有一個已審查檔案的專案；未提供對照為 `null`。未有任何逐檔紀錄則記 0 並警告，不能宣稱全案已審查。
+- 盤點統計反映報告產生時工作目錄的一般檔案，不追蹤 symlink，不代表 Git Revision 對應的歷史版本。舊版不含 `scope_inventory` 仍能載入。
 
 ## presentation 可選欄位
 

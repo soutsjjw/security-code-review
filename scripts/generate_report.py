@@ -9,6 +9,7 @@ from pathlib import Path
 
 from report_common import ROOT, load_json, render_html, validate_data, validate_html
 from source_reader import DEFAULT_LEGACY_ENCODINGS
+from scope_inventory import build_scope_inventory
 
 
 def parse_args():
@@ -55,6 +56,8 @@ def main() -> int:
                 ],
                 'presentation': load_json(a.presentation) if a.presentation else {},
             }
+        if a.source_root is not None:
+            data['scope_inventory'] = build_scope_inventory(data['assessment'], a.source_root)
         result = validate_data(data, rules_path=a.rules, schema_dir=a.schema_dir,
                                source_root=a.source_root, strict_sources=a.strict_sources,
                                allow_demo=a.allow_demo,

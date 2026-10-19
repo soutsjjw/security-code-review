@@ -1784,6 +1784,138 @@
         }
       },
       "additionalProperties": false
+    },
+    "scope_inventory": {
+      "type": "object",
+      "description": "從受測工作目錄及 completed 的 inspected_paths 自動衍生，不能人工填入統計數字",
+      "required": [
+        "basis",
+        "inventory_file_count",
+        "eligible_file_count",
+        "excluded_file_count",
+        "reviewed_file_count",
+        "reviewed_files",
+        "file_types",
+        "declared_project_count",
+        "reviewed_project_count",
+        "projects",
+        "excluded_paths"
+      ],
+      "properties": {
+        "basis": {
+          "const": "working-tree-filesystem"
+        },
+        "inventory_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "check_ids"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "check_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "file_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared_project_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "reviewed_project_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "path",
+              "reviewed_file_count"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "reviewed_file_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "excluded_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "reason",
+              "file_count"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "file_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,

@@ -54,6 +54,13 @@ argument-hint: "[專案路徑或檢核範圍]"
    - **唯讀解碼已獲本 Skill 的一般執行授權，不得再次詢問使用者可否讀取 CP950／CP1252。** 先依 BOM 使用 UTF-8-BOM／UTF-16 等編碼，無 BOM 優先 UTF-8，失敗則自動嚴格回退 CP950、CP1252。回退警告只需記入診斷／報告限制，**不是人工確認閘門**；疑似誤判編碼時以其他線索核對，不得默默扭曲證據。可使用 `python <SKILL_ROOT>/scripts/source_reader.py --source-root <TARGET_ROOT> --path <相對來源檔> --start 1 --end 200` 取得帶行號的唯讀內容，不得修改來源、忽略解碼錯誤位元組或憑空填證據。
    - 如果個別來源仍無法安全解碼，記錄檔案與解碼錯誤並繼續其他可讀檔案與檢核；只有對完成剩餘審查構成實質阻斷的錯誤才能中斷，並清楚列出未完成範圍。
    - 缺乏證據不得 Pass；N/A 須有理由；不得自動執行破壞性測試或捏造動態測試、環境與政策簽核。
+### 必須記錄審查範圍與檔案明細
+
+- 在 `assessment.scope_details.projects` 記錄真正納入的專案：每項具有 `name` 及相對 `TARGET_ROOT` 的 `path`；單一專案可使用 `path: "."`，多專案各列一筆。不要由 manifest 數直接推定審查專案數。
+- 在 `scope_details.excluded_paths` 可記錄額外排除的目錄／檔案及 `reason`；不得排除仍被列為已審查的檔案；專案 CI 設定不能預設排除。
+- 每項 completed 規則，將**實際閱讀、追蹤與核對**的相對來源路徑填入 `execution.inspected_paths`；單純搜尋命中或盤點檔名不算已審查，不能大量填入尚未實際閱讀的路徑。
+- `complete_review.py` 自動盤點工作目錄、計算排除數，並以 completed 的 `inspected_paths` 去重計算實際審查檔數與專案數、檔案類型及明細；路徑不存在、跨出目錄或位於排除範圍時不可通過驗證。無專案對照時應標示「未提供」而非猜測數字。
+
 4. 在 **受測專案**（非 Skill）建立 `reports/security-code-review/`，並寫入：
    - `assessment.json`：符合 `schemas/assessment.schema.json` 的 70 項檢核、已驗證 Finding、真實 Git Revision 與證據。
    - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`。
