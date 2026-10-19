@@ -14,6 +14,26 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
 TACERT_V2_FILE = SKILL_ROOT / "standards" / "tacert-v2-checklist.yaml"
+OWASP_2025_FILE = SKILL_ROOT / "standards" / "owasp-top10-2025.yaml"
+
+
+def load_owasp_2025_categories(rules: list[dict]) -> dict[str, list[dict]]:
+    """將 OWASP Top 10:2025 官方分類對應至 70 項規則（非符合判定）。"""
+    document = yaml.safe_load(OWASP_2025_FILE.read_text(encoding="utf-8"))
+    mapped = {rule["id"]: [] for rule in rules}
+    for category in document["categories"]:
+        for rid in category["related_rule_ids"]:
+            if rid not in mapped:
+                raise ValueError(f"OWASP 2025 分類對應未知規則：{rid}")
+            mapped[rid].append({
+                "id": category["id"],
+                "title": category["title"],
+                "review_steps": category["review_steps"],
+                "coverage_gap": category["coverage_gap"],
+                "source_url": category["url"],
+                "mapping_type": category["mapping_type"],
+            })
+    return mapped
 
 
 def load_tacert_v2_checks(rules: list[dict]) -> dict[str, list[dict]]:
@@ -95,11 +115,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
     if illegal:
         raise ValueError("無效執行狀態：" + ", ".join(illegal))
     tacert_by_rule = load_tacert_v2_checks(rules)
+    owasp_by_rule = load_owasp_2025_categories(rules)
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     selected = remaining[:batch_size]
     return {
         "total": 70,
         "tacert_v2_supplemental_items": 39,
+        "owasp_top10_2025_categories": 10,
         "completed": states.get("completed", 0),
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
@@ -115,12 +137,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
             "verification_method": r.get("inspection", {}).get("verification_method", ""),
             "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
             "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
-            "tacert_v2_checks": tacert_by_rule[r["id"]]
+            "tacert_v2_checks": tacert_by_rule[r["id"]],
+            "owasp_2025_categories": owasp_by_rule[r["id"]]
         } for r in selected],
         "instruction": ("已完成全部 70 項，執行 complete_review.py 並驗證 HTML/JSON。"
                         if not remaining else
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
-                        "逐項納入 tacert_v2_checks 可驗證內容，無部署/動態佐證時清楚記錄待確認；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
+                        "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
 
 
