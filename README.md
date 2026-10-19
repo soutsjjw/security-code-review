@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.3
+# Security Code Review Skill v2.1.4
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -56,13 +56,21 @@ New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
 Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skills\security-code-review"
 ```
 
-從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需先將此 v2.1.2 套件提交到該分支**，否則遠端不會包含最新版功能。
+從私有 GitHub 安裝時，可在已設定 SSH 權限的環境中將 `develop` 分支直接 Clone 到上述目錄。**需確認目標 `develop` 分支包含最新版套件**，否則遠端不會包含最新版功能。
 
 ## 混合來源編碼及完整檢核
 
-來源程式碼可為 UTF-8、UTF-8-BOM、帶 BOM 的 UTF-16；遇到舊式編碼時預設依序嘗試 CP950、CP1252，並於報告驗證提出警告（此回退不代表百分之百辨識正確）。可在 Agent 內部呼叫時指定 `--source-encodings cp950,cp1252`，絕不修改受測程式碼。JSON／HTML 輸出仍統一 UTF-8。
+來源程式碼可為 UTF-8、UTF-8-BOM、帶 BOM 的 UTF-16；遇到舊式編碼時預設依序嘗試 CP950、CP1252，**自動唯讀回退，不需再次取得使用者確認**；報告驗證會保留警告（此回退不代表百分之百辨識正確）。可在 Agent 內部呼叫時指定 `--source-encodings cp950,cp1252`，絕不修改受測程式碼。JSON／HTML 輸出仍統一 UTF-8。
 
 `status=review` 代表「已執行審查但仍待外部證據」，不是尚未檢核。未完成或阻斷的項目需保留 `execution.state=pending/blocked`，並使正式報告驗證失敗；逐項完成後再產生 HTML。腳本只驗證審查資料，不會取代 Codex 的程式碼分析。
+
+審查過程如發現漏洞，應將其列入 Finding、建議修補與風險排序，繼續完成其餘檢核，**不修改受測原始碼，也不要求先修復再產報告**。若大型專案需要分批查核，應保存 `assessment.json` 進度，繼續未完成項目。
+
+遇到 Codex 不能以 UTF-8 讀取來源時，Agent 可自動使用下列工具讀取指定行號（使用者通常不需手動執行）：
+
+```powershell
+python "$env:USERPROFILE\.agents\skills\security-code-review\scripts\source_reader.py" --source-root . --path "src/Infrastructure/Identity/IdentityService.cs" --start 550 --end 600
+```
 
 ## Python 是否必要？
 

@@ -21,6 +21,31 @@ class ReportingTests(unittest.TestCase):
     def fresh(self):
         return copy.deepcopy(self.example)
 
+    def test_source_reader_cli_automatic_legacy_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'IdentityService.cs'
+            source.write_bytes('驗證失敗次數控制\n'.encode('cp950'))
+            result = subprocess.run(
+                [sys.executable, str(HERE / 'scripts/source_reader.py'),
+                 '--source-root', str(root), '--path', source.name,
+                 '--start', '1', '--end', '1'],
+                text=True, capture_output=True, encoding='utf-8'
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('1: 驗證失敗次數控制', result.stdout)
+            self.assertIn('WARN:', result.stderr)
+
+    def test_source_reader_cli_rejects_path_traversal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = subprocess.run(
+                [sys.executable, str(HERE / 'scripts/source_reader.py'),
+                 '--source-root', str(root), '--path', '../outside.cs'],
+                text=True, capture_output=True, encoding='utf-8'
+            )
+            self.assertNotEqual(result.returncode, 0)
+
     def test_mixed_source_encodings(self):
         variants = [('utf8.cs', 'utf-8'), ('bom.cs', 'utf-8-sig'),
                     ('utf16.cs', 'utf-16'), ('cp950.cs', 'cp950')]
