@@ -12,6 +12,7 @@ from source_reader import DEFAULT_LEGACY_ENCODINGS
 from scope_inventory import build_scope_inventory
 from security_level import infer_security_level
 from review_queue import load_owasp_2025_categories
+from system_baseline import build_system_baseline, review_from_report
 
 
 def parse_args():
@@ -21,6 +22,7 @@ def parse_args():
     src.add_argument('--assessment', type=Path, help='既有 assessment.json，需搭配 --project')
     p.add_argument('--project', type=Path, help='系統顯示資訊 JSON，內容為 project 物件')
     p.add_argument('--presentation', type=Path, help='選填報告呈現欄位 JSON，內容為 presentation 物件')
+    p.add_argument('--baseline-assessment', type=Path, help='選填獨立 80 項驗證資料（預設自動讀取 assessment.json 同目錄 baseline_assessment.json）')
     p.add_argument('--rules', type=Path, default=ROOT/'rules.json', help='70 項規則主檔')
     p.add_argument('--schema-dir', type=Path, default=ROOT/'schemas')
     p.add_argument('--template', type=Path, default=ROOT/'templates/security-report.html')
@@ -58,6 +60,18 @@ def main() -> int:
                 ],
                 'presentation': load_json(a.presentation) if a.presentation else {},
             }
+        # 第二層 80 項基準不能從程式碼規則 Pass 推定通過。
+        if a.report:
+            if a.baseline_assessment:
+                raise ValueError('--report 模式不得指定 --baseline-assessment')
+            review = review_from_report(data.get('system_baseline', {}))
+            baseline_source = None
+        else:
+            baseline_source = (a.baseline_assessment if a.baseline_assessment else
+                               a.assessment.parent / 'baseline_assessment.json')
+            review = load_json(baseline_source) if baseline_source.is_file() else None
+        data['system_baseline'] = build_system_baseline(data['project'], review)
+
         # 官方 2025 風險類別與既有規則僅為「相關」對照，並非十項合規結果。
         # --report 模式也重新按版本化清單產生分類，不相信舊報告中過時的關聯。
         mapping_rules = load_json(a.rules)
@@ -73,6 +87,9 @@ def main() -> int:
             label = 'OWASP Top 10:2025（風險分類，非合規判定）'
             if label not in standards:
                 standards.append(label)
+            tw_label = '資通系統防護基準驗證實務 V1.3（普／中／高獨立驗證）'
+            if tw_label not in standards:
+                standards.append(tw_label)
         # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
         project = data['project']
         if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E', '不適用'):
@@ -96,7 +113,7 @@ def main() -> int:
         html_result.print()
         if not html_result.ok:
             return 1
-        protected_inputs = [a.report, a.assessment, a.project, a.presentation,
+        protected_inputs = [a.report, a.assessment, a.project, a.presentation, baseline_source,
                             a.rules, a.template, a.schema_dir / 'report.schema.json',
                             a.schema_dir / 'assessment.schema.json']
         inputs = {p.resolve() for p in protected_inputs if p is not None}
