@@ -68,6 +68,17 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 - 文件中的 OWASP Top 10 採 **2021** 版，與本 Skill 的 **OWASP Top 10 2025** 風險分類分別引用。
 - 本次採補充檢核，不虛增成 109 條獨立規則；後續若需新增正式規則，須同步更新規則集、Schema、報告驗證與測試。
 
+## OWASP Top 10:2025 正式風險分類對照
+
+官方依據：[OWASP Top 10:2025](https://top10.owasp.org/2025/)；十類風險以 `standards/owasp-top10-2025.yaml` 維護版本化來源、審查方向、相關規則與**未完整涵蓋項目**。
+
+- **現有 70 項規則保留**；2025 的 A01～A10 為風險分類，不虛增成 80 條獨立規則、也不是直接的法遵條文。
+- `review_queue.py` 透過 `next_checks[].owasp_2025_categories` 提供各類別的實際檢查方向，Agent 應在對應規則的 `decision_reason` 和 `execution.summary` 記錄查核與缺證據情況。
+- `generate_report.py` 將對照寫入 `report.json` 的 `rules[].owasp_2025_categories`，HTML 另顯示「OWASP Top 10:2025 風險分類對照」、關聯檢核結果及仍需確認的範圍；**相關規則通過不代表整個風險類別已完全符合**。
+- 2025 重要差異：**A03 軟體供應鏈失效**（不僅是過時元件）、**A09 安全日誌與告警**、**A10 異常條件處理不當**；**SSRF 屬 A01:2025**，不再是 2021 的 A10。
+- TACERT 2022 年的 V2 PDF 仍保留其 **OWASP Top 10:2021** 原始引用；2025 依據是另外新增的官方版本，**不改寫歷史文件**。
+- 如果先前的 `assessment.json` 已標記完成，不能因新的 2025 對照自動宣稱重新審查；應核對當時實際查核證據並重新執行未涵蓋的安全查核。
+
 ## Codex `/goal` 完整審查指令
 
 若所使用的 Codex 版本支援 `/goal`，可在**受測專案的 Codex 對話**中輸入以下完整指令（不是 PowerShell／Bash 指令）。目標是完成全部 70 項審查後才交付報告；是否能於單次執行內完成，仍取決於 Codex 的執行環境與資源限制。
