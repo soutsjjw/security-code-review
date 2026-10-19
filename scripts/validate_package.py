@@ -69,6 +69,24 @@ a10=next((cat for cat in categories if cat.get('id')=='A10:2025'), {})
 if 'IN-08' not in a01.get('related_rule_ids',[]) or 'IN-08' in a10.get('related_rule_ids',[]):
  errors.append('OWASP 2025 SSRF belongs to A01, not A10')
 
+
+# 確保第二層 V1.3 80 項來源編目與舊版 70 項規則並行而不混淆。
+from system_baseline import load_catalog
+baseline_controls = load_catalog()
+baseline_ids = {c["id"] for c in baseline_controls}
+if len(baseline_ids) != 80:
+ errors.append('TW baseline V1.3 must have 80 unique controls')
+domain_counts = Counter(c['domain'] for c in baseline_controls)
+expected_domains = {'存取控制':14,'事件日誌與可歸責性':13,'營運持續計畫':8,
+                    '識別與鑑別':12,'系統與服務獲得':19,'系統與通訊保護':5,'系統與資訊完整性':9}
+if dict(domain_counts) != expected_domains:
+ errors.append(f'TW baseline domains mismatch: {domain_counts}')
+for control in baseline_controls:
+ if control['id'] != 'TW-SB-' + control['source_section']:
+  errors.append(f"TW baseline source ID mismatch: {control['id']}")
+ if not set(control['related_rule_ids']).issubset(set(ids)):
+  errors.append(f"TW baseline references unknown 70-rule ID: {control['id']}")
+
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)
