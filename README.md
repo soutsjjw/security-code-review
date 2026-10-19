@@ -123,6 +123,7 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 
 - **保留 ASP.NET/.NET 與技術無關的 Web 安全要求；排除 Java、PHP 的程式碼範例、函式庫、技術專屬檢測。** 原有 70 項在其他專案中仍按真實程式碼語言進行通用查核，不因本文件的排除而省略原始碼。
 - 對照資料：`standards/nics-web-guide-v3.2.yaml`（條次、PDF 頁碼、查核方向、相關原有規則、原始碼／混合／外部佐證類型）。
+- 指引細部條次的 `observed_levels` 依第 4 章實作建議表「◎」彙整，屬該節出現等級的聯集；同節不同實作項目可能有不同要求，**不據此自動推定普／中／高符合或不適用**。
 - 審查佇列 `review_queue.py`：在 `next_checks[].web_guide_v32_checks` 提供 ASP.NET/.NET 與通用 Web 檢查提示，發現缺陷仍依原有規則寫入 Finding 並保留證據。
 - `report.json.web_guide_v32` 與 HTML 新增指引版本化索引；**是技術依據對照，不代表已全部符合或完成外部測試**。
 - 特別強化 **4.5.3.4 HTTP 安全標頭**（既有 `CR-05`），須檢查實際設定值、有效性及 CSP 限制，文件範例出現 `unsafe-inline`、`unsafe-eval`，不得當成建議的安全預設值。
