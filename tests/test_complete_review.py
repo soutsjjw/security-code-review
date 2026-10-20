@@ -30,9 +30,9 @@ class CompleteReviewTests(unittest.TestCase):
                 c['execution'] = {
                     'state': 'completed', 'methods': ['integration_fixture'],
                     'summary': f"整合測試依序驗證 {c['id']} 的審查流程與報告產生",
-                    'inspected_paths': []
+                    'inspected_paths': ['IdentityService.cs']
                 }
-                c['decision_reason'] = f"已完成 {c['id']} 的測試資料處理；因缺外部環境佐證維持 review"
+                c['decision_reason'] = f"已完成 {c['id']} 的測試資料處理；因缺少外部環境佐證維持 review"
             (target / 'IdentityService.cs').write_bytes('// 中文註解：身份檢查\n'.encode('cp950'))
             a['scope_details'] = {'projects': [{'name': 'Identity', 'path': '.'}],
                                   'excluded_paths': [{'path': 'bin', 'reason': '建置輸出'}]}
