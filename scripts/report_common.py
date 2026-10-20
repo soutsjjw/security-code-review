@@ -124,7 +124,8 @@ def validate_data(
     data: dict[str, Any], *, rules_path: Path | None = None,
     schema_dir: Path | None = None, source_root: Path | None = None,
     strict_sources: bool = False, allow_demo: bool = False,
-    source_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS
+    source_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS,
+    ignored_artifacts: tuple[Path | None, ...] = (),
 ) -> Result:
     result = Result()
     rules_path = rules_path or ROOT / 'rules.json'
@@ -305,7 +306,7 @@ def validate_data(
     # 核對實際審查路徑與自動計算的統計，禁止手動造假計數。
     if source_root is not None:
         try:
-            actual_scope = build_scope_inventory(assessment, source_root)
+            actual_scope = build_scope_inventory(assessment, source_root, ignored_artifacts=ignored_artifacts)
             if 'scope_inventory' in data and data['scope_inventory'] != actual_scope:
                 result.errors.append('scope_inventory 與實際來源／inspected_paths 不一致')
             if not actual_scope['reviewed_files'] and not pres.get('demo'):
