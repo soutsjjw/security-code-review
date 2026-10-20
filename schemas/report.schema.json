@@ -2552,6 +2552,278 @@
         }
       },
       "additionalProperties": false
+    },
+    "web_guide_v32_appendix1": {
+      "type": "object",
+      "description": "V3.2 附件1 五頁55項查檢表：依普中高獨立核對、保留證據，絕不可由原70項通過推定符合。",
+      "required": [
+        "standard_id",
+        "guide_version",
+        "source_title",
+        "scope",
+        "demand_level",
+        "demand_level_basis",
+        "category_count",
+        "item_count",
+        "applicable_items",
+        "status_counts",
+        "assessment_note",
+        "checks"
+      ],
+      "properties": {
+        "standard_id": {
+          "const": "NICS-WEB-GUIDE-APPENDIX1"
+        },
+        "guide_version": {
+          "const": "V3.2"
+        },
+        "source_title": {
+          "const": "附件1 Web應用程式安全查檢表"
+        },
+        "scope": {
+          "type": "object",
+          "required": [
+            "included",
+            "excluded_implementation_technologies",
+            "note"
+          ],
+          "properties": {
+            "included": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "excluded_implementation_technologies": {
+              "const": [
+                "Java",
+                "PHP"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "demand_level": {
+          "enum": [
+            "普",
+            "中",
+            "高",
+            "待確認"
+          ]
+        },
+        "demand_level_basis": {
+          "type": "string"
+        },
+        "category_count": {
+          "const": 27
+        },
+        "item_count": {
+          "const": 55
+        },
+        "applicable_items": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 55
+        },
+        "status_counts": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "pending_level",
+              "not_assessed",
+              "not_applicable_by_level",
+              "pass",
+              "fail",
+              "review",
+              "na"
+            ]
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "assessment_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 55,
+          "maxItems": 55,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "pdf_page",
+              "parent_section",
+              "category",
+              "requirement",
+              "applicable_levels",
+              "verification_mode",
+              "related_rule_ids",
+              "verification_focus",
+              "applicable",
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^NICS-WEB-A1-[0-9]{3}$"
+              },
+              "pdf_page": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "parent_section": {
+                "type": "string",
+                "pattern": "^4\\.[1-7]\\.\\d+$"
+              },
+              "category": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requirement": {
+                "type": "string",
+                "minLength": 1
+              },
+              "applicable_levels": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "普",
+                    "中",
+                    "高"
+                  ]
+                }
+              },
+              "verification_mode": {
+                "enum": [
+                  "source",
+                  "hybrid",
+                  "external"
+                ]
+              },
+              "related_rule_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                }
+              },
+              "verification_focus": {
+                "type": "string",
+                "minLength": 1
+              },
+              "applicable": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "pending_level",
+                  "not_assessed",
+                  "not_applicable_by_level",
+                  "pass",
+                  "fail",
+                  "review",
+                  "na"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reviewer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "verified_on": {
+                "type": "string",
+                "format": "date"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "pass",
+                        "fail"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "reason",
+                    "reviewer",
+                    "verified_on",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "evidence": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "review",
+                        "na"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "reason",
+                    "reviewer",
+                    "verified_on",
+                    "evidence"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
