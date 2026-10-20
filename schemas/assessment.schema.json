@@ -13,7 +13,11 @@
   ],
   "properties": {
     "ruleset_version": {
-      "const": "2.0.0-rc1"
+      "enum": [
+        "2.0.0",
+        "2.0.0-rc1"
+      ],
+      "description": "正式版 2.0.0；僅為保留舊 assessment.json 審查紀錄相容舊版 2.0.0-rc1。不得自動把舊檢核視為本次新對照已執行。"
     },
     "project_id": {
       "type": "string",
