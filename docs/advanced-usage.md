@@ -17,11 +17,11 @@
 /goal 使用 $security-code-review Skill，完整執行目前專案的全部 70 項資安檢核。
 
 完成條件：
-1. 逐項實際審查全部 70 條規則，確認 execution.state 均為 completed。
+1. 逐項實際審查全部 70 條規則，確認 execution.state 均為 completed，且所有應審查原始碼／設定檔均完成逐檔核對。
 2. 載入既有 assessment.json，保留所有已發現弱點及證據。
 3. 發現弱點時寫入 Finding，不修改原始碼、不要求先修復。
 4. 缺少部署、政策或動態測試證據時，記錄已完成的靜態分析及待確認事項，繼續其他檢核。
-5. 每批保存結果，自動繼續下一批，直到 70/70。
+5. 每批保存結果，自動繼續下一批，直到 70/70 且 source_coverage.missing_source_file_count=0。
 6. 執行 complete_review.py，成功產生並驗證 HTML 與 JSON 報告。
 7. 只有在真正無法繼續的執行錯誤或資源限制時才停止，並保留進度及說明原因。
 
@@ -49,7 +49,7 @@ Windows PowerShell 對應指令：
 1. 若受測專案已存在 `assessment.json`，先讀取並保留原有 Finding、證據及完成進度；否則才建立 70 項待審查草稿。
 2. 依 `next_checks` 清單逐條搜尋程式碼、追蹤呼叫鏈及組態，記錄真實檔案路徑、行號、方法、證據與理由。
 3. 每項審查後記錄 `execution.state`（`pending`、`completed`、`blocked`）以及 `status`（`pass`、`fail`、`review`、`na`）；**不能因待辦清單列出某規則就當作完成**。
-4. 每批保存 `assessment.json` 並重新取得下一批；只有全部 70 項 `completed` 才生成最終報告。
+4. 每批保存 `assessment.json` 並重新取得下一批；只有全部 70 項 `completed`，且 `source_coverage.missing_source_file_count=0` 才生成最終報告。
 5. 真的無法繼續時保留所有進度與實際錯誤，不得把部分結果當成最終交付。
 
 若已完成來源靜態分析但沒有部署／政策／人工／動態佐證，使用 `status=review` 並明列缺口，允許 `execution.state=completed`。尚未執行的規則不可標記為 `review` 或 `completed`。
@@ -111,6 +111,10 @@ V3.2 限用 ASP.NET/.NET、IIS 與通用 Web 安全控制，**排除 Java 與 PH
 ## 審查範圍與檔案數
 
 `assessment.scope` 是描述文字。實際審查檔案必須由每條已完成規則的 `execution.inspected_paths` 提供，不能把檔名搜尋或專案盤點結果當作已審查。
+
+`review_queue.py` 會計算完整來源檔覆蓋，列出 `source_coverage`（應審查、已審查與缺漏數量、缺漏副檔名分布），並以 `next_source_paths`（每批最多 30 個）列出待逐檔閱讀的來源。即使 70 項規則顯示 `completed`，仍缺任一來源檔也不會設定 `ready_for_report=true`；`complete_review.py` 與正式來源驗證也會阻止輸出。
+
+例如指定目錄共有 660 個 `.cs`，只有 13 個有真實已完成的 `inspected_paths` 紀錄，應顯示剩餘 647 個待審查，不能聲稱 70/70 已完整審查。所有源碼、.NET 頁面與相關專案設定應逐檔閱讀，對照實際關聯規則及必要證據，必要時重新審查已 completed 的規則。
 
 可使用 `assessment.scope_details.projects` 記錄專案名稱與路徑，以及 `excluded_paths` 記錄排除路徑與原因。報告依實際路徑去重統計專案數、檔案數、盤點及排除資訊，不能手動造數字。
 
