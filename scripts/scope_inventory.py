@@ -6,7 +6,7 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 # 不排除 .github 等 CI 設定。
 EXCLUDED_DIRS = {
@@ -63,11 +63,20 @@ def _in_project(path: str, project_path: str) -> bool:
     return project_path == "." or path.startswith(project_path.rstrip("/") + "/")
 
 
-def build_scope_inventory(assessment: dict[str, Any], source_root: Path) -> dict[str, Any]:
+def build_scope_inventory(
+    assessment: dict[str, Any], source_root: Path, *,
+    ignored_artifacts: Iterable[Path | None] = (),
+) -> dict[str, Any]:
     """只從受測工作目錄計算，不採信人工輸入的專案／檔案數量。"""
     root = source_root.resolve()
     if not root.is_dir():
         raise ValueError(f"受測根目錄不存在：{source_root}")
+    # 產生與驗證時皆略過同一批報告輸出；避免輸出報告反過來改變原始碼盤點。
+    ignored = {
+        resolved.relative_to(root).as_posix()
+        for resolved in (Path(p).resolve() for p in ignored_artifacts if p is not None)
+        if resolved.is_relative_to(root)
+    }
     details = assessment.get("scope_details") or {}
     custom_excludes = []
     seen = set()
@@ -90,6 +99,8 @@ def build_scope_inventory(assessment: dict[str, Any], source_root: Path) -> dict
             if not absolute.is_file() or absolute.is_symlink():
                 continue
             rel = absolute.relative_to(root).as_posix()
+            if rel in ignored:
+                continue
             inventoried += 1
             rule = next(((p, reason) for p, reason in custom_excludes
                          if rel == p or rel.startswith(p.rstrip("/") + "/")), None)

@@ -33,10 +33,12 @@ def main() -> int:
             data = load_json(args.report)
         else:
             data, _ = extract_html_report(html)
+        ignored_artifacts = (args.report, args.html)
         result = validate_data(data, rules_path=args.rules, schema_dir=args.schema_dir,
                                source_root=args.source_root, strict_sources=args.strict_sources,
                                allow_demo=args.allow_demo,
-                               source_encodings=tuple(x.strip() for x in args.source_encodings.split(',') if x.strip()))
+                               source_encodings=tuple(x.strip() for x in args.source_encodings.split(',') if x.strip()),
+                               ignored_artifacts=ignored_artifacts)
         if html is not None:
             template = args.template.read_text(encoding='utf-8')
             checked = validate_html(html, data, template)
