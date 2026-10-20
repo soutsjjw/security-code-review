@@ -1,11 +1,11 @@
 category: LG
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: LG-01
   title: 安全事件日誌記錄
   category: LG
   control_objective: 記錄有助偵測安全事件的必要資料
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: LG-01
@@ -108,7 +108,7 @@ rules:
   title: 管理者行為稽核
   category: LG
   control_objective: 確保管理者敏感操作可追溯
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: LG-02
@@ -205,7 +205,7 @@ rules:
   title: 日誌內容完整性
   category: LG
   control_objective: 維持稽核事件的必要欄位與可用性
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: LG-03
@@ -304,7 +304,7 @@ rules:
   title: 統一日誌格式
   category: LG
   control_objective: 使事件可集中解析及關聯
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: LG-04
@@ -398,7 +398,7 @@ rules:
   title: 日誌儲存容量管理
   category: LG
   control_objective: 避免日誌無限成長或過早遺失
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: LG-05
@@ -494,7 +494,7 @@ rules:
   title: 時間戳記同步
   category: LG
   control_objective: 確保紀錄時間可比對
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: LG-06
@@ -589,7 +589,7 @@ rules:
   title: 日誌保護與備份
   category: LG
   control_objective: 避免日誌被竄改或未授權讀取
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: LG-07
@@ -692,7 +692,7 @@ rules:
   title: 日誌不記錄機敏資料
   category: LG
   control_objective: 防止密碼、Token 與個資意外寫入日誌
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: LG-08
@@ -787,7 +787,7 @@ rules:
   title: 稽核處理失效應變
   category: LG
   control_objective: 處理稽核通道失效與佇列滿載
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: LG-09
@@ -884,7 +884,7 @@ rules:
   title: 資料完整性雜湊
   category: LG
   control_objective: 保護高保證等級資料完整性
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: LG-10
