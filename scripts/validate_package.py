@@ -12,6 +12,16 @@ s=json.loads((ROOT/'schemas/rules.schema.json').read_text('utf-8'))
 errors=[]
 errors += [e.message for e in Draft202012Validator(s).iter_errors(j)]
 if j!=y:errors.append('rules.json and rules.yaml mismatch')
+if j.get('ruleset_version')!='2.0.0' or j.get('release_status')!='stable':
+ errors.append('70-rule catalog must use stable v2.0.0 release metadata')
+if j.get('release_date')!='2026-10-20':
+ errors.append('70-rule catalog must record its stable release date')
+if any(r.get('rule_version')!='2.0.0' for r in j['rules']):
+ errors.append('70 rules must all carry stable v2.0.0 rule_version')
+assessment_schema=json.loads((ROOT/'schemas/assessment.schema.json').read_text('utf-8'))
+if assessment_schema['properties']['ruleset_version'].get('enum')!=['2.0.0','2.0.0-rc1']:
+ errors.append('assessment schema must support stable v2.0.0 and prior rc1 progress')
+
 ids=[r['id'] for r in j['rules']]
 if len(ids)!=len(set(ids)):errors.append('duplicate rule IDs')
 category_expected={'AC':8,'AU':10,'IN':8,'CR':6,'EH':6,'LG':10,'DP':4,'PD':8,'BC':7,'SI':3}
