@@ -1,0 +1,175 @@
+# WEB 應用程式安全參考指引 V3.2－附件3六項 HTTP 安全標頭來源對照。
+# 原文件的設定示例與本清冊的 implementation_cautions 技術分析必須區分；不可照抄不安全 CSP 範例。
+{
+  "standard_id": "NICS-WEB-GUIDE-APPENDIX3",
+  "parent_standard_id": "NICS-WEB-GUIDE",
+  "version": "V3.2",
+  "source_document": "附件3 HTTP安全標頭防護設定.pdf",
+  "source_pages": 10,
+  "source_section": "4.5.3.4",
+  "related_main_guide_control": "NICS-WEB-4.5.3.4",
+  "scope": {
+    "included": [
+      "ASP.NET/.NET",
+      "IIS/web.config",
+      "ASP.NET(Core) middleware",
+      "Reverse proxy HTTP response",
+      "Technology-neutral HTTP header policies"
+    ],
+    "excluded_implementation_technologies": [
+      "Java",
+      "PHP"
+    ],
+    "note": "排除第 8 頁 Java Servlet Filter 範例與所有 Java、PHP 專屬實作；保留第 9 頁 .NET 範例作為風險辨識參考，不直接當安全預設。"
+  },
+  "main_guide_observed_levels": [
+    "中",
+    "高"
+  ],
+  "level_note": "此處僅對照 V3.2 主文 4.5.3.4 實作表出現的中／高等級，附件3本身無獨立普／中／高矩陣；不得據此自動 N/A。",
+  "assistant_advice_not_from_pdf": "補充的技術風險提示／修正建議係安全分析，不代表原 PDF 字句；尤須留意 CSP unsafe-inline / unsafe-eval、Permissions-Policy self 語法、preload 部署與實際 HTTP 回應。",
+  "checks": [
+    {
+      "id": "NICS-WEB-A3-CSP",
+      "header": "Content-Security-Policy",
+      "source_pdf_pages": [
+        1,
+        2,
+        9
+      ],
+      "related_rule_ids": [
+        "CR-05",
+        "IN-02"
+      ],
+      "verification_mode": "source_plus_http_response",
+      "purpose": "限制可信資源與腳本來源，降低 XSS 風險",
+      "source_recommendation": "依實際應用架構設定 default-src、script-src、style-src、img-src、font-src、connect-src、media-src 的來源限制，不信任來源不得任意執行腳本。",
+      "review_steps": "追蹤 IIS/web.config、ASP.NET(Core) middleware、反向代理及實際 HTML HTTP 回應之 CSP；檢查 report-only 與 enforce 差異、default-src/script-src、寬鬆萬用來源、unsafe-inline/unsafe-eval、nonce/hash、frame-ancestors；核對頁面功能與部署。",
+      "implementation_cautions": [
+        "附件第 9 頁 .NET 範例的 script-src 'self' 'unsafe-inline' 'unsafe-eval' 是原文件示例，不代表推薦的安全預設。",
+        "不能只因存在 CSP 標頭即推定有抵禦 XSS 的有效政策；如僅有 Content-Security-Policy-Report-Only 並不會強制阻擋。",
+        "依場景評估有效性及補償控制；CSP 不取代輸出編碼與輸入驗證。"
+      ],
+      "related_risks": [
+        "OWASP-TOP10 A05:2025",
+        "OWASP-TOP10 A02:2025"
+      ]
+    },
+    {
+      "id": "NICS-WEB-A3-HSTS",
+      "header": "Strict-Transport-Security",
+      "source_pdf_pages": [
+        2,
+        3,
+        9
+      ],
+      "related_rule_ids": [
+        "CR-05",
+        "CR-01"
+      ],
+      "verification_mode": "source_plus_http_response",
+      "purpose": "要求瀏覽器對已建立安全政策的網站使用 HTTPS",
+      "source_recommendation": "文件列出 max-age=31536000; includeSubDomains; preload 範例，並指出初期宜採較短期限確認穩定後延長；preload 視需求選用。",
+      "review_steps": "檢查 HTTPS 成功回應是否設定 HSTS、max-age 合理且非零、TLS 終止/反向代理是否覆寫；確認 includeSubDomains 涵蓋的全部子網域可安全使用 HTTPS，preload 是否符合條件及取得授權。",
+      "implementation_cautions": [
+        "preload 不等於設定字串後就完成瀏覽器名單登錄，且有長期維護風險；不可強制所有站點 preload。",
+        "HSTS 應確認實際 HTTPS 回應，不能只檢查程式碼或 HTTP 302 轉址。",
+        "本文件列出的效期屬實務建議，需依網站上線與子網域配置逐步部署。"
+      ],
+      "related_risks": [
+        "OWASP-TOP10 A04:2025",
+        "OWASP-TOP10 A02:2025"
+      ]
+    },
+    {
+      "id": "NICS-WEB-A3-NOSNIFF",
+      "header": "X-Content-Type-Options",
+      "source_pdf_pages": [
+        3,
+        9
+      ],
+      "related_rule_ids": [
+        "CR-05"
+      ],
+      "verification_mode": "source_plus_http_response",
+      "purpose": "防止瀏覽器自行猜測 MIME 類型",
+      "source_recommendation": "X-Content-Type-Options: nosniff",
+      "review_steps": "追蹤設定與實際回應是否包含正確的 nosniff 值，並檢查 JavaScript/stylesheet 的 Content-Type 與資源是否正確，避免只確認標頭存在。",
+      "implementation_cautions": [
+        "nosniff 不能替代正確的 Content-Type 設定，也不能取代回應內容安全處理。"
+      ],
+      "related_risks": [
+        "OWASP-TOP10 A02:2025"
+      ]
+    },
+    {
+      "id": "NICS-WEB-A3-FRAME",
+      "header": "X-Frame-Options",
+      "source_pdf_pages": [
+        4,
+        9
+      ],
+      "related_rule_ids": [
+        "CR-05"
+      ],
+      "verification_mode": "source_plus_http_response",
+      "purpose": "限制頁面被嵌入 iframe 以降低點擊劫持風險",
+      "source_recommendation": "建議 DENY，若需要同源嵌入可依情境採 SAMEORIGIN；需要指定可嵌入來源時，採 CSP frame-ancestors。",
+      "review_steps": "查驗管理／交易頁面實際 X-Frame-Options 或 CSP frame-ancestors 防護與嵌入需求；驗證 DENY/SAMEORIGIN 及 CSP 是否有過度允許或互相衝突。",
+      "implementation_cautions": [
+        "部分系統必須合法嵌入；需要允許特定來源時可使用 frame-ancestors 而非假設 DENY 為唯一合規值。",
+        "避免採不具一致現代瀏覽器支援的 X-Frame-Options ALLOW-FROM。"
+      ],
+      "related_risks": [
+        "OWASP-TOP10 A02:2025"
+      ]
+    },
+    {
+      "id": "NICS-WEB-A3-REFERRER",
+      "header": "Referrer-Policy",
+      "source_pdf_pages": [
+        4,
+        5,
+        9
+      ],
+      "related_rule_ids": [
+        "CR-05"
+      ],
+      "verification_mode": "source_plus_http_response",
+      "purpose": "限制瀏覽器轉送 Referer 來源資訊及敏感路徑／查詢字串",
+      "source_recommendation": "Referrer-Policy: strict-origin-when-cross-origin",
+      "review_steps": "確認實際回應標頭、跨來源請求的 Referer 資訊暴露、URL 中敏感 Token/個資風險及 HTTPS 降級行為；允許依風險採更嚴格策略。",
+      "implementation_cautions": [
+        "不應因採比文件範例更嚴格的 no-referrer 或 same-origin 就判定不符合。",
+        "Referrer-Policy 不取代避免在 URL 中放置 Token／敏感資料。"
+      ],
+      "related_risks": [
+        "OWASP-TOP10 A02:2025"
+      ]
+    },
+    {
+      "id": "NICS-WEB-A3-PERMISSIONS",
+      "header": "Permissions-Policy",
+      "source_pdf_pages": [
+        5,
+        6,
+        9
+      ],
+      "related_rule_ids": [
+        "CR-05"
+      ],
+      "verification_mode": "source_plus_http_response",
+      "purpose": "限制瀏覽器功能（相機、麥克風、定位等）的允許來源",
+      "source_recommendation": "依站台所需功能選擇性設定 camera、microphone、geolocation、fullscreen 等政策；不使用的瀏覽器 API 建議限制。",
+      "review_steps": "確認 .NET/IIS 中的實際標頭語法、瀏覽器對指令的支援度、第三方 iframe 權限與業務必須的相機／定位／WebAuthn 等功能；檢查禁用不必要的功能。",
+      "implementation_cautions": [
+        "附件第 6 頁 geolocation=('self') 是文件原始示例；依現行 Permissions-Policy 語法宜檢查是否應使用 geolocation=(self)，不可直接照抄。",
+        "附件列出的舊／未廣泛支援功能指令不能無條件當作安全保證，應依瀏覽器支援檢查。",
+        "不能強制所有網站封鎖所有 API；應依業務功能限制。"
+      ],
+      "related_risks": [
+        "OWASP-TOP10 A02:2025"
+      ]
+    }
+  ]
+}
