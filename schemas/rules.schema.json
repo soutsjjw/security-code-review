@@ -8,7 +8,8 @@
     "ruleset_version",
     "release_status",
     "categories",
-    "rules"
+    "rules",
+    "release_date"
   ],
   "properties": {
     "schema_version": {
@@ -18,10 +19,10 @@
       "const": "company-security-code-review-70"
     },
     "ruleset_version": {
-      "const": "2.0.0-rc1"
+      "const": "2.0.0"
     },
     "release_status": {
-      "type": "string"
+      "const": "stable"
     },
     "categories": {
       "type": "array",
@@ -79,10 +80,17 @@
           },
           "normative_notes": {
             "type": "string"
+          },
+          "rule_version": {
+            "const": "2.0.0"
           }
         },
         "additionalProperties": true
       }
+    },
+    "release_date": {
+      "type": "string",
+      "format": "date"
     }
   },
   "additionalProperties": true
