@@ -1,6 +1,6 @@
 ---
 name: security-code-review
-version: 2.1.7-rc1
+version: 2.1.8-rc1
 description: 對目前專案或指定目錄執行公司共用的 70 項原始碼資安審查，驗證證據並自動產生通用離線 HTML 與 JSON 報告。
 argument-hint: "[專案路徑或檢核範圍]"
 ---
@@ -58,8 +58,18 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 對佇列 `next_checks[].web_guide_v32_checks` 的適用項目，實際核查程式碼路徑／行號及設定；V3.2 的細部條次含 `observed_levels` 與原 PDF 表格依據，只表示該節實作建議表至少一項涉及的普／中／高等級（同節多項可能適用不同等級），不得直接推定整個控制適用或自動 N/A；在 `decision_reason`／`execution.summary` 記錄相應 `NICS-WEB-4.x.x[.x]` ID、證據、不能確認的外部事項，並保持既有 Finding 與 70/70 計數。
 - V3.2 新增 `4.5.3.4 HTTP 安全標頭`：需對照 `CR-05` 審查 CSP、HSTS、nosniff、X-Frame-Options、Referrer-Policy、Permissions-Policy 的實際設定與有效性；**文件部分 CSP 範例含 unsafe-inline / unsafe-eval，不能照抄或以有設定標頭即宣稱安全**。HSTS 與實際回應標頭可能仍需部署佐證。
 - 指引第 3 章使用 OWASP Top 10:2021，保留歷史版本；既有 OWASP Top 10:2025 仍為獨立新版本分類。
-- PDF 共 253 頁，末頁僅列附件 1～3 標題，**本次沒有完整附件內容**；不得把附件中的檢核表或設定附錄視為已驗證。
+- 主文件 PDF 共 253 頁，末頁僅列附件 1～3 標題；**附件 1 的完整五頁 PDF 已另行提供並建立 55 項清冊**，附件 2、3 尚未取得。
 - `report.json.web_guide_v32` 與離線 HTML 的「WEB 應用程式安全參考指引 V3.2 技術對照」只呈現來源、技術範圍、控制映射及查核焦點；原始碼檢核結果與 V1.3 防護基準獨立呈現，不依映射自動推論合規。
+
+## 附件 1：Web 應用程式安全查檢表（V3.2 主文件附錄）
+
+- 來源：`附件1 Web應用程式安全查檢表.pdf`（完整 5 頁）。7 大構面、27 類共 **55 項**；依原文 ◎ 統計普33、中44、高55。版本化清冊：`standards/nics-web-v3.2-appendix1.yaml`，ID `NICS-WEB-A1-001` 至 `055`。原附件的「是否符合」欄空白，不能假設全數通過。
+- `review_queue.py` 每批 `next_checks[].web_guide_v32_appendix1` 提供相關附件細項；在原有 70 項實際審查時按適用情境、原始碼路徑與行號、依賴及設定真實證據檢查，需政策、運作、正式掃描或滲透測試證據者標示待確認。**原 70 項 Pass 不等於附件符合**，不新增重複 Finding。
+- 附件的普／中／高採用 `project.protection_demand_level` 和 `project.protection_demand_level_basis`，與 A～E 機關責任等級完全分開。尚無系統分級則 55 項為 `pending_level`，有分級而未驗證的適用項為 `not_assessed`，非適用級別為 `not_applicable_by_level`，不允許自動推定 Pass。
+- 當有真實可核對證據，可在受測目錄 `reports/security-code-review/web_appendix1_assessment.json` 寫入 `{"checks":[{"id":"NICS-WEB-A1-001","status":"review","reason":"已查驗程式碼，實際逾時效果尚待佐證","reviewer":"資安審查人員","verified_on":"2026-10-20","evidence":[]}]}`。這是**格式示範**；`pass/fail` 需有實際證據參照，所有人工記錄均需理由、審核者及日期，不能聲稱自動 SAST、實際防火牆設定或滲透測試已完成。既有 `assessment.json` 與 Findings 不得刪除。
+- `generate_report.py` 自動載入上述選填檔案；`report.json.web_guide_v32_appendix1` 與 HTML 新增逐項對照／狀態／證據章節。重跑舊報告不能推定此前已完成新的 55 項，必須先覆核證據。
+- 維持技術限定：**ASP.NET/.NET 與不分語言的 Web 安全要求，排除 Java／PHP 專屬實作**。附件只列 27 類，未列 V3.2 主文 `4.4.5`、`4.7.1` 及 `4.5.3.4` HTTP 安全標頭細節；主文仍需完整檢測。
+- 附件的「12 字元與字元類型、定期輪替、CAPTCHA、Regex」是來源明列的實作要求，不可在未確認機關政策、風險與等效防護前無條件判定安全或法遵違規。
 
 ## 自動審查流程
 
