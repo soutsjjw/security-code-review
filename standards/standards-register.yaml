@@ -37,7 +37,7 @@ references:
   checklist_file: standards/nics-web-guide-v3.2.yaml
   url: https://www.nics.nat.gov.tw/cybersecurity_resources/reference_guide/Common_Standards/
   authority: 國家資通安全研究院
-  note: 上傳 V3.2 PDF 第4章29類、35個細部技術條次已建立交叉索引，僅採 ASP.NET/.NET 及通用 Web 要求，排除 Java/PHP 技術實作；末頁只有附件標題，附件1的完整5頁已另外提供並編目55項；附件2、3仍未取得。第3章採 OWASP 2021，2025 另列。
+  note: 上傳 V3.2 PDF 第4章29類、35個細部技術條次已建立交叉索引，僅採 ASP.NET/.NET 及通用 Web 要求，排除 Java/PHP 技術實作；末頁只有附件標題，附件1的完整5頁已另外提供並編目55項；附件2仍未取得；附件3的完整10頁PDF已提供並建立六個標頭的技術對照。第3章採 OWASP 2021，2025 另列。
 - id: NICS-WEB-GUIDE-APPENDIX1
   name: Web應用程式安全參考指引 V3.2－附件1 Web應用程式安全查檢表
   version: V3.2 (114/12/31 主文件)
@@ -47,6 +47,15 @@ references:
   checklist_file: standards/nics-web-v3.2-appendix1.yaml
   authority: 數位發展部資通安全署
   note: 完整附件1五頁7構面27類55項，普33/中44/高55；僅 ASP.NET/.NET 與通用 Web，排除 Java/PHP 專屬範例。與原70項及V1.3 80項獨立對照，不得自動推定符合。
+- id: NICS-WEB-GUIDE-APPENDIX3
+  name: Web應用程式安全參考指引 V3.2－附件3 HTTP安全標頭防護設定
+  version: V3.2 (114/12/31 主文件)
+  type: taiwan_web_http_header_technical_guidance
+  status: supplied_complete_10_page_appendix_6_headers_mapped
+  parent_standard: NICS-WEB-GUIDE
+  checklist_file: standards/nics-web-v3.2-appendix3.yaml
+  authority: 數位發展部資通安全署
+  note: 附件3完整10頁，六大HTTP安全標頭作為CR-05子項，HSTS另關聯CR-01、CSP關聯IN-02。僅用ASP.NET/.NET與通用要求，排除Java/PHP語言實作；來源CSP示例含unsafe-inline及unsafe-eval，不可直接當安全預設。附件本身無獨立普／中／高分級表。
 - id: TW-CYBER-LEVEL
   name: 資通安全責任等級分級辦法
   version: '2026-01-07'
