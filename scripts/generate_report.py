@@ -11,6 +11,9 @@ from report_common import ROOT, load_json, render_html, validate_data, validate_
 from source_reader import DEFAULT_LEGACY_ENCODINGS
 from scope_inventory import build_scope_inventory
 from security_level import infer_security_level
+from report_enrichment import (
+    resolve_personal_data, detect_reviewer, build_overall_risk, build_pending_information,
+)
 from review_queue import load_owasp_2025_categories
 from system_baseline import build_system_baseline, review_from_report
 from web_guide import build_web_guide_index
@@ -103,6 +106,8 @@ def main() -> int:
             header_review = load_json(header_input) if header_input.is_file() else None
         data['web_guide_v32_appendix3'] = build_appendix3(source_rules, header_review)
         mapped_owasp = load_owasp_2025_categories(source_rules)
+        if not a.report:
+            data['current_ruleset_version'] = mapping_rules['ruleset_version']
         data['web_guide_v32'] = build_web_guide_index(source_rules)
         for report_rule in data['rules']:
             report_rule['owasp_2025_categories'] = [
@@ -134,6 +139,16 @@ def main() -> int:
                 project['security_level_assessment'] = infer_security_level(
                     data['assessment'], a.source_root, encodings
                 )
+        # 使用真實審查紀錄生成一致的 HTML／JSON 摘要，不改寫原始 assessment／project。
+        if not a.report:
+            encodings = tuple(x.strip() for x in a.source_encodings.split(',') if x.strip())
+            resolve_personal_data(project, data['assessment'], a.source_root, encodings)
+            presentation = data['presentation']
+            presentation['reviewer'] = detect_reviewer(presentation.get('reviewer'))
+            presentation['overall_risk'] = build_overall_risk(data['assessment'])
+            presentation['pending_information'] = build_pending_information(
+                project, data['assessment'], presentation.get('limitations', [])
+            )
         ignored_artifacts = (a.report, a.save_report, a.output)
         if a.source_root is not None:
             data['scope_inventory'] = build_scope_inventory(
