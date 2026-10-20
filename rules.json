@@ -1,10 +1,11 @@
 {
   "schema_version": "2.0.0",
   "ruleset_id": "company-security-code-review-70",
-  "ruleset_version": "2.0.0-rc1",
+  "ruleset_version": "2.0.0",
   "title": "跨系統原始碼資安檢核基準（70 項）",
-  "release_status": "candidate_pending_company_security_approval",
+  "release_status": "stable",
   "prepared_date": "2026-10-16",
+  "release_date": "2026-10-20",
   "scope": "公司共用：Web API、網站、行動端、背景服務；依專案適用性篩選，規則檔不包含個別系統的審查結果",
   "standards_registry_file": "standards/standards-register.yaml",
   "governance_documents": [
@@ -157,7 +158,7 @@
       "title": "Session 逾時自動失效",
       "category": "AC",
       "control_objective": "控制閒置與絕對存取期間",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AC-01",
@@ -289,7 +290,7 @@
       "title": "登出後 Session 立即銷毀",
       "category": "AC",
       "control_objective": "確保登出後相關工作階段失效",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AC-02",
@@ -414,7 +415,7 @@
       "title": "管理介面存取來源限制",
       "category": "AC",
       "control_objective": "限制管理入口的未授權來源",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AC-03",
@@ -540,7 +541,7 @@
       "title": "最小權限原則",
       "category": "AC",
       "control_objective": "落實最小權限",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AC-04",
@@ -665,7 +666,7 @@
       "title": "Process 以一般使用者權限執行",
       "category": "AC",
       "control_objective": "避免服務以過高系統權限執行",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AC-05",
@@ -780,7 +781,7 @@
       "title": "遠端存取授權過濾",
       "category": "AC",
       "control_objective": "驗證遠端存取的授權與來源要求",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AC-06",
@@ -905,7 +906,7 @@
       "title": "目錄瀏覽限制",
       "category": "AC",
       "control_objective": "防止非授權目錄與檔案列示",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AC-07",
@@ -1029,7 +1030,7 @@
       "title": "垂直/水平越權防護",
       "category": "AC",
       "control_objective": "防止同層與跨角色資源越權",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AC-08",
@@ -1152,7 +1153,7 @@
       "title": "密碼強度規範",
       "category": "AU",
       "control_objective": "維持本地密碼建立安全性",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AU-01",
@@ -1282,7 +1283,7 @@
       "title": "密碼定期更換與歷史檢查",
       "category": "AU",
       "control_objective": "控管密碼更換與歷史使用要求",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AU-02",
@@ -1395,7 +1396,7 @@
       "title": "帳號鎖定機制",
       "category": "AU",
       "control_objective": "降低暴力破解與憑證猜測",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AU-03",
@@ -1518,7 +1519,7 @@
       "title": "身分鑑別資訊不以明文傳輸",
       "category": "AU",
       "control_objective": "保護認證憑證傳輸",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AU-04",
@@ -1642,7 +1643,7 @@
       "title": "CAPTCHA 機制",
       "category": "AU",
       "control_objective": "抑制高風險端點自動化濫用",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AU-05",
@@ -1756,7 +1757,7 @@
       "title": "密碼重設安全流程",
       "category": "AU",
       "control_objective": "避免密碼重設遭冒用",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AU-06",
@@ -1870,7 +1871,7 @@
       "title": "鑑別資訊遮蔽／錯誤訊息不洩漏帳號存在",
       "category": "AU",
       "control_objective": "減少認證資料洩漏及帳號列舉",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AU-07",
@@ -1982,7 +1983,7 @@
       "title": "密碼加鹽雜湊儲存",
       "category": "AU",
       "control_objective": "保護密碼與驗證秘密的儲存",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "AU-08",
@@ -2096,7 +2097,7 @@
       "title": "多因素認證（MFA）",
       "category": "AU",
       "control_objective": "提升高風險登入保證程度",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AU-09",
@@ -2208,7 +2209,7 @@
       "title": "連線來源識別",
       "category": "AU",
       "control_objective": "識別高風險連線來源",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "AU-10",
@@ -2331,7 +2332,7 @@
       "title": "SQL Injection 防護",
       "category": "IN",
       "control_objective": "防止外部輸入改變 SQL 語意",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-01",
@@ -2454,7 +2455,7 @@
       "title": "XSS / 輸出編碼",
       "category": "IN",
       "control_objective": "防範 XSS 與不安全輸出內容",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-02",
@@ -2597,7 +2598,7 @@
       "title": "CSRF 防護",
       "category": "IN",
       "control_objective": "防止跨站請求偽造",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-03",
@@ -2721,7 +2722,7 @@
       "title": "Command Injection 防護",
       "category": "IN",
       "control_objective": "防止輸入變成系統命令",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-04",
@@ -2844,7 +2845,7 @@
       "title": "伺服端輸入驗證",
       "category": "IN",
       "control_objective": "確保伺服端輸入符合約束",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-05",
@@ -2967,7 +2968,7 @@
       "title": "檔案上傳限制",
       "category": "IN",
       "control_objective": "降低惡意上傳與檔案處理風險",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-06",
@@ -3092,7 +3093,7 @@
       "title": "Path Traversal 防護",
       "category": "IN",
       "control_objective": "防止檔案路徑跳脫授權根目錄",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-07",
@@ -3215,7 +3216,7 @@
       "title": "SSRF 防護",
       "category": "IN",
       "control_objective": "避免伺服端被誘使連線內部資源",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "IN-08",
@@ -3337,7 +3338,7 @@
       "title": "機敏資料傳輸加密",
       "category": "CR",
       "control_objective": "保護機敏資料在傳輸途中的機密性",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "CR-01",
@@ -3470,7 +3471,7 @@
       "title": "安全加密演算法",
       "category": "CR",
       "control_objective": "避免不安全或錯誤使用密碼學",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "CR-02",
@@ -3596,7 +3597,7 @@
       "title": "參數設定安全保護",
       "category": "CR",
       "control_objective": "保護敏感設定及秘密",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "CR-03",
@@ -3721,7 +3722,7 @@
       "title": "機敏資料儲存加密",
       "category": "CR",
       "control_objective": "保護儲存中的機敏資訊",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "CR-04",
@@ -3844,7 +3845,7 @@
       "title": "HTTP 安全標頭設定",
       "category": "CR",
       "control_objective": "減少瀏覽器與中介層安全風險",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "CR-05",
@@ -3976,7 +3977,7 @@
       "title": "Cookie 安全屬性",
       "category": "CR",
       "control_objective": "確保 Cookie 不遭不當讀取或跨站傳送",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "CR-06",
@@ -4118,7 +4119,7 @@
       "title": "錯誤訊息不洩漏敏感資訊",
       "category": "EH",
       "control_objective": "避免錯誤回應洩漏機敏資訊",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "EH-01",
@@ -4240,7 +4241,7 @@
       "title": "全域例外處理",
       "category": "EH",
       "control_objective": "確保所有未預期例外受控處理",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "EH-02",
@@ -4363,7 +4364,7 @@
       "title": "資源正確釋放",
       "category": "EH",
       "control_objective": "避免資源洩漏與連線耗盡",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "EH-03",
@@ -4488,7 +4489,7 @@
       "title": "嚴重錯誤通知機制",
       "category": "EH",
       "control_objective": "及時發現重大安全或營運錯誤",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "EH-04",
@@ -4601,7 +4602,7 @@
       "title": "Debug 模式關閉",
       "category": "EH",
       "control_objective": "避免正式環境開啟除錯功能",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "EH-05",
@@ -4725,7 +4726,7 @@
       "title": "預設帳密與設定變更",
       "category": "EH",
       "control_objective": "避免預設密碼及弱化組態",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "EH-06",
@@ -4840,7 +4841,7 @@
       "title": "安全事件日誌記錄",
       "category": "LG",
       "control_objective": "記錄有助偵測安全事件的必要資料",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "LG-01",
@@ -4972,7 +4973,7 @@
       "title": "管理者行為稽核",
       "category": "LG",
       "control_objective": "確保管理者敏感操作可追溯",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "LG-02",
@@ -5096,7 +5097,7 @@
       "title": "日誌內容完整性",
       "category": "LG",
       "control_objective": "維持稽核事件的必要欄位與可用性",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "LG-03",
@@ -5222,7 +5223,7 @@
       "title": "統一日誌格式",
       "category": "LG",
       "control_objective": "使事件可集中解析及關聯",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "LG-04",
@@ -5343,7 +5344,7 @@
       "title": "日誌儲存容量管理",
       "category": "LG",
       "control_objective": "避免日誌無限成長或過早遺失",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "LG-05",
@@ -5466,7 +5467,7 @@
       "title": "時間戳記同步",
       "category": "LG",
       "control_objective": "確保紀錄時間可比對",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "LG-06",
@@ -5588,7 +5589,7 @@
       "title": "日誌保護與備份",
       "category": "LG",
       "control_objective": "避免日誌被竄改或未授權讀取",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "LG-07",
@@ -5720,7 +5721,7 @@
       "title": "日誌不記錄機敏資料",
       "category": "LG",
       "control_objective": "防止密碼、Token 與個資意外寫入日誌",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "LG-08",
@@ -5842,7 +5843,7 @@
       "title": "稽核處理失效應變",
       "category": "LG",
       "control_objective": "處理稽核通道失效與佇列滿載",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "LG-09",
@@ -5966,7 +5967,7 @@
       "title": "資料完整性雜湊",
       "category": "LG",
       "control_objective": "保護高保證等級資料完整性",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "LG-10",
@@ -6079,7 +6080,7 @@
       "title": "依賴套件安全性",
       "category": "DP",
       "control_objective": "降低第三方套件已知漏洞風險",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "DP-01",
@@ -6211,7 +6212,7 @@
       "title": "外部元件預設密碼",
       "category": "DP",
       "control_objective": "避免外部服務沿用預設驗證資訊",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "DP-02",
@@ -6325,7 +6326,7 @@
       "title": "不必要服務與 Port 關閉",
       "category": "DP",
       "control_objective": "減少不必要的服務與暴露面",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "DP-03",
@@ -6439,7 +6440,7 @@
       "title": "軟體版本更新",
       "category": "DP",
       "control_objective": "確保運行元件受安全維護",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "DP-04",
@@ -6563,7 +6564,7 @@
       "title": "個資蒐集合法性",
       "category": "PD",
       "control_objective": "確保蒐集個資有合法依據與告知",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "PD-01",
@@ -6670,7 +6671,7 @@
       "title": "個資顯示去識別化",
       "category": "PD",
       "control_objective": "降低顯示或提供個資的不必要暴露",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "PD-02",
@@ -6787,7 +6788,7 @@
       "title": "個資傳輸加密",
       "category": "PD",
       "control_objective": "保障個資傳輸保密性",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "PD-03",
@@ -6909,7 +6910,7 @@
       "title": "個資存取日誌",
       "category": "PD",
       "control_objective": "追溯個資存取使用及異常",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "PD-04",
@@ -7026,7 +7027,7 @@
       "title": "個資儲存加密",
       "category": "PD",
       "control_objective": "保護儲存中的個人資料",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "PD-05",
@@ -7150,7 +7151,7 @@
       "title": "遠端存取個資限制",
       "category": "PD",
       "control_objective": "限制遠端個資 API 存取",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "PD-06",
@@ -7259,7 +7260,7 @@
       "title": "個資刪除機制",
       "category": "PD",
       "control_objective": "確保個資保存及刪除符合法定義務",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "PD-07",
@@ -7375,7 +7376,7 @@
       "title": "個資外洩通報機制",
       "category": "PD",
       "control_objective": "建立個資事故通報及應變能力",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "procedural",
       "origin": {
         "legacy_id": "PD-08",
@@ -7482,7 +7483,7 @@
       "title": "資料備份機制",
       "category": "BC",
       "control_objective": "確保重要資料可復原",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "BC-01",
@@ -7590,7 +7591,7 @@
       "title": "環境隔離",
       "category": "BC",
       "control_objective": "避免開發測試與正式互相影響",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "BC-02",
@@ -7698,7 +7699,7 @@
       "title": "高可用性架構",
       "category": "BC",
       "control_objective": "維持高可用服務能力",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "BC-03",
@@ -7805,7 +7806,7 @@
       "title": "系統文件管理",
       "category": "BC",
       "control_objective": "維持足夠系統操作與安全文件",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "BC-04",
@@ -7913,7 +7914,7 @@
       "title": "系統源碼備份",
       "category": "BC",
       "control_objective": "確保原始碼及歷史版本可復原",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "BC-05",
@@ -8019,7 +8020,7 @@
       "title": "版本控制與變更管理",
       "category": "BC",
       "control_objective": "讓變更可追溯與可控",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "BC-06",
@@ -8127,7 +8128,7 @@
       "title": "備援啟動演練",
       "category": "BC",
       "control_objective": "驗證備援機制在事故時可用",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "procedural",
       "origin": {
         "legacy_id": "BC-07",
@@ -8233,7 +8234,7 @@
       "title": "CI/CD Pipeline 安全",
       "category": "SI",
       "control_objective": "保護 CI/CD 供應鏈及建置權限",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "hybrid",
       "origin": {
         "legacy_id": "SI-01",
@@ -8350,7 +8351,7 @@
       "title": "第三方資源完整性（SRI）",
       "category": "SI",
       "control_objective": "避免第三方前端資源遭未授權替換",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "SI-02",
@@ -8465,7 +8466,7 @@
       "title": "反序列化安全",
       "category": "SI",
       "control_objective": "防止反序列化觸發非預期行為",
-      "rule_version": "2.0.0-rc1",
+      "rule_version": "2.0.0",
       "control_type": "technical",
       "origin": {
         "legacy_id": "SI-03",
