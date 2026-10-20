@@ -108,8 +108,16 @@ class PosixPythonRunnerTests(unittest.TestCase):
 class WindowsPythonRunnerTests(unittest.TestCase):
     def test_cmd_runner_check_and_argument_forwarding(self):
         runner = ROOT / "scripts" / "run-python.cmd"
-        checked = subprocess.run(["cmd", "/c", str(runner), "--check"], capture_output=True, text=True)
+        # run-python.cmd 固定輸出 UTF-8；不可讓繁中 Windows 的 CP950 預設解碼管線處理。
+        # 未指定 encoding 時，subprocess 的 reader thread 可能拋 UnicodeDecodeError，
+        # 但 returncode 仍為 0，因此必須同時驗證實際取得的 UTF-8 訊息。
+        checked = subprocess.run(
+            ["cmd", "/c", str(runner), "--check"],
+            capture_output=True, text=True, encoding="utf-8", errors="strict",
+        )
         self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertIn("PASS: Python", checked.stdout)
+        self.assertIn("相依套件", checked.stdout)
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "echo args.py"
             script.write_text("import sys\nprint('ARGS:' + '|'.join(sys.argv[1:]))\nprint('中文輸出正常')\n", encoding="utf-8")
