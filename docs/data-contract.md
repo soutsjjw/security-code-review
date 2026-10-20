@@ -13,7 +13,7 @@
     "personal_data": "是／否／待確認"
   },
   "assessment": {
-    "ruleset_version": "2.0.0-rc1",
+    "ruleset_version": "2.0.0",
     "project_id": "SYSTEM-01",
     "git_revision": "實際 Git SHA",
     "assessment_date": "YYYY-MM-DD",
@@ -26,7 +26,7 @@
 }
 ```
 
-**assessment**：沿用目前 v2.0.0-rc1 審查結果欄位，不自行在其中添加原 Schema 不允許的欄位。其 70 筆 `checks` 應已通過原專案 `scripts/validate_assessment.py`。
+**assessment**：以正式規則集 v2.0.0 建立；相容舊版 2.0.0-rc1 的既有紀錄（保留 Findings 和進度；新規範仍需實際補查）。目前 v2.0.0 審查結果欄位，不自行在其中添加原 Schema 不允許的欄位。其 70 筆 `checks` 應已通過原專案 `scripts/validate_assessment.py`。
 
 **rules**：來自相同規則版本的 `rules.json` 的 `rules` 陣列，可以是完整規則，顯示至少使用 `id`、`title`、`category`、`origin.legacy_levels`。務必與此次評估使用的規則版本一致，不要混入其他專案的檢核結果。
 
