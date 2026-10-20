@@ -1,11 +1,11 @@
 category: AC
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: AC-01
   title: Session 逾時自動失效
   category: AC
   control_objective: 控制閒置與絕對存取期間
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AC-01
@@ -108,7 +108,7 @@ rules:
   title: 登出後 Session 立即銷毀
   category: AC
   control_objective: 確保登出後相關工作階段失效
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AC-02
@@ -206,7 +206,7 @@ rules:
   title: 管理介面存取來源限制
   category: AC
   control_objective: 限制管理入口的未授權來源
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AC-03
@@ -305,7 +305,7 @@ rules:
   title: 最小權限原則
   category: AC
   control_objective: 落實最小權限
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AC-04
@@ -403,7 +403,7 @@ rules:
   title: Process 以一般使用者權限執行
   category: AC
   control_objective: 避免服務以過高系統權限執行
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AC-05
@@ -494,7 +494,7 @@ rules:
   title: 遠端存取授權過濾
   category: AC
   control_objective: 驗證遠端存取的授權與來源要求
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AC-06
@@ -592,7 +592,7 @@ rules:
   title: 目錄瀏覽限制
   category: AC
   control_objective: 防止非授權目錄與檔案列示
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AC-07
@@ -689,7 +689,7 @@ rules:
   title: 垂直/水平越權防護
   category: AC
   control_objective: 防止同層與跨角色資源越權
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AC-08
