@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.7
+# Security Code Review Skill v2.1.8
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -128,9 +128,38 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 - `report.json.web_guide_v32` 與 HTML 新增指引版本化索引；**是技術依據對照，不代表已全部符合或完成外部測試**。
 - 特別強化 **4.5.3.4 HTTP 安全標頭**（既有 `CR-05`），須檢查實際設定值、有效性及 CSP 限制，文件範例出現 `unsafe-inline`、`unsafe-eval`，不得當成建議的安全預設值。
 - V3.2 第 3 章引用 **OWASP Top 10:2021**；OWASP Top 10:2025 依現有獨立標準維護。
-- 上傳 PDF 253 頁最後一頁只有附件 1～3 的標題，**沒有完整附件內容**，不聲稱取得附件的獨立查檢表。
+- V3.2 主文件 PDF 最後一頁只有附件 1～3 的標題。**現已另取得並編目完整附件 1（5 頁、55 項）**；附件 2、3 內容仍未提供。
 
 操作仍為 `$security-code-review`，原有 70 項、TACERT 39 焦點、OWASP 2025 十類及 V1.3 80 項獨立防護基準均不變。
+
+## V3.2 附件 1：55 項 Web 應用程式安全查檢表
+
+已依實際提供的《附件1 Web應用程式安全查檢表.pdf》完整五頁，建立 **7 大構面、27 類、55 項查檢項目**（普 **33**、中 **44**、高 **55**）。附件 1 獨立於主文件第 4 章的 29 類、35 個技術條次；**附件未列 HTTP 安全標頭 4.5.3.4、非內部使用者鑑別 4.4.5 與漏洞修復 4.7.1，不會因此跳過主文件檢核**。
+
+- 來源清冊：`standards/nics-web-v3.2-appendix1.yaml`，逐項記錄頁碼、實作要求、◎ 適用等級、類別、關聯原有 70 項規則及需要的驗證方式，**不加入為 125 個獨立程式碼規則**。
+- 原有審查佇列 `next_checks[].web_guide_v32_appendix1` 提示哪些附件細項應隨原 70 項實際查證。**不能只因相關規則 Pass 便認定附件符合**；每筆獨立查檢均須有查證結論，需外部佐證的項目列為待確認。
+- `report.json.web_guide_v32_appendix1` 與 HTML 的「V3.2 附件 1」章節另列 55 筆狀態。未提供防護需求分級時為 `pending_level`；提供普／中／高分級及依據後，適用但未獨立驗證為 `not_assessed`，其餘為 `not_applicable_by_level`。系統分級**不從機關 A～E 換算**。
+- 若實際完成部分附件查檢，受測專案可新增 `reports/security-code-review/web_appendix1_assessment.json`，Agent 保留 70 項審查成果，僅另行儲存有證據的結果。格式示意（**非真實查檢結果**）：
+
+  ```json
+  {
+    "checks": [
+      {
+        "id": "NICS-WEB-A1-001",
+        "status": "review",
+        "reason": "已檢視 Session 設定，尚待確認實際閒置逾時效果",
+        "reviewer": "資安審查人員",
+        "verified_on": "2026-10-20",
+        "evidence": []
+      }
+    ]
+  }
+  ```
+
+- 狀態可為 `pass/fail/review/na`；所有人工結果皆需理由、審核者、日期及證據清單，**pass/fail 必須有真實可追溯的非空證據參照**，不得捏造正式工具掃描、部署或演練結果。
+- 技術範圍仍為 **ASP.NET/.NET 與通用 Web 控制**，排除 Java、PHP 專屬實作。附件所列固定密碼輪替、CAPTCHA、正規表示式驗證等不得一律視為唯一有效控制，應依適用政策與等效控制查核。
+
+維持 `$security-code-review` 單一使用方式、70/70 審查完成條件、既有 Finding 與 V1.3 80 項獨立防護基準。
 
 ## Codex `/goal` 完整審查指令
 
