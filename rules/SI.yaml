@@ -1,11 +1,11 @@
 category: SI
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: SI-01
   title: CI/CD Pipeline 安全
   category: SI
   control_objective: 保護 CI/CD 供應鏈及建置權限
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: SI-01
@@ -98,7 +98,7 @@ rules:
   title: 第三方資源完整性（SRI）
   category: SI
   control_objective: 避免第三方前端資源遭未授權替換
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: SI-02
@@ -189,7 +189,7 @@ rules:
   title: 反序列化安全
   category: SI
   control_objective: 防止反序列化觸發非預期行為
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: SI-03
