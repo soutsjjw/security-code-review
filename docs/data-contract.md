@@ -43,7 +43,7 @@
 | `review_type` | 字串 | 報告副標題，例如 AI 輔助靜態審查 |
 | `reviewer` | 字串 | 審查者／使用之 AI Agent |
 | `standards` | 字串陣列 | 實際採用的標準版本 |
-| `overall_risk` | `{level,summary}` | 審查員確認的整體風險（`critical/high/medium/low/info/review`），不自動從缺失數量推斷 |
+| `overall_risk` | `{level,summary}` | 由產生器依 Finding 嚴重度、影響與未驗證風險條件自動初判，未有弱點證據時為 `review`；不是正式風險接受 |
 | `priorities` | 物件陣列 | `{label,finding_ids,description}`；省略時依風險等級分組，不推定改善期限 |
 | `strengths` | 字串陣列 | 經證據支持的既有優點 |
 | `methods` | 字串陣列 | 本次實際執行方法 |
