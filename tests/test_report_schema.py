@@ -168,6 +168,23 @@ class ReportSchemaTests(unittest.TestCase):
         ]
         self.assertEqual(self.errors(data), [])
 
+    def test_generated_summary_fields(self):
+        data = copy.deepcopy(self.example)
+        data["current_ruleset_version"] = "2.0.0"
+        data["project"]["personal_data"] = "待確認"
+        data["project"]["personal_data_assessment"] = {
+            "status": "待確認",
+            "basis": "靜態程式碼未能確認實際個資處理",
+            "evidence": []
+        }
+        data["presentation"]["pending_information"] = ["個資處理待確認", "部署證據待確認"]
+        self.assertEqual(self.errors(data), [])
+        data["project"]["personal_data_assessment"]["evidence"] = [
+            {"path": "test.cs", "line_start": 0, "line_end": 0}
+        ]
+        self.assertTrue(self.errors(data))
+
+
 
 if __name__ == '__main__':
     unittest.main()
