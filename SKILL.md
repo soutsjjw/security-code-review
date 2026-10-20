@@ -89,11 +89,18 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 ### 必須執行的佇列迴圈（Codex／Claude Code）
 
-1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**立即**執行：
-   ```bash
-   python <SKILL_ROOT>/scripts/review_queue.py --target <TARGET_ROOT> --init --batch-size 10
-   ```
-   此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
+1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**先檢查執行環境，再立即啟動佇列**。Agent 應判斷實際使用的 Shell：
+   - macOS／Linux（Bash／sh）：
+     ```bash
+     sh "<SKILL_ROOT>/scripts/run-python.sh" --check
+     sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+     ```
+   - Windows（PowerShell）：
+     ```powershell
+     & "<SKILL_ROOT>\scripts\run-python.cmd" --check
+     & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+     ```
+   `--check` 僅需於開始時執行一次。啟動器依序偵測 `python`、`python3`、`py -3`，並確認 Python 3.10+ 與 `requirements.txt` 套件版本可用；其後每次呼叫均以同樣優先序選擇可用環境，不直接假設 `python` 存在。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
 2. 使用工具輸出的 `next_checks`、`search_targets`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋、唯讀原始碼檢視、追蹤呼叫與組態、紀錄各項證據、方法和判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核但部署或動態測試仍待確認的規則可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
 3. **每完成一項／每批立即保存** `TARGET_ROOT/reports/security-code-review/assessment.json`，保持既有 Findings 與其他已完成項目，不得將已知風險清空；然後再次執行上方佇列命令（不必重新初始化也可移除 `--init`）。
 4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
@@ -128,11 +135,14 @@ argument-hint: "[專案路徑或檢核範圍]"
 5. **只有 70 項 `execution.state=completed` 才能開始報告階段。** 從 `TARGET_ROOT` 作為工作目錄，由 Agent 自動呼叫：
 
    ```bash
-   python <SKILL_ROOT>/scripts/complete_review.py --target <TARGET_ROOT>
+   sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/complete_review.py" --target "<TARGET_ROOT>"
    ```
-
-   Windows Python Launcher 可使用 `py -3` 代替 `python`。程式從 `SKILL_ROOT` 載入規則、Schema 和 HTML 模板，將所有報告寫在 `TARGET_ROOT/reports/security-code-review/`，並串接原有檢核 JSON、HTML 生成及最終驗證。
-6. 若 Python 或相依套件尚未安裝，清楚提示一次性安裝指令 `python -m pip install -r <SKILL_ROOT>/requirements.txt`，**不要自行變更全域環境或假稱 HTML 已產生**。如果工具執行環境允許隔離虛擬環境，可先取得使用者許可再安裝。
+   Windows（PowerShell）：
+   ```powershell
+   & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\complete_review.py" --target "<TARGET_ROOT>"
+   ```
+   程式從 `SKILL_ROOT` 載入規則、Schema 和 HTML 模板，將所有報告寫在 `TARGET_ROOT/reports/security-code-review/`，並串接原有檢核 JSON、HTML 生成及最終驗證。
+6. 若找不到 Python 3.10+ 或 `requirements.txt` 相依套件不符，**立即停止 Python 腳本階段並保留既有進度**，回報偵測結果與所需安裝方式。找到可用 Python 但缺套件時，啟動器會顯示該直譯器的 `-m pip install -r "<SKILL_ROOT>/requirements.txt"` 指令；若完全沒有 Python，須先在 Agent 實際執行環境安裝 Python 3.10+。**不得自行安裝、變更全域環境、清空既有紀錄或假稱 HTML 已產生**；取得使用者同意後才可在隔離環境安裝並重新執行。
 7. 逐項確認 `completed` 數量為 70 才執行報告程序。若仍有 `pending`／`blocked`，必須主動執行佇列迴圈查核其餘項目；**只有真正無法繼續的執行阻礙才回報中斷**，並列出已保存的進度與確切錯誤，不得因一般審查工作尚多就結束。**不要以 3 個優先弱點或部分分析代替最終 HTML／JSON**。只有三階段程式都返回 0，才能回報 HTML／JSON 已驗證；列出實際路徑、弱點數與未能驗證的範圍。原始碼取證須填相對 `TARGET_ROOT` 的檔案與真實行號，避免輸出 Token、密碼與個資。
 
 ## 基本資訊與摘要的自動判定

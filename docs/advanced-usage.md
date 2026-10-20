@@ -35,8 +35,16 @@
 Agent 以安裝目錄中的 Python 腳本進行排程（下列為 Agent 內部指令，非一般使用者必須手動執行的步驟）：
 
 ```bash
-python <SKILL_ROOT>/scripts/review_queue.py --target <TARGET_ROOT> --init --batch-size 10
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
 ```
+
+Windows PowerShell 對應指令：
+
+```powershell
+& "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+```
+
+首次執行可先用 `sh "<SKILL_ROOT>/scripts/run-python.sh" --check`（Windows：`& "<SKILL_ROOT>\scripts\run-python.cmd" --check`）唯讀檢查 Python 3.10+ 和相依套件。啟動器會依序嘗試 `python`、`python3`、`py -3`；若不可用，保留既有進度並回報安裝指令，不自動安裝。
 
 1. 若受測專案已存在 `assessment.json`，先讀取並保留原有 Finding、證據及完成進度；否則才建立 70 項待審查草稿。
 2. 依 `next_checks` 清單逐條搜尋程式碼、追蹤呼叫鏈及組態，記錄真實檔案路徑、行號、方法、證據與理由。
@@ -51,7 +59,12 @@ python <SKILL_ROOT>/scripts/review_queue.py --target <TARGET_ROOT> --init --batc
 完成後，Agent 在受測專案執行：
 
 ```bash
-python <SKILL_ROOT>/scripts/complete_review.py --target <TARGET_ROOT>
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/complete_review.py" --target "<TARGET_ROOT>"
+```
+
+Windows PowerShell：
+```powershell
+& "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\complete_review.py" --target "<TARGET_ROOT>"
 ```
 
 此流程會依序呼叫 `validate_assessment.py`、`generate_report.py`、`validate_report.py`，於受測專案生成 `report.json` 與 `CodeReview_YYYYMMDD.html`，並檢查來源檔案、行號與資料結構。產出日期依 `assessment_date` 決定。
@@ -108,7 +121,7 @@ V3.2 限用 ASP.NET/.NET、IIS 與通用 Web 安全控制，**排除 Java 與 PH
 若需要檢查指定行號，Agent 可呼叫：
 
 ```bash
-python <SKILL_ROOT>/scripts/source_reader.py --source-root <TARGET_ROOT> --path "src/IdentityService.cs" --start 1 --end 200
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "src/IdentityService.cs" --start 1 --end 200
 ```
 
 ## 維護與驗證

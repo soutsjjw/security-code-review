@@ -53,13 +53,23 @@ git clone --branch develop https://github.com/soutsjjw/security-code-review.git 
 
 安裝後重新開啟 Agent 工作階段。
 
-完成 HTML／JSON 報告產生與驗證，需要 **Python 3.10+**，並在 Skill 安裝目錄執行一次：
+完成 HTML／JSON 報告產生與驗證，需要 **Python 3.10+**。Agent 會自動依序偵測 `python`、`python3`、`py -3`，並核對 `requirements.txt` 套件與版本。無需因 Windows 找不到 `python` 就直接中斷；若其他指令可用且環境完整，會自動繼續。
 
+可在 Skill 安裝目錄先進行唯讀環境檢查：
+
+macOS／Linux：
 ```bash
-python -m pip install -r requirements.txt
+sh scripts/run-python.sh --check
 ```
 
-Python 用於輸出與驗證，**不是由 Python 指令自動完成原始碼安全審查**；實質查核仍由 Agent 執行。安裝完成後，一般使用者不必手動執行報告生成腳本。
+Windows PowerShell：
+```powershell
+& ".\scripts\run-python.cmd" --check
+```
+
+若提示缺少套件，使用可用的 Python 安裝一次，例如 `python3 -m pip install -r requirements.txt`，Windows 亦可使用 `py -3 -m pip install -r requirements.txt`。若完全沒有 Python，先於 **Agent 實際執行的環境**安裝 Python 3.10+。Skill **不會自行安裝套件或覆寫既有審查進度**；環境未就緒時會明確回報原因。
+
+Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼安全審查**；實質查核仍由 Agent 執行。環境設定完成後，一般使用者不必手動執行報告生成腳本。
 
 ## 檢核依據
 
