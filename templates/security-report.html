@@ -141,7 +141,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="loadNotice" class="notice" role="status" hidden></div>
   <nav class="toc" aria-label="報告導覽">
     <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
-    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#webGuide32">Web 指引 V3.2</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#webGuide32">Web 指引 V3.2</a><a href="#webAppendix1">Web 附件1</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
   </nav>
 
   <h2 id="summary">基本資訊與摘要</h2>
@@ -189,6 +189,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
 
   <h2 id="webGuide32">WEB 應用程式安全參考指引 V3.2 技術對照</h2>
   <div class="panel" id="webGuideContent"></div>
+
+  <h2 id="webAppendix1">V3.2 附件 1 Web 應用程式安全查檢表（55 項）</h2>
+  <div class="panel" id="webAppendixContent"></div>
 
   <h2 id="findings">發現與改善建議</h2>
   <div class="filters" id="sevFilter" aria-label="風險等級篩選">
@@ -262,7 +265,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   } catch(err) {
     notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
-    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','webGuideContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','webGuideContent','webAppendixContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;
   }
 
@@ -557,6 +560,57 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       table.append(tbody);wrap.append(table);details.append(wrap);wgContainer.append(details);
     }
     wgContainer.append(el('p','small muted','檢核結論與證據請參閱 70 項原始碼審查；不得從這份指引對照表自動推定通過。'));
+  }
+
+  // V3.2 附件1：完整保留 55 項逐條查檢，不與 70 項規則或 V1.3 80 項相加。
+  const a1Container=$('webAppendixContent');
+  const appendix1=report.web_guide_v32_appendix1;
+  if(!appendix1 || !Array.isArray(appendix1.checks) || appendix1.checks.length!==55) {
+    a1Container.append(empty('此報告尚未包含附件 1 的完整 55 項獨立查檢狀態。'));
+  } else {
+    a1Container.append(el('p','small muted',
+      '附件來源：V3.2《附件1 Web應用程式安全查檢表》共5頁。文件上的「是否符合」原為空白。僅依正式系統防護需求分級（普／中／高）判定適用數量；原 70 項規則通過，不能視為本附件已通過。V3.2 技術實作僅使用 ASP.NET/.NET 及通用 Web 控制，不納入 Java、PHP 專屬實作。'));
+    const cm=appendix1.status_counts||{};
+    const c=(k)=>cm[k]||0;
+    a1Container.append(el('p','small',
+      '防護需求分級：'+(appendix1.demand_level||'待確認')+
+      '；適用 '+(appendix1.applicable_items===null?'待確認':appendix1.applicable_items)+'／55'+
+      '；已填符合 '+c('pass')+'、不符合 '+c('fail')+
+      '、待確認 '+c('review')+'、未評估 '+c('not_assessed')+
+      '、分級待確認 '+c('pending_level')+'、依分級不適用 '+c('not_applicable_by_level')));
+    const statuses={pending_level:'分級待確認',not_assessed:'未評估',
+      not_applicable_by_level:'依分級不適用',pass:'符合（含證據參照）',
+      fail:'不符合（含證據參照）',review:'待確認',na:'人工判定不適用'};
+    const modes={source:'程式碼',hybrid:'程式碼＋外部',external:'外部佐證'};
+    const domains=[['4.1','存取控制'],['4.2','稽核與可歸責性'],['4.3','營運持續計畫'],
+      ['4.4','識別與鑑別'],['4.5','系統與服務獲得'],['4.6','系統與通訊保護'],['4.7','系統與資訊完整性']];
+    for(const [group,name] of domains) {
+      const checks=appendix1.checks.filter(x=>String(x.parent_section).startsWith(group+'.'));
+      if(!checks.length)continue;
+      const d=el('details','cl');d.open=true;
+      d.append(el('summary',null,group+' '+name+'（'+checks.length+' 項）'));
+      const wrap=el('div','tablewrap'),tbl=el('table'),head=el('thead'),hdr=el('tr');
+      ['附件頁／項目','查檢要求','適用等級','關聯規則／方法','查檢狀態','證據或待確認'].forEach(v=>hdr.append(el('th',null,v)));
+      head.append(hdr);tbl.append(head);
+      const body=el('tbody');
+      for(const row of checks) {
+        const tr=el('tr');
+        tr.append(el('td','small mono',row.id+'（第'+row.pdf_page+'頁）'));
+        tr.append(el('td','small',row.requirement));
+        tr.append(el('td','small',asArray(row.applicable_levels).join('、')));
+        tr.append(el('td','small',asArray(row.related_rule_ids).join('、')+'／'+(modes[row.verification_mode]||'待確認')));
+        tr.append(el('td','small',statuses[row.status]||'狀態異常'));
+        const source=asArray(row.evidence).join('；');
+        const detail=row.reason ? row.reason+(source?'；佐證：'+source:'') :
+          row.status==='not_applicable_by_level'?'依正式分級不適用':
+          row.status==='pending_level'?'缺正式普／中／高系統分級與依據':
+          '尚未實際獨立查檢。'+row.verification_focus;
+        tr.append(el('td','small',detail));body.append(tr);
+      }
+      tbl.append(body);wrap.append(tbl);d.append(wrap);a1Container.append(d);
+    }
+    a1Container.append(el('p','small muted',
+      '狀態僅代表有無填寫符合／不符合及相關證據參照；引用的工件真實性仍須由審核人員確認。主文件 4.5.3.4 HTTP 安全標頭沒有列在這份附件內，仍於 V3.2 技術指引另行審查。'));
   }
 
   // 弱點明細
