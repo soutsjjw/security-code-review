@@ -1,11 +1,11 @@
 category: PD
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: PD-01
   title: 個資蒐集合法性
   category: PD
   control_objective: 確保蒐集個資有合法依據與告知
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: PD-01
@@ -91,7 +91,7 @@ rules:
   title: 個資顯示去識別化
   category: PD
   control_objective: 降低顯示或提供個資的不必要暴露
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: PD-02
@@ -184,7 +184,7 @@ rules:
   title: 個資傳輸加密
   category: PD
   control_objective: 保障個資傳輸保密性
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: PD-03
@@ -279,7 +279,7 @@ rules:
   title: 個資存取日誌
   category: PD
   control_objective: 追溯個資存取使用及異常
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: PD-04
@@ -372,7 +372,7 @@ rules:
   title: 個資儲存加密
   category: PD
   control_objective: 保護儲存中的個人資料
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: PD-05
@@ -469,7 +469,7 @@ rules:
   title: 遠端存取個資限制
   category: PD
   control_objective: 限制遠端個資 API 存取
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: PD-06
@@ -557,7 +557,7 @@ rules:
   title: 個資刪除機制
   category: PD
   control_objective: 確保個資保存及刪除符合法定義務
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: PD-07
@@ -649,7 +649,7 @@ rules:
   title: 個資外洩通報機制
   category: PD
   control_objective: 建立個資事故通報及應變能力
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: procedural
   origin:
     legacy_id: PD-08
