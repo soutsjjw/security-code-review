@@ -1,0 +1,1069 @@
+# V3.2 附件1五頁逐列55項；JSON 格式亦為 YAML 1.2 有效子集。
+# 原文的『是否符合』欄皆未填，此清冊絕非已完成檢核或通過證據。
+{
+  "standard_id": "NICS-WEB-GUIDE-APPENDIX1",
+  "source_guide_id": "NICS-WEB-GUIDE",
+  "guide_version": "V3.2",
+  "document_title": "附件1 Web應用程式安全查檢表",
+  "revision_basis": "主文件 V3.2（114/12/31）",
+  "pdf_pages": 5,
+  "scope": {
+    "included": [
+      "ASP.NET/.NET",
+      "通用 Web 安全控制"
+    ],
+    "excluded_implementation_technologies": [
+      "Java",
+      "PHP"
+    ],
+    "note": "附件查檢表為技術／流程要求，無 Java、PHP 範例；延續主文件 .NET 技術範圍。"
+  },
+  "category_count": 27,
+  "item_count": 55,
+  "level_counts": {
+    "普": 33,
+    "中": 44,
+    "高": 55
+  },
+  "notes": [
+    "附件不含主文件 V3.2 第 4.5.3.4 HTTP 六大安全標頭要求，原技術指引仍須獨立查核。",
+    "附件未列主文件 4.4.5 與 4.7.1，不能將附件視為完整 V3.2 主文件。",
+    "空白的是／否符合欄位是供核對者填寫，絕非已證實通過。",
+    "固定密碼輪替、長度／複雜度、CAPTCHA、Regex 等是文件建議；依適用政策、實際安全情境與等效控制判定。"
+  ],
+  "checks": [
+    {
+      "id": "NICS-WEB-A1-001",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.1.1",
+      "category": "帳號管理",
+      "requirement": "使用者的會談階段，設定該帳號在合理的時間（至多30分鐘）內未活動即自動失效",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AC-01"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-002",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.1.1",
+      "category": "帳號管理",
+      "requirement": "使用者的會談階段在登出後失效",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AC-02"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-003",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.1.1",
+      "category": "帳號管理",
+      "requirement": "管理者介面限制存取來源或不允許遠端存取",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AC-03"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-004",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.1.2",
+      "category": "最小權限",
+      "requirement": "對使用者／角色，僅賦予所需要的最低權限",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AC-04",
+        "AC-08"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-005",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.1.2",
+      "category": "最小權限",
+      "requirement": "軟體程序（process）及伺服器服務，以一般使用者權限執行，不以系統管理員或最高權限",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AC-05"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-006",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.1.3",
+      "category": "遠端存取",
+      "requirement": "採用伺服端的集中過濾機制檢查使用者授權",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AC-06",
+        "AC-08"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-007",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.2.1",
+      "category": "稽核事件",
+      "requirement": "針對身分鑑別失敗、存取資源失敗、重要行為、重要資料異動、功能錯誤及管理者行為進行日誌記錄",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-01",
+        "LG-02"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-008",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.2.1",
+      "category": "稽核事件",
+      "requirement": "應稽核資訊系統管理者帳號所執行之各項功能",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-02"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-009",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.2.2",
+      "category": "稽核紀錄內容",
+      "requirement": "日誌紀錄包含：非個資的使用者識別 ID、校時後時間戳記、功能或資源、事件類型或等級、事件描述",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-03",
+        "LG-04",
+        "LG-08"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-010",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.2.2",
+      "category": "稽核紀錄內容",
+      "requirement": "採用單一的日誌紀錄機制，確保輸出格式的一致性",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-04"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-011",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 1,
+      "parent_section": "4.2.3",
+      "category": "稽核儲存容量",
+      "requirement": "依據稽核紀錄儲存需求，配置稽核紀錄所需之儲存容量",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-05"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-012",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.4",
+      "category": "稽核處理失效之回應",
+      "requirement": "資訊系統應在稽核處理失效（如儲存容量不足）之情況下，採取適當之行動",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-09",
+        "EH-04"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-013",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.4",
+      "category": "稽核處理失效之回應",
+      "requirement": "需要即時通報的稽核失效事件發生時，應於機關規定時效內向特定人員或角色提出告警（適用高級）",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-09",
+        "EH-04"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-014",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.5",
+      "category": "時戳",
+      "requirement": "資訊系統以系統內部時鐘產生稽核時戳，且可以對映 UTC 或 GMT",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "LG-06"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-015",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.5",
+      "category": "時戳",
+      "requirement": "系統內部時鐘應具備定期同步機制",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-06"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-016",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.6",
+      "category": "稽核資訊之保護",
+      "requirement": "對日誌紀錄進行適當保護及備份，避免未經授權存取",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-07"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-017",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.6",
+      "category": "稽核資訊之保護",
+      "requirement": "定期備份稽核紀錄到與原稽核系統不同之實體系統（如 Log 伺服器）",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-07",
+        "BC-01"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-018",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.2.6",
+      "category": "稽核資訊之保護",
+      "requirement": "重要系統資料或紀錄留存雜湊值以確保完整性",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "LG-10"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-019",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.3.1",
+      "category": "資訊系統備份",
+      "requirement": "重要資料定時同步至備份或備援環境，並加以保護限制存取",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-01"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-020",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.3.2",
+      "category": "資訊系統備援",
+      "requirement": "採用高可用性（High Availability）架構（分散式或叢集伺服器）",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-03",
+        "BC-07"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-021",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.4.1",
+      "category": "內部使用者之識別與鑑別",
+      "requirement": "採用多重因素身分鑑別（兩種以上驗證類型）",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AU-09"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-022",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 2,
+      "parent_section": "4.4.1",
+      "category": "內部使用者之識別與鑑別",
+      "requirement": "資訊系統在建立連線前，應識別允許存取之特定來源（如 IP）",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AU-10",
+        "AC-03"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-023",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.2",
+      "category": "身分鑑別管理",
+      "requirement": "確實規範使用者密碼強度（長度12字元以上，含大小寫英文、數字及特殊字元）",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-01"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-024",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.2",
+      "category": "身分鑑別管理",
+      "requirement": "使用者定期更換密碼，至少不與前3次密碼相同",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AU-02"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-025",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.2",
+      "category": "身分鑑別管理",
+      "requirement": "帳號身分鑑別失敗達5次後，至少15分鐘內不允許該帳號及來源IP繼續嘗試登入",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-03"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-026",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.2",
+      "category": "身分鑑別管理",
+      "requirement": "身分鑑別相關資訊不以明文傳輸",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "AU-04",
+        "CR-01"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-027",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.2",
+      "category": "身分鑑別管理",
+      "requirement": "於身分鑑別及重要交易行為採用圖形驗證碼（CAPTCHA）防範自動化嘗試",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-05"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-028",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.2",
+      "category": "身分鑑別管理",
+      "requirement": "密碼重設需重新身分確認、發送一次性且具時效性 Token，驗證後才准許重設",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-06"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-029",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.3",
+      "category": "鑑別資訊回饋",
+      "requirement": "鑑別過程遮蔽密碼等資訊，防止未授權窺探或使用",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-07"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-030",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.4.4",
+      "category": "加密模組鑑別",
+      "requirement": "密碼加入亂數 Salt 進行雜湊處理，分別儲存 Salt 及雜湊值",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "AU-08"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-031",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.5.1",
+      "category": "安全系統發展生命週期需求階段",
+      "requirement": "針對系統安全需求，以檢核表方式進行確認",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-032",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.5.2",
+      "category": "安全系統發展生命週期設計階段",
+      "requirement": "根據系統功能與要求識別威脅，進行風險分析與評估",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-033",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.5.2",
+      "category": "安全系統發展生命週期設計階段",
+      "requirement": "將風險評估結果回饋需求階段檢核項目並提出安全需求修正",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-034",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 3,
+      "parent_section": "4.5.3",
+      "category": "安全系統發展生命週期開發階段",
+      "requirement": "具有防範 SQL 命令注入（SQL Injection）攻擊之措施",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "IN-01"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-035",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.3",
+      "category": "安全系統發展生命週期開發階段",
+      "requirement": "具有防範跨站腳本攻擊（XSS）之措施",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "IN-02"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-036",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.3",
+      "category": "安全系統發展生命週期開發階段",
+      "requirement": "具有防範跨站請求偽造（CSRF）攻擊之措施",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "IN-03"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-037",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.3",
+      "category": "安全系統發展生命週期開發階段",
+      "requirement": "發生錯誤時，使用者頁面僅顯示簡短錯誤訊息與代碼，不包含詳細錯誤訊息",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "EH-01"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-038",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.3",
+      "category": "安全系統發展生命週期開發階段",
+      "requirement": "所有功能皆進行錯誤及例外處理，並確保資源正確釋放",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "EH-02",
+        "EH-03"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-039",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.3",
+      "category": "安全系統發展生命週期開發階段",
+      "requirement": "具備系統嚴重錯誤之通知機制（如電子郵件或簡訊）",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "EH-04"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-040",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.4",
+      "category": "安全系統發展生命週期測試階段",
+      "requirement": "執行弱點掃描安全檢測",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "DP-01"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-041",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.4",
+      "category": "安全系統發展生命週期測試階段",
+      "requirement": "執行滲透測試安全檢測",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "SI-01",
+        "IN-01"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-042",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.5",
+      "category": "安全系統發展生命週期部署與維運階段",
+      "requirement": "作業平台定期更新，並關閉不必要服務與埠口",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "DP-03",
+        "DP-04"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-043",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.5",
+      "category": "安全系統發展生命週期部署與維運階段",
+      "requirement": "關注系統依賴的外部元件或軟體安全漏洞通告並定期評估更新",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "DP-01",
+        "DP-04"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-044",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.5",
+      "category": "安全系統發展生命週期部署與維運階段",
+      "requirement": "系統依賴的外部元件或軟體不使用預設或空白密碼",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "DP-02",
+        "EH-06"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-045",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.6",
+      "category": "安全系統發展生命週期委外階段",
+      "requirement": "委外開發依系統安全等級將安全需求納入委外合約",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-046",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.7",
+      "category": "獲得程序",
+      "requirement": "開發、測試及正式作業環境應作區隔",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "BC-02"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-047",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 4,
+      "parent_section": "4.5.8",
+      "category": "資訊系統文件",
+      "requirement": "應儲存與管理系統發展生命週期相關文件",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "BC-04",
+        "BC-06"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-048",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.6.1",
+      "category": "傳輸之機密性與完整性",
+      "requirement": "機敏資料傳輸時採用加密機制",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "CR-01",
+        "PD-03"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-049",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.6.1",
+      "category": "傳輸之機密性與完整性",
+      "requirement": "使用公開、國際機構驗證且未遭破解的演算法",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "CR-02"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-050",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.6.2",
+      "category": "資料儲存之安全",
+      "requirement": "參數設定或系統設定存放處限制存取，或進行適當保護",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "hybrid",
+      "related_rule_ids": [
+        "CR-03"
+      ],
+      "verification_focus": "先核對適用程式碼／設定，執行時組態、政策、使用紀錄及安全測試需外部佐證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-051",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.6.2",
+      "category": "資料儲存之安全",
+      "requirement": "機敏資料儲存時採用加密機制",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "CR-04",
+        "PD-05"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-052",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.7.2",
+      "category": "資訊系統監控",
+      "requirement": "發現資訊系統有被入侵跡象時，應通報機關特定人員",
+      "applicable_levels": [
+        "普",
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-01",
+        "EH-04"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-053",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.7.2",
+      "category": "資訊系統監控",
+      "requirement": "監控系統以偵測攻擊與未授權連線，並識別未授權使用",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-01",
+        "AU-10"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-054",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.7.2",
+      "category": "資訊系統監控",
+      "requirement": "採用自動化工具監控進出通信流量，並於不尋常或未授權活動時分析事件",
+      "applicable_levels": [
+        "高"
+      ],
+      "verification_mode": "external",
+      "related_rule_ids": [
+        "LG-01"
+      ],
+      "verification_focus": "需政策、維運、正式測試、監控或演練紀錄；程式碼審查不等於完成此項驗證",
+      "source_reference_status": "appendix1_exact_item_summary"
+    },
+    {
+      "id": "NICS-WEB-A1-055",
+      "source_document": "附件1 Web應用程式安全查檢表",
+      "pdf_page": 5,
+      "parent_section": "4.7.3",
+      "category": "軟體及資訊完整性",
+      "requirement": "於伺服器端以正規表示式等機制檢查使用者輸入資料合法性",
+      "applicable_levels": [
+        "中",
+        "高"
+      ],
+      "verification_mode": "source",
+      "related_rule_ids": [
+        "IN-05"
+      ],
+      "verification_focus": "由 Agent 檢查適用 .NET／通用 Web 程式碼、呼叫鏈、真實資料流及行號；需實際證據後才能判定",
+      "source_reference_status": "appendix1_exact_item_summary"
+    }
+  ]
+}
