@@ -1,11 +1,11 @@
 category: EH
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: EH-01
   title: 錯誤訊息不洩漏敏感資訊
   category: EH
   control_objective: 避免錯誤回應洩漏機敏資訊
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: EH-01
@@ -100,7 +100,7 @@ rules:
   title: 全域例外處理
   category: EH
   control_objective: 確保所有未預期例外受控處理
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: EH-02
@@ -196,7 +196,7 @@ rules:
   title: 資源正確釋放
   category: EH
   control_objective: 避免資源洩漏與連線耗盡
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: EH-03
@@ -294,7 +294,7 @@ rules:
   title: 嚴重錯誤通知機制
   category: EH
   control_objective: 及時發現重大安全或營運錯誤
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: EH-04
@@ -383,7 +383,7 @@ rules:
   title: Debug 模式關閉
   category: EH
   control_objective: 避免正式環境開啟除錯功能
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: EH-05
@@ -480,7 +480,7 @@ rules:
   title: 預設帳密與設定變更
   category: EH
   control_objective: 避免預設密碼及弱化組態
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: EH-06
