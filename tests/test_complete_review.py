@@ -71,10 +71,18 @@ class CompleteReviewTests(unittest.TestCase):
             self.assertEqual(inv['reviewed_file_count'], 1)
             self.assertEqual(inv['reviewed_project_count'], 1)
             self.assertEqual(inv['reviewed_files'][0]['check_ids'],
-                             sorted([a['checks'][0]['id'], a['checks'][1]['id']]))
+                             sorted([check['id'] for check in a['checks']]))
             self.assertGreaterEqual(inv['excluded_file_count'], 1)
             self.assertIn('審查檔案明細', (output / 'CodeReview_20261018.html').read_text('utf-8'))
             self.assertFalse((SKILL_ROOT / 'reports').exists())
+
+            # 新增一個未讀來源檔；即使 70 項皆 completed 也必須拒絕重新交付。
+            (target / 'NotReviewed.cs').write_text('// 尚未審查', encoding='utf-8')
+            old_report = (output / 'report.json').read_bytes()
+            rejected = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('原始碼審查覆蓋不足', rejected.stderr)
+            self.assertEqual((output / 'report.json').read_bytes(), old_report)
 
     def test_missing_inputs_are_rejected_without_writing(self):
         with tempfile.TemporaryDirectory() as tmp:
