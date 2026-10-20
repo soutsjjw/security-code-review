@@ -40,6 +40,26 @@ class ScopeInventoryTests(unittest.TestCase):
             self.assertEqual(out["eligible_file_count"], 2)
             self.assertEqual(out["reviewed_files"][0]["check_ids"], ["AC-01", "AU-01"])
 
+    def test_report_artifacts_do_not_change_inventory(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / "app.cs").write_text("source", encoding="utf-8")
+            output = root / "custom-output"
+            output.mkdir()
+            report = output / "report.json"
+            html = output / "CodeReview_20261018.html"
+            assessment = {"checks": [{"id": "AC-01", "execution": {
+                "state": "completed", "inspected_paths": ["app.cs"]}}]}
+            artifacts = (report, html)
+            before = build_scope_inventory(assessment, root, ignored_artifacts=artifacts)
+            report.write_text("{}", encoding="utf-8")
+            html.write_text("<!doctype html>", encoding="utf-8")
+            after = build_scope_inventory(assessment, root, ignored_artifacts=artifacts)
+            self.assertEqual(before, after)
+            self.assertEqual(after["reviewed_file_count"], 1)
+            self.assertEqual(after["inventory_file_count"], 1)
+            self.assertNotEqual(build_scope_inventory(assessment, root), before)
+
     def test_unknown_project_count(self):
         with tempfile.TemporaryDirectory() as t:
             out = build_scope_inventory({"checks": []}, Path(t))
