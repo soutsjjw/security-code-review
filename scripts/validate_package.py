@@ -119,6 +119,21 @@ if any(e['parent_section'] in ('4.4.5','4.7.1') for e in webappendix['checks']):
 if any(e['id']=='NICS-WEB-4.5.3.4' for e in webappendix['checks']):
  errors.append('WEB Appendix1 must not misrepresent main-guide HTTP header requirement')
 
+# V3.2 附件3的六項標頭必須明確屬於 CR-05，且不會自動從程式碼推斷 Pass。
+from web_headers import load_headers, build_appendix3
+headers_doc=load_headers(j['rules'])
+headers_checks=headers_doc['checks']
+if len(headers_checks)!=6 or len({item['header'] for item in headers_checks})!=6:
+ errors.append('WEB Appendix3 must have 6 unique HTTP headers')
+if any('CR-05' not in item['related_rule_ids'] for item in headers_checks):
+ errors.append('WEB Appendix3 must map each header to CR-05')
+if headers_doc['scope']['excluded_implementation_technologies'] != ['Java','PHP']:
+ errors.append('WEB Appendix3 must exclude Java/PHP implementations')
+if build_appendix3(j['rules'])['status_counts'] != {'not_assessed':6}:
+ errors.append('WEB Appendix3 must default to unassessed, never Pass')
+csp=next((item for item in headers_checks if item['header']=='Content-Security-Policy'),{})
+if not any('unsafe-inline' in v and 'unsafe-eval' in v for v in csp.get('implementation_cautions',[])):
+ errors.append('WEB Appendix3 must highlight weak CSP example')
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)
