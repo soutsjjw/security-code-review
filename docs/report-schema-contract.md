@@ -2,14 +2,14 @@
 
 ## 設計
 
-`report.schema.json` 使用 JSON Schema Draft 2020-12，並透過相對 `$ref: "assessment.schema.json"` 引用規則集 2.0.0-rc1 的審查結果 Schema；避免讓報告專用欄位污染核心審查紀錄。
+`report.schema.json` 使用 JSON Schema Draft 2020-12，並透過相對 `$ref: "assessment.schema.json"` 引用規則集 2.0.0 的審查結果 Schema（兼容舊版 2.0.0-rc1 的既有審查資料）；避免讓報告專用欄位污染核心審查紀錄。
 
 ```text
 report.json
 ├── report_schema_version  # 固定 "2.1.0"
 ├── project                # 不同系統的標頭資訊
 ├── scope_inventory        # 自動盤點與完成審查的逐檔紀錄（提供 source-root 時）
-├── assessment             # 原本 70 項審查結果；ruleset_version = "2.0.0-rc1"
+├── assessment             # 原本 70 項審查結果；ruleset_version = "2.0.0"
 ├── rules                  # 70 項規則顯示資訊（可用完整規則物件或最小投影）
 └── presentation           # 僅報告呈現用途
 ```
@@ -73,7 +73,7 @@ report.json
 {
   "report_schema_version": "2.1.0",
   "project": {"name": "被審查系統名稱"},
-  "assessment": {"ruleset_version":"2.0.0-rc1","project_id":"...","git_revision":"...","assessment_date":"...","scope":"...","checks":[],"findings":[]},
+  "assessment": {"ruleset_version":"2.0.0","project_id":"...","git_revision":"...","assessment_date":"...","scope":"...","checks":[],"findings":[]},
   "rules": [],
   "presentation": {}
 }
