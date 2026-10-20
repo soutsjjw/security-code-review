@@ -65,7 +65,7 @@ class WebAppendix1Tests(unittest.TestCase):
                  "reason": "已核對伺服器 Session 逾時邏輯",
                  "reviewer": "審查人員", "verified_on": "2026-10-20",
                  "evidence": ["src/Auth.cs:38-56"]}
-        result = build_appendix1(project, {"checks": [entry]}, self.rules) if False else build_appendix1(project, self.rules, {"checks": [entry]})
+        result = build_appendix1(project, self.rules, {"checks": [entry]})
         self.assertEqual(result["status_counts"]["pass"], 1)
         self.assertEqual(result["status_counts"]["not_assessed"], 32)
         self.assertEqual(review_from_report(result), {"checks": [entry]})
