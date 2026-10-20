@@ -14,6 +14,7 @@ from security_level import infer_security_level
 from review_queue import load_owasp_2025_categories
 from system_baseline import build_system_baseline, review_from_report
 from web_guide import build_web_guide_index
+from web_appendix1 import build_appendix1, review_from_report as appendix_review_from_report
 
 
 def parse_args():
@@ -23,6 +24,7 @@ def parse_args():
     src.add_argument('--assessment', type=Path, help='既有 assessment.json，需搭配 --project')
     p.add_argument('--project', type=Path, help='系統顯示資訊 JSON，內容為 project 物件')
     p.add_argument('--presentation', type=Path, help='選填報告呈現欄位 JSON，內容為 presentation 物件')
+    p.add_argument('--web-appendix1-assessment', type=Path, help='選填附件1獨立查檢結果，預設 assessment.json 同目錄 web_appendix1_assessment.json')
     p.add_argument('--baseline-assessment', type=Path, help='選填獨立 80 項驗證資料（預設自動讀取 assessment.json 同目錄 baseline_assessment.json）')
     p.add_argument('--rules', type=Path, default=ROOT/'rules.json', help='70 項規則主檔')
     p.add_argument('--schema-dir', type=Path, default=ROOT/'schemas')
@@ -77,6 +79,16 @@ def main() -> int:
         # --report 模式也重新按版本化清單產生分類，不相信舊報告中過時的關聯。
         mapping_rules = load_json(a.rules)
         source_rules = mapping_rules['rules'] if isinstance(mapping_rules, dict) else mapping_rules
+        if a.report:
+            if a.web_appendix1_assessment:
+                raise ValueError('--report 模式不可搭配 --web-appendix1-assessment')
+            appendix_input = None
+            appendix_review = appendix_review_from_report(data.get('web_guide_v32_appendix1', {}))
+        else:
+            appendix_input = (a.web_appendix1_assessment if a.web_appendix1_assessment else
+                              a.assessment.parent / 'web_appendix1_assessment.json')
+            appendix_review = load_json(appendix_input) if appendix_input.is_file() else None
+        data['web_guide_v32_appendix1'] = build_appendix1(data['project'], source_rules, appendix_review)
         mapped_owasp = load_owasp_2025_categories(source_rules)
         data['web_guide_v32'] = build_web_guide_index(source_rules)
         for report_rule in data['rules']:
@@ -95,6 +107,9 @@ def main() -> int:
             guide_label = 'WEB應用程式安全參考指引 V3.2（ASP.NET/.NET 與通用 Web 控制）'
             if guide_label not in standards:
                 standards.append(guide_label)
+            appendix_label = 'WEB應用程式安全參考指引 V3.2 附件1（55項獨立查檢）'
+            if appendix_label not in standards:
+                standards.append(appendix_label)
         # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
         project = data['project']
         if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E', '不適用'):
@@ -118,7 +133,7 @@ def main() -> int:
         html_result.print()
         if not html_result.ok:
             return 1
-        protected_inputs = [a.report, a.assessment, a.project, a.presentation, baseline_source,
+        protected_inputs = [a.report, a.assessment, a.project, a.presentation, baseline_source, appendix_input,
                             a.rules, a.template, a.schema_dir / 'report.schema.json',
                             a.schema_dir / 'assessment.schema.json']
         inputs = {p.resolve() for p in protected_inputs if p is not None}
