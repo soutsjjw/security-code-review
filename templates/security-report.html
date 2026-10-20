@@ -47,12 +47,17 @@ p code, li code, td code { background:var(--code-bg); padding:1px 5px; border-ra
 .muted { color:var(--muted); } .small { font-size:13px; } .nowrap { white-space:nowrap; }
 .subtitle { color:var(--muted); margin:0 0 24px; }
 .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; }
-.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+.grid2 > * { min-width:0; }
 @media (max-width:760px) { .grid2 { grid-template-columns:1fr; } }
 table { width:100%; border-collapse:collapse; }
 th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
 th { font-size:13px; color:var(--muted); font-weight:600; }
-.info td:first-child { width:120px; color:var(--muted); white-space:nowrap; }
+.info { table-layout:fixed; }
+.info td { overflow-wrap:anywhere; word-break:normal; }
+.info td:first-child { width:43%; color:var(--muted); white-space:normal; }
+.info td:last-child { width:57%; white-space:normal; }
+@media (max-width:420px) { .panel { padding:12px; } .info td { padding:8px 6px; } }
 .tablewrap { overflow-x:auto; }
 .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
 .stat { border-radius:8px; padding:12px; text-align:center; }
@@ -304,10 +309,29 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       : text(prelim.basis,'缺乏機關業務、維運及核定資料，無法僅依程式碼判斷法定等級。');
   const levelEvidence = asArray(prelim.evidence).map(e=>e.path+':'+e.line_start).join('、');
   const levelMissing = asArray(prelim.missing_information).join('；');
+  const versionNow = report.current_ruleset_version || assessment.ruleset_version;
+  const versionText = assessment.ruleset_version===versionNow ? versionNow
+    : versionNow+'（現行規則集）；審查紀錄 '+assessment.ruleset_version+'（歷史版，新增對照須補查）';
+  const fileTypes = new Map();
+  if(coverage) asArray(coverage.reviewed_files).forEach(f=>{
+    const base=String(f.path||'').split('/').pop()||'';
+    const extension=base.includes('.')?'.'+base.split('.').pop().toLowerCase():'無副檔名';
+    fileTypes.set(extension,(fileTypes.get(extension)||0)+1);
+  });
+  const typeSummary = [...fileTypes].sort((a,b)=>b[1]-a[1])
+    .slice(0,6).map(([ext,n])=>ext+' '+n+' 檔').join('、');
+  const projectSummary = !coverage||coverage.reviewed_project_count===null
+    ? '專案數待確認'
+    : '已審查 '+coverage.reviewed_project_count+' 個專案';
+  const scopeSummary = coverage
+    ? projectSummary+'、'+coverage.reviewed_file_count+' 個檔案'+(typeSummary?'（'+typeSummary+(fileTypes.size>6?'等':'')+'）':'')
+    : '實際審查專案及檔案數待確認';
+  const personalInfo = text(project.personal_data,'待確認')
+    +(project.personal_data_assessment?.basis?'；'+project.personal_data_assessment.basis:'');
   // 基本資訊
   const info = [
     ['系統名稱', text(project.name,assessment.project_id)], ['審查日期',assessment.assessment_date],
-    ['語言 / 框架',project.language_framework], ['審查範圍',assessment.scope],
+    ['語言 / 框架',project.language_framework], ['審查範圍',scopeSummary],
     ['已審查專案數量',coverage ? text(coverage.reviewed_project_count,'未提供專案對照') : '未提供'],
     ['有逐檔紀錄的檔案數',coverage ? coverage.reviewed_file_count : '未提供'],
     ['盤點檔案數',coverage ? coverage.inventory_file_count : '未提供'],
@@ -317,11 +341,11 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     ['資通系統防護需求等級（普／中／高）',report.system_baseline?.demand_level||'待確認'],
     ['系統防護需求分級依據',report.system_baseline?.demand_level_basis||'尚缺適用等級及其可核對依據'],
     ['安全等級判斷說明',levelExplanation],
-    ['初步研判佐證',!official&&!notApplicable&&levelEvidence?levelEvidence:'無'],
-    ['尚待確認資訊',!official&&!notApplicable?(levelMissing||'機關業務與核定資料'):'以提供之適用性／核定資料為準'],
-    ['個資處理',project.personal_data],
+    ['尚待確認資訊',asArray(presentation.pending_information).join('；')||
+      (!official&&!notApplicable?(levelMissing||'機關業務與核定資料'):'目前無自動彙整之待確認事項')],
+    ['個資處理',personalInfo],
     ['規範依據',asArray(presentation.standards).join('、')||'待提供'],
-    ['審查者',presentation.reviewer], ['規則版本',assessment.ruleset_version],
+    ['審查者',text(presentation.reviewer,'AI 審查工具（執行介面無法辨識）')], ['規則版本',versionText],
     ['Git Revision',assessment.git_revision]
   ];
   for(const [key,value] of info){const tr=el('tr'); tr.append(el('td',null,key),el('td',null,text(value)));$('projectInfo').append(tr);}
@@ -343,7 +367,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   $('severityStats').style.gridTemplateColumns='repeat('+sevKeys.length+',minmax(0,1fr))';
   const overall=presentation.overall_risk||{}; const level=overall.level||'review';
   $('overallRisk').className='risk '+(SEVERITY[level]?.[1]||'st-review');
-  const riskLabel=el('div');riskLabel.append(el('div','small','整體風險評估'),el('div','lvl',SEVERITY[level]?.[0]||'待確認'));
+  const riskLabel=el('div');riskLabel.append(el('div','small','整體風險評估（靜態初判）'),el('div','lvl',SEVERITY[level]?.[0]||'待確認'));
   $('overallRisk').append(riskLabel,el('div','small',text(overall.summary,'未提供整體風險判定；應由審查人員確認，不可只由缺失數量推定。')));
 
   // 已審查檔案必須來自 completed 的逐檔紀錄，不得以盤點檔案代替。
