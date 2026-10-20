@@ -1,6 +1,6 @@
 ---
 name: security-code-review
-version: 2.1.8-rc1
+version: 2.1.9-rc1
 description: 對目前專案或指定目錄執行公司共用的 70 項原始碼資安審查，驗證證據並自動產生通用離線 HTML 與 JSON 報告。
 argument-hint: "[專案路徑或檢核範圍]"
 ---
@@ -58,7 +58,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 對佇列 `next_checks[].web_guide_v32_checks` 的適用項目，實際核查程式碼路徑／行號及設定；V3.2 的細部條次含 `observed_levels` 與原 PDF 表格依據，只表示該節實作建議表至少一項涉及的普／中／高等級（同節多項可能適用不同等級），不得直接推定整個控制適用或自動 N/A；在 `decision_reason`／`execution.summary` 記錄相應 `NICS-WEB-4.x.x[.x]` ID、證據、不能確認的外部事項，並保持既有 Finding 與 70/70 計數。
 - V3.2 新增 `4.5.3.4 HTTP 安全標頭`：需對照 `CR-05` 審查 CSP、HSTS、nosniff、X-Frame-Options、Referrer-Policy、Permissions-Policy 的實際設定與有效性；**文件部分 CSP 範例含 unsafe-inline / unsafe-eval，不能照抄或以有設定標頭即宣稱安全**。HSTS 與實際回應標頭可能仍需部署佐證。
 - 指引第 3 章使用 OWASP Top 10:2021，保留歷史版本；既有 OWASP Top 10:2025 仍為獨立新版本分類。
-- 主文件 PDF 共 253 頁，末頁僅列附件 1～3 標題；**附件 1 的完整五頁 PDF 已另行提供並建立 55 項清冊**，附件 2、3 尚未取得。
+- 主文件 PDF 共 253 頁，末頁僅列附件 1～3 標題；**附件 1 的完整五頁 PDF 已另行提供並建立 55 項清冊**，附件 2 尚未取得；附件 3 的 10 頁 PDF 已取得並建立六項安全標頭對照。
 - `report.json.web_guide_v32` 與離線 HTML 的「WEB 應用程式安全參考指引 V3.2 技術對照」只呈現來源、技術範圍、控制映射及查核焦點；原始碼檢核結果與 V1.3 防護基準獨立呈現，不依映射自動推論合規。
 
 ## 附件 1：Web 應用程式安全查檢表（V3.2 主文件附錄）
@@ -70,6 +70,16 @@ argument-hint: "[專案路徑或檢核範圍]"
 - `generate_report.py` 自動載入上述選填檔案；`report.json.web_guide_v32_appendix1` 與 HTML 新增逐項對照／狀態／證據章節。重跑舊報告不能推定此前已完成新的 55 項，必須先覆核證據。
 - 維持技術限定：**ASP.NET/.NET 與不分語言的 Web 安全要求，排除 Java／PHP 專屬實作**。附件只列 27 類，未列 V3.2 主文 `4.4.5`、`4.7.1` 及 `4.5.3.4` HTTP 安全標頭細節；主文仍需完整檢測。
 - 附件的「12 字元與字元類型、定期輪替、CAPTCHA、Regex」是來源明列的實作要求，不可在未確認機關政策、風險與等效防護前無條件判定安全或法遵違規。
+
+## 附件 3：HTTP 安全標頭防護設定（六項 CR-05 技術子檢核）
+
+- 來源：《附件3 HTTP安全標頭防護設定.pdf》，共 10 頁。標準 `NICS-WEB-GUIDE-APPENDIX3`；清冊 `standards/nics-web-v3.2-appendix3.yaml`，依主文 `NICS-WEB-4.5.3.4` 對照六項：Content-Security-Policy、Strict-Transport-Security、X-Content-Type-Options、X-Frame-Options、Referrer-Policy、Permissions-Policy。
+- **不增加正式規則數**，原 `CR-05` 是主要檢核，CSP 同時關聯 `IN-02`，HSTS 同時關聯 `CR-01`，**不得將 HTTP 標頭直接視為 `CR-06` Cookie 安全屬性**。佇列 `next_checks[].web_guide_v32_appendix3` 提示要實際查核的設定值、路徑、部署等細節；Finding 仍以原有規則記錄。
+- **技術限制**：只採 ASP.NET/.NET、IIS、`web.config`、Middleware、反向代理及通用 HTTP 回應要求；排除 Java Servlet Filter、`web.xml` 與 PHP 專屬檢查。不得把原 PDF 第 9 頁含 `unsafe-inline`／`unsafe-eval` 的 CSP 程式碼當作安全建議；須確認 CSP 真正強制執行且不過寬、HSTS 子網域和 preload 風險、Permissions-Policy 正確語法與實際瀏覽器支援。
+- 必須分開記錄 **靜態程式碼／設定檢查** 與 **實際 HTTPS HTTP 回應證據**，並核對部署環境、URL 或測試工件識別、日期、標頭有效值。未提供回應證據時只能記 `review` 或 `not_assessed`，不得因設定檔出現標頭而自動 Pass。可根據實際來源錯誤記 `fail`，但應註明部署影響待驗。
+- `report.json.web_guide_v32_appendix3` 與 HTML 會獨立顯示六項結果；無真實證據預設六項皆 `not_assessed`，不受原 `CR-05` 的 Pass 影響。若有實際查證，Agent 可於受測專案 `reports/security-code-review/web_appendix3_assessment.json` 記錄 `{"checks":[{"id":"NICS-WEB-A3-CSP","status":"review","reason":"已檢查配置但待實測 HTTPS 回應","reviewer":"資安審查人員","verified_on":"2026-10-20","environment":"測試環境","observed_value":"default-src 'self'","evidence":["web.config:42"],"http_response_evidence":[]}]}`（格式示意）。pass 須非空 `http_response_evidence` 和 `environment`；fail 須有真實設定或回應證據；其他人工判定皆需理由、審核者與日期。
+- 來源 PDF 第 7 頁提及 SecurityHeaders.com、Mozilla Observatory、Google CSP Evaluator，作為**經授權**的輔助驗證工具；工具評分或警示不能直接當法遵結論。附件3自身沒有正式「普／中／高」獨立矩陣，不得擅自判斷 N/A。
+- 保留原有所有 Finding、70 項續跑流程、V3.2 主文與附件1。即使缺少外部部署證據，仍要完成其餘的程式碼審查；不修改受測專案原始碼。
 
 ## 自動審查流程
 
