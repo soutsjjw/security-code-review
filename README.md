@@ -35,7 +35,23 @@ Agent 會盤點程式碼、逐條審查、保留既有進度與 Finding，直到
 | Claude Code（全域） | `~/.claude/skills/security-code-review/` |
 | Claude Code（單一專案） | `<專案>/.claude/skills/security-code-review/` |
 
-Windows 的 Codex 全域路徑為 `%USERPROFILE%\.agents\skills\security-code-review\`。複製**整個儲存庫內容**至上述目錄，重新啟動 Agent 工作階段即可。可從此 GitHub 儲存庫的 `develop` 分支下載 ZIP，或在具存取權限的環境中 Clone。
+Windows 的 Codex 全域路徑為 `%USERPROFILE%\.agents\skills\security-code-review\`。下載 ZIP 並複製**整個儲存庫**也可以；若已有 GitHub 存取權限，可直接安裝 `develop`：
+
+macOS／Linux（Codex 全域）：
+
+```bash
+mkdir -p "$HOME/.agents/skills"
+git clone --branch develop https://github.com/soutsjjw/security-code-review.git "$HOME/.agents/skills/security-code-review"
+```
+
+Windows PowerShell（Codex 全域）：
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
+git clone --branch develop https://github.com/soutsjjw/security-code-review.git "$env:USERPROFILE\.agents\skills\security-code-review"
+```
+
+安裝後重新開啟 Agent 工作階段。
 
 完成 HTML／JSON 報告產生與驗證，需要 **Python 3.10+**，並在 Skill 安裝目錄執行一次：
 
