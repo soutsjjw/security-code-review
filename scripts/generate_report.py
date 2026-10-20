@@ -134,12 +134,15 @@ def main() -> int:
                 project['security_level_assessment'] = infer_security_level(
                     data['assessment'], a.source_root, encodings
                 )
+        ignored_artifacts = (a.report, a.save_report, a.output)
         if a.source_root is not None:
-            data['scope_inventory'] = build_scope_inventory(data['assessment'], a.source_root)
+            data['scope_inventory'] = build_scope_inventory(
+                data['assessment'], a.source_root, ignored_artifacts=ignored_artifacts)
         result = validate_data(data, rules_path=a.rules, schema_dir=a.schema_dir,
                                source_root=a.source_root, strict_sources=a.strict_sources,
                                allow_demo=a.allow_demo,
-                               source_encodings=tuple(x.strip() for x in a.source_encodings.split(',') if x.strip()))
+                               source_encodings=tuple(x.strip() for x in a.source_encodings.split(',') if x.strip()),
+                               ignored_artifacts=ignored_artifacts)
         result.print()
         if not result.ok:
             return 1
