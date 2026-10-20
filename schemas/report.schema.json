@@ -2824,6 +2824,305 @@
         }
       },
       "additionalProperties": false
+    },
+    "web_guide_v32_appendix3": {
+      "type": "object",
+      "description": "V3.2 附件3 六個 HTTP 安全標頭技術子檢核；不影響 CR-05 或原70項計數。",
+      "required": [
+        "standard_id",
+        "version",
+        "source_document",
+        "source_pages",
+        "related_main_guide_control",
+        "scope",
+        "level_note",
+        "header_count",
+        "status_counts",
+        "assessment_note",
+        "checks"
+      ],
+      "properties": {
+        "standard_id": {
+          "const": "NICS-WEB-GUIDE-APPENDIX3"
+        },
+        "version": {
+          "const": "V3.2"
+        },
+        "source_document": {
+          "const": "附件3 HTTP安全標頭防護設定.pdf"
+        },
+        "source_pages": {
+          "const": 10
+        },
+        "related_main_guide_control": {
+          "const": "NICS-WEB-4.5.3.4"
+        },
+        "scope": {
+          "type": "object",
+          "required": [
+            "included",
+            "excluded_implementation_technologies",
+            "note"
+          ],
+          "properties": {
+            "included": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "excluded_implementation_technologies": {
+              "const": [
+                "Java",
+                "PHP"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "level_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "header_count": {
+          "const": 6
+        },
+        "status_counts": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "not_assessed",
+              "pass",
+              "fail",
+              "review",
+              "na"
+            ]
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "assessment_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "header",
+              "source_pdf_pages",
+              "related_rule_ids",
+              "verification_mode",
+              "purpose",
+              "source_recommendation",
+              "review_steps",
+              "implementation_cautions",
+              "status",
+              "observed_value",
+              "environment",
+              "evidence",
+              "http_response_evidence"
+            ],
+            "properties": {
+              "id": {
+                "enum": [
+                  "NICS-WEB-A3-CSP",
+                  "NICS-WEB-A3-HSTS",
+                  "NICS-WEB-A3-NOSNIFF",
+                  "NICS-WEB-A3-FRAME",
+                  "NICS-WEB-A3-REFERRER",
+                  "NICS-WEB-A3-PERMISSIONS"
+                ]
+              },
+              "header": {
+                "enum": [
+                  "Content-Security-Policy",
+                  "Strict-Transport-Security",
+                  "X-Content-Type-Options",
+                  "X-Frame-Options",
+                  "Referrer-Policy",
+                  "Permissions-Policy"
+                ]
+              },
+              "source_pdf_pages": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                }
+              },
+              "related_rule_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                }
+              },
+              "verification_mode": {
+                "const": "source_plus_http_response"
+              },
+              "purpose": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_recommendation": {
+                "type": "string",
+                "minLength": 1
+              },
+              "review_steps": {
+                "type": "string",
+                "minLength": 1
+              },
+              "implementation_cautions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "status": {
+                "enum": [
+                  "not_assessed",
+                  "pass",
+                  "fail",
+                  "review",
+                  "na"
+                ]
+              },
+              "observed_value": {
+                "type": "string"
+              },
+              "environment": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "http_response_evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reviewer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "verified_on": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "pass",
+                        "fail",
+                        "review",
+                        "na"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "reason",
+                    "reviewer",
+                    "verified_on"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "pass"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "environment": {
+                      "minLength": 1
+                    },
+                    "http_response_evidence": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "fail"
+                    }
+                  }
+                },
+                "then": {
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "evidence": {
+                          "minItems": 1
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "http_response_evidence": {
+                          "minItems": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
