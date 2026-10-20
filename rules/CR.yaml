@@ -1,11 +1,11 @@
 category: CR
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: CR-01
   title: 機敏資料傳輸加密
   category: CR
   control_objective: 保護機敏資料在傳輸途中的機密性
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: CR-01
@@ -109,7 +109,7 @@ rules:
   title: 安全加密演算法
   category: CR
   control_objective: 避免不安全或錯誤使用密碼學
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: CR-02
@@ -208,7 +208,7 @@ rules:
   title: 參數設定安全保護
   category: CR
   control_objective: 保護敏感設定及秘密
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: CR-03
@@ -306,7 +306,7 @@ rules:
   title: 機敏資料儲存加密
   category: CR
   control_objective: 保護儲存中的機敏資訊
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: CR-04
@@ -402,7 +402,7 @@ rules:
   title: HTTP 安全標頭設定
   category: CR
   control_objective: 減少瀏覽器與中介層安全風險
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: CR-05
@@ -505,7 +505,7 @@ rules:
   title: Cookie 安全屬性
   category: CR
   control_objective: 確保 Cookie 不遭不當讀取或跨站傳送
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: CR-06
