@@ -27,6 +27,7 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertEqual(output["owasp_top10_2025_categories"], 10)
         self.assertEqual(output["system_baseline_v13_controls"], 80)
         self.assertEqual(output["web_guide_v32_appendix1_checks"], 55)
+        self.assertEqual(output["web_guide_v32_appendix3_headers"], 6)
         self.assertTrue(any(x["web_guide_v32_appendix1"] for x in output["next_checks"]))
         self.assertEqual(output["web_guide_v32_categories"], 29)
         self.assertEqual(output["web_guide_v32_implementation_topics"], 35)
@@ -34,6 +35,16 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertTrue(any(x["system_baseline_v13_controls"] for x in output["next_checks"]))
         self.assertTrue(any(v["owasp_2025_categories"] for v in output["next_checks"]))
         self.assertTrue(any(x["tacert_v2_checks"] for x in output["next_checks"]))
+
+    def test_http_appendix3_six_headers_are_review_hints_not_pass(self):
+        _, rules = load_rules()
+        demo = json.loads((ROOT / "examples/assessment.example.json").read_text("utf-8"))
+        output = build_queue(demo, rules, 70)
+        by_id = {x["id"]: x for x in output["next_checks"]}
+        self.assertEqual(len(by_id["CR-05"]["web_guide_v32_appendix3"]), 6)
+        self.assertEqual(len(by_id["CR-01"]["web_guide_v32_appendix3"]), 1)
+        self.assertEqual(len(by_id["IN-02"]["web_guide_v32_appendix3"]), 1)
+        self.assertTrue(all("status" not in r for r in by_id["CR-05"]["web_guide_v32_appendix3"]))
 
     def test_tacert_v2_mappings_have_source_and_external_checks(self):
         _, rules = load_rules()
