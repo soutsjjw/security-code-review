@@ -112,11 +112,12 @@ class WindowsPythonRunnerTests(unittest.TestCase):
         self.assertEqual(checked.returncode, 0, checked.stderr)
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "echo args.py"
-            script.write_text("import sys\nprint('ARGS:' + '|'.join(sys.argv[1:]))\n", encoding="utf-8")
+            script.write_text("import sys\nprint('ARGS:' + '|'.join(sys.argv[1:]))\nprint('中文輸出正常')\n", encoding="utf-8")
             result = subprocess.run(["cmd", "/c", str(runner), str(script), "hello world"],
-                                    capture_output=True, text=True)
+                                    capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("ARGS:hello world", result.stdout)
+            self.assertIn("中文輸出正常", result.stdout)
 
 
 if __name__ == "__main__":
