@@ -1,4 +1,4 @@
-# Security Code Review Skill v2.1.8
+# Security Code Review Skill v2.1.9
 
 公司跨系統共用的 **70 項資安原始碼審查 Skill**。在被審查專案呼叫一次，Agent 執行檢核並產生可離線開啟的 HTML／JSON 報告。規則集 `2.0.0-rc1` 尚待公司資安核定。
 
@@ -128,7 +128,7 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 - `report.json.web_guide_v32` 與 HTML 新增指引版本化索引；**是技術依據對照，不代表已全部符合或完成外部測試**。
 - 特別強化 **4.5.3.4 HTTP 安全標頭**（既有 `CR-05`），須檢查實際設定值、有效性及 CSP 限制，文件範例出現 `unsafe-inline`、`unsafe-eval`，不得當成建議的安全預設值。
 - V3.2 第 3 章引用 **OWASP Top 10:2021**；OWASP Top 10:2025 依現有獨立標準維護。
-- V3.2 主文件 PDF 最後一頁只有附件 1～3 的標題。**現已另取得並編目完整附件 1（5 頁、55 項）**；附件 2、3 內容仍未提供。
+- V3.2 主文件 PDF 最後一頁只有附件 1～3 的標題。**現已另取得並編目完整附件 1（5 頁、55 項）**；附件 2 內容仍未提供；附件 3 已另行取得並整合。
 
 操作仍為 `$security-code-review`，原有 70 項、TACERT 39 焦點、OWASP 2025 十類及 V1.3 80 項獨立防護基準均不變。
 
@@ -160,6 +160,39 @@ Copy-Item -Recurse -Force .\security-code-review "$env:USERPROFILE\.agents\skill
 - 技術範圍仍為 **ASP.NET/.NET 與通用 Web 控制**，排除 Java、PHP 專屬實作。附件所列固定密碼輪替、CAPTCHA、正規表示式驗證等不得一律視為唯一有效控制，應依適用政策與等效控制查核。
 
 維持 `$security-code-review` 單一使用方式、70/70 審查完成條件、既有 Finding 與 V1.3 80 項獨立防護基準。
+
+## V3.2 附件 3：HTTP 安全標頭防護設定（6 項）
+
+已依《附件3 HTTP安全標頭防護設定.pdf》（10 頁）納入六項安全標頭，**僅補強既有 `CR-05`，不新增六個正式規則或更改 70/70 計數**。技術範圍延續 ASP.NET/.NET、IIS、`web.config`、Middleware、反向代理與實際 HTTP 回應，**排除 Java／PHP 專屬實作**。
+
+- 來源清冊：`standards/nics-web-v3.2-appendix3.yaml`，逐項保留 CSP、HSTS、X-Content-Type-Options、X-Frame-Options、Referrer-Policy、Permissions-Policy 的原文件頁碼、設定建議及查核風險。CSP 額外連結 `IN-02`，HSTS 連結 `CR-01`；主文仍對應 `NICS-WEB-4.5.3.4`。
+- 審查佇列 `next_checks[].web_guide_v32_appendix3` 顯示六項細部提示；可讀取 .NET 原始碼／IIS 設定，但**只有靜態設定而沒有實際 HTTPS 回應佐證，不可標記為已驗證符合**。
+- `report.json.web_guide_v32_appendix3` 與 HTML 新增完整六項對照，呈現標頭實際設定值、審查狀態、來源證據、HTTPS 回應證據、部署環境與待確認事項。預設六項皆 `not_assessed`；不因 `CR-05` Pass 而自動通過。
+- 選填真實核對紀錄：在受測專案 `reports/security-code-review/web_appendix3_assessment.json` 建立：
+
+  ```json
+  {
+    "checks": [
+      {
+        "id": "NICS-WEB-A3-CSP",
+        "status": "review",
+        "reason": "已檢視 IIS 設定，但尚未取得 HTTPS 回應",
+        "reviewer": "資安審查人員",
+        "verified_on": "2026-10-20",
+        "observed_value": "default-src 'self'",
+        "environment": "測試環境",
+        "evidence": ["web.config:42"],
+        "http_response_evidence": []
+      }
+    ]
+  }
+  ```
+
+  上例**僅為格式示範，非已執行檢測**。 `pass` 需提供可追溯 HTTP 回應證據和環境；`fail` 可用原始碼/設定或回應證明，實際運行影響仍需說明。審核者、日期、理由必填，證據的真實性仍需人工核實。
+- 附件第 9 頁之 .NET CSP 範例有 `unsafe-inline`、`unsafe-eval`，**不可照抄當作安全預設**；Permissions-Policy 的 `('self')` 語法要確認，HSTS `includeSubDomains` 與 `preload` 需評估子網域／維運條件。
+- 附件不另提供普／中／高分級矩陣；主文 4.5.3.4 的「中／高」僅作來源提示，不據此自動判定附件 N/A，也不把 SecurityHeaders.com 的 A 評分等同安全通過。
+
+原有 70 項、TACERT、OWASP Top 10 2025、V1.3 80 項與附件1的55項完全保留，操作仍為 `$security-code-review`。
 
 ## Codex `/goal` 完整審查指令
 
