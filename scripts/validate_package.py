@@ -104,6 +104,21 @@ header=next((t for t in guide_topics if t['source_section']=='4.5.3.4'),None)
 if not header or header['pdf_page']!=207 or not {'CR-05','CR-06'}.issubset(header['related_rule_ids']):
  errors.append('NICS V3.2 HTTP security header crosswalk missing')
 
+# NICS WEB V3.2 附件1 的55項細則、27類與分級檢核結果皆須來自附件來源。
+from web_appendix1 import load_appendix1
+webappendix=load_appendix1(j['rules'])
+webappendix_ids=[e['id'] for e in webappendix['checks']]
+if len(webappendix_ids)!=55 or len(set(webappendix_ids))!=55:
+ errors.append('WEB Appendix1 must contain exactly 55 unique checks')
+if webappendix['category_count']!=27 or webappendix['level_counts']!={'普':33,'中':44,'高':55}:
+ errors.append('WEB Appendix1 category or level counts mismatch')
+if any(e['verification_mode'] not in ('source','hybrid','external') for e in webappendix['checks']):
+ errors.append('WEB Appendix1 invalid verification mode')
+if any(e['parent_section'] in ('4.4.5','4.7.1') for e in webappendix['checks']):
+ errors.append('WEB Appendix1 must not invent omitted V3.2 categories')
+if any(e['id']=='NICS-WEB-4.5.3.4' for e in webappendix['checks']):
+ errors.append('WEB Appendix1 must not misrepresent main-guide HTTP header requirement')
+
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)
