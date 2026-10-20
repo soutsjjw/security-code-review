@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Security Code Review HTML Report Envelope v2.1.0",
-  "description": "與既有 2.0.0-rc1 assessment.schema.json 相容；供通用 HTML 模板使用。",
+  "description": "與既有 2.0.0 assessment.schema.json 相容；供通用 HTML 模板使用。",
   "type": "object",
   "required": [
     "report_schema_version",
