@@ -7,7 +7,7 @@
     "personal_data": "待確認"
   },
   "assessment": {
-    "ruleset_version": "2.0.0-rc1",
+    "ruleset_version": "2.0.0",
     "project_id": "FORMAT_EXAMPLE_NOT_ASSESSMENT",
     "git_revision": "0000000000000000000000000000000000000000",
     "assessment_date": "2026-10-16",
