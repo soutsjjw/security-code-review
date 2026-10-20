@@ -1,11 +1,11 @@
 category: DP
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: DP-01
   title: 依賴套件安全性
   category: DP
   control_objective: 降低第三方套件已知漏洞風險
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: DP-01
@@ -108,7 +108,7 @@ rules:
   title: 外部元件預設密碼
   category: DP
   control_objective: 避免外部服務沿用預設驗證資訊
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: DP-02
@@ -198,7 +198,7 @@ rules:
   title: 不必要服務與 Port 關閉
   category: DP
   control_objective: 減少不必要的服務與暴露面
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: DP-03
@@ -288,7 +288,7 @@ rules:
   title: 軟體版本更新
   category: DP
   control_objective: 確保運行元件受安全維護
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: DP-04
