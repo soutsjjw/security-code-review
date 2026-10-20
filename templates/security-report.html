@@ -141,7 +141,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="loadNotice" class="notice" role="status" hidden></div>
   <nav class="toc" aria-label="報告導覽">
     <a href="#summary">摘要</a><a href="#high">發現摘要</a><a href="#priority">改善優先順序</a>
-    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#webGuide32">Web 指引 V3.2</a><a href="#webAppendix1">Web 附件1</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
+    <a href="#strengths">既有優點</a><a href="#scopeFiles">審查檔案明細</a><a href="#checklist">詳細檢核結果</a><a href="#owasp2025">OWASP 2025 對照</a><a href="#baselineV13">防護基準 V1.3</a><a href="#webGuide32">Web 指引 V3.2</a><a href="#webAppendix3">HTTP 附件3</a><a href="#webAppendix1">Web 附件1</a><a href="#findings">發現與改善建議</a><a href="#scope">審查方法與限制</a>
   </nav>
 
   <h2 id="summary">基本資訊與摘要</h2>
@@ -189,6 +189,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
 
   <h2 id="webGuide32">WEB 應用程式安全參考指引 V3.2 技術對照</h2>
   <div class="panel" id="webGuideContent"></div>
+
+  <h2 id="webAppendix3">V3.2 附件 3 HTTP 安全標頭防護設定（6 項）</h2>
+  <div class="panel" id="webHeadersContent"></div>
 
   <h2 id="webAppendix1">V3.2 附件 1 Web 應用程式安全查檢表（55 項）</h2>
   <div class="panel" id="webAppendixContent"></div>
@@ -265,7 +268,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   } catch(err) {
     notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
-    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','webGuideContent','webAppendixContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
+    for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','webGuideContent','webAppendixContent','webHeadersContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;
   }
 
@@ -560,6 +563,50 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       table.append(tbody);wrap.append(table);details.append(wrap);wgContainer.append(details);
     }
     wgContainer.append(el('p','small muted','檢核結論與證據請參閱 70 項原始碼審查；不得從這份指引對照表自動推定通過。'));
+  }
+
+  // 附件3六項標頭為 CR-05 的實作檢查，不增加正式規則數。
+  const whContainer=$('webHeadersContent'), wh=report.web_guide_v32_appendix3;
+  if(!wh || !Array.isArray(wh.checks) || wh.checks.length!==6) {
+    whContainer.append(empty('尚未提供完整的 V3.2 附件3 六項 HTTP 安全標頭對照。'));
+  } else {
+    whContainer.append(el('p','small muted',
+      '依《附件3 HTTP安全標頭防護設定》10 頁整理。本節為 CR-05 的六個子檢測焦點，亦參照 CR-01（HSTS）與 IN-02（CSP）。僅採 ASP.NET/.NET、IIS、代理層及通用 HTTP 安全規範，排除 Java、PHP 專屬範例。來源主文的中／高等級並非本附件獨立法定分級矩陣。'));
+    whContainer.append(el('p','small muted',
+      '重要：來源第 9 頁的 CSP .NET 範例含 unsafe-inline / unsafe-eval；不應直接當作安全預設。若沒有實際 HTTPS 回應證據，不得僅憑程式設定判定已通過；來源風險建議與本工具的補充技術分析應分開解讀。'));
+    const counts=wh.status_counts||{};
+    const n=k=>counts[k]||0;
+    whContainer.append(el('p','small',
+      '符合（有回應證據）'+n('pass')+'、不符合 '+n('fail')+
+      '、待確認 '+n('review')+'、未評估 '+n('not_assessed')+'、不適用 '+n('na')+'；共 6 項。'));
+    const status={pass:'符合（回應已核對）',fail:'不符合（具證據）',
+      review:'待確認',na:'經核定不適用',not_assessed:'未評估'};
+    const wrap=el('div','tablewrap'),tbl=el('table'),head=el('thead'),trh=el('tr');
+    ['安全標頭','附件來源','審查重點與注意事項','實際值／證據與環境','狀態'].forEach(x=>trh.append(el('th',null,x)));
+    head.append(trh);tbl.append(head);
+    const body=el('tbody');
+    for(const h of wh.checks) {
+      const tr=el('tr');
+      tr.append(el('td','small',h.header));
+      tr.append(el('td','small','附件3 PDF 第 '+asArray(h.source_pdf_pages).join('、')+' 頁'));
+      const advice=el('td','small');
+      advice.append(el('p',null,h.source_recommendation));
+      advice.append(el('p','small',h.review_steps));
+      for(const warning of asArray(h.implementation_cautions)) advice.append(el('p','small muted','注意：'+warning));
+      tr.append(advice);
+      const details=el('td','small');
+      details.append(el('p',null,'設定值：'+(h.observed_value||'未提供／未核對')));
+      details.append(el('p',null,'環境：'+(h.environment||'未提供')));
+      details.append(el('p',null,'來源佐證：'+(asArray(h.evidence).join('；')||'無')));
+      details.append(el('p',null,'HTTP 回應證據：'+(asArray(h.http_response_evidence).join('；')||'無')));
+      details.append(el('p',null,'判定：'+(h.reason||'尚未完成查證')));
+      tr.append(details);
+      tr.append(el('td','small',status[h.status]||'資料狀態異常'));
+      body.append(tr);
+    }
+    tbl.append(body);wrap.append(tbl);whContainer.append(wrap);
+    whContainer.append(el('p','small muted',
+      '來源 PDF 第 7 頁建議 SecurityHeaders.com、Mozilla Observatory、Google CSP Evaluator 作輔助。外部服務評分（即使為 A）不保證設定安全，也不代替對經授權目標之實際回應核對；引用的驗證工件仍需確認真實性。'));
   }
 
   // V3.2 附件1：完整保留 55 項逐條查檢，不與 70 項規則或 V1.3 80 項相加。
