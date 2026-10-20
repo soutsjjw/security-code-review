@@ -12,6 +12,7 @@ from pathlib import Path
 from system_baseline import validate_system_baseline
 from web_guide import validate_web_guide_index
 from web_appendix1 import validate_appendix1
+from web_headers import validate_appendix3
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -165,6 +166,8 @@ def validate_data(
         result.errors.extend(validate_web_guide_index(list(master.values()), data['web_guide_v32']))
     if 'web_guide_v32_appendix1' in data:
         result.errors.extend(validate_appendix1(data['project'], list(master.values()), data['web_guide_v32_appendix1']))
+    if 'web_guide_v32_appendix3' in data:
+        result.errors.extend(validate_appendix3(list(master.values()), data['web_guide_v32_appendix3']))
     checks = {c['id']: c for c in assessment['checks']}
     if len(checks) != 70 or set(checks) != set(master):
         result.errors.append('assessment.checks 必須包含 70 個不重複且與規則主檔相符的 ID')
@@ -389,7 +392,7 @@ def validate_html(html: str, data: dict[str, Any], template: str | None = None) 
         result.errors.append('HTML 內嵌資料與 report.json 不一致')
     essential = {'summary', 'high', 'priority', 'strengths', 'checklist', 'findings', 'scope',
                  'stFilter', 'sevFilter', 'themeToggle', 'report-data', 'statusStats',
-                 'severityStats', 'checklistContent', 'findingDetails', 'owasp2025Content', 'systemBaselineContent', 'webGuideContent', 'webAppendixContent'}
+                 'severityStats', 'checklistContent', 'findingDetails', 'owasp2025Content', 'systemBaselineContent', 'webGuideContent', 'webAppendixContent', 'webHeadersContent'}
     if not essential.issubset(set(tree.ids)):
         result.errors.append('HTML 缺少必要節點：' + ', '.join(sorted(essential - set(tree.ids))))
     for link in tree.hash_links:
