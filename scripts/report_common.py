@@ -156,8 +156,16 @@ def validate_data(
         if rid in master and (r['title'] != master[rid]['title'] or r['category'] != master[rid]['category']):
             result.errors.append(f'{rid}: 報告規則名稱或類別與規則主檔不一致')
     master_doc = load_json(rules_path)
-    if isinstance(master_doc, dict) and assessment['ruleset_version'] != master_doc.get('ruleset_version'):
-        result.errors.append('assessment.ruleset_version 與 rules.json 的規則版本不符')
+    if isinstance(master_doc, dict):
+        current_version = master_doc.get('ruleset_version')
+        assessment_version = assessment['ruleset_version']
+        if assessment_version == '2.0.0-rc1' and current_version == '2.0.0':
+            result.warnings.append(
+                'assessment.json 來自 2.0.0-rc1：保留既有審查進度及 Finding；'
+                '新增規範對照仍須按真實證據補查，不得視為已完成。'
+            )
+        elif assessment_version != current_version:
+            result.errors.append('assessment.ruleset_version 與 rules.json 的規則版本不符')
 
     result.errors.extend(completion_errors(assessment['checks'], allow_demo=allow_demo))
     if 'system_baseline' in data:
