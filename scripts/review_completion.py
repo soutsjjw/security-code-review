@@ -29,6 +29,13 @@ def completion_errors(checks: list[dict], *, allow_demo: bool = False) -> list[s
         if check.get("status") == "review":
             if len(decision) < 15:
                 errors.append(f"{rid}: review 須記錄已查核內容及無法確認原因")
+            if not (execution.get("inspected_paths") or check.get("evidence")):
+                errors.append(f"{rid}: review 缺少實際已讀來源檔或可核對證據；不得將尚未檢查當作待確認")
+            if not any(word in decision + summary for word in (
+                "待確認", "尚待", "仍待", "缺少", "缺乏", "待補", "無法", "不能確認",
+                "未取得", "尚無", "不足", "待驗", "限制",
+            )):
+                errors.append(f"{rid}: review 未具體說明待補的外部／動態／政策證據")
             repeated[(decision, summary)] += 1
     for (decision, _), count in repeated.items():
         if count >= 5:
