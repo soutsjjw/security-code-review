@@ -61,6 +61,12 @@ class CompleteReviewTests(unittest.TestCase):
             self.assertTrue((output / 'report.json').is_file())
             report_data = json.loads((output / 'report.json').read_text('utf-8'))
             self.assertEqual(report_data['project']['name'], '整合測試系統')
+            self.assertEqual(report_data['current_ruleset_version'], '2.0.0')
+            self.assertIn(report_data['project']['personal_data'], ('是', '待確認'))
+            self.assertEqual(report_data['presentation']['overall_risk']['level'], 'review')
+            self.assertTrue(report_data['presentation']['pending_information'])
+            self.assertIn('執行介面無法辨識', report_data['presentation']['reviewer'])
+            self.assertNotIn('初步研判佐證', (output / 'CodeReview_20261018.html').read_text('utf-8'))
             inv = report_data['scope_inventory']
             self.assertEqual(inv['reviewed_file_count'], 1)
             self.assertEqual(inv['reviewed_project_count'], 1)
