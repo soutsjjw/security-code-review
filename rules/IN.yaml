@@ -1,11 +1,11 @@
 category: IN
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: IN-01
   title: SQL Injection 防護
   category: IN
   control_objective: 防止外部輸入改變 SQL 語意
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-01
@@ -101,7 +101,7 @@ rules:
   title: XSS / 輸出編碼
   category: IN
   control_objective: 防範 XSS 與不安全輸出內容
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-02
@@ -210,7 +210,7 @@ rules:
   title: CSRF 防護
   category: IN
   control_objective: 防止跨站請求偽造
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-03
@@ -307,7 +307,7 @@ rules:
   title: Command Injection 防護
   category: IN
   control_objective: 防止輸入變成系統命令
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-04
@@ -403,7 +403,7 @@ rules:
   title: 伺服端輸入驗證
   category: IN
   control_objective: 確保伺服端輸入符合約束
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-05
@@ -499,7 +499,7 @@ rules:
   title: 檔案上傳限制
   category: IN
   control_objective: 降低惡意上傳與檔案處理風險
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-06
@@ -597,7 +597,7 @@ rules:
   title: Path Traversal 防護
   category: IN
   control_objective: 防止檔案路徑跳脫授權根目錄
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-07
@@ -693,7 +693,7 @@ rules:
   title: SSRF 防護
   category: IN
   control_objective: 避免伺服端被誘使連線內部資源
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: IN-08
