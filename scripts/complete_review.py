@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+from source_coverage import build_source_coverage
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,6 +59,22 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f'ERROR: assessment.json 審查日期無效：{exc}', file=sys.stderr)
         return 2
+    # 在執行報告產生前拒絕未涵蓋全部應審查來源的假性 70/70。
+    try:
+        coverage = build_source_coverage(obj, target)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f'ERROR: 來源檔案盤點失敗：{exc}', file=sys.stderr)
+        return 2
+    if coverage['missing_source_file_count']:
+        print(f"ERROR: 原始碼審查覆蓋不足："
+              f"{coverage['reviewed_source_file_count']}/{coverage['source_file_count']}，"
+              f"尚有 {coverage['missing_source_file_count']} 個檔案未審查；"
+              f"依類型 {coverage['missing_by_type']}", file=sys.stderr)
+        for missing in coverage['missing_source_paths'][:20]:
+            print(f'  未審查：{missing}', file=sys.stderr)
+        print('ERROR: 請先完成逐檔審查並記入 completed 規則的 inspected_paths；'
+              '現有 assessment.json、Finding 及報告均保持不變。', file=sys.stderr)
+        return 1
     html = out / f'CodeReview_{date.replace("-", "")}.html'
     report = out / 'report.json'
     steps = [
