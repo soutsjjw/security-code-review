@@ -14,6 +14,7 @@ from web_headers import header_review_hints
 from collections import Counter
 from datetime import date
 from pathlib import Path
+from source_coverage import build_source_coverage
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
@@ -106,7 +107,7 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
         project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
+def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: Path | None = None) -> dict:
     checks = data.get("checks")
     if not isinstance(checks, list):
         raise ValueError("assessment.json 缺少 checks 陣列")
@@ -126,6 +127,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
     web_headers_by_rule = header_review_hints(rules)
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     selected = remaining[:batch_size]
+    coverage = build_source_coverage(data, source_root) if source_root is not None else None
+    unreviewed = coverage["missing_source_file_count"] if coverage else 0
     return {
         "total": 70,
         "tacert_v2_supplemental_items": 39,
@@ -139,7 +142,14 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
         "findings_saved": len(data.get("findings", [])),
-        "ready_for_report": len(remaining) == 0,
+        "ready_for_report": len(remaining) == 0 and unreviewed == 0,
+        "source_coverage": ({
+            "source_file_count": coverage["source_file_count"],
+            "reviewed_source_file_count": coverage["reviewed_source_file_count"],
+            "missing_source_file_count": unreviewed,
+            "missing_by_type": coverage["missing_by_type"],
+        } if coverage else None),
+        "next_source_paths": coverage["missing_source_paths"][:30] if coverage else [],
         "remaining_ids": [r["id"] for r in remaining],
         "next_checks": [{
             "id": r["id"],
@@ -157,7 +167,11 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
             "web_guide_v32_appendix1": web_appendix_by_rule[r["id"]],
             "web_guide_v32_appendix3": web_headers_by_rule[r["id"]]
         } for r in selected],
-        "instruction": ("已完成全部 70 項，執行 complete_review.py 並驗證 HTML/JSON。"
+        "instruction": ("70 項規則狀態已完成，但仍有 " + str(unreviewed) +
+                        " 個應審查原始碼／設定檔未曾列入 completed 的 inspected_paths；"
+                        "先逐檔實際閱讀 next_source_paths 並補查相關規則，再更新紀錄，不可直接產生最終報告。"
+                        if not remaining and unreviewed else
+                        "已完成全部 70 項及應審查原始碼覆蓋，執行 complete_review.py 並驗證 HTML/JSON。"
                         if not remaining else
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
                         "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
@@ -184,7 +198,7 @@ def main() -> int:
         if not path.is_file():
             raise FileNotFoundError(f"尚未建立 {path}；請使用 --init")
         payload = json.loads(path.read_text(encoding="utf-8"))
-        queue = build_queue(payload, rules, args.batch_size)
+        queue = build_queue(payload, rules, args.batch_size, source_root=target)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
