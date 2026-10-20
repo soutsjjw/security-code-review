@@ -9,6 +9,7 @@ import sys
 import yaml
 from system_baseline import source_review_hints
 from web_guide import web_guide_review_hints
+from web_appendix1 import appendix_review_hints
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -120,6 +121,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
     owasp_by_rule = load_owasp_2025_categories(rules)
     system_baseline_by_rule = source_review_hints(rules)
     web_guide_by_rule = web_guide_review_hints(rules)
+    web_appendix_by_rule = appendix_review_hints(rules)
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     selected = remaining[:batch_size]
     return {
@@ -129,6 +131,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
         "system_baseline_v13_controls": 80,
         "web_guide_v32_categories": 29,
         "web_guide_v32_implementation_topics": 35,
+        "web_guide_v32_appendix1_checks": 55,
         "completed": states.get("completed", 0),
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
@@ -147,12 +150,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int) -> dict:
             "tacert_v2_checks": tacert_by_rule[r["id"]],
             "owasp_2025_categories": owasp_by_rule[r["id"]],
             "system_baseline_v13_controls": system_baseline_by_rule[r["id"]],
-            "web_guide_v32_checks": web_guide_by_rule[r["id"]]
+            "web_guide_v32_checks": web_guide_by_rule[r["id"]],
+            "web_guide_v32_appendix1": web_appendix_by_rule[r["id"]]
         } for r in selected],
         "instruction": ("已完成全部 70 項，執行 complete_review.py 並驗證 HTML/JSON。"
                         if not remaining else
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
-                        "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
+                        "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
 
 
