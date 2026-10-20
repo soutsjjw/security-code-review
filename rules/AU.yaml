@@ -1,11 +1,11 @@
 category: AU
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: AU-01
   title: 密碼強度規範
   category: AU
   control_objective: 維持本地密碼建立安全性
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AU-01
@@ -106,7 +106,7 @@ rules:
   title: 密碼定期更換與歷史檢查
   category: AU
   control_objective: 控管密碼更換與歷史使用要求
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AU-02
@@ -195,7 +195,7 @@ rules:
   title: 帳號鎖定機制
   category: AU
   control_objective: 降低暴力破解與憑證猜測
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AU-03
@@ -291,7 +291,7 @@ rules:
   title: 身分鑑別資訊不以明文傳輸
   category: AU
   control_objective: 保護認證憑證傳輸
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AU-04
@@ -388,7 +388,7 @@ rules:
   title: CAPTCHA 機制
   category: AU
   control_objective: 抑制高風險端點自動化濫用
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AU-05
@@ -478,7 +478,7 @@ rules:
   title: 密碼重設安全流程
   category: AU
   control_objective: 避免密碼重設遭冒用
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AU-06
@@ -568,7 +568,7 @@ rules:
   title: 鑑別資訊遮蔽／錯誤訊息不洩漏帳號存在
   category: AU
   control_objective: 減少認證資料洩漏及帳號列舉
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AU-07
@@ -656,7 +656,7 @@ rules:
   title: 密碼加鹽雜湊儲存
   category: AU
   control_objective: 保護密碼與驗證秘密的儲存
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: technical
   origin:
     legacy_id: AU-08
@@ -746,7 +746,7 @@ rules:
   title: 多因素認證（MFA）
   category: AU
   control_objective: 提升高風險登入保證程度
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AU-09
@@ -834,7 +834,7 @@ rules:
   title: 連線來源識別
   category: AU
   control_objective: 識別高風險連線來源
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: AU-10
