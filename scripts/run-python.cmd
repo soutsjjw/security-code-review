@@ -1,5 +1,7 @@
 @echo off
 setlocal EnableExtensions
+rem Windows may default to cp1252; keep Python output and errors in UTF-8.
+set "PYTHONIOENCODING=utf-8"
 rem 自動尋找可用 Python；只讀檢測，不安裝套件、不修改審查紀錄。
 set "SKILL_ROOT=%~dp0.."
 set "CHECKER=%~dp0check_python_env.py"
