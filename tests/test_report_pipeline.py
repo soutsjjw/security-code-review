@@ -252,7 +252,8 @@ class ReportingTests(unittest.TestCase):
         page = render_html(self.template, data)
         self.assertIn('資通安全責任等級（A～E）', page)
         self.assertIn('資通安全責任等級分級辦法', page)
-        self.assertIn("project.security_level+' 級'", page)
+        self.assertIn("project.security_level+' 級（已提供正式分級）'", page)
+        self.assertIn('project.security_level_basis', page)
         self.assertIn('安全等級判斷說明', page)
         self.assertEqual(validate_html(page, data, self.template).errors, [])
 
