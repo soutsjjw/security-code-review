@@ -19,7 +19,7 @@ report.json
 
 | 部分 | 必要欄位 | 補充說明 |
 | --- | --- | --- |
-| `project` | `name` | 可選 `language_framework`、`security_level`、`security_level_basis`、`security_level_assessment`、`personal_data`、`attributes`；`security_level` 僅允許 A～E／待確認／不適用，A～E 必須附分級依據。 |
+| `project` | `name` | 可選 `language_framework`、`security_level`、`security_level_basis`、`security_level_assessment`、`personal_data`、`personal_data_assessment`、`attributes`；法定 A～E 級須有核定依據，個資初判須附依據與已讀來源（若有）。 |
 | `assessment` | 原有七項必要欄位 | 核心 `assessment.schema.json` 已增加各項檢核的必要 `execution` 欄位；Finding、證據及例外繼續保存於核心結構。 |
 | `rules` | `id`、`title`、`category`（70 筆） | 必須涵蓋目前完整 70 個規則 ID，且每個只能出現一次；允許完整規則物件額外欄位。 |
 | `presentation` | 物件可為 `{}` | 所有視覺欄位均可選；不得為了美觀捏造不存在的內容。 |
@@ -46,9 +46,10 @@ report.json
 | 欄位 | 型別 | 用途 |
 | --- | --- | --- |
 | `demo` | boolean | 必須明確區別示範與正式報告。 |
-| `review_type`、`reviewer` | string | 報告副標題與審查人員。 |
+| `review_type`、`reviewer` | string | 報告副標題、可辨識的實際執行工具（Codex App／CLI／Claude Code），無法辨識時不猜測。 |
 | `standards` | string[] | 實際採用規範與版本。 |
-| `overall_risk` | `{ level, summary }` | `level` 僅能為 `critical`／`high`／`medium`／`low`／`info`／`review`；須由審查確認，不能依弱點數自動推論。 |
+| `pending_information` | string[] | 自動去重彙整的法定分級、個資、外部證據與 review 待確認事項。 |
+| `overall_risk` | `{ level, summary }` | 由產生器根據 Finding 嚴重程度、影響及證據信心自動初判；無已確認弱點時為 `review`，不因缺失數少而認定低風險。 |
 | `priorities` | `{label, finding_ids, description?}[]` | 依核定的改善優先順序排列；不得憑空指定改善期限。 |
 | `strengths` | string[] | 已取得可驗證證據的既有安全設計優點。 |
 | `methods`、`limitations` | string[] | 實際審查方法及限制。 |
