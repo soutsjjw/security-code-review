@@ -55,6 +55,8 @@ class CompleteReviewTests(unittest.TestCase):
             cmd = [sys.executable, str(SKILL_ROOT / 'scripts/complete_review.py'), '--target', str(target)]
             run = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            rerun = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
+            self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
             self.assertTrue((output / 'CodeReview_20261018.html').is_file())
             self.assertTrue((output / 'report.json').is_file())
             report_data = json.loads((output / 'report.json').read_text('utf-8'))
