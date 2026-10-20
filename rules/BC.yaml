@@ -1,11 +1,11 @@
 category: BC
-ruleset_version: 2.0.0-rc1
+ruleset_version: 2.0.0
 rules:
 - id: BC-01
   title: 資料備份機制
   category: BC
   control_objective: 確保重要資料可復原
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: BC-01
@@ -92,7 +92,7 @@ rules:
   title: 環境隔離
   category: BC
   control_objective: 避免開發測試與正式互相影響
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: BC-02
@@ -179,7 +179,7 @@ rules:
   title: 高可用性架構
   category: BC
   control_objective: 維持高可用服務能力
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: BC-03
@@ -265,7 +265,7 @@ rules:
   title: 系統文件管理
   category: BC
   control_objective: 維持足夠系統操作與安全文件
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: BC-04
@@ -352,7 +352,7 @@ rules:
   title: 系統源碼備份
   category: BC
   control_objective: 確保原始碼及歷史版本可復原
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: BC-05
@@ -437,7 +437,7 @@ rules:
   title: 版本控制與變更管理
   category: BC
   control_objective: 讓變更可追溯與可控
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: hybrid
   origin:
     legacy_id: BC-06
@@ -524,7 +524,7 @@ rules:
   title: 備援啟動演練
   category: BC
   control_objective: 驗證備援機制在事故時可用
-  rule_version: 2.0.0-rc1
+  rule_version: 2.0.0
   control_type: procedural
   origin:
     legacy_id: BC-07
