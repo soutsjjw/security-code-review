@@ -20,6 +20,7 @@ from referencing import Registry, Resource
 from source_reader import DEFAULT_LEGACY_ENCODINGS, read_source_text
 from review_completion import completion_errors
 from scope_inventory import build_scope_inventory
+from source_coverage import build_source_coverage
 
 ROOT = Path(__file__).resolve().parents[1]
 SLOT_RE = re.compile(r'(<script\s+id="report-data"\s+type="application/json">)(.*?)(</script>)', re.DOTALL)
@@ -150,6 +151,20 @@ def validate_data(
         result.errors.append(f'規則主檔無法驗證：{exc}')
         return result
     assessment = data['assessment']
+    # 70/70 是規則執行進度，不代表受測程式已全數審查。正式驗證須核對檔案覆蓋。
+    if strict_sources and source_root is not None and not allow_demo:
+        try:
+            coverage = build_source_coverage(assessment, source_root)
+            if coverage['missing_source_file_count']:
+                result.errors.append(
+                    f"應審查原始碼覆蓋不足："
+                    f"{coverage['reviewed_source_file_count']}/{coverage['source_file_count']}；"
+                    f"尚未審查 {coverage['missing_source_file_count']} 個檔案，"
+                    f"依類型 {coverage['missing_by_type']}；"
+                    f"例如 {coverage['missing_source_paths'][:8]}"
+                )
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            result.errors.append(f"無法核對原始碼覆蓋率：{exc}")
     report_rules = {r['id']: r for r in data['rules']}
     if set(report_rules) != set(master):
         result.errors.append('report.rules 必須精確涵蓋規則主檔的 70 個 ID')
