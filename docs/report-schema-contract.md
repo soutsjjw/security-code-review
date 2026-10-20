@@ -8,6 +8,7 @@
 report.json
 ├── report_schema_version  # 固定 "2.1.0"
 ├── project                # 不同系統的標頭資訊
+├── current_ruleset_version # 報告所使用之正式規則集版本（不覆寫舊 assessment 版本）
 ├── scope_inventory        # 自動盤點與完成審查的逐檔紀錄（提供 source-root 時）
 ├── assessment             # 原本 70 項審查結果；ruleset_version = "2.0.0"
 ├── rules                  # 70 項規則顯示資訊（可用完整規則物件或最小投影）
