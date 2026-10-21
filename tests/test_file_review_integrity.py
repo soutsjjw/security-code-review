@@ -91,6 +91,33 @@ class FileReviewIntegrityTests(unittest.TestCase):
         result = build_source_coverage(self.assessment, self.root)
         self.assertIn("重複路徑", str(result["review_integrity_errors"]))
 
+    def test_reject_identical_reason_across_categories(self):
+        row = self.assessment["file_reviews"][0]
+        for category in ("EH", "LG", "DP"):
+            row["category_screening"][category]["reason"] = (
+                "已閱讀本檔內容；未見此檔直接實作該類控制，責任由其他元件承擔。"
+            )
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertIn("共用完全相同的理由", " ".join(coverage["review_integrity_errors"]))
+        self.assertIn("Auth.cs", coverage["missing_source_paths"])
+
+    def test_legitimate_single_applicable_rule_is_allowed(self):
+        self.checks[1]["execution"]["inspected_paths"] = []
+        self.assessment["file_reviews"][0] = make_file_review(self.root, "Auth.cs", ["AC-01"])
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertEqual(coverage["review_integrity_errors"], [])
+        self.assertEqual(coverage["reviewed_file_rule_ids"]["Auth.cs"], ["AC-01"])
+
+    def test_mass_template_summaries_are_rejected(self):
+        for i in range(40):
+            path = f"Unit{i}.cs"
+            (self.root / path).write_text("// sample " + str(i) + "\n", encoding="utf-8")
+            row = make_file_review(self.root, path)
+            row["summary"] = f"已逐行讀取 {i + 1} 行；依內容辨識並核對：一般組態的安全控制。"
+            self.assessment["file_reviews"].append(row)
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertIn("共用相同的逐檔摘要模板", " ".join(coverage["review_integrity_errors"]))
+
     def test_no_evidence_is_synthesized_or_mutated(self):
         finding = {"id": "F-01", "title": "保留歷史弱點"}
         self.assessment["findings"] = [finding]
