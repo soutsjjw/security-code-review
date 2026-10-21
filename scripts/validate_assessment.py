@@ -8,8 +8,6 @@ from source_coverage import build_source_coverage
 
 ROOT=Path(__file__).resolve().parent.parent
 args=sys.argv[1:]
-if not args or any(x not in ('--allow-demo', '--source-root') for x in args[1::2] if x.startswith('--') and x != '--allow-demo'):
- pass
 if not args or args[0].startswith('--'):
  print('Usage: python scripts/validate_assessment.py assessment.json [--allow-demo] [--source-root TARGET]');sys.exit(2)
 p=Path(args[0])

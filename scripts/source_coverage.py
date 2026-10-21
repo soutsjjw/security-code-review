@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from scope_inventory import _default_rule, relative_path
 from file_review_integrity import verified_file_rule_reviews
@@ -30,7 +30,7 @@ SOURCE_FILENAMES = frozenset({
 })
 
 
-def build_source_coverage(assessment: dict[str, Any], source_root: Path) -> dict[str, Any]:
+def build_source_coverage(assessment: dict[str, Any], source_root: Path, *, ignored_artifacts: Iterable[Path | None] = ()) -> dict[str, Any]:
     """以實際工作目錄計算應審查檔案，僅 completed 的真實路徑算已審查。
 
     此函式驗證紀錄的覆蓋性，但不能代替 Agent 真正閱讀程式碼。
@@ -46,6 +46,11 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path) -> dict
             raise ValueError("不可排除整個受測根目錄")
         excluded_paths.append(path)
 
+    ignored = {
+        resolved.relative_to(root).as_posix()
+        for resolved in (Path(p).resolve() for p in ignored_artifacts if p is not None)
+        if resolved.is_relative_to(root)
+    }
     expected: set[str] = set()
     for current, directories, files in os.walk(root, followlinks=False):
         directories[:] = [name for name in directories
@@ -55,7 +60,7 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path) -> dict
             if not absolute.is_file() or absolute.is_symlink():
                 continue
             rel = absolute.relative_to(root).as_posix()
-            if _default_rule(rel) or any(
+            if rel in ignored or _default_rule(rel) or any(
                 rel == path or rel.startswith(path.rstrip("/") + "/")
                 for path in excluded_paths
             ):

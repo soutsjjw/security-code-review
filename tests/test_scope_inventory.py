@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from scope_inventory import build_scope_inventory
+from review_fixture import make_file_review
 
 
 class ScopeInventoryTests(unittest.TestCase):
@@ -32,6 +33,7 @@ class ScopeInventoryTests(unittest.TestCase):
                     {"id": "IN-01", "execution": {"state": "pending", "inspected_paths": [".github/workflow.yml"]}}
                 ],
             }
+            data["file_reviews"] = [make_file_review(root, "src/API/app.cs", ["AC-01", "AU-01"])]
             out = build_scope_inventory(data, root)
             self.assertEqual(out["reviewed_file_count"], 1)
             self.assertEqual(out["reviewed_project_count"], 1)
@@ -50,6 +52,7 @@ class ScopeInventoryTests(unittest.TestCase):
             html = output / "CodeReview_20261018.html"
             assessment = {"checks": [{"id": "AC-01", "execution": {
                 "state": "completed", "inspected_paths": ["app.cs"]}}]}
+            assessment["file_reviews"] = [make_file_review(root, "app.cs", ["AC-01"])]
             artifacts = (report, html)
             before = build_scope_inventory(assessment, root, ignored_artifacts=artifacts)
             report.write_text("{}", encoding="utf-8")

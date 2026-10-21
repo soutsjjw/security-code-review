@@ -114,7 +114,7 @@ def build_scope_inventory(
     # 只有 verified file_reviews 可出現在正式「實際審查檔案清單」；
     # 即使 inspected_paths 把數百個檔案掛在一個規則，也不得灌水。
     from source_coverage import build_source_coverage
-    coverage = build_source_coverage(assessment, root)
+    coverage = build_source_coverage(assessment, root, ignored_artifacts=ignored_artifacts)
     if coverage["review_integrity_errors"]:
         raise ValueError("逐檔檢核紀錄驗證失敗：" + coverage["review_integrity_errors"][0])
     inspected: dict[str, set[str]] = defaultdict(set)

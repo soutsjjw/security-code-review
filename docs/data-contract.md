@@ -103,3 +103,9 @@ HTML 模板使用 `textContent`、`createElement` 建立頁面，避免將來自
 ```
 
 `execution.state` 可為 `pending`、`completed` 或 `blocked`；正式報告要求全部 completed。`status=review` 可搭配 completed，意指完成可執行的查核而仍缺外部證據。欄位自填不能作為實際執行的獨立證明。
+
+## 逐檔實證與規則適用性（v2.2）
+
+正式審查新增 `assessment.file_reviews[]`。每個來源檔須有 SHA256、實際閱讀摘要、方法、AC/AU/IN/CR/EH/LG/DP/PD/BC/SI 十類適用性說明，以及每個適用規則的 `rule_reviews`（規則 ID、結果、理由、來源行號）。檢核項目必須與 completed 的 `execution.inspected_paths` 雙向吻合；未核對者不納入已審查檔案數，且不得以清單筆數填滿覆蓋率。詳細格式見 [逐檔資料契約](file-review-contract.md)。
+
+舊版 `assessment.json` 保留 Findings 與歷史進度，但沒有新的逐檔實證時不得作為正式完成報告；必須重新依真實原始碼補查，**不可自動替每個檔案填完十類規則或補造關聯**。

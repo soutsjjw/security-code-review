@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from source_coverage import build_source_coverage
 from review_queue import build_queue, load_rules
 from review_completion import completion_errors
+from review_fixture import make_file_review
 
 
 class SourceCoverageTests(unittest.TestCase):
@@ -25,7 +26,7 @@ class SourceCoverageTests(unittest.TestCase):
             inspected = [f"src/File{i:03}.cs" for i in range(13)]
             assessment = {"checks": [{"id": "AC-01", "execution": {
                 "state": "completed", "inspected_paths": inspected
-            }}]}
+            }}], "file_reviews": [make_file_review(root, path, ["AC-01"]) for path in inspected]}
             coverage = build_source_coverage(assessment, root)
             self.assertEqual(coverage["source_file_count"], 660)
             self.assertEqual(coverage["reviewed_source_file_count"], 13)
@@ -64,6 +65,7 @@ class SourceCoverageTests(unittest.TestCase):
                 "checks": [{"id": "AC-01", "execution": {
                     "state": "completed", "inspected_paths": ["api/A.cs"]
                 }}],
+                "file_reviews": [make_file_review(root, "api/A.cs", ["AC-01"])],
             }
             coverage = build_source_coverage(assessment, root)
             self.assertEqual(coverage["source_file_count"], 2)

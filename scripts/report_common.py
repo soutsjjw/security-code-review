@@ -154,7 +154,7 @@ def validate_data(
     # 70/70 是規則執行進度，不代表受測程式已全數審查。正式驗證須核對檔案覆蓋。
     if strict_sources and source_root is not None and not allow_demo:
         try:
-            coverage = build_source_coverage(assessment, source_root)
+            coverage = build_source_coverage(assessment, source_root, ignored_artifacts=ignored_artifacts)
             for problem in coverage["review_integrity_errors"][:30]:
                 result.errors.append("逐檔規則完整性：" + problem)
             if coverage['missing_source_file_count']:

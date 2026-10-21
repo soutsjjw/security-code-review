@@ -123,14 +123,16 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 - 在 `assessment.scope_details.projects` 記錄真正納入的專案：每項具有 `name` 及相對 `TARGET_ROOT` 的 `path`；單一專案可使用 `path: "."`，多專案各列一筆。不要由 manifest 數直接推定審查專案數。
 - 在 `scope_details.excluded_paths` 可記錄額外排除的目錄／檔案及 `reason`；不得排除仍被列為已審查的檔案；專案 CI 設定不能預設排除。
-- 每項 completed 規則，將**實際閱讀、追蹤與核對**的相對來源路徑填入 `execution.inspected_paths`；單純搜尋命中或盤點檔名不算已審查，不能大量填入尚未實際閱讀的路徑。
-- `complete_review.py` 自動盤點工作目錄、計算排除數，並以 completed 的 `inspected_paths` 去重計算實際審查檔數與專案數、檔案類型及明細；路徑不存在、跨出目錄或位於排除範圍時不可通過驗證。無專案對照時應標示「未提供」而非猜測數字。
+- 每項 completed 規則，將**實際閱讀、追蹤與核對**的相對來源路徑填入 `execution.inspected_paths`；單純搜尋命中或盤點檔名不算已審查，不能大量填入尚未實際閱讀的路徑。此清單**不是逐檔完成的獨立證據**。
+- 逐檔審查須同步寫入 `assessment.file_reviews[]`（詳見 [逐檔資料契約](docs/file-review-contract.md)）：來源 SHA256、內容導向摘要、已執行方法、AC／AU／IN／CR／EH／LG／DP／PD／BC／SI 十類規則的適用性篩選與理由，以及適用規則的逐條結論、實際行號；與 `execution.inspected_paths` **雙向一致**。不能照檔名、規則 ID 或副檔名自動填結論，也不能以預設全數「不適用」替代閱讀。
+- 不適用類別仍須記錄具體理由；完全沒有直接適用規則的檔案可填 `rule_reviews: []`，但必須完成全部十類判斷與實際來源核對。**不是要求每個檔案關聯多個規則**，而是要求每個適用的關聯都有可核對依據。
+- `complete_review.py` 自動盤點工作目錄、計算排除數，**僅從通過逐檔完整性驗證的 file_reviews** 計算已審查來源數、專案數與檔案明細；來源異動、規則關聯／行號不一致、漏查任何類別時禁止正式交付。無專案對照時應標示「未提供」而非猜測數字。
 
 ### 必須完成逐檔來源覆蓋，才可交付 70/70 報告
 
 - `review_queue.py` 輸出的 `source_coverage` 提供應審查來源總數、已審查數、未審查數與副檔名分布；`next_source_paths` 每批列出最多 30 個未審查檔案。**全數 .cs（含指定目錄深層子目錄）都要實際閱讀、分析並記錄**；`.razor`、`.cshtml`、設定檔及其他來源類型也要核對。不得只取前 13 個或抽樣冒充全部完成。
 - 70 項規則可與逐檔盤點並行，應先完成來源清單，依檔案實際內容檢查權限、輸入、資料流、敏感資訊等；完成單檔後才可將路徑寫入相關規則已完成檢核的 `execution.inspected_paths`，並更新該規則的決策及 Finding。檔名搜尋命中不算閱讀，不得自動一次填滿 660 個路徑。
-- 70 個 `execution.state=completed` **且** `source_coverage.missing_source_file_count=0` 才能使 `ready_for_report=true`。當 70 項已完成但仍有未讀檔案，應繼續按 `next_source_paths` 逐檔補查、必要時重新審查已完成規則，不能直接進入報告階段；產生器及驗證器會拒絕來源覆蓋不足的報告。
+- 70 個 `execution.state=completed` **且** `source_coverage.missing_source_file_count=0` **且** `review_integrity_errors` 為空，才能使 `ready_for_report=true`。當 70 項已完成但仍有未讀檔案，應繼續按 `next_source_paths` 逐檔補查、必要時重新審查已完成規則，不能直接進入報告階段；產生器及驗證器會拒絕來源覆蓋不足的報告。
 - 僅可排除預設第三方套件／建置產物目錄，以及 `scope_details.excluded_paths` 明確記載、可辯護且不屬於本次審查的範圍；`scope_details.projects` 用於統計，不可用來偷偷縮小應審查檔案範圍。
 - `status=review` 只代表已實際查核，但具體控制仍缺部署、動態、政策等佐證；必須指出已讀檔案或可核對證據與待補的證據。靜態程式碼足以證實弱點時應記 `fail` 與 Finding；證據已滿足適用檢核要求才記 `pass`；確實不適用且有理由才記 `na`。不得對大多數規則一律填 `review` 以規避實際分析。
 

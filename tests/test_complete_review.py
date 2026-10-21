@@ -10,6 +10,7 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
 from report_common import load_json
+from review_fixture import make_file_review
 
 
 class CompleteReviewTests(unittest.TestCase):
@@ -30,10 +31,16 @@ class CompleteReviewTests(unittest.TestCase):
                 c['execution'] = {
                     'state': 'completed', 'methods': ['integration_fixture'],
                     'summary': f"整合測試依序驗證 {c['id']} 的審查流程與報告產生",
-                    'inspected_paths': ['IdentityService.cs']
+                    'inspected_paths': ['IdentityService.cs'] if c['id'] in ('AC-01', 'AU-01') else []
                 }
                 c['decision_reason'] = f"已完成 {c['id']} 的測試資料處理；因缺少外部環境佐證維持 review"
+                if c['id'] not in ('AC-01', 'AU-01'):
+                    c['evidence'] = [{
+                        'kind': 'other', 'description': '這是整合測試的人工合成證據，不是對實際系統的資安判定',
+                        'collected_on': '2026-10-18', 'source_version': 'fixture'
+                    }]
             (target / 'IdentityService.cs').write_bytes('// 中文註解：身份檢查\n'.encode('cp950'))
+            a['file_reviews'] = [make_file_review(target, 'IdentityService.cs', ['AC-01', 'AU-01'])]
             a['scope_details'] = {'projects': [{'name': 'Identity', 'path': '.'}],
                                   'excluded_paths': [{'path': 'bin', 'reason': '建置輸出'}]}
             (target / 'bin').mkdir()
@@ -71,7 +78,7 @@ class CompleteReviewTests(unittest.TestCase):
             self.assertEqual(inv['reviewed_file_count'], 1)
             self.assertEqual(inv['reviewed_project_count'], 1)
             self.assertEqual(inv['reviewed_files'][0]['check_ids'],
-                             sorted([check['id'] for check in a['checks']]))
+                             ['AC-01', 'AU-01'])
             self.assertGreaterEqual(inv['excluded_file_count'], 1)
             self.assertIn('審查檔案明細', (output / 'CodeReview_20261018.html').read_text('utf-8'))
             self.assertFalse((SKILL_ROOT / 'reports').exists())
