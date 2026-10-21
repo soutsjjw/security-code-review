@@ -26,17 +26,21 @@ class CompleteReviewTests(unittest.TestCase):
             a['project_id'] = 'another-project'
             a['git_revision'] = 'a' * 40
             a['assessment_date'] = '2026-10-18'
-            # 測試流程以人工合成的完成狀態驗證驗收管線，並非實際安全掃描。
+            # 合成測試只驗證資料管線；逐項測試資料仍須符合新證據契約。
+            rule_titles = {r["id"]: r["title"] for r in load_json(SKILL_ROOT / 'rules.json')["rules"]}
             for c in a['checks']:
+                title = rule_titles[c["id"]]
                 c['execution'] = {
                     'state': 'completed', 'methods': ['integration_fixture'],
-                    'summary': f"整合測試依序驗證 {c['id']} 的審查流程與報告產生",
+                    'summary': f"整合測試逐項核對『{title}』的證據欄位、檢核程序與驗證路徑",
                     'inspected_paths': ['IdentityService.cs'] if c['id'] in ('AC-01', 'AU-01') else []
                 }
-                c['decision_reason'] = f"已完成 {c['id']} 的測試資料處理；因缺少外部環境佐證維持 review"
+                c['decision_reason'] = f"『{title}』：靜態分析欄位測試已完成，外部部署環境的操作證據仍待確認"
                 if c['id'] not in ('AC-01', 'AU-01'):
                     c['evidence'] = [{
-                        'kind': 'other', 'description': '這是整合測試的人工合成證據，不是對實際系統的資安判定',
+                        'kind': 'test',
+                        'description': f"測試資料：{title} 的人工合成檢核紀錄；不代表真實安全審查",
+                        'artifact_id': f"INTEGRATION-{c['id']}",
                         'collected_on': '2026-10-18', 'source_version': 'fixture'
                     }]
             (target / 'IdentityService.cs').write_bytes('// 中文註解：身份檢查\n'.encode('cp950'))
@@ -49,6 +53,11 @@ class CompleteReviewTests(unittest.TestCase):
             a['checks'][0]['execution']['inspected_paths'] = ['IdentityService.cs']
             a['checks'][0]['evidence'] = [{
                 'kind': 'source', 'description': '核對 CP950 原始碼的來源檔與行號',
+                'collected_on': '2026-10-18', 'source_version': 'test',
+                'path': 'IdentityService.cs', 'line_start': 1, 'line_end': 1
+            }]
+            a['checks'][1]['evidence'] = [{
+                'kind': 'source', 'description': '核對身分鑑別範例中的來源檔案及行號',
                 'collected_on': '2026-10-18', 'source_version': 'test',
                 'path': 'IdentityService.cs', 'line_start': 1, 'line_end': 1
             }]
