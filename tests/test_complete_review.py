@@ -45,8 +45,8 @@ class CompleteReviewTests(unittest.TestCase):
                                   'excluded_paths': [{'path': 'bin', 'reason': '建置輸出'}]}
             (target / 'bin').mkdir()
             (target / 'bin' / 'generated.dll').write_bytes(b'compiled')
+            # 不應把第三個規則 AC-02 也無條件關聯到此檔。
             a['checks'][0]['execution']['inspected_paths'] = ['IdentityService.cs']
-            a['checks'][1]['execution']['inspected_paths'] = ['IdentityService.cs']
             a['checks'][0]['evidence'] = [{
                 'kind': 'source', 'description': '核對 CP950 原始碼的來源檔與行號',
                 'collected_on': '2026-10-18', 'source_version': 'test',
