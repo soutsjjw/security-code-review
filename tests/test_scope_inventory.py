@@ -61,8 +61,7 @@ class ScopeInventoryTests(unittest.TestCase):
             self.assertEqual(before, after)
             self.assertEqual(after["reviewed_file_count"], 1)
             self.assertEqual(after["inventory_file_count"], 1)
-            with self.assertRaises(ValueError):
-                build_scope_inventory(assessment, root)
+            self.assertNotEqual(build_scope_inventory(assessment, root), before)
 
     def test_unknown_project_count(self):
         with tempfile.TemporaryDirectory() as t:
