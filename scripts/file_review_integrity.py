@@ -32,6 +32,8 @@ def verified_file_rule_reviews(
     """
     rows = assessment.get("file_reviews")
     if not isinstance(rows, list):
+        if not expected and not any((c.get("execution") or {}).get("inspected_paths") for c in assessment.get("checks", [])):
+            return {}, []  # 空的受測工作樹：沒有來源可逐檔記錄。
         return {}, ["缺少 file_reviews：必須逐檔完成 10 類規則篩選與可追溯的規則審查，不可沿用 inspected_paths 宣稱完成"]
     rules = _master_rules()
     completed: dict[str, set[str]] = {}
