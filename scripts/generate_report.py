@@ -48,6 +48,8 @@ def main() -> int:
     try:
         if a.strict_sources and a.source_root is None:
             raise ValueError('--strict-sources 需要搭配 --source-root')
+        if not a.allow_demo and (a.source_root is None or not a.strict_sources):
+            raise ValueError('正式報告必須提供 --source-root 及 --strict-sources 以驗證完整逐檔審查')
         if a.report:
             if a.project or a.presentation:
                 raise ValueError('使用 --report 時不得同時指定 --project 或 --presentation')

@@ -152,6 +152,8 @@ def validate_data(
         return result
     assessment = data['assessment']
     # 70/70 是規則執行進度，不代表受測程式已全數審查。正式驗證須核對檔案覆蓋。
+    if not allow_demo and (source_root is None or not strict_sources):
+        result.errors.append('正式報告必須提供 --source-root 與 --strict-sources 以核對全部 file_reviews')
     if strict_sources and source_root is not None and not allow_demo:
         try:
             coverage = build_source_coverage(assessment, source_root, ignored_artifacts=ignored_artifacts)
@@ -336,7 +338,7 @@ def validate_data(
                         f'{fid}: 沒有可讀的未遮蔽來源片段，無法核對 Before 程式碼'
                     )
     # 核對實際審查路徑與自動計算的統計，禁止手動造假計數。
-    if source_root is not None:
+    if source_root is not None and not allow_demo:
         try:
             actual_scope = build_scope_inventory(assessment, source_root, ignored_artifacts=ignored_artifacts)
             if 'scope_inventory' in data and data['scope_inventory'] != actual_scope:

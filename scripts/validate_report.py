@@ -25,6 +25,8 @@ def main() -> int:
     args = p.parse_args()
     if args.report is None and args.html is None:
         p.error('請提供 --report 或 --html')
+    if not args.allow_demo and (args.source_root is None or not args.strict_sources):
+        p.error('正式報告驗證必須提供 --source-root 與 --strict-sources')
     try:
         if args.strict_sources and args.source_root is None:
             raise ValueError('--strict-sources 需要搭配 --source-root')

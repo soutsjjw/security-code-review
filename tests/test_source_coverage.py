@@ -43,7 +43,7 @@ class SourceCoverageTests(unittest.TestCase):
                         "state": "completed", "inspected_paths": []
                     }
                 }))
-            q = build_queue({"checks": checks}, rules, 10, source_root=root)
+            q = build_queue({"checks": checks, "file_reviews": assessment["file_reviews"]}, rules, 10, source_root=root)
             self.assertEqual(q["completed"], 70)
             self.assertFalse(q["ready_for_report"])
             self.assertEqual(q["source_coverage"]["missing_source_file_count"], 647)
