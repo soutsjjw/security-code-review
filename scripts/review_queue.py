@@ -15,6 +15,7 @@ from collections import Counter
 from datetime import date
 from pathlib import Path
 from source_coverage import build_source_coverage
+from review_completion import completion_errors
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
@@ -130,6 +131,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     coverage = build_source_coverage(data, source_root) if source_root is not None else None
     unreviewed = coverage["missing_source_file_count"] if coverage else 0
     integrity_errors = coverage["review_integrity_errors"] if coverage else []
+    rule_errors = completion_errors(checks) if not remaining else []
     return {
         "total": 70,
         "tacert_v2_supplemental_items": 39,
@@ -143,7 +145,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
         "findings_saved": len(data.get("findings", [])),
-        "ready_for_report": len(remaining) == 0 and unreviewed == 0 and not integrity_errors,
+        "ready_for_report": (source_root is not None and len(remaining) == 0 and unreviewed == 0
+                             and not integrity_errors and not rule_errors),
         "source_coverage": ({
             "source_file_count": coverage["source_file_count"],
             "reviewed_source_file_count": coverage["reviewed_source_file_count"],
@@ -152,6 +155,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         } if coverage else None),
         "next_source_paths": coverage["missing_source_paths"][:30] if coverage else [],
         "review_integrity_errors": integrity_errors[:20],
+        "rule_integrity_errors": rule_errors[:30],
         "remaining_ids": [r["id"] for r in remaining],
         "next_checks": [{
             "id": r["id"],
@@ -169,7 +173,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "web_guide_v32_appendix1": web_appendix_by_rule[r["id"]],
             "web_guide_v32_appendix3": web_headers_by_rule[r["id"]]
         } for r in selected],
-        "instruction": ("逐檔規則適用性或來源佐證不完整，先修復 file_reviews 中的問題，" +
+        "instruction": ("70 項雖已標記 completed，但仍有規則證據或判定品質不足：" +
+                        "；".join(rule_errors[:3]) +
+                        "。須重新檢查規則與來源，不得僅補 JSON／模板字串。"
+                        if not remaining and rule_errors else
+                        "正式報告需要指定真實受測來源目錄與完整逐檔證據。"
+                        if not remaining and source_root is None else
+                        "逐檔規則適用性或來源佐證不完整，先修復 file_reviews 中的問題，" +
                         "重新核對實際原始碼與 execution.inspected_paths；不得僅增加檢核 ID。"
                         if not remaining and integrity_errors else
                         "70 項規則狀態已完成，但仍有 " + str(unreviewed) +
