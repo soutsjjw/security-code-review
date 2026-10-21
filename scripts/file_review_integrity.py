@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from source_reader import read_source_text
+from review_completion import _template
 from scope_inventory import relative_path
 
 CATEGORIES = ("AC", "AU", "IN", "CR", "EH", "LG", "DP", "PD", "BC", "SI")
@@ -173,13 +174,13 @@ def verified_file_rule_reviews(
                 continue
             summary = row.get("summary")
             if isinstance(summary, str):
-                template = re.sub(r"\d+", "#", " ".join(summary.split()))
+                template = _template(summary.replace(row["path"], "<PATH>"))
                 template_groups["逐檔摘要"][template].add(row["path"])
             for item in row.get("rule_reviews", []):
                 if isinstance(item, dict) and isinstance(item.get("reason"), str):
-                    template = re.sub(r"\d+", "#", " ".join(item["reason"].split()))
+                    template = _template(item["reason"].replace(row["path"], "<PATH>"))
                     template_groups["逐檔規則結論"][template].add(row["path"])
-        threshold = max(20, (len(rows) + 2) // 3)
+        threshold = max(15, (len(rows) + 7) // 8)  # 八分之一以上高度同質輸出需要重新核對
         for kind, groups in template_groups.items():
             for paths in groups.values():
                 if len(paths) >= threshold:
