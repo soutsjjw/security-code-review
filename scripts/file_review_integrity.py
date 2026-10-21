@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -88,6 +89,7 @@ def verified_file_rule_reviews(
         if not isinstance(screening, dict) or set(screening) != set(CATEGORIES):
             faults.append("category_screening 必須逐一篩選全部 10 類規則")
         else:
+            per_category_reasons: dict[str, list[str]] = defaultdict(list)
             for cat in CATEGORIES:
                 entry = screening[cat]
                 if not isinstance(entry, dict):
@@ -97,6 +99,8 @@ def verified_file_rule_reviews(
                 ids = entry.get("rule_ids")
                 if not isinstance(reason, str) or len(reason.strip()) < 15:
                     faults.append(f"{cat}: 必須記錄適用或不適用的具體理由")
+                else:
+                    per_category_reasons[reason.strip()].append(cat)
                 if not isinstance(ids, list) or len(ids) != len(set(map(str, ids))):
                     faults.append(f"{cat}: rule_ids 缺失或重複")
                     continue
@@ -107,6 +111,14 @@ def verified_file_rule_reviews(
                         faults.append(f"{rid}: 跨類別重複登錄")
                     else:
                         selected.add(rid)
+            # 各分類需獨立核對控制責任，不能把同一句空泛理由複製到多個類別。
+            for categories in per_category_reasons.values():
+                if len(categories) >= 3:
+                    faults.append(
+                        "category_screening 在 " + "、".join(categories) +
+                        " 等類別共用完全相同的理由；須提供各類控制的實際適用性判斷"
+                    )
+                    break
         rule_reviews = row.get("rule_reviews")
         recorded: set[str] = set()
         if not isinstance(rule_reviews, list):
@@ -148,6 +160,35 @@ def verified_file_rule_reviews(
             errors.extend(f"{path}: {fault}" for fault in faults)
         else:
             verified[path] = recorded
+
+    # 批次模板只變換行數或 ID 不能代替真實的逐檔分析。
+    # 這不是最低關聯規則數門檻：一個檔案可以只有零或一個適用規則。
+    if len(rows) >= 30:
+        template_groups: dict[str, dict[str, set[str]]] = {
+            "逐檔摘要": defaultdict(set),
+            "逐檔規則結論": defaultdict(set),
+        }
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+                continue
+            summary = row.get("summary")
+            if isinstance(summary, str):
+                template = re.sub(r"\d+", "#", " ".join(summary.split()))
+                template_groups["逐檔摘要"][template].add(row["path"])
+            for item in row.get("rule_reviews", []):
+                if isinstance(item, dict) and isinstance(item.get("reason"), str):
+                    template = re.sub(r"\d+", "#", " ".join(item["reason"].split()))
+                    template_groups["逐檔規則結論"][template].add(row["path"])
+        threshold = max(20, (len(rows) + 2) // 3)
+        for kind, groups in template_groups.items():
+            for paths in groups.values():
+                if len(paths) >= threshold:
+                    errors.append(
+                        f"{len(paths)}/{len(rows)} 個檔案共用相同的{kind}模板"
+                        "（僅數字不同），不能宣稱已逐檔完成安全分析；例："
+                        + "、".join(sorted(paths)[:3])
+                    )
+                    break
 
     # 禁止舊版批次掛路徑：每筆 inspected_paths 都須有逐檔實證與對應規則。
     orphaned = []
