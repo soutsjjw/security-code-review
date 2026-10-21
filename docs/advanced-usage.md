@@ -90,10 +90,10 @@ Windows PowerShell 對應指令：
 1. 若受測專案已存在 `assessment.json`，先讀取並保留原有 Finding、證據及完成進度；否則才建立 70 項待審查草稿。
 2. 依 `next_checks` 清單逐條搜尋程式碼、追蹤呼叫鏈及組態，記錄真實檔案路徑、行號、方法、證據與理由。
 3. 每項審查後記錄 `execution.state`（`pending`、`completed`、`blocked`）以及 `status`（`pass`、`fail`、`review`、`na`）；**不能因待辦清單列出某規則就當作完成**。
-4. 每批保存 `assessment.json` 並重新取得下一批；只有全部 70 項 `completed`，且 `source_coverage.missing_source_file_count=0` 才生成最終報告。
+4. 每批保存 `assessment.json` 並重新取得下一批；全部 70 項須有真實逐條證據，且 `source_coverage.missing_source_file_count=0`、`review_integrity_errors=[]`、`rule_integrity_errors=[]`、`ready_for_report=true`，才生成最終報告。
 5. 真的無法繼續時保留所有進度與實際錯誤，不得把部分結果當成最終交付。
 
-若已完成來源靜態分析但沒有部署／政策／人工／動態佐證，使用 `status=review` 並明列缺口，允許 `execution.state=completed`。尚未執行的規則不可標記為 `review` 或 `completed`。
+若已完成可執行的來源靜態分析但沒有部署／政策／人工／動態佐證，使用 `status=review` 並明列已查證內容、來源證據和具體缺口，允許 `execution.state=completed`。**每項 pass/fail/review 必須有可定位的 `checks[].evidence[]`；單靠 inspected_paths 或制式理由不算已完成。** 尚未執行的規則不可標記為 `review` 或 `completed`，也不得為通過驗證虛構工件。
 
 找到弱點時以真實證據建立 Finding，保留風險、影響及改善建議，繼續其餘審查；**本 Skill 不修改受測原始碼，亦不要求先修復才能產生報告**。
 
@@ -151,7 +151,7 @@ V3.2 限用 ASP.NET/.NET、IIS 與通用 Web 安全控制，**排除 Java 與 PH
 
 ## 審查範圍與檔案數
 
-`assessment.scope` 是描述文字。實際審查檔案必須由每條已完成規則的 `execution.inspected_paths` 提供，不能把檔名搜尋或專案盤點結果當作已審查。
+`assessment.scope` 是描述文字。實際審查檔案須由通過驗證的 `assessment.file_reviews` 配合每條已完成規則的 `execution.inspected_paths` **雙向核對**，不能把檔名搜尋或專案盤點結果當作已審查。
 
 `review_queue.py` 會計算完整來源檔覆蓋，列出 `source_coverage`（應審查、已審查與缺漏數量、缺漏副檔名分布），並以 `next_source_paths`（每批最多 30 個）列出待逐檔閱讀的來源。即使 70 項規則顯示 `completed`，仍缺任一來源檔也不會設定 `ready_for_report=true`；`complete_review.py` 與正式來源驗證也會阻止輸出。
 
