@@ -118,6 +118,20 @@ class FileReviewIntegrityTests(unittest.TestCase):
         coverage = build_source_coverage(self.assessment, self.root)
         self.assertIn("共用相同的逐檔摘要模板", " ".join(coverage["review_integrity_errors"]))
 
+    def test_mass_template_with_variable_paths_and_rule_ids_is_rejected(self):
+        for i in range(40):
+            path = f"Unit{i:03}.cs"
+            (self.root / path).write_text("// sample control\n", encoding="utf-8")
+            row = make_file_review(self.root, path, ["AC-01"])
+            row["summary"] = f"針對不同資料流的安全控制，本次驗證每個模組 Unit{i:03} 的檢核流程。"
+            row["rule_reviews"][0]["reason"] = (
+                f"{path} 第 1 行：已靜態追蹤 AC-01 相關實作；仍需部署、政策或動態佐證。"
+            )
+            self.assessment["file_reviews"].append(row)
+            self.checks[0]["execution"]["inspected_paths"].append(path)
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertIn("共用相同的逐檔規則結論模板", " ".join(coverage["review_integrity_errors"]))
+
     def test_no_evidence_is_synthesized_or_mutated(self):
         finding = {"id": "F-01", "title": "保留歷史弱點"}
         self.assessment["findings"] = [finding]
