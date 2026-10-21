@@ -65,6 +65,12 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f'ERROR: 來源檔案盤點失敗：{exc}', file=sys.stderr)
         return 2
+    if coverage['review_integrity_errors']:
+        print(f"ERROR: 逐檔規則審查佐證驗證失敗（{len(coverage['review_integrity_errors'])} 項）：", file=sys.stderr)
+        for problem in coverage['review_integrity_errors'][:20]:
+            print('  ' + problem, file=sys.stderr)
+        print('ERROR: 未修改原始審查資料、Finding 或既有報告。', file=sys.stderr)
+        return 1
     if coverage['missing_source_file_count']:
         print(f"ERROR: 原始碼審查覆蓋不足："
               f"{coverage['reviewed_source_file_count']}/{coverage['source_file_count']}，"
@@ -78,7 +84,7 @@ def main() -> int:
     html = out / f'CodeReview_{date.replace("-", "")}.html'
     report = out / 'report.json'
     steps = [
-        [sys.executable, str(SKILL_ROOT / 'scripts/validate_assessment.py'), str(assessment)],
+        [sys.executable, str(SKILL_ROOT / 'scripts/validate_assessment.py'), str(assessment), '--source-root', str(target)],
         [sys.executable, str(SKILL_ROOT / 'scripts/generate_report.py'),
          '--assessment', str(assessment), '--project', str(project),
          '--source-root', str(target), '--strict-sources', '--source-encodings', args.source_encodings,

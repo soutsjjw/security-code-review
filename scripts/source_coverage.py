@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from scope_inventory import _default_rule, relative_path
+from file_review_integrity import verified_file_rule_reviews
 
 # 只納入可閱讀的程式碼、程式設定及專案檔；不把圖片／DLL／文件當原始碼。
 # 尤其 .cs 必須全數涵蓋，不能只以抽樣或規則總數代替。
@@ -62,14 +63,9 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path) -> dict
             if absolute.suffix.lower() in SOURCE_SUFFIXES or name in SOURCE_FILENAMES:
                 expected.add(rel)
 
-    inspected: set[str] = set()
-    for check in assessment.get("checks", []):
-        if (check.get("execution") or {}).get("state") != "completed":
-            continue
-        for raw in (check.get("execution") or {}).get("inspected_paths", []):
-            path = relative_path(root, raw)
-            if path in expected:
-                inspected.add(path)
+    # 只計入已驗證逐檔 10 類規則篩選、SHA256 和行號佐證的來源。
+    verified, integrity_errors = verified_file_rule_reviews(assessment, root, expected)
+    inspected = set(verified)
 
     missing = sorted(expected - inspected)
     counts = Counter(Path(path).suffix.lower() or Path(path).name for path in missing)
@@ -79,4 +75,6 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path) -> dict
         "missing_source_file_count": len(missing),
         "missing_source_paths": missing,
         "missing_by_type": dict(sorted(counts.items())),
+        "review_integrity_errors": integrity_errors,
+        "reviewed_file_rule_ids": {p: sorted(ids) for p, ids in sorted(verified.items())},
     }

@@ -129,6 +129,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     selected = remaining[:batch_size]
     coverage = build_source_coverage(data, source_root) if source_root is not None else None
     unreviewed = coverage["missing_source_file_count"] if coverage else 0
+    integrity_errors = coverage["review_integrity_errors"] if coverage else []
     return {
         "total": 70,
         "tacert_v2_supplemental_items": 39,
@@ -142,7 +143,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
         "findings_saved": len(data.get("findings", [])),
-        "ready_for_report": len(remaining) == 0 and unreviewed == 0,
+        "ready_for_report": len(remaining) == 0 and unreviewed == 0 and not integrity_errors,
         "source_coverage": ({
             "source_file_count": coverage["source_file_count"],
             "reviewed_source_file_count": coverage["reviewed_source_file_count"],
@@ -150,6 +151,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "missing_by_type": coverage["missing_by_type"],
         } if coverage else None),
         "next_source_paths": coverage["missing_source_paths"][:30] if coverage else [],
+        "review_integrity_errors": integrity_errors[:20],
         "remaining_ids": [r["id"] for r in remaining],
         "next_checks": [{
             "id": r["id"],
@@ -167,7 +169,10 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "web_guide_v32_appendix1": web_appendix_by_rule[r["id"]],
             "web_guide_v32_appendix3": web_headers_by_rule[r["id"]]
         } for r in selected],
-        "instruction": ("70 項規則狀態已完成，但仍有 " + str(unreviewed) +
+        "instruction": ("逐檔規則適用性或來源佐證不完整，先修復 file_reviews 中的問題，" +
+                        "重新核對實際原始碼與 execution.inspected_paths；不得僅增加檢核 ID。"
+                        if not remaining and integrity_errors else
+                        "70 項規則狀態已完成，但仍有 " + str(unreviewed) +
                         " 個應審查原始碼／設定檔未曾列入 completed 的 inspected_paths；"
                         "先逐檔實際閱讀 next_source_paths 並補查相關規則，再更新紀錄，不可直接產生最終報告。"
                         if not remaining and unreviewed else

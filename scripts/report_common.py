@@ -155,6 +155,8 @@ def validate_data(
     if strict_sources and source_root is not None and not allow_demo:
         try:
             coverage = build_source_coverage(assessment, source_root)
+            for problem in coverage["review_integrity_errors"][:30]:
+                result.errors.append("逐檔規則完整性：" + problem)
             if coverage['missing_source_file_count']:
                 result.errors.append(
                     f"應審查原始碼覆蓋不足："

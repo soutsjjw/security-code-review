@@ -4,18 +4,38 @@ from pathlib import Path
 from datetime import date
 from jsonschema import Draft202012Validator,FormatChecker
 from review_completion import completion_errors
+from source_coverage import build_source_coverage
 
 ROOT=Path(__file__).resolve().parent.parent
-if len(sys.argv) not in (2,3) or (len(sys.argv)==3 and sys.argv[2]!='--allow-demo'):
- print('Usage: python scripts/validate_assessment.py assessment.json [--allow-demo]');sys.exit(2)
-p=Path(sys.argv[1])
-allow_demo='--allow-demo' in sys.argv[2:]
+args=sys.argv[1:]
+if not args or any(x not in ('--allow-demo', '--source-root') for x in args[1::2] if x.startswith('--') and x != '--allow-demo'):
+ pass
+if not args or args[0].startswith('--'):
+ print('Usage: python scripts/validate_assessment.py assessment.json [--allow-demo] [--source-root TARGET]');sys.exit(2)
+p=Path(args[0])
+allow_demo='--allow-demo' in args[1:]
+source_root=None
+if '--source-root' in args[1:]:
+ try:
+  source_root=Path(args[args.index('--source-root')+1])
+ except IndexError:
+  print('ERROR: --source-root 缺少目錄',file=sys.stderr);sys.exit(2)
+if not allow_demo and source_root is None:
+ print('ERROR: 正式審查驗證必須提供 --source-root，以檢查 file_reviews 與來源雜湊',file=sys.stderr);sys.exit(2)
 data=json.loads(p.read_text('utf-8'))
 schema=json.loads((ROOT/'schemas/assessment.schema.json').read_text('utf-8'))
 errs=[e.message for e in Draft202012Validator(schema,format_checker=FormatChecker()).iter_errors(data)]
 valid={r['id'] for r in json.loads((ROOT/'rules.json').read_text('utf-8'))['rules']}
 checks=data.get('checks',[]); ids=[c.get('id') for c in checks]
 errs.extend(completion_errors(checks, allow_demo=allow_demo))
+if source_root is not None and not allow_demo:
+ try:
+  coverage=build_source_coverage(data,source_root)
+  errs.extend(coverage['review_integrity_errors'][:30])
+  if coverage['missing_source_file_count']:
+   errs.append(f"逐檔來源覆蓋不足：{coverage['reviewed_source_file_count']}/{coverage['source_file_count']}")
+ except (OSError,ValueError,KeyError,TypeError) as exc:
+  errs.append(f"逐檔佐證驗證失敗：{exc}")
 if set(ids)!=valid or len(ids)!=len(valid): errs.append('checks ID must cover 70 rules exactly once')
 finding_ids={f.get('id') for f in data.get('findings',[])}
 if len(finding_ids)!=len(data.get('findings',[])): errs.append('duplicate finding IDs')

@@ -111,16 +111,17 @@ def build_scope_inventory(
             else:
                 eligible.add(rel)
 
+    # 只有 verified file_reviews 可出現在正式「實際審查檔案清單」；
+    # 即使 inspected_paths 把數百個檔案掛在一個規則，也不得灌水。
+    from source_coverage import build_source_coverage
+    coverage = build_source_coverage(assessment, root)
+    if coverage["review_integrity_errors"]:
+        raise ValueError("逐檔檢核紀錄驗證失敗：" + coverage["review_integrity_errors"][0])
     inspected: dict[str, set[str]] = defaultdict(set)
-    for check in assessment.get("checks", []):
-        execution = check.get("execution") or {}
-        if execution.get("state") != "completed":
-            continue
-        for raw in (execution.get("inspected_paths") or []):
-            path = relative_path(root, raw)
-            if path not in eligible:
-                raise ValueError(f'{check["id"]}: 審查檔案在排除範圍或未納入盤點：{path}')
-            inspected[path].add(check["id"])
+    for path, rule_ids in coverage["reviewed_file_rule_ids"].items():
+        if path not in eligible:
+            raise ValueError(f"驗證來源不在盤點範圍：{path}")
+        inspected[path].update(rule_ids)
 
     reviewed_files = [{"path": p, "check_ids": sorted(ids)} for p, ids in sorted(inspected.items())]
     project_rows = []
