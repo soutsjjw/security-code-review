@@ -95,8 +95,11 @@ class SourceCoverageTests(unittest.TestCase):
                           "inspected_paths": []},
             "evidence": [],
         }
-        self.assertIn("缺少實際已讀來源檔", " ".join(completion_errors([check])))
+        self.assertIn("缺少具體可追溯", " ".join(completion_errors([check])))
         check["execution"]["inspected_paths"] = ["a.cs"]
+        self.assertIn("缺少具體可追溯", " ".join(completion_errors([check])))
+        check["evidence"] = [{"kind": "source", "path": "a.cs", "line_start": 1,
+                              "line_end": 1, "description": "逐行檢視授權分支及檢核決策"}]
         self.assertEqual(completion_errors([check]), [])
 
 
