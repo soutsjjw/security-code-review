@@ -56,7 +56,7 @@ class CompleteReviewTests(unittest.TestCase):
                 'collected_on': '2026-10-18', 'source_version': 'test',
                 'path': 'IdentityService.cs', 'line_start': 1, 'line_end': 1
             }]
-            a['checks'][1]['evidence'] = [{
+            next(c for c in a['checks'] if c['id'] == 'AU-01')['evidence'] = [{
                 'kind': 'source', 'description': '核對身分鑑別範例中的來源檔案及行號',
                 'collected_on': '2026-10-18', 'source_version': 'test',
                 'path': 'IdentityService.cs', 'line_start': 1, 'line_end': 1
