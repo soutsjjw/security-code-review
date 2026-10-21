@@ -79,7 +79,8 @@ class ReviewQueueTests(unittest.TestCase):
         for check in demo["checks"][10:]:
             check["execution"]["state"] = "completed"
         out = build_queue(demo, rules, 10)
-        self.assertTrue(out["ready_for_report"])
+        self.assertFalse(out["ready_for_report"])  # 未指定真實來源目錄不得宣稱可以交付
+        self.assertTrue(out["rule_integrity_errors"])
         self.assertEqual(out["next_checks"], [])
 
     def test_init_is_non_destructive(self):
