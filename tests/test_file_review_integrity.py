@@ -98,6 +98,24 @@ class FileReviewIntegrityTests(unittest.TestCase):
         verified_file_rule_reviews(self.assessment, self.root, {"Auth.cs", "Config.cs"})
         self.assertEqual(self.assessment, original)
 
+    def test_rule_level_fail_requires_finding(self):
+        self.assessment["file_reviews"][0]["rule_reviews"][0]["result"] = "fail"
+        self.checks[0]["status"] = "fail"
+        result = build_source_coverage(self.assessment, self.root)
+        self.assertIn("未建立 Finding", str(result["review_integrity_errors"]))
+
+    def test_applicable_file_must_not_be_globally_na(self):
+        self.checks[0]["status"] = "na"
+        result = build_source_coverage(self.assessment, self.root)
+        self.assertIn("標為 na", str(result["review_integrity_errors"]))
+
+    def test_file_fail_conflicts_with_global_pass(self):
+        self.assessment["file_reviews"][0]["rule_reviews"][0]["result"] = "fail"
+        self.checks[0]["status"] = "pass"
+        self.assessment["findings"] = [{"id": "F1", "check_ids": ["AC-01"]}]
+        result = build_source_coverage(self.assessment, self.root)
+        self.assertIn("標為 pass", str(result["review_integrity_errors"]))
+
 
 if __name__ == "__main__":
     unittest.main()

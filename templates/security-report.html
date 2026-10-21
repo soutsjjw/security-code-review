@@ -400,7 +400,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     scopeFiles.append(el('h4',null,'實際審查檔案清單（已去重）'));
     if(asArray(coverage.reviewed_files).length) {
       scopeFiles.append(scopeTable(['審查檔案','關聯檢核項目'],
-        coverage.reviewed_files.map(p=>[p.path,asArray(p.check_ids).join('、')])));
+        coverage.reviewed_files.map(p=>[p.path,asArray(p.check_ids).join('、')||'無直接適用（十類已篩選）'])));
     } else scopeFiles.append(empty('尚未記錄 execution.inspected_paths，不能宣稱已審查全部檔案。'));
   }
 

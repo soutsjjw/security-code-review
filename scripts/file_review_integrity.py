@@ -41,6 +41,11 @@ def verified_file_rule_reviews(
         execution = check.get("execution") or {}
         if execution.get("state") == "completed":
             completed[check["id"]] = set(execution.get("inspected_paths") or [])
+    check_by_id = {check["id"]: check for check in assessment.get("checks", [])}
+    findings_by_rule: dict[str, list[dict]] = {}
+    for finding in assessment.get("findings", []):
+        for rid in finding.get("check_ids", []):
+            findings_by_rule.setdefault(rid, []).append(finding)
     verified: dict[str, set[str]] = {}
     errors: list[str] = []
     seen: set[str] = set()
@@ -120,6 +125,14 @@ def verified_file_rule_reviews(
                 recorded.add(rid)
                 if rr.get("result") not in ("pass", "fail", "review"):
                     faults.append(f"{rid}: 缺少本檔檢核結果")
+                status = check_by_id.get(rid, {}).get("status")
+                if status == "na":
+                    faults.append(f"{rid}: 本檔判定適用，但整體檢核卻標為 na")
+                if rr.get("result") == "fail":
+                    if status == "pass":
+                        faults.append(f"{rid}: 逐檔發現問題但整體規則標為 pass")
+                    if not findings_by_rule.get(rid):
+                        faults.append(f"{rid}: 逐檔發現問題卻未建立 Finding")
                 if not isinstance(rr.get("reason"), str) or len(rr["reason"].strip()) < 20:
                     faults.append(f"{rid}: 缺少具體檢核結果與判斷依據")
                 start, end = rr.get("line_start"), rr.get("line_end")
