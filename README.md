@@ -106,7 +106,7 @@ V3.2 主文件與附件保留 **ASP.NET／.NET、IIS 與通用 Web 安全要求�
     └── web_appendix3_assessment.json # 選填：六項標頭實際回應查證
 ```
 
-核心規則狀態有 `pass`、`fail`、`review`、`na`。其中 `review` 表示**已檢查可查證的部分，但仍缺外部證據**；與執行進度 `execution.state=pending/completed/blocked` 是不同欄位。只有全部 70 項 `completed`、**應審查來源檔案全數完成逐檔核對**，且 HTML／JSON 驗證通過，才算完成正式交付。
+核心規則狀態有 `pass`、`fail`、`review`、`na`。正式審查的每項 `pass/fail/review` 必須提供可定位的來源行號或設定／測試／外部證據工件；批次模板、單純檔案路徑或空泛的 `other` 描述不能代表完整審查。其中 `review` 表示**已檢查可查證的部分，但仍缺外部證據**；與執行進度 `execution.state=pending/completed/blocked` 是不同欄位。只有全部 70 項 `completed`、**應審查來源檔案全數完成逐檔核對**，且 HTML／JSON 驗證通過，才算完成正式交付。
 
 佇列輸出的 `source_coverage` 會顯示應審查原始碼／設定檔總數、已審查數、未審查數及類型，並以 `next_source_paths` 指示下一批漏查來源；若僅審查 13／660 個 `.cs`，即使 70 項規則均標記完成，也**禁止交付正式報告**。**逐檔檢核需評估所有 70 條規則的適用性，不能只取第一個關鍵字命中結果；不可將稽核、個資、相依套件等錯誤對應至不相關的 `XX-01`。** 使用重複的不適用理由或大量制式摘要會被驗證器拒絕，但不會強制每檔至少對應兩條規則。\n\n完成來源檔案核對後，須記錄 `assessment.file_reviews` 的 SHA256、逐檔 10 類適用性判斷、檢核依據與來源行號，並與 `execution.inspected_paths` 對應；不能將搜尋命中或清單盤點當成完成審查。缺少逐檔紀錄、來源異動或規則關聯不一致時會拒絕正式報告（[資料格式](docs/file-review-contract.md)）。個別 `review` 必須具體列出已審查證據與未能確認原因，證據可支持 `fail` 時須記錄 Finding，不能將 `review` 當成尚未分析的預設結論。
 
