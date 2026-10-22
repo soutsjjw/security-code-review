@@ -131,6 +131,27 @@ class CandidateValidationTests(unittest.TestCase):
         result = build_source_coverage(data, self.root)
         self.assertEqual(result["review_integrity_errors"], [])
 
+    def test_class_declaration_and_builder_bootstrap_are_weak(self):
+        self.assertFalse(meaningful_source_excerpt(
+            "Service.cs", ["public sealed class Service {}"]))
+        self.assertFalse(meaningful_source_excerpt(
+            "Program.cs", ["var builder = WebApplication.CreateBuilder(args);"]))
+        self.assertTrue(meaningful_source_excerpt(
+            "Program.cs", ["app.UseHsts();"]))
+
+    def test_queue_shows_multiple_candidates_for_unreviewed_source(self):
+        from review_queue import build_queue, load_rules
+        _, rules = load_rules()
+        data = {
+            "checks": [{"id": rule["id"], "execution": {"state": "pending"}}
+                       for rule in rules],
+            "file_reviews": [],
+        }
+        queue = build_queue(data, rules, 10, source_root=self.root, compact=True)
+        self.assertEqual(queue["next_source_candidates"][0]["path"], "Handler.cs")
+        self.assertEqual(set(queue["next_source_candidates"][0]["rule_ids"]),
+                         {"AC-04", "AC-08", "IN-03"})
+
     def test_review_generic_gap_is_rejected_but_specific_gap_allowed(self):
         check = {
             "id": "IN-06", "status": "review",
