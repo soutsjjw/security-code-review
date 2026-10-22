@@ -57,6 +57,31 @@ class AnalysisPrepareTests(unittest.TestCase):
                 self.assertEqual(third["recheck_file_count"], 2)
                 self.assertFalse(third["complete_security_review"])
 
+    def test_candidate_index_tracks_multi_rule_links_and_reuses_unchanged_hashes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = self.make_dotnet(Path(temp))
+            (root / "Service.cs").write_text(
+                "class Guard : AuthorizationHandler<Req> { }\\n"
+                "[ValidateAntiForgeryToken] public void Save() {}\\n",
+                encoding="utf-8")
+            with patch("analysis_prepare.probe_roslyn", return_value={"available": False}), \\
+                 patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
+                first = prepare(root, "full")
+                self.assertEqual(first["candidate_file_count"], 1)
+                self.assertEqual(first["candidate_link_count"], 2)
+                index = json.loads((root / INDEX_NAME).read_text("utf-8"))
+                self.assertEqual(
+                    {hit["rule_id"] for hit in index["rule_candidates"]["Service.cs"]},
+                    {"AC-04", "IN-03"},
+                )
+                same = prepare(root, "incremental")
+                self.assertEqual(same["candidate_reused_count"], 1)
+                (root / "Service.cs").write_text(
+                    "class Guard : AuthorizationHandler<Req> { }\\n", encoding="utf-8")
+                changed = prepare(root, "incremental")
+                self.assertEqual(changed["candidate_reused_count"], 0)
+                self.assertEqual(changed["candidate_link_count"], 1)
+
     def test_mixed_vue_rejected_and_analysis_index_not_counted(self):
         with tempfile.TemporaryDirectory() as temp:
             root = self.make_dotnet(Path(temp))
