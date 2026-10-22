@@ -61,11 +61,11 @@ class AnalysisPrepareTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = self.make_dotnet(Path(temp))
             (root / "Service.cs").write_text(
-                "class Guard : AuthorizationHandler<Req> { }\\n"
-                "[ValidateAntiForgeryToken] public void Save() {}\\n",
+                "class Guard : AuthorizationHandler<Req> { }\n"
+                "[ValidateAntiForgeryToken] public void Save() {}\n",
                 encoding="utf-8")
-            with patch("analysis_prepare.probe_roslyn", return_value={"available": False}), \\
-                 patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
+            with (patch("analysis_prepare.probe_roslyn", return_value={"available": False}),
+                  patch("analysis_prepare.probe_codegraph", return_value={"available": False})):
                 first = prepare(root, "full")
                 self.assertEqual(first["candidate_file_count"], 1)
                 self.assertEqual(first["candidate_link_count"], 2)
@@ -77,7 +77,7 @@ class AnalysisPrepareTests(unittest.TestCase):
                 same = prepare(root, "incremental")
                 self.assertEqual(same["candidate_reused_count"], 1)
                 (root / "Service.cs").write_text(
-                    "class Guard : AuthorizationHandler<Req> { }\\n", encoding="utf-8")
+                    "class Guard : AuthorizationHandler<Req> { }\n", encoding="utf-8")
                 changed = prepare(root, "incremental")
                 self.assertEqual(changed["candidate_reused_count"], 0)
                 self.assertEqual(changed["candidate_link_count"], 1)
