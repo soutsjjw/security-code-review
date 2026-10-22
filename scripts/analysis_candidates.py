@@ -25,7 +25,7 @@ DOTNET_SIGNALS: tuple[tuple[str, str, str], ...] = (
     ("AU-09", r"\b(?:\w*Totp\w*|TwoFactor\w*|AuthenticatorTokenProvider)\b", "多因素認證"),
     ("IN-01", r"\b(?:FromSqlRaw|ExecuteSqlRaw|SqlCommand)\s*\(", "SQL 查詢入口"),
     ("IN-03", r"\b(?:ValidateAntiForgeryToken|AutoValidateAntiforgeryToken|AntiForgeryToken)\b", "CSRF Token"),
-    ("IN-05", r"\b(?:IValidator\s*<|ValidationBehaviour\b|ModelState\.IsValid\b)", "伺服端驗證"),
+    ("IN-05", r"\b(?:IValidator\s*<|ValidationBehaviour\b|ModelState\.IsValid\b|ValidateAsync\s*\(|ValidationException\b)", "伺服端驗證"),
     ("IN-06", r"\b(?:IFormFile\b|Request\.Form\.Files\b)", "上傳檔案處理"),
     ("CR-02", r"\b(?:Aes\.Create|SHA256\.HashData|HMACSHA256\b|Rfc2898DeriveBytes\b)", "密碼學操作"),
     ("CR-05", r"\b(?:UseHsts\s*\(|Content-Security-Policy|X-Frame-Options)", "HTTP 安全標頭"),
@@ -68,33 +68,89 @@ def candidate_hits(path: str, source: str) -> list[dict[str, object]]:
     return [matched[rid] for rid in sorted(matched)]
 
 
-def meaningful_source_excerpt(path: str, lines: list[str]) -> bool:
-    """阻擋僅以 import、註解、宣告或空括號作為單獨的完成證據。
+# 這些規則常因「相關名詞存在」而被錯誤判定 Pass。
+# 只有明確控制語句／呼叫／配置才算合理候選；命中不等於安全。
+RULE_EVIDENCE_SIGNALS = {
+    "AC-04": r"\b(?:context\.Succeed|context\.Fail|HandleRequirementAsync|RequireRole|RequireClaim|AuthorizeAsync|AddPolicy)\s*\(",
+    "AC-08": r"\b(?:GetMaxAllowedScope|AuthorizeAsync|CheckAccess|IsOwner|OwnerId\s*==|UserId\s*==)\b",
+    "AU-01": r"\b(?:Password\.RequiredLength|Password\.RequireDigit|Password\.RequireUppercase|Password\.RequireLowercase|Password\.RequiredUniqueChars|RequiredLength\s*=|RequireNonAlphanumeric\s*=)\b",
+    "AU-08": r"\b(?:PasswordHasher|HashPassword|VerifyHashedPassword|PasswordHasherOptions|PasswordHash\s*=|PasswordVerificationResult)\b",
+    "AU-09": r"\b(?:ValidateTwoFactor|TwoFactorSignIn|VerifyTwoFactor|VerifyTotp|CheckTotp|TotpEnabled|AuthenticatorSignIn|GenerateTwoFactorToken)\b",
+    "IN-05": r"\b(?:ValidateAsync|ValidateAndThrow|ModelState\.IsValid|ValidationException|ValidationFailure|MustAsync|RuleFor)\b",
+    "IN-06": r"\b(?:IFormFile|\.Length\s*[<>]=?|\.ContentType|\.FileName|\.OpenReadStream|\.CopyToAsync|AllowedExtensions)\b",
+    "PD-07": r"\b(?:DeleteAsync|DeletePersonalData|RemoveRange|RemoveAsync|PurgeAsync|EraseAsync|ForgetUser|ExecuteDeleteAsync)\b",
+    "SI-01": r"\b(?:permissions:|pull_request:|codeql|dependabot|security[-_]scan|sast|dependency[-_]review)\b",
+}
+SPECIAL_EXTERNAL_PROOF = frozenset({"DP-01", "DP-04"})
+SPECIAL_PATH_RE = re.compile(r"(?:^|/)(?:\.github/workflows/|azure-pipelines[^/]*\.ya?ml$|\.gitlab-ci\.yml$)")
+_MEMBER_DECLARATION = re.compile(
+    r"^(?:(?:\[[^\]]+\]\s*)*)(?:(?:public|private|protected|internal|static|readonly|virtual|sealed|override|new|partial|async)\s+)*"
+    r"(?:[\w?.<>,\[\] ]+\s+)+\w+\s*(?:\{\s*(?:get\s*;\s*set\s*;|get\s*;\s*init\s*;)\s*\}|;\s*|=\s*(?:default|null|true|false|\d+|\"[^\"]*\")\s*;)\s*$"
+)
+_USING_LINE = re.compile(r"^(?:global\s+)?using\s+(?:static\s+)?[\w.]+\s*;$")
+_NAMESPACE_LINE = re.compile(r"^namespace\s+[\w.]+\s*[;{]?$")
+_DECLARATION = re.compile(
+    r"^(?:(?:public|private|protected|internal|sealed|abstract|partial|static|record|async)\s+)*"
+    r"(?:class|interface|struct|enum|record)\s+\w+"
+)
+_METHOD_SIGNATURE = re.compile(
+    r"^(?:(?:public|private|protected|internal|static|virtual|override|async|sealed|new|abstract|partial)\s+)+"
+    r"(?:[\w?.<>,\[\] ]+\s+)?\w+\s*\([^;{}]*\)\s*(?:\{|;|=>)?$"
+)
 
-    僅驗證證據是否明顯無效；通過仍需人員核對資料流及安全控制。
+
+def _substantive_lines(path: str, lines: list[str]) -> list[str]:
+    """保留行號範圍內真正表達行為的語句；排除宣告、註解與空容器。
+
+    此為保守快篩，無法證明行為符合安全要求。
     """
     code = [line.strip() for line in _code_lines("\n".join(lines)) if line.strip()]
-    code = [line for line in code if line]
-    if not code:
-        return False
-    meaningful = []
+    is_dotnet = Path(path).suffix.lower() in DOTNET_EXTENSIONS
+    substantive: list[str] = []
     for line in code:
         if line in {"{", "}", "[", "]", "(", ")", ";", "---"}:
             continue
-        if re.match(r"^(?:using\s+[\w.]+\s*;|global\s+using\s+[\w.]+\s*;|namespace\s+[\w.]+\s*[;{]?)$", line):
+        if line.startswith(("#", "@using")) or _USING_LINE.match(line) or _NAMESPACE_LINE.match(line):
             continue
-        if line.startswith(("#nullable", "#pragma")):
-            continue
-        if len(code) == 1 and Path(path).suffix.lower() in DOTNET_EXTENSIONS:
-            if re.match(r"^(?:(?:public|private|protected|internal)\s+)?(?:(?:static|abstract|sealed|partial)\s+)*(?:class|interface|enum|record|struct)\s+", line):
+        if is_dotnet:
+            if _DECLARATION.match(line) or _METHOD_SIGNATURE.match(line):
                 continue
-            if re.match(r"^(?:public|private|protected|internal)\s+.*\([^;{}]*\)\s*\{?$", line):
+            if _MEMBER_DECLARATION.match(line):
                 continue
             if re.match(r"^var\s+builder\s*=\s*WebApplication\.CreateBuilder\s*\(", line):
                 continue
-        meaningful.append(line)
-    return bool(meaningful)
+        substantive.append(line)
+    return substantive
 
+
+def meaningful_source_excerpt(path: str, lines: list[str]) -> bool:
+    """僅核對片段是否具備可查驗的控制操作，非符合性的證明。"""
+    return bool(_substantive_lines(path, lines))
+
+
+def source_relevant_to_rule(rule_id: str, path: str, lines: list[str]) -> bool:
+    """攔截明顯與該規則無關的單行證據，不自動推定安全。"""
+    substantive = _substantive_lines(path, lines)
+    if not substantive:
+        return False
+    if rule_id in SPECIAL_EXTERNAL_PROOF:
+        # 管理套件版本、引用套件本身，不能證明已掃描漏洞／更新安全版本。
+        return bool(re.search(
+            r"\b(?:dotnet\s+list\s+package.*--vulnerable|dotnet\s+package\s+list.*--vulnerable|"
+            r"osv-scanner|dependency-check|dependabot|renovate|security[_-]updates|"
+            r"npm\s+audit|trivy\s+(?:fs|image))\b",
+            "\n".join(substantive), flags=re.IGNORECASE))
+    if rule_id == "SI-01" and not SPECIAL_PATH_RE.search(path):
+        return False
+    signal = RULE_EVIDENCE_SIGNALS.get(rule_id)
+    return bool(re.search(signal, "\n".join(substantive), flags=re.IGNORECASE)) if signal else True
+
+
+def has_executable_control(rule_id: str, path: str, source: str) -> bool:
+    """若檔案包含真正控制呼叫，不得藉「只有宣告／無程式邏輯」排除候選。"""
+    if rule_id not in ("IN-05", "AC-04", "AC-08", "IN-06"):
+        return False
+    return source_relevant_to_rule(rule_id, path, source.splitlines())
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="檢視來源中的規則候選（不自動判斷 pass/fail）")
