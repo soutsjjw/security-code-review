@@ -2,7 +2,7 @@
 
 以 **70 項資安規則**進行原始碼審查的 Codex／Claude Code Skill，支援分批續跑、弱點證據紀錄，以及可離線檢視的 HTML／JSON 報告。
 
-**規則集：v2.0.0（正式版）** · **Skill：v2.1.9** · **審查規則：70 項**
+**規則集：v2.0.0（正式版）** · **Skill：v2.2.0-rc1** · **審查規則：70 項**
 
 規則集現可直接作為本專案正式版本使用，**不需要先取得公司資安核定**。這不代表任何受測系統已符合所有法規，也不取代特定系統的正式分級、政策核准或第三方測試。
 
@@ -70,6 +70,18 @@ Windows PowerShell：
 若提示缺少套件，使用可用的 Python 安裝一次，例如 `python3 -m pip install -r requirements.txt`，Windows 亦可使用 `py -3 -m pip install -r requirements.txt`。若完全沒有 Python，先於 **Agent 實際執行的環境**安裝 Python 3.10+。Skill **不會自行安裝套件或覆寫既有審查進度**；環境未就緒時會明確回報原因。
 
 Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼安全審查**；實質查核仍由 Agent 執行。環境設定完成後，一般使用者不必手動執行報告生成腳本。
+
+## .NET 專用結構索引與省 Token 模式
+
+本階段的程式碼分析器僅支援 **.NET Core／現代 .NET C# 專案**；傳統 .NET Framework 與 Vue 分析器已預留擴充架構，但目前**不宣稱已支援**。混合或未辨識技術專案會停止，不會假裝完成掃描。70 項規則、逐檔真實證據、100% 來源覆蓋率、HTML／JSON 報告維持不變。
+
+- **CodeGraph 選用**：有 CLI 且受測專案已執行 `codegraph init` 建立索引，Agent 優先使用程式碼圖譜；沒有則自動使用原有來源查核。Skill 不自行安裝或建立索引。CodeGraph 官方文件：<https://github.com/colbymchenry/codegraph>。
+- **Roslyn 選用**：安裝 .NET SDK 8+ 時，Agent 會在暫存目錄利用 SDK 內附 Roslyn 建立 C# 語法／方法／呼叫候選索引，不修改受測原始碼；沒有 SDK 則降級查核。Roslyn 索引不是弱點結論。
+- **完整＋增量**：結構結果保存在 `reports/security-code-review/analysis/structure-index.json`；未變動檔案重用語法索引，有來源變更且缺乏可信跨檔案依賴閉包時保守列出全部重新檢查。既有 `assessment.json`、Findings 不會由索引覆寫。
+- **精簡佇列**：預設由 Agent 使用 `review_queue.py --compact`，實際處理規則時再用 `--detail-id <規則ID>` 取完整查核方向。
+- **Token 統計**：僅記錄執行器實際提供的 Token 計數，不提供虛構的節省比例。
+
+索引前置命令由 Skill 自動呼叫；進階參數及限制請見 [進階使用說明](docs/advanced-usage.md)。
 
 ## 檢核依據
 

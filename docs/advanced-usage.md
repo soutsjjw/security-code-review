@@ -9,6 +9,41 @@
 - 使用者指定路徑時，可呼叫 `$security-code-review /path/to/project`；不指定時使用目前受測專案。
 - 對話指令不是系統 Shell 指令；Agent 必須實際閱讀來源檔，Python 腳本只負責排程、資料驗證及報告生成。
 
+## .NET 專用分析器（未來擴充 .NET Framework／Vue）
+
+本階段 `scripts/analysis_adapters.py` 僅啟用 `dotnet-modern` Adapter。傳統 .NET Framework、Vue 及混合專案目前會拒絕完整審查，而非默默跳過；未來可增加 Adapter，而不改動共用的 70 條規則、逐檔證據契約或報告格式。
+
+Agent 在開始佇列之前先執行下列**結構索引準備**（初次 full，重跑可改 incremental）：
+
+```bash
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
+```
+
+Windows PowerShell：
+
+```powershell
+& "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
+```
+
+這一步偵測 CodeGraph 與 .NET SDK 8+ 的 Roslyn。CodeGraph 須先由使用者在受測專案執行 `codegraph init`；缺少 CodeGraph／SDK 時只退回既有搜尋與人工分析，**不得視為已執行 Roslyn 或完整 SAST**。Roslyn 只提供 C# syntax tree 的 types、methods 與 invocation 候選（非跨方法污點證明）；Agent 仍要核對程式碼及配置。增量快取只共用相同 SHA256 與相同分析器版本的結構資料，不沿用過期安全結論。
+
+Token 優化佇列：
+
+```bash
+python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact --compact
+python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
+```
+
+精簡佇列只列待辦及搜尋候選，逐條檢核前以 `--detail-id` 取得所有標準對照。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
+
+執行器若提供實際 Token 數，可選擇寫入統計：
+
+```bash
+python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --executor "Codex CLI" --run-id "review-001" --input-tokens 100 --output-tokens 50 --cached-input-tokens 10 --tool-calls 3
+```
+
+數字必須是實際 API／執行器回傳資料，上述僅示範命令格式。統計位於 `reports/security-code-review/analysis/token-usage.jsonl`，不包含程式碼或推論出的 Token 值。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入：
@@ -17,6 +52,8 @@
 /goal 使用 $security-code-review Skill，對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
 
 完成條件：
+
+0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求。增量只重用結構證據，若來源有變更，保守重查受影響安全結論。
 
 1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。
 
@@ -76,13 +113,13 @@
 Agent 以安裝目錄中的 Python 腳本進行排程（下列為 Agent 內部指令，非一般使用者必須手動執行的步驟）：
 
 ```bash
-sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
 ```
 
 Windows PowerShell 對應指令：
 
 ```powershell
-& "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+& "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
 ```
 
 首次執行可先用 `sh "<SKILL_ROOT>/scripts/run-python.sh" --check`（Windows：`& "<SKILL_ROOT>\scripts\run-python.cmd" --check`）唯讀檢查 Python 3.10+ 和相依套件。啟動器會依序嘗試 `python`、`python3`、`py -3`；若不可用，保留既有進度並回報安裝指令，不自動安裝。

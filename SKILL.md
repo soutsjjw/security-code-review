@@ -1,6 +1,6 @@
 ---
 name: security-code-review
-version: 2.1.9-rc1
+version: 2.2.0-rc1
 description: 對目前專案或指定目錄執行公司共用的 70 項原始碼資安審查，驗證證據並自動產生通用離線 HTML 與 JSON 報告。
 argument-hint: "[專案路徑或檢核範圍]"
 ---
@@ -22,6 +22,22 @@ argument-hint: "[專案路徑或檢核範圍]"
 3. **提供本專案內的子目錄、檔案或文字需求**：保持目前專案根目錄為 `TARGET_ROOT`，將參數解讀為檢核範圍／重點；仍須輸出 70 個檢核 ID，未審查的範圍標明限制及 Review，不可假裝全案已掃描。
 4. 未明確指定路徑時，**永遠不要把 `SKILL_ROOT` 當作受測目錄**。
 5. 設 `SKILL_ROOT` 為目前 `SKILL.md` 的實際所在目錄（或其絕對路徑）；從此載入 `rules/`、`schemas/`、`scripts/`、`templates/`。
+
+## 技術支援及 Token 優化前置（必須執行）
+
+- **本階段只接受 .NET Core／現代 .NET C# 專案**。先辨識全部 `.csproj` 的 TargetFramework(s)；遇到 .NET Framework、Vue／混合專案、無法辨識的框架，暫停並明確說明尚未支援，**不得縮小覆蓋率後宣稱完成**。後續透過 `scripts/analysis_adapters.py` 的統一分析器介面擴充 .NET Framework／Vue；70 項規則和報告 Schema 保持共用。
+- 在 Python 環境檢查成功後、開始審查佇列之前，由 Agent 在受測專案執行（首次 full；只有確實存在舊結構索引且要重新分析時才用 incremental）：
+
+  ```bash
+  sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
+  ```
+
+  Windows：`& "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\analysis_prepare.py" --target "<TARGET_ROOT>" --mode full`。
+- 此步驟唯讀盤點來源，將 Roslyn 產出的 C# 語法結構索引與 SHA256 保存到受測專案 `reports/security-code-review/analysis/structure-index.json`。Roslyn 由已安裝的 .NET SDK 8+ 提供（暫存目錄編譯，不變更受測專案、不自動安裝套件），不存在時降級為來源閱讀。**這只是符號／語法索引，不是 Roslyn 安全掃描或 SAST 結論**。
+- 自動偵測 CodeGraph CLI 與既有 `.codegraph/` 索引；可用時優先以 `codegraph_explore` MCP 或 `codegraph explore` 查詢結構、方法與跨檔案呼叫鏈。失敗、未安裝、未索引或索引過期時使用原有來源讀取／搜尋，不得自行執行 `codegraph init`。CodeGraph 索引**不能取代程式碼、組態、資料流及測試證據**，來源異動後須確認索引新鮮度。
+- 增量模式只重用**未改變的語法結構索引**，不是自動重用 `pass/completed`。當任何已盤點來源新增、修改、刪除時，未取得可驗證的完整跨檔案影響閉包前，保守重新檢核全部來源；保留原有 Findings，但須覆核受影響的既有判斷。
+- 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
+- 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
 ## TACERT「網站安全管理指南」V2 補充檢核
 
@@ -93,15 +109,15 @@ argument-hint: "[專案路徑或檢核範圍]"
    - macOS／Linux（Bash／sh）：
      ```bash
      sh "<SKILL_ROOT>/scripts/run-python.sh" --check
-     sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+     sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
    - Windows（PowerShell）：
      ```powershell
      & "<SKILL_ROOT>\scripts\run-python.cmd" --check
-     & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10
+     & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
    `--check` 僅需於開始時執行一次。啟動器依序偵測 `python`、`python3`、`py -3`，並確認 Python 3.10+ 與 `requirements.txt` 套件版本可用；其後每次呼叫均以同樣優先序選擇可用環境，不直接假設 `python` 存在。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
-2. 使用工具輸出的 `next_checks`、`search_targets`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核但部署或動態測試仍待確認的規則可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
+2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核但部署或動態測試仍待確認的規則可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
 3. **每完成一項／每批立即保存** `TARGET_ROOT/reports/security-code-review/assessment.json`，保持既有 Findings 與其他已完成項目，不得將已知風險清空；然後再次執行上方佇列命令（不必重新初始化也可移除 `--init`）。
 4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
 5. 由 Agent 內部呼叫 `complete_review.py`，產出最終 `CodeReview_YYYYMMDD.html`、`report.json` 並驗證。最終答覆優先交付這兩個路徑、70 項狀態摘要與 Finding 數；改善建議應收錄於報告中，不要在最終訊息中先要求修復。
