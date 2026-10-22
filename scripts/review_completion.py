@@ -14,6 +14,12 @@ GENERIC_REVIEW_GAPS = (
     "部署設定、正式政策、運作紀錄或動態測試",
     "部署、政策或動態測試",
     "部署／政策／動態測試",
+    "保留原判定與外部證據限制",
+    "缺乏外部證據限制",
+    "仍待確認的外部證據",
+    "後續需部署、政策",
+    "部署、政策與動態測試",
+    "保留既有 review 結論",
 )
 
 PENDING_WORDS = ("待確認", "尚待", "仍待", "缺少", "缺乏", "待補", "無法", "不能確認",
@@ -97,6 +103,10 @@ def completion_errors(checks: list[dict], *, allow_demo: bool = False) -> list[s
                 errors.append(f"{rid}: review 未具體說明待補的外部／動態／政策證據")
             if any(gap in decision for gap in GENERIC_REVIEW_GAPS):
                 errors.append(f"{rid}: review 使用制式外部證據清單；須明確指出本規則需要何種工件／環境及已確認的靜態範圍")
+            # review 可以是真正完成靜態部分後缺外部證據，不能只保留先前狀態。
+            if any(term in decision for term in
+                   ("保留原判定", "延續原審查結論", "依舊判定", "保留既有", "沿用原有")):
+                errors.append(f"{rid}: review 沿用舊判定但未重新核對實際控制與缺少工件")
             repeated[(decision, summary)] += 1
         if status in ("pass", "fail", "review"):
             signatures[("執行摘要", _template(summary))].add(str(rid))
