@@ -108,7 +108,8 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
         project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: Path | None = None) -> dict:
+def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: Path | None = None,
+                compact: bool = False, detail_id: str | None = None) -> dict:
     checks = data.get("checks")
     if not isinstance(checks, list):
         raise ValueError("assessment.json 缺少 checks 陣列")
@@ -127,12 +128,15 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     web_appendix_by_rule = appendix_review_hints(rules)
     web_headers_by_rule = header_review_hints(rules)
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
-    selected = remaining[:batch_size]
+    if detail_id is not None and detail_id not in master_ids:
+        raise ValueError(f"未知規則 ID：{detail_id}")
+    selected = ([next(r for r in rules if r["id"] == detail_id)]
+                if detail_id is not None else remaining[:batch_size])
     coverage = build_source_coverage(data, source_root) if source_root is not None else None
     unreviewed = coverage["missing_source_file_count"] if coverage else 0
     integrity_errors = coverage["review_integrity_errors"] if coverage else []
     rule_errors = completion_errors(checks) if not remaining else []
-    return {
+    queue = {
         "total": 70,
         "tacert_v2_supplemental_items": 39,
         "owasp_top10_2025_categories": 10,
@@ -191,6 +195,17 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
                         "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
+    if compact:
+        # 唯一目的：減少送入 AI 上下文的佇列字數；詳細規範請用 --detail-id。
+        queue["next_checks"] = [{
+            "id": r["id"], "title": r["title"],
+            "current_state": (indexed[r["id"]].get("execution") or {}).get("state", "pending"),
+            "search_targets": r.get("inspection", {}).get("search_targets", []),
+        } for r in selected]
+        if remaining:
+            queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
+                                    "需要詳細規範時使用 --detail-id <規則ID>。逐檔紀錄與 Finding 仍不可省略。")
+    return queue
 
 
 def main() -> int:
@@ -198,7 +213,11 @@ def main() -> int:
     parser.add_argument("--target", type=Path, default=Path.cwd())
     parser.add_argument("--init", action="store_true", help="僅建立不存在的審查檔；保留既有結果")
     parser.add_argument("--batch-size", type=int, default=10)
+    parser.add_argument("--compact", action="store_true", help="僅回傳精簡檢核工作清單；詳細規範另查")
+    parser.add_argument("--detail-id", help="僅查詢一條規則的詳細提示（包括已完成規則）")
     args = parser.parse_args()
+    if args.compact and args.detail_id:
+        parser.error("--compact 與 --detail-id 不可同時指定")
     if not 1 <= args.batch_size <= 70:
         parser.error("--batch-size 必須介於 1 到 70")
     target = args.target.resolve()
@@ -213,7 +232,8 @@ def main() -> int:
         if not path.is_file():
             raise FileNotFoundError(f"尚未建立 {path}；請使用 --init")
         payload = json.loads(path.read_text(encoding="utf-8"))
-        queue = build_queue(payload, rules, args.batch_size, source_root=target)
+        queue = build_queue(payload, rules, args.batch_size, source_root=target,
+                            compact=args.compact, detail_id=args.detail_id)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
