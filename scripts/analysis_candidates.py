@@ -85,9 +85,13 @@ def meaningful_source_excerpt(path: str, lines: list[str]) -> bool:
             continue
         if line.startswith(("#nullable", "#pragma")):
             continue
-        if (len(code) == 1 and Path(path).suffix.lower() in DOTNET_EXTENSIONS
-                and re.match(r"^(?:public|private|protected|internal)\s+.*\([^;{}]*\)\s*\{?$", line)):
-            continue
+        if len(code) == 1 and Path(path).suffix.lower() in DOTNET_EXTENSIONS:
+            if re.match(r"^(?:(?:public|private|protected|internal)\\s+)?(?:(?:static|abstract|sealed|partial)\\s+)*(?:class|interface|enum|record|struct)\\s+", line):
+                continue
+            if re.match(r"^(?:public|private|protected|internal)\\s+.*\\([^;{}]*\\)\\s*\\{?$", line):
+                continue
+            if re.match(r"^var\\s+builder\\s*=\\s*WebApplication\\.CreateBuilder\\s*\\(", line):
+                continue
         meaningful.append(line)
     return bool(meaningful)
 
