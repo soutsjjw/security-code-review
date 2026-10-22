@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import yaml
@@ -152,6 +153,16 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             if len(source_candidates) >= 15:
                 break
     rule_errors = completion_errors(checks) if not remaining else []
+    # 70/70 完成但證據品質不合格時，原佇列 next_checks 為空，Agent 容易停止。
+    # 從來源完整性／規則完整性錯誤抽取須重新核對的真實規則，不變更原始狀態。
+    ids_to_recheck: set[str] = set()
+    for diagnostic in [*integrity_errors, *rule_errors]:
+        ids_to_recheck.update(
+            match for match in re.findall(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b", diagnostic)
+            if match in master_ids
+        )
+    if not remaining and ids_to_recheck and detail_id is None:
+        selected = [rule for rule in rules if rule["id"] in ids_to_recheck][:batch_size]
     queue = {
         "total": 70,
         "tacert_v2_supplemental_items": 39,
@@ -178,6 +189,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "review_integrity_errors": integrity_errors[:20],
         "rule_integrity_errors": rule_errors[:30],
         "remaining_ids": [r["id"] for r in remaining],
+        "recheck_rule_ids": sorted(ids_to_recheck),
+        "recheck_reason_count": len(integrity_errors) + len(rule_errors),
         "next_checks": [{
             "id": r["id"],
             "title": r["title"],
@@ -222,6 +235,12 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         if remaining:
             queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
                                     "需要詳細規範時使用 --detail-id <規則ID>。逐檔紀錄與 Finding 仍不可省略。")
+        elif ids_to_recheck:
+            queue["instruction"] = (
+                "70 項執行紀錄雖已 completed，仍有實際程式碼證據／適用性檢查失敗。"
+                "請依 recheck_rule_ids、next_checks 與 next_source_paths 重新核實，"
+                "保留既有 Findings，不得只改寫判定理由或自動改成 Pass。"
+            )
     return queue
 
 
