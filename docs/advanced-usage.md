@@ -34,6 +34,14 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --
 python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
 ```
 
+對應來源可額外查詢保守的 .NET 安全規則候選（僅線索，並非資安結論）：
+
+```bash
+python "<SKILL_ROOT>/scripts/analysis_candidates.py" --source-root "<TARGET_ROOT>" --path "src/Web/Controllers/AccountController.cs"
+```
+
+若出現 `AC-04`、`IN-03`、`AU-09` 等候選，必須核對實作、呼叫端和資料流，將所有真正適用的規則建立多對多 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths` 關聯；不適用時可使用 `candidate_exclusions` 按規則記錄至少 40 字的具體理由。不可讓候選工具自行完成檢核。只有 `using`、註解、方法宣告的來源不算完成證據。缺外部佐證的 `review` 應指定缺少的工件和查核範圍，不得套用部署／政策／動態測試通用清單。
+
 精簡佇列只列待辦及搜尋候選，逐條檢核前以 `--detail-id` 取得所有標準對照。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
 
 執行器若提供實際 Token 數，可選擇寫入統計：
