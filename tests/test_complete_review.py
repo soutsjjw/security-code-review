@@ -43,7 +43,10 @@ class CompleteReviewTests(unittest.TestCase):
                         'artifact_id': f"INTEGRATION-{c['id']}",
                         'collected_on': '2026-10-18', 'source_version': 'fixture'
                     }]
-            (target / 'IdentityService.cs').write_bytes('// 中文註解：身份檢查\n'.encode('cp950'))
+            (target / 'IdentityService.cs').write_bytes(
+                ('options.ExpireTimeSpan = TimeSpan.FromMinutes(20);\\n'
+                 'options.Password.RequiredLength = 12;\\n'
+                 '// 中文註解：身份檢查\\n').encode('cp950'))
             a['file_reviews'] = [make_file_review(target, 'IdentityService.cs', ['AC-01', 'AU-01'])]
             a['scope_details'] = {'projects': [{'name': 'Identity', 'path': '.'}],
                                   'excluded_paths': [{'path': 'bin', 'reason': '建置輸出'}]}
@@ -59,7 +62,7 @@ class CompleteReviewTests(unittest.TestCase):
             next(c for c in a['checks'] if c['id'] == 'AU-01')['evidence'] = [{
                 'kind': 'source', 'description': '核對身分鑑別範例中的來源檔案及行號',
                 'collected_on': '2026-10-18', 'source_version': 'test',
-                'path': 'IdentityService.cs', 'line_start': 1, 'line_end': 1
+                'path': 'IdentityService.cs', 'line_start': 2, 'line_end': 2
             }]
             (output / 'assessment.json').write_text(json.dumps(a, ensure_ascii=False), encoding='utf-8')
             p = {'name':'整合測試系統', 'language_framework':'測試程式語言'}
