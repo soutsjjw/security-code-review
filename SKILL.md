@@ -128,6 +128,8 @@ argument-hint: "[專案路徑或檢核範圍]"
 1. 讀取 `standards/standards-register.yaml`、`policies/applicability-matrix.yaml` 與 `rules/{AC,AU,IN,CR,EH,LG,DP,PD,BC,SI}.yaml`，共 70 項；不得跳過、增加或重編 ID。
 2. 盤點 `TARGET_ROOT` 的語言、框架、認證授權、資料流、儲存、相依套件、部署與 CI/CD；根據 `profiles/project-profile.example.yaml` 辨識適用情境。排除 `.git/`、`reports/`、`.agents/skills/`、`.claude/skills/` 與生成物／相依套件目錄，避免把 Skill 本身當成受測程式碼；不要排除專案的 CI 設定。缺乏政策資料時不擅自決定法規適用級別。
 3. **必須按前述佇列迴圈逐項完成 70 項檢核，不能只填入 70 個 ID 或一律設為 review 就結束。** 依每條規則的 `inspection.search_targets`、`applicability` 與證據要求搜尋目標專案、追蹤程式碼呼叫鏈並核對組態；可分批掃描，但必須持續直到 70 項各自完成，才允許產製報告。一次呼叫應自動持續，不因找到高風險問題而暫停。每完成一組就將結果保存到受測專案的 `reports/security-code-review/assessment.json`，重新啟動時先載入已查核結果並僅補做尚未完成的 ID；不得憑空標記完成。
+   - **先查跨檔案候選**：在逐檔判斷 `file_reviews` 適用性時，可執行 `scripts/analysis_candidates.py --source-root <TARGET_ROOT> --path <來源相對路徑>`，取得保守的 .NET 安全規則候選；必須實際追查方法、資料流、呼叫鏈和相關設定，建立多對多關聯。同檔可屬多規則，同規則也可有多檔；不可各選一個代表檔案，亦不得機械式將所有候選判為 pass/review。若高信心候選經核對不適用，在該檔 `candidate_exclusions` 明確逐條記錄不適用原因，禁止複製制式文字。候選只是定位輔助，不保證資料流正確。
+   - **嚴格排除弱證據**：`using`、註解、單獨的方法／類別宣告、空括號及初始化入口等不可作為安全控制符合的唯一來源證據；需要可核查的實際控制邏輯、判斷分支或工件。 `review` 必須明確列出已執行的靜態步驟和本規則實際缺少的資料，不能套用「部署設定、正式政策、運作紀錄或動態測試」清單。
    - 對每項填寫 `execution: {state, methods, summary, inspected_paths?}`；掃描中為 `pending`，已實際執行檢核才標 `completed`，出現無法進行的真正錯誤標 `blocked`。
    - `status` 仍為 `pass`、`fail`、`review` 或 `na`。**pass**：已有足夠證據支持適用控制符合要求；**fail**：靜態程式碼已能證實弱點時建立 Finding，勿等待動態測試才判定；**review**：已完成可執行的靜態查核，但明列真正無法以來源判定的部署／政策／動態證據缺口；**na**：明確查證不適用及其控制責任。不得把所有靜態可判定的檢核預設為 review，也不得強制某個 pass/fail 比例。
    - **完成狀態必須具備逐條證據**：對 `pass/fail/review`，除了 `execution.inspected_paths`，每項 `checks[].evidence[]` 至少要有可定位的真實來源路徑與行號，或可追查的設定／測試／部署工件。單純把路徑掛在已完成規則、只有 `kind=other` 的空泛描述、或由搜尋字串推定安全結論，均不得標 `completed`。跨檔案證據須保持對應，重要否定性結論須說明搜尋與控制責任分析範圍。
