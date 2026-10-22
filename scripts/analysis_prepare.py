@@ -19,8 +19,8 @@ from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
 INDEX_VERSION = 1
-ROSLYN_VERSION = "roslyn-syntax-v1"
-CANDIDATE_VERSION = 1
+ROSLYN_VERSION = "roslyn-syntax-v2"
+CANDIDATE_VERSION = 2
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
 
@@ -81,6 +81,54 @@ def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list
             return {}, ["Roslyn 索引 JSON 無法解析"]
         data = {r["path"]: r for r in payload.get("files", []) if isinstance(r, dict) and "path" in r}
         return data, payload.get("errors", [])
+
+
+def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
+    """以 Roslyn 呼叫點／宣告名稱建立候選跨檔關聯；絕不聲稱已完成型別繫結。
+
+    未編譯整個 Solution 時同名方法仍有歧義，必須由 Agent 核實接收者類型。
+    """
+    from collections import defaultdict
+
+    declarations: dict[str, list[tuple[str, dict]]] = defaultdict(list)
+    for path, entry in indexed.items():
+        for method in entry.get("methods", []):
+            if isinstance(method, dict) and isinstance(method.get("name"), str):
+                declarations[method["name"]].append((path, method))
+    graph: dict[str, list[dict]] = {}
+    for path, entry in indexed.items():
+        hints: list[dict] = []
+        for call in entry.get("calls", []):
+            name = call.get("called_method")
+            if not isinstance(name, str):
+                continue
+            options = [
+                (target, method) for target, method in declarations.get(name, [])
+                if target != path
+            ]
+            if not options:
+                continue
+            receiver = call.get("receiver")
+            precise = [
+                (target, method) for target, method in options
+                if isinstance(receiver, str) and receiver == method.get("containing_type")
+            ]
+            matches = precise if precise else options
+            hints.append({
+                "caller_method": call.get("containing_method"),
+                "caller_line": call.get("line"),
+                "called_method": name,
+                "receiver": receiver,
+                "resolution": "receiver_type_name_hint" if precise else "name_only_ambiguous",
+                "candidate_count": len(matches),
+                "possible_targets": [
+                    {"path": target, "method": method["name"], "line": method.get("line")}
+                    for target, method in matches[:8]
+                ],
+            })
+        if hints:
+            graph[path] = hints[:200]
+    return graph
 
 
 def prepare(root: Path, mode: str = "full") -> dict:
@@ -147,6 +195,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     pending = [p for p in csharp if p not in reused]
     parsed, errors = _run_roslyn(root, pending, roslyn)
     indexed = {**reused, **parsed}
+    call_hints = cross_file_call_hints(indexed)
     # 變更的呼叫端/組態可能影響未變動來源；沒有受驗證依賴閉包前採保守重審。
     recheck = sorted(source) if changed or removed or not compatible or mode == "full" else []
     payload = {
@@ -154,6 +203,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "roslyn_version": ROSLYN_VERSION, "sdk_version": roslyn.get("sdk_version"),
         "candidate_version": CANDIDATE_VERSION, "rule_candidates": rule_candidates,
         "source_hashes": source, "roslyn_files": indexed,
+        "cross_file_call_hints": call_hints,
         "changed_paths": changed, "removed_paths": removed, "recheck_paths": recheck,
         "codegraph": codegraph, "roslyn": {k: v for k, v in roslyn.items() if k != "executable"},
         "roslyn_errors": errors,
@@ -173,6 +223,11 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "candidate_file_count": sum(bool(hits) for hits in rule_candidates.values()),
         "candidate_link_count": sum(len(hits) for hits in rule_candidates.values()),
         "candidate_reused_count": candidate_reused,
+        "cross_file_caller_count": len(call_hints),
+        "cross_file_callsite_count": sum(len(v) for v in call_hints.values()),
+        "cross_file_examples": [
+            {"path": path, "calls": calls[:3]} for path, calls in list(call_hints.items())[:5]
+        ],
         "candidate_examples": [
             {"path": path, "rule_ids": [hit["rule_id"] for hit in hits]}
             for path, hits in rule_candidates.items() if hits
