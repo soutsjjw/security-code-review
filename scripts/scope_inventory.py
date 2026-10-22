@@ -23,6 +23,7 @@ EXCLUDED_DIRS = {
     ".pytest_cache": "測試快取",
     "__pycache__": "測試快取",
     "reports": "產出報告",
+    ".codegraph": "CodeGraph 索引",
 }
 
 

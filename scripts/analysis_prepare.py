@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from analysis_adapters import ADAPTERS, probe_codegraph, probe_roslyn
-from scope_inventory import _default_rule, relative_path
+from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
 INDEX_VERSION = 1
@@ -27,7 +27,7 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
     excluded = excluded or []
     files: dict[str, str] = {}
     for current, dirs, names in os.walk(root, followlinks=False):
-        dirs[:] = [d for d in dirs if not (Path(current) / d).is_symlink()
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not (Path(current) / d).is_symlink()
                   and not _default_rule((Path(current) / d).relative_to(root).as_posix())
                   and not any((Path(current) / d).relative_to(root).as_posix() == p or
                               (Path(current) / d).relative_to(root).as_posix().startswith(p.rstrip("/") + "/")

@@ -2,6 +2,7 @@
 """技術分析器註冊與工具探測；探測結果不是安全審查證據。"""
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -43,19 +44,23 @@ class ModernDotNetAdapter:
     def detect(self, root: Path) -> dict:
         projects: list[dict] = []
         ignored = {".git", "bin", "obj", "node_modules", "reports", ".codegraph", ".agents", ".claude"}
-        for p in root.rglob("*.csproj"):
-            if any(part in ignored for part in p.relative_to(root).parts):
-                continue
-            try:
-                tfms = _tfms(p)
-            except (OSError, ET.ParseError) as exc:
-                tfms = []
-                error = str(exc)
-            else:
-                error = ""
-            is_modern = bool(tfms) and all(MODERN_TFMS.match(t) for t in tfms)
-            projects.append({"path": p.relative_to(root).as_posix(), "target_frameworks": tfms,
-                             "supported": is_modern, "reason": error or ("" if is_modern else "未知、非現代 .NET 或混合傳統 TFM")})
+        for current, directories, files in os.walk(root, followlinks=False):
+            directories[:] = [d for d in directories
+                              if d not in ignored and not (Path(current) / d).is_symlink()]
+            for filename in files:
+                if not filename.lower().endswith(".csproj"):
+                    continue
+                p = Path(current) / filename
+                try:
+                    tfms = _tfms(p)
+                except (OSError, ET.ParseError) as exc:
+                    tfms = []
+                    error = str(exc)
+                else:
+                    error = ""
+                is_modern = bool(tfms) and all(MODERN_TFMS.match(t) for t in tfms)
+                projects.append({"path": p.relative_to(root).as_posix(), "target_frameworks": tfms,
+                                 "supported": is_modern, "reason": error or ("" if is_modern else "未知、非現代 .NET 或混合傳統 TFM")})
         return {"adapter": self.name, "projects": sorted(projects, key=lambda p: p["path"]),
                 "supported": bool(projects) and all(p["supported"] for p in projects)}
 
