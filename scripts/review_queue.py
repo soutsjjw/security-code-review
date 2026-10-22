@@ -16,6 +16,8 @@ from datetime import date
 from pathlib import Path
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
+from analysis_candidates import candidate_hits
+from source_reader import read_source_text
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
@@ -135,6 +137,20 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     coverage = build_source_coverage(data, source_root) if source_root is not None else None
     unreviewed = coverage["missing_source_file_count"] if coverage else 0
     integrity_errors = coverage["review_integrity_errors"] if coverage else []
+    # 顯示下一批檔案的多條規則候選，協助 Agent 追查；候選不能自動算 completed。
+    source_candidates = []
+    if coverage and source_root is not None:
+        for path in coverage["missing_source_paths"][:30]:
+            try:
+                hits = candidate_hits(path, read_source_text(source_root / path)[0])
+            except (OSError, UnicodeError):
+                continue
+            if hits:
+                source_candidates.append({
+                    "path": path, "rule_ids": [hit["rule_id"] for hit in hits],
+                })
+            if len(source_candidates) >= 15:
+                break
     rule_errors = completion_errors(checks) if not remaining else []
     queue = {
         "total": 70,
@@ -158,6 +174,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "missing_by_type": coverage["missing_by_type"],
         } if coverage else None),
         "next_source_paths": coverage["missing_source_paths"][:30] if coverage else [],
+        "next_source_candidates": source_candidates,
         "review_integrity_errors": integrity_errors[:20],
         "rule_integrity_errors": rule_errors[:30],
         "remaining_ids": [r["id"] for r in remaining],
