@@ -77,7 +77,7 @@ RULE_EVIDENCE_SIGNALS = {
     "AU-08": r"\b(?:PasswordHasher|HashPassword|VerifyHashedPassword|PasswordHasherOptions|PasswordHash\s*=|PasswordVerificationResult)\b",
     "AU-09": r"\b(?:ValidateTwoFactor|TwoFactorSignIn|VerifyTwoFactor|VerifyTotp|CheckTotp|TotpEnabled|AuthenticatorSignIn|GenerateTwoFactorToken)\b",
     "IN-05": r"\b(?:ValidateAsync|ValidateAndThrow|ModelState\.IsValid|ValidationException|ValidationFailure|MustAsync|RuleFor)\b",
-    "IN-06": r"\b(?:IFormFile|\.Length\s*[<>]=?|\.ContentType|\.FileName|\.OpenReadStream|\.CopyToAsync|AllowedExtensions)\b",
+    "IN-06": r"(?:\bIFormFile\b|\.Length\s*[<>]=?|\.ContentType\b|\.FileName\b|\.OpenReadStream\b|\.CopyToAsync\b|\bAllowedExtensions\b)",
     "PD-07": r"\b(?:DeleteAsync|DeletePersonalData|RemoveRange|RemoveAsync|PurgeAsync|EraseAsync|ForgetUser|ExecuteDeleteAsync)\b",
     "SI-01": r"\b(?:permissions:|pull_request:|codeql|dependabot|security[-_]scan|sast|dependency[-_]review)\b",
 }
