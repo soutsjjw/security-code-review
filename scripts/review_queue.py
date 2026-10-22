@@ -161,7 +161,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             match for match in re.findall(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b", diagnostic)
             if match in master_ids
         )
-    if not remaining and ids_to_recheck and detail_id is None:
+    if not remaining and ids_to_recheck and source_root is not None and detail_id is None:
         selected = [rule for rule in rules if rule["id"] in ids_to_recheck][:batch_size]
     queue = {
         "total": 70,
