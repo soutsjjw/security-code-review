@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from source_reader import read_source_text
+from analysis_candidates import candidate_hits, meaningful_source_excerpt
 from review_completion import _template
 from scope_inventory import relative_path
 
@@ -51,6 +52,7 @@ def verified_file_rule_reviews(
     verified: dict[str, set[str]] = {}
     errors: list[str] = []
     seen: set[str] = set()
+    source_lines: dict[str, list[str]] = {}
     for index, row in enumerate(rows):
         label = f"file_reviews[{index}]"
         if not isinstance(row, dict):
@@ -73,7 +75,9 @@ def verified_file_rule_reviews(
         source_file = root / path
         try:
             content = source_file.read_bytes()
-            lines = read_source_text(source_file)[0].splitlines()
+            source = read_source_text(source_file)[0]
+            lines = source.splitlines()
+            source_lines[path] = lines
         except (OSError, UnicodeError) as exc:
             errors.append(f"{path}: 無法安全閱讀來源：{exc}")
             continue
@@ -157,6 +161,35 @@ def verified_file_rule_reviews(
                     faults.append(f"{rid}: 未同步登錄 completed 規則的 execution.inspected_paths")
         if recorded != selected:
             faults.append("category_screening.rule_ids 與逐條 rule_reviews 不一致")
+        # 語意候選僅用來發現「零規則」或遺漏關聯，不自動宣稱規則適用／符合。
+        # 確認不適用者可附具體逐條排除理由；不得以十類共用敘述取代。
+        signals = {hit["rule_id"]: hit for hit in candidate_hits(path, source)}
+        exclusions = row.get("candidate_exclusions", [])
+        excluded_candidates: set[str] = set()
+        if not isinstance(exclusions, list):
+            faults.append("candidate_exclusions 必須是逐條排除理由陣列")
+        else:
+            for exclusion in exclusions:
+                if not isinstance(exclusion, dict):
+                    faults.append("candidate_exclusions 內容必須是物件")
+                    continue
+                rid = exclusion.get("rule_id")
+                reason = exclusion.get("reason")
+                if not isinstance(rid, str) or rid not in signals or rid in selected:
+                    faults.append(f"不合法或已審查的候選排除 {rid!r}")
+                    continue
+                if rid in excluded_candidates:
+                    faults.append(f"{rid}: 候選排除理由重複")
+                excluded_candidates.add(rid)
+                if not isinstance(reason, str) or len(reason.strip()) < 40:
+                    faults.append(f"{rid}: 候選排除須具體說明已核對的控制責任及不適用原因（至少 40 字）")
+        for rid in sorted(signals.keys() - selected - excluded_candidates):
+            hit = signals[rid]
+            faults.append(
+                f"{rid}: 第 {hit['line']} 行有「{hit['signal']}」安全規則候選，"
+                "但未逐檔檢核；請追查呼叫鏈並加入 rule_reviews／inspected_paths，"
+                "或在 candidate_exclusions 逐條說明真正不適用的原因"
+            )
         if faults:
             errors.extend(f"{path}: {fault}" for fault in faults)
         else:
@@ -190,6 +223,41 @@ def verified_file_rule_reviews(
                         + "、".join(sorted(paths)[:3])
                     )
                     break
+
+    # 來源註解、using、空括號、純方法宣告不是有效的安全控制完成證據。
+    # 此處使用真實檔案內容（非 evidence.description 字串）驗證。
+    for check in assessment.get("checks", []):
+        rid = check.get("id", "?")
+        execution = check.get("execution") or {}
+        if execution.get("state") != "completed" or check.get("status") not in ("pass", "fail", "review"):
+            continue
+        source_evidence = [e for e in check.get("evidence", [])
+                           if isinstance(e, dict) and e.get("kind") == "source"]
+        non_source_evidence = any(
+            isinstance(e, dict) and e.get("kind") != "source"
+            and (e.get("path") or e.get("artifact_id"))
+            for e in check.get("evidence", [])
+        )
+        meaningful = False
+        for ev in source_evidence:
+            path = ev.get("path")
+            if path not in expected:
+                continue  # 其他來源路徑錯誤由 strict source 驗證器處理
+            if path not in completed.get(rid, set()):
+                errors.append(f"{rid}: 來源證據 {path} 未列入 execution.inspected_paths")
+            lines = source_lines.get(path)
+            start, end = ev.get("line_start"), ev.get("line_end")
+            if (lines is None or not isinstance(start, int) or isinstance(start, bool)
+                    or not isinstance(end, int) or isinstance(end, bool)
+                    or start < 1 or end < start or end > len(lines)):
+                continue  # 缺行號由既有 schema 和來源驗證處理
+            if meaningful_source_excerpt(path, lines[start - 1:end]):
+                meaningful = True
+        if source_evidence and not meaningful and not non_source_evidence:
+            errors.append(
+                f"{rid}: 完成證據僅包含 using／註解／宣告／空結構等無效來源片段；"
+                "須以實際控制實作或可追溯外部工件重新核對"
+            )
 
     # 禁止舊版批次掛路徑：每筆 inspected_paths 都須有逐檔實證與對應規則。
     orphaned = []
