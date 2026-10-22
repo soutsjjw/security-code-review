@@ -9,6 +9,13 @@ import re
 from collections import Counter, defaultdict
 
 PLACEHOLDERS = ("尚未執行", "尚未審查", "尚未檢核", "尚未分析", "未進行審查", "格式範例")
+# 泛稱所有外部資料皆缺少不等於明確指出「本規則」的證據缺口。
+GENERIC_REVIEW_GAPS = (
+    "部署設定、正式政策、運作紀錄或動態測試",
+    "部署、政策或動態測試",
+    "部署／政策／動態測試",
+)
+
 PENDING_WORDS = ("待確認", "尚待", "仍待", "缺少", "缺乏", "待補", "無法", "不能確認",
                  "未取得", "尚無", "不足", "待驗", "限制")
 # 尚未取得外部資料並非已完成靜態查核的替代證據。
@@ -88,6 +95,8 @@ def completion_errors(checks: list[dict], *, allow_demo: bool = False) -> list[s
                 errors.append(f"{rid}: review 須記錄已查核內容及無法確認原因")
             if not any(word in decision + summary for word in PENDING_WORDS):
                 errors.append(f"{rid}: review 未具體說明待補的外部／動態／政策證據")
+            if any(gap in decision for gap in GENERIC_REVIEW_GAPS):
+                errors.append(f"{rid}: review 使用制式外部證據清單；須明確指出本規則需要何種工件／環境及已確認的靜態範圍")
             repeated[(decision, summary)] += 1
         if status in ("pass", "fail", "review"):
             signatures[("執行摘要", _template(summary))].add(str(rid))
