@@ -70,7 +70,7 @@ class ReviewCompletionTests(unittest.TestCase):
     def test_70_completed_and_100pct_files_is_not_ready_without_rule_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "Auth.cs").write_text("// 測試授權條件\n", encoding="utf-8")
+            (root / "Auth.cs").write_text("options.ExpireTimeSpan = TimeSpan.FromMinutes(20);\n", encoding="utf-8")
             _, rules = load_rules()
             checks = [check(rule["id"], evidence=[]) for rule in rules]
             checks[0]["evidence"] = [{
