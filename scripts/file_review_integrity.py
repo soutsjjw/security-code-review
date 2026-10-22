@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from source_reader import read_source_text
-from analysis_candidates import candidate_hits, meaningful_source_excerpt
+from analysis_candidates import (candidate_hits, has_executable_control,
+                                 meaningful_source_excerpt, source_relevant_to_rule)
 from review_completion import _template
 from scope_inventory import relative_path
 
@@ -159,6 +160,14 @@ def verified_file_rule_reviews(
                     faults.append(f"{rid}: 佐證行號不存在或順序錯誤")
                 if rid not in completed or path not in completed[rid]:
                     faults.append(f"{rid}: 未同步登錄 completed 規則的 execution.inspected_paths")
+                if (check_by_id.get(rid, {}).get("status") in ("pass", "fail", "review")
+                        and isinstance(start, int) and isinstance(end, int)
+                        and 1 <= start <= end <= len(lines)
+                        and not source_relevant_to_rule(rid, path, lines[start - 1:end])):
+                    faults.append(
+                        f"{rid}: rule_reviews 第 {start}-{end} 行只有宣告／無關程式碼；"
+                        "請追查實際控制呼叫或設定，不能僅以行號和關鍵字作為審查證據"
+                    )
         if recorded != selected:
             faults.append("category_screening.rule_ids 與逐條 rule_reviews 不一致")
         # 語意候選僅用來發現「零規則」或遺漏關聯，不自動宣稱規則適用／符合。
@@ -166,6 +175,7 @@ def verified_file_rule_reviews(
         signals = {hit["rule_id"]: hit for hit in candidate_hits(path, source)}
         exclusions = row.get("candidate_exclusions", [])
         excluded_candidates: set[str] = set()
+        recorded_exclusion_reasons: list[tuple[str, str]] = []
         if not isinstance(exclusions, list):
             faults.append("candidate_exclusions 必須是逐條排除理由陣列")
         else:
@@ -183,6 +193,15 @@ def verified_file_rule_reviews(
                 excluded_candidates.add(rid)
                 if not isinstance(reason, str) or len(reason.strip()) < 40:
                     faults.append(f"{rid}: 候選排除須具體說明已核對的控制責任及不適用原因（至少 40 字）")
+                else:
+                    recorded_exclusion_reasons.append((rid, reason))
+                    if (has_executable_control(rid, path, source)
+                            and any(claim in reason for claim in
+                                    ("只有型別宣告", "僅有型別宣告", "沒有程式邏輯", "未實作控制", "沒有相關控制實作"))):
+                        faults.append(
+                            f"{rid}: 排除理由聲稱沒有控制邏輯，但來源包含相關的實際操作；"
+                            "須追查方法呼叫，不能將真正的安全檢查判為無直接適用"
+                        )
         for rid in sorted(signals.keys() - selected - excluded_candidates):
             hit = signals[rid]
             faults.append(
@@ -201,6 +220,7 @@ def verified_file_rule_reviews(
         template_groups: dict[str, dict[str, set[str]]] = {
             "逐檔摘要": defaultdict(set),
             "逐檔規則結論": defaultdict(set),
+            "候選排除理由": defaultdict(set),
         }
         for row in rows:
             if not isinstance(row, dict) or not isinstance(row.get("path"), str):
@@ -213,6 +233,10 @@ def verified_file_rule_reviews(
                 if isinstance(item, dict) and isinstance(item.get("reason"), str):
                     template = _template(item["reason"].replace(row["path"], "<PATH>"))
                     template_groups["逐檔規則結論"][template].add(row["path"])
+            for exclusion in row.get("candidate_exclusions", []):
+                if isinstance(exclusion, dict) and isinstance(exclusion.get("reason"), str):
+                    reason = exclusion["reason"].replace(row["path"], "<PATH>")
+                    template_groups["候選排除理由"][_template(reason)].add(row["path"])
         threshold = max(15, (len(rows) + 7) // 8)  # 八分之一以上高度同質輸出需要重新核對
         for kind, groups in template_groups.items():
             for paths in groups.values():
@@ -251,8 +275,14 @@ def verified_file_rule_reviews(
                     or not isinstance(end, int) or isinstance(end, bool)
                     or start < 1 or end < start or end > len(lines)):
                 continue  # 缺行號由既有 schema 和來源驗證處理
-            if meaningful_source_excerpt(path, lines[start - 1:end]):
-                meaningful = True
+            excerpt = lines[start - 1:end]
+            if not meaningful_source_excerpt(path, excerpt):
+                errors.append(f"{rid}: {path}:{start}-{end} 來源證據僅為 using／註解／宣告，不能證明規則已完成")
+                continue
+            if not source_relevant_to_rule(rid, path, excerpt):
+                errors.append(f"{rid}: {path}:{start}-{end} 引用程式碼與本規則的控制行為無關；需核對實際實作或掃描工件")
+                continue
+            meaningful = True
         if source_evidence and not meaningful and not non_source_evidence:
             errors.append(
                 f"{rid}: 完成證據僅包含 using／註解／宣告／空結構等無效來源片段；"
