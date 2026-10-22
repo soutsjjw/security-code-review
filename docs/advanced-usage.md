@@ -30,7 +30,7 @@ Windows PowerShell：
 Token 優化佇列：
 
 ```bash
-python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact --compact
+python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
 python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
 ```
 

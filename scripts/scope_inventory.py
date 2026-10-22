@@ -53,6 +53,8 @@ def relative_path(root: Path, raw: str, *, root_allowed: bool = False, directory
 def _default_rule(path: str) -> tuple[str, str] | None:
     parts = path.split("/")
     for i, part in enumerate(parts[:-1]):
+        if part.startswith(".codegraph-"):
+            return "**/.codegraph-*/", "CodeGraph 平台索引"
         if part in EXCLUDED_DIRS:
             return "**/" + part + "/", EXCLUDED_DIRS[part]
         if i + 1 < len(parts) - 1 and part in (".agents", ".claude") and parts[i + 1] == "skills":

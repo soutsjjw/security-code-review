@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-MODERN_TFMS = re.compile(r"^(?:netcoreapp[1-9]\d*(?:\.\d+)?|net(?:[5-9]|[1-9]\d)(?:\.\d+)?)(?:[-+].*)?$", re.I)
+MODERN_TFMS = re.compile(r"^(?:netcoreapp[1-9]\d*(?:\.\d+)?|net(?:[5-9]|[1-9]\d)\.\d+)(?:[-+].*)?$", re.I)
 LEGACY_TFMS = re.compile(r"^net(?:[1-4]\d{1,2}|framework)", re.I)
 
 

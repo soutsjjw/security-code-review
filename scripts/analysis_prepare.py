@@ -27,7 +27,7 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
     excluded = excluded or []
     files: dict[str, str] = {}
     for current, dirs, names in os.walk(root, followlinks=False):
-        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not (Path(current) / d).is_symlink()
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".codegraph-") and not (Path(current) / d).is_symlink()
                   and not _default_rule((Path(current) / d).relative_to(root).as_posix())
                   and not any((Path(current) / d).relative_to(root).as_posix() == p or
                               (Path(current) / d).relative_to(root).as_posix().startswith(p.rstrip("/") + "/")
