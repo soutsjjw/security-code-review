@@ -80,6 +80,20 @@ class AnalysisPrepareTests(unittest.TestCase):
                 result = probe_codegraph(Path(temp))
             self.assertFalse(result["available"])
 
+    def test_roslyn_with_real_sdk_when_available(self):
+        from analysis_adapters import probe_roslyn
+        if not probe_roslyn()["available"]:
+            self.skipTest("dotnet SDK 8+ not installed")
+        with tempfile.TemporaryDirectory() as temp:
+            root = self.make_dotnet(Path(temp))
+            with patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
+                result = prepare(root, "full")
+            self.assertEqual(result["roslyn_indexed_count"], 1, result["roslyn_errors"])
+            self.assertFalse(result["roslyn_errors"])
+            index = json.loads((root / INDEX_NAME).read_text("utf-8"))
+            self.assertIn("Service", [i["name"] for i in index["roslyn_files"]["Service.cs"]["types"]])
+            self.assertIn("Run", [i["name"] for i in index["roslyn_files"]["Service.cs"]["methods"]])
+
     def test_usage_metrics_accept_observed_only(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "reports/security-code-review/analysis/token-usage.jsonl"
