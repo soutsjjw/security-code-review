@@ -665,7 +665,26 @@
             },
             "additionalProperties": false
           },
-          "rule_reviews": {
+          "candidate_exclusions": {
+          "type": "array",
+          "description": "語意候選確實不適用時逐條記錄理由；不可由工具自動填寫",
+          "items": {
+            "type": "object",
+            "required": ["rule_id", "reason"],
+            "properties": {
+              "rule_id": {
+                "type": "string",
+                "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 40
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "rule_reviews": {
             "type": "array",
             "items": {
               "type": "object",
