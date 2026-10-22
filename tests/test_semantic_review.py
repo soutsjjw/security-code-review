@@ -79,7 +79,7 @@ class SemanticSecurityReviewTests(unittest.TestCase):
         self.assertFalse(source_relevant_to_rule(
             "AU-09", "AccountController.cs", ["private readonly IJwtTokenService _jwtTokenService;"]))
         self.assertTrue(source_relevant_to_rule(
-            "IN-06", "ProductImageValidator.cs", ["if (upload.Length > limit) throw new ValidationException();"]))
+            "IN-06", "ProductImageValidator.cs", ["if (upload.Length > limit) return BadRequest();"]))
 
     def test_file_level_rule_review_rejects_weak_evidence_even_if_check_has_valid_evidence(self):
         source = "using Microsoft.AspNetCore.Http;\nif (upload.Length > limit) throw new ValidationException();\n"
