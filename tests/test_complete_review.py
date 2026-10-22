@@ -48,6 +48,7 @@ class CompleteReviewTests(unittest.TestCase):
                  'options.Password.RequiredLength = 12;\n'
                  '// 中文註解：身份檢查\n').encode('cp950'))
             a['file_reviews'] = [make_file_review(target, 'IdentityService.cs', ['AC-01', 'AU-01'])]
+            a['file_reviews'][0]['rule_reviews'][1].update(line_start=2, line_end=2)
             a['scope_details'] = {'projects': [{'name': 'Identity', 'path': '.'}],
                                   'excluded_paths': [{'path': 'bin', 'reason': '建置輸出'}]}
             (target / 'bin').mkdir()
