@@ -25,6 +25,8 @@ Windows PowerShell：
 & "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
 ```
 
+這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的 `next_source_candidates` 顯示下一批缺少有效逐檔審查紀錄的檔案及其候選規則。
+
 這一步偵測 CodeGraph 與 .NET SDK 8+ 的 Roslyn。CodeGraph 須先由使用者在受測專案執行 `codegraph init`；缺少 CodeGraph／SDK 時只退回既有搜尋與人工分析，**不得視為已執行 Roslyn 或完整 SAST**。Roslyn 只提供 C# syntax tree 的 types、methods 與 invocation 候選（非跨方法污點證明）；Agent 仍要核對程式碼及配置。增量快取只共用相同 SHA256 與相同分析器版本的結構資料，不沿用過期安全結論。
 
 Token 優化佇列：
