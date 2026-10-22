@@ -22,7 +22,7 @@ DOTNET_SIGNALS: tuple[tuple[str, str, str], ...] = (
     ("AU-01", r"\b(?:PasswordOptions\b|Password\.RequireDigit\b|Password\.RequiredLength\b|Password\.RequireUppercase\b)", "密碼強度設定"),
     ("AU-03", r"\b(?:LockoutOptions\b|Lockout\.MaxFailedAccessAttempts\b|AccessFailedAsync\s*\()", "帳號鎖定控制"),
     ("AU-05", r"\b(?:Turnstile|Recaptcha|Captcha|VerifyTurnstileAsync)\b", "人機驗證"),
-    ("AU-09", r"\b(?:Totp|TwoFactor|AuthenticatorTokenProvider)\b", "多因素認證"),
+    ("AU-09", r"\b(?:\w*Totp\w*|TwoFactor\w*|AuthenticatorTokenProvider)\b", "多因素認證"),
     ("IN-01", r"\b(?:FromSqlRaw|ExecuteSqlRaw|SqlCommand)\s*\(", "SQL 查詢入口"),
     ("IN-03", r"\b(?:ValidateAntiForgeryToken|AutoValidateAntiforgeryToken|AntiForgeryToken)\b", "CSRF Token"),
     ("IN-05", r"\b(?:IValidator\s*<|ValidationBehaviour\b|ModelState\.IsValid\b)", "伺服端驗證"),
