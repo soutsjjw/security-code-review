@@ -13,11 +13,14 @@ import tempfile
 from pathlib import Path
 
 from analysis_adapters import ADAPTERS, probe_codegraph, probe_roslyn
+from analysis_candidates import DOTNET_EXTENSIONS, candidate_hits
+from source_reader import read_source_text
 from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
 INDEX_VERSION = 1
 ROSLYN_VERSION = "roslyn-syntax-v1"
+CANDIDATE_VERSION = 1
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
 
@@ -125,6 +128,21 @@ def prepare(root: Path, mode: str = "full") -> dict:
     old_entries = previous.get("roslyn_files", {}) if compatible else {}
     if not isinstance(old_entries, dict):
         old_entries = {}
+    # 結構快取僅重用與來源 SHA256 相同的候選訊號，從不重用安全結論。
+    old_candidates = (previous.get("rule_candidates", {})
+                      if compatible and previous.get("candidate_version") == CANDIDATE_VERSION else {})
+    if not isinstance(old_candidates, dict):
+        old_candidates = {}
+    rule_candidates: dict[str, list[dict]] = {}
+    candidate_reused = 0
+    for path in source:
+        if Path(path).suffix.lower() not in DOTNET_EXTENSIONS:
+            continue
+        if old_hashes.get(path) == source[path] and path in old_candidates:
+            rule_candidates[path] = old_candidates[path]
+            candidate_reused += 1
+        else:
+            rule_candidates[path] = candidate_hits(path, read_source_text(root / path)[0])
     reused = {p: old_entries[p] for p in csharp if p not in changed and p in old_entries}
     pending = [p for p in csharp if p not in reused]
     parsed, errors = _run_roslyn(root, pending, roslyn)
@@ -134,6 +152,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     payload = {
         "schema_version": INDEX_VERSION, "adapter": adapter.name, "mode": mode,
         "roslyn_version": ROSLYN_VERSION, "sdk_version": roslyn.get("sdk_version"),
+        "candidate_version": CANDIDATE_VERSION, "rule_candidates": rule_candidates,
         "source_hashes": source, "roslyn_files": indexed,
         "changed_paths": changed, "removed_paths": removed, "recheck_paths": recheck,
         "codegraph": codegraph, "roslyn": {k: v for k, v in roslyn.items() if k != "executable"},
@@ -151,6 +170,13 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "removed_file_count": len(removed), "recheck_file_count": len(recheck),
         "recheck_paths": recheck[:30], "roslyn_indexed_count": len(indexed),
         "roslyn_reused_count": len(reused), "roslyn_errors": errors[:10],
+        "candidate_file_count": sum(bool(hits) for hits in rule_candidates.values()),
+        "candidate_link_count": sum(len(hits) for hits in rule_candidates.values()),
+        "candidate_reused_count": candidate_reused,
+        "candidate_examples": [
+            {"path": path, "rule_ids": [hit["rule_id"] for hit in hits]}
+            for path, hits in rule_candidates.items() if hits
+        ][:12],
         "codegraph": codegraph, "roslyn": payload["roslyn"],
         "index_path": INDEX_NAME, "complete_security_review": False,
         "notice": "必須繼續執行 70 項實際檢核、逐檔取證與原有完整性驗證。"
