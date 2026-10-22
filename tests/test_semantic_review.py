@@ -82,7 +82,7 @@ class SemanticSecurityReviewTests(unittest.TestCase):
             "IN-06", "ProductImageValidator.cs", ["if (upload.Length > limit) return BadRequest();"]))
 
     def test_file_level_rule_review_rejects_weak_evidence_even_if_check_has_valid_evidence(self):
-        source = "using Microsoft.AspNetCore.Http;\nif (upload.Length > limit) throw new ValidationException();\n"
+        source = "using Microsoft.AspNetCore.Http;\nif (upload.Length > limit) return BadRequest();\n"
         self.write("ProductImageValidator.cs", source)
         data = self.assess("ProductImageValidator.cs", "IN-06", rule_line=1, evidence_line=2)
         coverage = build_source_coverage(data, self.root)
