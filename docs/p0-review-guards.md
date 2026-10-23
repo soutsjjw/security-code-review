@@ -66,6 +66,8 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 - `semantic_dispatch_candidate`：介面／虛擬呼叫，仍可能有 DI、動態分派等其他實作。
 - `receiver_type_candidate`：接收者型別名稱限縮的候選。
 - `name_only_ambiguous`：僅憑方法名稱／參數數量的多個候選，**不可直接確認**。
+- `dispatch_requires_manual_search`：Roslyn 找到介面／虛擬宣告但沒有可定位的跨檔實作；保留未解呼叫點，Agent 必須自行查找註冊、覆寫、動態代理與外部實作。
+
 - Roslyn／CodeGraph 不可用時，保留原始碼追查責任；索引無候選不等於無跨檔依賴。
 
 新索引下，`cross_file`／`project` 規則要在原本 `closures` 中加入與規則實際相關的 `callsite_reviews`；只需追查真正相關的呼叫點，但不可把索引未覆蓋到的反射／Factory／動態代理當作已確認安全。
