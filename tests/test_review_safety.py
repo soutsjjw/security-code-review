@@ -113,7 +113,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
                 "status": "review", "summary": "已核對所有 csproj 與集中套件版本但需外部弱點資料",
                 "examined_paths": ["Api.csproj", "Auth/Auth.csproj"],
                 "control_owner": "套件管理與維運責任",
-                "search_summary": "已檢查兩個專案的套件參考與版本登錄範圍",
+                "search_summary": "已檢查 Api 與 Auth 兩個專案的套件參考、版本設定、集中套件清單與弱點掃描工件位置",
                 "examined_relationship_ids": dp_ids, "open_issues": []},
         })
         self.assertEqual(closure_errors(self.root, self.assessment), [])
