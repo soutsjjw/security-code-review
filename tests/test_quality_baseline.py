@@ -216,6 +216,30 @@ class QualityBaselineTests(unittest.TestCase):
             (assessment_dir / "assessment.json").write_text(json.dumps(raw), encoding="utf-8")
             self.assertEqual(assessment_predictions(root, self.catalog)["cases"], [])
 
+    def test_nonexistent_finding_id_does_not_count_as_real_finding(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            materialize(root, self.catalog)
+            case = next(x for x in self.catalog["cases"] if x["expected_status"] == "fail")
+            target = root / case["id"] / "reports/security-code-review"
+            target.mkdir(parents=True)
+            target.joinpath("assessment.json").write_text(json.dumps({
+                "checks": [{"id": case["rule_id"], "status": "fail",
+                            "finding_ids": ["does-not-exist"],
+                            "execution": {"state": "completed",
+                                          "inspected_paths": case["required_paths"]},
+                            "evidence": [{"kind": "source", "path": case["anchor"]["path"],
+                                          "line_start": 1, "line_end": 1}]}],
+                "findings": []
+            }), encoding="utf-8")
+            predictions = assessment_predictions(root, self.catalog)
+            self.assertFalse(predictions["cases"][0]["finding"])
+            result = evaluate(self.catalog, predictions)
+            detail = next(x for x in result["cases"] if x["case_id"] == case["id"])
+            self.assertTrue(detail["status_match"])
+            self.assertFalse(detail["finding_match"])
+            self.assertFalse(detail["passed"])
+
     def test_cli_writes_machine_readable_evaluation_and_returns_nonzero_on_regression(self):
         with tempfile.TemporaryDirectory() as temp:
             predictions = self.make_perfect_predictions()
