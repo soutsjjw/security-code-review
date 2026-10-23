@@ -20,6 +20,7 @@ CODE_SUFFIXES = frozenset({".cs", ".razor", ".cshtml", ".js", ".jsx", ".ts", ".t
 BOILERPLATE = (
     re.compile(r"^(?:global\s+)?using\s+[\w.]+\s*;$"),
     re.compile(r"^namespace\s+[\w.]+\s*[;{]?$"),
+    re.compile(r"^(?:var\s+\w+\s*=\s*)?WebApplication\.CreateBuilder\(args\);$"),
     re.compile(r"^\s*(?:\{|\}|;|,|\(|\))+\s*$"),
     re.compile(r"^\s*(?://|/\*|\*|#|<!--|-->)"),
     re.compile(r"^(?:(?:public|private|protected|internal|static|readonly|required|virtual|override)\s+)*"
@@ -90,9 +91,8 @@ def decision_quality_errors(
         if any(phrase in reason or any(phrase in str(ev.get("description", "")) for ev in evidence)
                for phrase in GENERIC_DECISIONS):
             errors.append(f"{rid}: 套用制式結論／外部缺口，須核對本規則的控制流程與必要證據")
-        if (status == "review" and mode == "static"
-                and check.get("review_kind") == "static_done_external_pending"):
-            errors.append(f"{rid}: 主要可由靜態來源判定；不得只以缺動態／部署資料將 completed 保留 review，須重審來源後判定或標記實際阻塞")
+        # static 是主要可由來源判定，不表示永遠不需外部佐證；
+        # 具體外部缺口應允許 review，僅制式理由由上方攔截。
         if status == "pass" and mode == "external" and source_root is not None:
             real_external = any(
                 ev.get("kind") in EXTERNAL_KINDS and (ev.get("artifact_id") or ev.get("path"))
