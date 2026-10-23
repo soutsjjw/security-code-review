@@ -135,7 +135,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
         self.assertEqual((self.report / "assessment.json").read_bytes(), original)
         result = integrate(self.root)
         self.assertEqual(result["checks"], 1)
-        self.assertEqual(json.loads((self.report / "assessment.json").read_text())["checks"][0]
+        self.assertEqual(json.loads((self.report / "assessment.json").read_text(encoding="utf-8"))["checks"][0]
                          ["execution"]["state"], "completed")
         changed = dict(updated)
         changed["status"] = "fail"
