@@ -101,6 +101,8 @@ V3.2 主文件與附件保留 **ASP.NET／.NET、IIS 與通用 Web 安全要求�
 
 詳細來源及檢核目錄請見 [規範登錄](standards/standards-register.yaml)、[70 項規則](docs/70-rules-standardized.md)。
 
+標準專屬審查指引已從 `SKILL.md` 拆分到 `docs/`：[TACERT V2](docs/tacert-v2-review.md)、[OWASP 2025](docs/owasp-top10-2025-review.md)、[防護基準 V1.3](docs/system-baseline-v1.3-review.md)、[WEB 指引 V3.2](docs/web-guide-v3.2-review.md)、[附件 1](docs/web-guide-v3.2-appendix1-review.md)、[附件 3](docs/web-guide-v3.2-appendix3-review.md)。Agent 執行 `review_queue.py --detail-id <規則ID>` 後，依 `standard_documents` 載入該規則實際對應的文件；共同證據、Pass／Fail／Review／N/A 與交付硬性規則仍以 `SKILL.md` 為準。
+
 ## 報告與審查狀態
 
 正式結果保存在**受測專案**，不寫入 Skill 目錄：
