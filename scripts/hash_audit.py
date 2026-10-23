@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from scope_inventory import relative_path
-from source_reader import canonical_bytes, digest_matches, source_digest
+from source_reader import digest_matches, source_digest
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
