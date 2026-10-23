@@ -98,6 +98,33 @@ class P1CallchainTests(unittest.TestCase):
         self.assertEqual(len(hints), 2)
         self.assertNotEqual(hints[0]["id"], hints[1]["id"])
 
+    def test_local_symbol_does_not_invent_unrelated_cross_file_call(self):
+        indexed = {
+            "Caller.cs": {"methods": [{"name": "Run", "line": 1}],
+                          "calls": [{
+                              "called_method": "Run", "line": 6, "argument_count": 0,
+                              "semantic_state": "symbol_candidate",
+                              "semantic_targets": [{"path": "Caller.cs", "line": 1,
+                                                     "method": "Run"}]
+                          }]},
+            "Unrelated.cs": {"methods": [{"name": "Run", "line": 4}], "calls": []},
+        }
+        self.assertEqual(cross_file_call_hints(indexed), {})
+
+    def test_dispatch_without_local_implementation_stays_unresolved(self):
+        indexed = {
+            "Caller.cs": {"methods": [], "calls": [{
+                "called_method": "Authorize", "line": 4, "argument_count": 1,
+                "semantic_state": "dispatch_candidate",
+                "semantic_targets": [{"path": "Caller.cs", "method": "Authorize", "line": 1}]
+            }]},
+            "Unrelated.cs": {"methods": [], "calls": []},
+        }
+        call = cross_file_call_hints(indexed)["Caller.cs"][0]
+        self.assertEqual(call["resolution"], "dispatch_requires_manual_search")
+        self.assertEqual(call["possible_targets"], [])
+        self.assertTrue(call["requires_manual_verification"])
+
     def test_unresolved_callsite_blocks_closure_until_manual_review(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
