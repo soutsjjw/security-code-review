@@ -138,6 +138,8 @@ Windows PowerShell 對應指令：
 
 首次執行可先用 `sh "<SKILL_ROOT>/scripts/run-python.sh" --check`（Windows：`& "<SKILL_ROOT>\scripts\run-python.cmd" --check`）唯讀檢查 Python 3.10+ 和相依套件。啟動器會依序嘗試 `python`、`python3`、`py -3`；若不可用，保留既有進度並回報安裝指令，不自動安裝。
 
+**按需載入標準文件（P5）**：`--compact` 只回傳精簡待辦；每條規則仍須呼叫 `review_queue.py --target "<TARGET_ROOT>" --detail-id <規則ID>`，依輸出 `next_checks[].standard_documents` 的路徑（相對 `SKILL_ROOT`）實際讀取對應的 `docs/*.md`。同一執行工作階段已讀且未變更的文件可重用；對照多項標準時須讀全數對應文件，並依 YAML 規則與真實來源執行查核。標準文件缺失時不可把該對照宣稱為已審查；共同結論限制以 [SKILL.md](../SKILL.md) 為準。
+
 1. 若受測專案已存在 `assessment.json`，先讀取並保留原有 Finding、證據及完成進度；否則才建立 70 項待審查草稿。
 2. 依 `next_checks` 清單逐條搜尋程式碼、追蹤呼叫鏈及組態，記錄真實檔案路徑、行號、方法、證據與理由。
 3. 每項審查後記錄 `execution.state`（`pending`、`completed`、`blocked`）以及 `status`（`pass`、`fail`、`review`、`na`）；**不能因待辦清單列出某規則就當作完成**。
