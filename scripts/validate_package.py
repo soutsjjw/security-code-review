@@ -23,6 +23,13 @@ if assessment_schema['properties']['ruleset_version'].get('enum')!=['2.0.0','2.0
  errors.append('assessment schema must support stable v2.0.0 and prior rc1 progress')
 
 ids=[r['id'] for r in j['rules']]
+from review_safety import rule_scopes
+try:
+ scopes=rule_scopes()
+ if set(scopes)!=set(ids) or any(mode not in ('local','cross_file','project') for mode in scopes.values()):
+  errors.append('P0 review scope policy must cover exact 70 rule IDs')
+except (ValueError,OSError,KeyError,TypeError) as exc:
+ errors.append(f'invalid P0 review scope policy: {exc}')
 if len(ids)!=len(set(ids)):errors.append('duplicate rule IDs')
 category_expected={'AC':8,'AU':10,'IN':8,'CR':6,'EH':6,'LG':10,'DP':4,'PD':8,'BC':7,'SI':3}
 counts=Counter(r['category'] for r in j['rules'])
