@@ -68,16 +68,23 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 ## Codex 可選 `/goal` 完整審查指令
 
-在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入：
+在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
 
 ```text
 /goal 使用 $security-code-review Skill，對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
 
+前置：
+
+- 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
+- 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
+- 維持單代理執行，不啟動子代理或平行審查；保留六項 P0 完整性守門。
+
 完成條件：
 
-0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求。增量只重用結構證據，若來源有變更，保守重查受影響安全結論。
+0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
+   - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
 
-1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。
+1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
 
 2. 逐檔實際閱讀程式碼，依 rules.json 的全部 70 條規則判斷適用性：
    - 不得只依檔名、關鍵字或 Regex 判定完成。
@@ -85,32 +92,40 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - 不得預設使用 XX-01 或 SI-01。
    - 追蹤適用的程式碼、呼叫鏈、資料流及設定。
    - 一個檔案可關聯多條適用規則，但不得為增加數量而建立無依據的關聯。
+   - 每個檔案完成十類適用性篩選；無直接適用項目仍須提出已核對的控制責任及理由，不得制式填入「無直接適用」。
 
 3. 對每項適用規則實際執行靜態安全分析：
    - 驗證安全控制的實作及有效性。
    - 檢查可能的攻擊路徑、繞過條件與弱點。
    - 記錄具體來源路徑、行號、檢查內容、證據及判定理由。
    - 搜尋或關鍵字命中只能作為分析線索，不能視為已完成檢核。
+   - 追查跨檔／全專案規則的必要控制鏈、組態覆寫及責任元件；補查任務未完成時，不得提前標記 completed。
 
-4. 依實際證據判定結果：
-   - pass：證據足以支持符合適用的檢核要求。
-   - fail：發現有證據支持的安全弱點，建立 Finding。
-   - review：已完成可執行的靜態分析，但仍缺少必要外部證據。
-   - na：有具體證據及理由確認不適用。
-   - 不得預設所有檢核為 review。
-   - 不得僅因未執行動態測試，就把所有靜態可判定項目設為 review。
+4. 依實際證據判定結果（遵循 SKILL.md「判定階梯」，先判斷可證實的缺陷）：
+   - pass：控制已由實際控制邏輯、設定與呼叫鏈證實有效，且符合該規則 pass_condition。
+   - fail：來源、設定或呼叫鏈已證實缺陷、規則間矛盾、不安全預設值，或儲存庫中應有的控制不存在（須記錄搜尋範圍及責任分析）；建立 Finding。
+   - review：僅限部署拓撲、營運與制度紀錄、儲存庫外平台設定、manual_boundary 確實阻斷結論的事項，或已嘗試執行但因環境失敗而無法取得的必要掃描結果。decision_reason 須先寫程式碼已判定的部分，再以「待確認：」指名具體工件與缺口，並依規定填寫 review_kind。
+   - na：有具體證據及理由確認不適用，且已核對控制責任歸屬。
+   - 下列情形不得標 review：缺測試（含重放、邊界、整合、授權測試）；缺角色或 ownership 矩陣（須自行讀碼建立）；自承尚未完成的資料流或 Handler 盤點；decision_reason 已寫出缺陷或矛盾。
+   - 靜態控制成立但缺測試／文件時，依控制實際情形判 pass 或 fail，於 decision_reason 說明缺口；不得因此 review。
+   - 標記 review 前須通過 SKILL.md 的三題自檢。review 比例超過 40% 須逐條重審，不能以比例機械改判。
+   - 不得預設所有檢核為 review，也不得僅因未執行動態測試就把靜態可判定項目設為 review。
 
 5. 保留既有 assessment.json、file_reviews、Findings 及所有證據。
    - 對缺乏實質分析的既有 completed 紀錄重新查核。
+   - 既有 status=review 的項目，一律依新版判定階梯重新判定；能改為 pass 或 fail 者須更新 status、decision_reason 與必要 Finding，保留原有證據，不得刪除。
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
+   - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
 
-6. 每批先以 review_safety.py --stage 暫存並 --integrate 保存真實審查結果；完成跨檔與全專案結案後，持續執行直到：
+6. 每批保存真實審查結果，持續執行直到：
    - 70 項規則均已實際完成。
    - source_coverage.missing_source_file_count = 0。
-   - review_integrity_errors 為空。
+   - review_integrity_errors 與 rule_integrity_errors 均為空。
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
+   - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
+   - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
    - review_queue.py 回傳 ready_for_report=true。
    - 所有完成判定均有足夠的真實檢核依據。
 
@@ -120,9 +135,13 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - 是否存在只有關鍵字分類、沒有實質分析的紀錄。
    - 是否有已知弱點未建立 Finding。
    - 是否有已標記 completed 但沒有足夠查核證據的規則。
+   - 是否有 decision_reason 同時描述缺陷或矛盾卻標為 review。
+   - 是否有 review 理由只是「缺測試」或「缺矩陣」。
+   - 是否有 review 未以「待確認：」指名具體工件。
+   - 是否有全專案控制缺席、版本不一致、跨檔證據或 Finding 衝突仍未處理。
    發現上述問題時，必須重新執行相關檢核，不得只修改 JSON 以通過驗證。
 
-8. 完成後執行 complete_review.py，成功產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論。
+8. 完成後執行 complete_review.py，成功產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論，並維持相關規範及附件的獨立查證要求。
 
 9. 只有真正無法繼續的執行錯誤或資源限制才能停止。停止時保留既有進度及 Findings，明確列出尚未完成的工作，不得宣稱已完成全部審查。
 
