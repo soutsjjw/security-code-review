@@ -25,6 +25,40 @@ def _master_rules() -> dict[str, str]:
     return {rule["id"]: rule["id"].split("-")[0] for rule in rules}
 
 
+def repeated_screening_reason_errors(rows: list[Any]) -> list[str]:
+    """偵測零逐條規則檔案的大量跨檔制式篩選理由，避免十類勾選被誤認為實際檢核。"""
+    zero_rule = [row for row in rows if isinstance(row, dict)
+                 and isinstance(row.get("rule_reviews"), list) and not row["rule_reviews"]
+                 and isinstance(row.get("path"), str)]
+    if not zero_rule:
+        return []
+    groups: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for row in zero_rule:
+        screening = row.get("category_screening") or {}
+        if not isinstance(screening, dict):
+            continue
+        for category in CATEGORIES:
+            entry = screening.get(category)
+            if not isinstance(entry, dict) or entry.get("rule_ids"):
+                continue
+            reason = entry.get("reason")
+            if isinstance(reason, str) and reason.strip():
+                template = _template(reason.strip().replace(row["path"], "<PATH>"))
+                groups[(category, template)].add(row["path"])
+    # 比較相同類別的跨檔敘述，不誤把單一檔案十類理由相同當作此處的問題。
+    threshold = max(12, (len(zero_rule) + 7) // 8)
+    errors = []
+    for (category, _), paths in sorted(groups.items()):
+        if len(paths) >= threshold:
+            examples = "、".join(sorted(paths)[:3])
+            errors.append(
+                f"{category}: {len(paths)}/{len(zero_rule)} 個無 rule_reviews 檔案共用"
+                f"相同類別篩選理由模板（門檻 {threshold}）；例：{examples}。"
+                "須依來源與控制責任重新判斷，不得套用預設句，也不能以抽樣直接聲稱全數完成"
+            )
+    return errors
+
+
 def verified_file_rule_reviews(
     assessment: dict[str, Any], root: Path, expected: set[str],
 ) -> tuple[dict[str, set[str]], list[str]]:
@@ -212,6 +246,8 @@ def verified_file_rule_reviews(
             errors.extend(f"{path}: {fault}" for fault in faults)
         else:
             verified[path] = recorded
+
+    errors.extend(repeated_screening_reason_errors(rows))
 
     # 批次模板只變換行數或 ID 不能代替真實的逐檔分析。
     # 這不是最低關聯規則數門檻：一個檔案可以只有零或一個適用規則。
