@@ -19,6 +19,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 from source_reader import DEFAULT_LEGACY_ENCODINGS, read_source_text
 from review_completion import completion_errors
+from review_decision import decision_quality_errors
 from scope_inventory import build_scope_inventory
 from source_coverage import build_source_coverage
 
@@ -190,6 +191,8 @@ def validate_data(
             result.errors.append('assessment.ruleset_version 與 rules.json 的規則版本不符')
 
     result.errors.extend(completion_errors(assessment['checks'], allow_demo=allow_demo))
+    if not allow_demo:
+        result.errors.extend(decision_quality_errors(assessment['checks'], source_root=source_root))
     if 'system_baseline' in data:
         result.errors.extend(validate_system_baseline(data['project'], data['system_baseline']))
     if 'web_guide_v32' in data:
