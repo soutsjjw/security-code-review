@@ -218,6 +218,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="列出受測目錄的 .csproj，供填寫 scope_details.projects")
     parser.add_argument("--target", type=Path, required=True)
     args = parser.parse_args()
+    # JSON CLI 固定輸出 UTF-8；Windows 重新導向 stdout 時的系統預設可能是 cp950。
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(detect_projects(args.target), ensure_ascii=False, indent=2))
     return 0
 
