@@ -6,7 +6,7 @@
 
 1. 原有環境檢查與 `analysis_prepare.py --target <TARGET_ROOT> --mode full` 執行一次，建立 `analysis/structure-index.json` 和 `analysis/review-snapshot.json`。
 2. 執行 `review_safety.py --target <TARGET_ROOT> --plan`，取得**全部 70 項**的查核範圍。即使沒有來源命中，`project` 項目仍須查核控制責任、完整檔案清單及外部工件；不能因為找不到程式碼就直接 `na`。
-3. 維持逐檔完整適用性篩選。 `typed_relationships` 額外提供 DI、設定引用、Endpoint 授權、Middleware 管線、跨專案引用及 Roslyn 方法候選。所有 `resolution=candidate_only`，必須由 Agent 閱讀來源確認；反射、動態 DI、環境覆寫、外部 Proxy 等未被索引證實的路徑須主動追查。
+3. 維持逐檔完整適用性篩選。 `typed_relationships` 額外提供 DI、設定引用、Endpoint 授權、Middleware 管線、跨專案引用及 Roslyn 方法候選。所有 `resolution=candidate_only`，即使 Roslyn 顯示語意符號匹配仍必須由 Agent 閱讀來源確認；反射、動態 DI、環境覆寫、外部 Proxy 等未被索引證實的路徑須主動追查。
 4. 審查中先產生獨立批次 JSON，透過 `--stage` 暫存、`--integrate` 整合。不能直接以暫存資料宣稱規則 completed，也不能以沒有衝突表示安全控制有效。單代理仍可每一檔／每批依序處理。
 5. 對每條 `cross_file`／`project` 規則建立人工核對的 `closures`，記錄責任歸屬、全域搜尋、實際追查的來源、關聯候選與尚未關閉的補查任務；待任務都完成才可結案。 `local` 規則仍須依既有控制及來源證據確認全案適用性。
 6. 執行 `review_safety.py --target <TARGET_ROOT> --validate`，然後由原有 `review_queue.py` 確認 `ready_for_report=true`，最後執行 `complete_review.py`。正式驗證器會拒絕來源版本不一致、缺少結案、以及來源異動後尚未重查的規則。
@@ -57,6 +57,36 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 - 已完成規則、相同檔案或結案結果不同時會阻擋，先人工核對；確實要更新舊證據，可明確加 `--allow-revision`，但不能藉此把原有 `fail` 改成非 `fail`。
 - 暫存的 `file_reviews` 在規則結案前可不符合正式 completed 雙向關聯；**正式交付時**仍必須完全通過既有 `file_review_integrity.py`，不可減少規則覆蓋或修改報告格式。
 - `--integrate` 不代替 `validate_assessment.py`，不可憑整合成功宣稱 70/70。
+
+## P1：跨檔呼叫點必須人工結案
+
+新版 `analysis/structure-index.json`（`schema_version=3`）包含 `cross_file_call_hints` 的每筆 `id`、`resolution`、`candidate_count` 與 **完整** `possible_targets`，不再以固定前 8 個目標／前 200 個呼叫點切斷追查。
+
+- `semantic_symbol_candidate`：Roslyn 合成編譯可解析到宣告，但仍不代表目標專案的實際建置或執行時繫結。
+- `semantic_dispatch_candidate`：介面／虛擬呼叫，仍可能有 DI、動態分派等其他實作。
+- `receiver_type_candidate`：接收者型別名稱限縮的候選。
+- `name_only_ambiguous`：僅憑方法名稱／參數數量的多個候選，**不可直接確認**。
+- Roslyn／CodeGraph 不可用時，保留原始碼追查責任；索引無候選不等於無跨檔依賴。
+
+新索引下，`cross_file`／`project` 規則要在原本 `closures` 中加入與規則實際相關的 `callsite_reviews`；只需追查真正相關的呼叫點，但不可把索引未覆蓋到的反射／Factory／動態代理當作已確認安全。
+
+```json
+{
+  "callsite_reviews": {
+    "<structure-index 中實際存在的呼叫點 ID>": {
+      "status": "verified",
+      "selected_targets": ["src/Services/ExampleService.cs"],
+      "reason": "已閱讀呼叫端、方法宣告與 DI 註冊，核對目標實作、組態及其他可能的繞過路徑"
+    }
+  }
+}
+```
+
+上述僅是**格式示意，禁止直接套用或捏造證據**。
+
+`verified`：`selected_targets` 至少一個，且必須在 `examined_paths`，Agent 已驗證真正來源及呼叫鏈。`excluded`：沒有選取目標，必須說明確實不屬於該規則控制鏈的具體理由。`unresolved`／缺少紀錄：不得結案；先補查到足以確認或排除。機械驗證只能檢查紀錄可追溯性，不能證明 Agent 的語意判定一定正確。
+
+對已存在的舊審查進度，保留原始 Finding 與證據；首次改用新版索引時應重新建立快照／依失效範圍查核，不得以新版候選覆寫舊有安全結論。
 
 ## 來源變更及恢復
 
