@@ -83,6 +83,10 @@ class P0ReviewSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "快照"):
                 prepare(self.root, "incremental")
         refresh_snapshot(self.root)
+        self.assertTrue(any("索引" in error for error in snapshot_errors(self.root)))
+        with patch("analysis_prepare.probe_roslyn", return_value={"available": False}), \
+             patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
+            prepare(self.root, "full")
         self.assertEqual(snapshot_errors(self.root), [])
         with patch("review_safety._revision", return_value="different-revision"):
             self.assertTrue(snapshot_errors(self.root))
