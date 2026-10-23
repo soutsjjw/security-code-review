@@ -50,6 +50,14 @@ argument-hint: "[專案路徑或檢核範圍]"
 5. 來源版本異動會阻擋佇列完成和正式報告。Agent 必須核對變更後明確執行 `review_safety.py --target "<TARGET_ROOT>" --snapshot-refresh`，再重建分析索引並重新檢核已完成的受影響判斷；沒有可驗證完整依賴閉包時，保守重審全部 completed 規則。刷新保留既有 Findings，不代表既有 pass 自動仍有效。
 6. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
 
+## P2：安全控制有效性及繞過驗證（必須執行）
+
+每條適用規則除了確認安全機制存在，還須從真實程式碼核對 **入口 → 控制執行分支 → 受保護操作**、拒絕分支及可替代／繞過路徑。不能因 `[Authorize]`、`UseAuthorization()`、參數化 API 或雜湊 API 存在就直接 pass。對介面實作、DI、環境覆寫、匿名入口、直接 Repository 存取與重放路徑應以反向攻擊視角逐一追查。
+
+`review_queue.py --detail-id <RULE_ID>` 的 `control_effectiveness_guidance` 指定最低繞過情境；靜態／混合規則判 `completed + pass` 時，必須於 `review_safety.py --stage` 的批次 JSON 中提供 `control_verifications`，記錄 `entry_points`、`enforcement_points`、`protected_operations`、`control_condition`、`failure_behavior`、`search_summary`、`bypass_scenarios` 與 `open_issues=[]`，並經 `--integrate` 保存為 `analysis/control-verifications.json`。證據路徑、行號及雜湊均需核對當次來源快照；`enforcement_points` 至少一筆須對應正式規則來源證據。情境未查或有未解的繞過不得判 pass；不要填模板、虛構不存在的攻擊測試，也不得用 `review` 迴避尚未完成的靜態調查。外部規則維持原判定階梯與外部工件驗證要求，已確認缺陷仍是 `fail`＋Finding。
+
+P1 呼叫鏈驗證與 P2 控制有效性驗證互為補充，兩者皆非自動安全判定。完整欄位及示例見 [P2 有效性驗證](docs/p2-control-effectiveness.md)。
+
 ## 共同證據與結果判定（所有規範均適用）
 
 **核心原則：結論由程式碼、設定與儲存庫內容決定；`review` 只用於「即使完整讀完儲存庫仍無法回答」的規則。** 不得推測已通過或虛構已執行的掃描；`na` 必須有已核對的不適用理由；70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
@@ -124,7 +132,7 @@ argument-hint: "[專案路徑或檢核範圍]"
      & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
    `--check` 僅需於開始時執行一次。啟動器依序偵測 `python`、`python3`、`py -3`，並確認 Python 3.10+ 與 `requirements.txt` 套件版本可用；其後每次呼叫均以同樣優先序選擇可用環境，不直接假設 `python` 存在。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
-2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `decision_guidance`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核且本規則必要的部署、政策或動態證據確實無法取代時可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
+2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `decision_guidance`、`control_effectiveness_guidance`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核且本規則必要的部署、政策或動態證據確實無法取代時可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
 3. **每完成一項／每批立即保存**：先將單檔／規則結果透過 `review_safety.py --stage` 獨立暫存，再用 `--integrate` 無衝突整合到 `TARGET_ROOT/reports/security-code-review/assessment.json`；已有 Finding 必須保留。跨檔／全專案規則未結案時保持 `pending`，不得提前填為 `completed`。然後再次執行佇列（不必重新初始化）。
 4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
 5. 由 Agent 內部呼叫 `complete_review.py`，產出最終 `CodeReview_YYYYMMDD.html`、`report.json` 並驗證。最終答覆優先交付這兩個路徑、70 項狀態摘要與 Finding 數；改善建議應收錄於報告中，不要在最終訊息中先要求修復。
