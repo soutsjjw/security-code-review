@@ -37,6 +37,8 @@ class QualityBaselineTests(unittest.TestCase):
             rows.append({
                 "case_id": case["id"], "status": case["expected_status"],
                 "finding": case["expected_finding"],
+                "decision_reason": ("已完成程式碼查核；待確認：" + case["external_artifact"]
+                                    if case["expected_status"] == "review" else "已核對安全控制"),
                 "inspected_paths": case["required_paths"].copy(),
                 "evidence": [{"path": anchor["path"], "line_start": line, "line_end": line}],
             })
@@ -121,6 +123,7 @@ class QualityBaselineTests(unittest.TestCase):
         self.assertEqual(result["fail_recall"], 1)
         self.assertEqual(result["fail_precision"], 1)
         self.assertEqual(result["review_correct"], 2)
+        self.assertEqual(result["review_gap_specific_count"], 2)
         self.assertEqual(result["trace_complete_count"], 16)
         self.assertEqual(result["evidence_valid_count"], 16)
         self.assertEqual(result["passed_count"], 16)
@@ -162,6 +165,17 @@ class QualityBaselineTests(unittest.TestCase):
         self.assertFalse(entry["passed"])
         self.assertEqual(result["status_correct"], 16)
 
+    def test_review_requires_specific_external_artifact_not_generic_tests(self):
+        predictions = self.make_perfect_predictions()
+        entry = next(x for x in predictions["cases"] if x["case_id"] == "recovery-drill-external")
+        entry["decision_reason"] = "已查核備份程式；待確認：需補動態測試結果及邊界案例紀錄"
+        result = evaluate(self.catalog, predictions)
+        detail = next(x for x in result["cases"] if x["case_id"] == entry["case_id"])
+        self.assertTrue(detail["status_match"])
+        self.assertFalse(detail["review_gap_specific"])
+        self.assertFalse(detail["passed"])
+        self.assertEqual(result["review_gap_specific_count"], 1)
+
     def test_unknown_duplicate_or_invalid_predictions_are_rejected(self):
         for mutation in ("unknown", "duplicate", "invalid_status", "invalid_finding"):
             with self.subTest(mutation=mutation):
@@ -187,7 +201,7 @@ class QualityBaselineTests(unittest.TestCase):
             (assessment_dir / "assessment.json").write_text(json.dumps({
                 "checks": [{"id": case["rule_id"], "status": case["expected_status"],
                             "finding_ids": [],
-                            "execution": {"inspected_paths": case["required_paths"]},
+                            "execution": {"state": "completed", "inspected_paths": case["required_paths"]},
                             "evidence": [{"kind": "source", "path": case["anchor"]["path"],
                                           "line_start": 1, "line_end": 1}]}],
                 "findings": [],
@@ -196,6 +210,11 @@ class QualityBaselineTests(unittest.TestCase):
             self.assertEqual(len(actual["cases"]), 1)
             self.assertEqual(actual["cases"][0]["case_id"], case["id"])
             self.assertFalse(evaluate(self.catalog, actual)["all_passed"])
+            # 來源已有記錄也不代表真正完成；不能把 pending 當成有效判定。
+            raw = json.loads((assessment_dir / "assessment.json").read_text("utf-8"))
+            raw["checks"][0]["execution"]["state"] = "pending"
+            (assessment_dir / "assessment.json").write_text(json.dumps(raw), encoding="utf-8")
+            self.assertEqual(assessment_predictions(root, self.catalog)["cases"], [])
 
     def test_cli_writes_machine_readable_evaluation_and_returns_nonzero_on_regression(self):
         with tempfile.TemporaryDirectory() as temp:
