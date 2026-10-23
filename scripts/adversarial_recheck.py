@@ -275,9 +275,15 @@ def progress(target: Path, assessment: dict[str, Any], batch_size: int = 10) -> 
                 "pending_ids": [c["id"] for c in checks if isinstance(c, dict)][:batch_size],
                 "pending_count": len(checks)}
     originals = base.get("checks") or {}
+    diagnostics = second_pass_errors(target, assessment)
+    invalid = {message.partition(":")[0] for message in diagnostics
+               if message.partition(":")[0] in originals}
+    if any(message.startswith("第二輪：") for message in diagnostics):
+        invalid = set(originals)
     pending = [c["id"] for c in checks if isinstance(c, dict)
-               and (not isinstance(reviews.get(c["id"]), dict)
+               and (c["id"] in invalid
+                    or not isinstance(reviews.get(c["id"]), dict)
                     or reviews[c["id"]].get("final_digest") != digest(c))]
     return {"enabled": True, "baseline_ready": True,
             "completed": len(checks) - len(pending), "pending_count": len(pending),
-            "pending_ids": pending[:batch_size]}
+            "pending_ids": pending[:batch_size], "error_count": len(diagnostics)}
