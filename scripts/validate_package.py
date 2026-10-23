@@ -40,6 +40,19 @@ for r in j['rules']:
   if not ref['requirement_id'].startswith('v5.0.0-'):errors.append('unversioned ASVS reference')
   if ref['mapping_type']!='relevant_requirement_not_full_equivalence':errors.append('invalid mapping type')
 
+# 判定方式是提示與完成品質契約，不預設弱點嚴重度，規則 ID 不得遺漏。
+from review_decision import load_decision_matrix
+try:
+ matrix=load_decision_matrix()
+ if set(matrix)!=set(ids):
+  errors.append('review decision matrix must cover exact 70 rule IDs')
+ for rid, guidance in matrix.items():
+  if not all(isinstance(guidance.get(field),str) and guidance[field].strip()
+             for field in ('pass_condition','expected_evidence','manual_boundary','applicability')):
+   errors.append(f'{rid}: decision matrix missing specific review criteria')
+except (OSError,ValueError,KeyError,TypeError) as exc:
+ errors.append(f'invalid review decision matrix: {exc}')
+
 # TACERT V2 補充檢核必須與文件段落及原 70 項保持一致。
 checklist=yaml.safe_load((ROOT/'standards/tacert-v2-checklist.yaml').read_text('utf-8'))
 entries=checklist.get('checks',[])
