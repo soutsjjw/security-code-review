@@ -80,6 +80,9 @@ def main() -> int:
         print(f"ERROR: 逐檔規則審查佐證驗證失敗（{len(coverage['review_integrity_errors'])} 項）：", file=sys.stderr)
         for problem in coverage['review_integrity_errors'][:20]:
             print('  ' + problem, file=sys.stderr)
+        if any("sha256" in problem.lower() for problem in coverage["review_integrity_errors"]):
+            print("ERROR: 請先唯讀執行 hash_audit.py --target <TARGET_ROOT> "
+                  "列出所有失配檔案，核對版本後再重審；不可直接批次重算 SHA256。", file=sys.stderr)
         print('ERROR: 未修改原始審查資料、Finding 或既有報告。', file=sys.stderr)
         return 1
     if coverage['missing_source_file_count']:
