@@ -72,6 +72,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 **P2 必須真實查核，不是套用繞過清單就自動 Pass。** 詳細 JSON 契約與例外見 [P2 控制有效性與繞過驗證](p2-control-effectiveness.md)。
 
+## P3：待確認的具體外部缺口裁決
+
+現有判定階梯保持不變，新增對 `completed+review` 的證據守門：Agent 必須**實際查完靜態控制及跨檔關聯**，證明仍存在會改變結果的外部工件缺口，才在正式 `decision_reason` 以「待確認：」列出工件。未完成的靜態調查保留 `pending/blocked`；已證實的程式碼缺陷 `fail`＋Finding；缺非必要測試不得當作外部缺口。由 `review_queue.py --detail-id` 的 `decision_adjudication_guidance` 讀取規則 `mode`、`manual_boundary` 與必查欄位，將來源證據和外部問題保存於 `decision_audits`，以原有 `review_safety.py --stage / --integrate` 整合。P3 不自動改寫任何既有結論，詳細流程見 [P3 review 判定裁決](p3-review-adjudication.md)。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
@@ -83,7 +87,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
-- 維持單代理執行，不啟動子代理或平行審查；保留六項 P0 完整性守門，並執行 P1 跨檔呼叫點與 P2 控制有效性驗證。
+- 維持單代理執行，不啟動子代理或平行審查；保留六項 P0 完整性守門，並執行 P1 跨檔呼叫點、P2 控制有效性及 P3 review 裁決驗證。
 
 完成條件：
 
