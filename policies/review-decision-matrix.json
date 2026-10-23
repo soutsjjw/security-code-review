@@ -1,0 +1,496 @@
+{
+  "schema_version": "1.0",
+  "description": "審查方式提示而非結果推定；static=主要可由來源/設定證明，hybrid=依情境補外部證據，external=符合性必須有環境/制度/測試工件。所有弱點可依充分靜態證據直接 fail。",
+  "rules": {
+    "AC-01": {
+      "mode": "hybrid",
+      "pass_condition": "有效期限由伺服端驗證且逾期不可使用",
+      "expected_evidence": "驗證設定、逾期測試、登入流程",
+      "manual_boundary": "逾時長度是否符合組織政策",
+      "applicability": "有互動式登入、Session 或具有有效期限的存取憑證"
+    },
+    "AC-02": {
+      "mode": "hybrid",
+      "pass_condition": "相關憑證依風險與明訂政策無法繼續使用或有經核准的短效替代策略",
+      "expected_evidence": "登出流程、Token 設定、重放測試",
+      "manual_boundary": "JWT 短效與撤銷政策是否可接受",
+      "applicability": "系統提供登出、工作階段結束或憑證撤銷功能"
+    },
+    "AC-03": {
+      "mode": "external",
+      "pass_condition": "滿足正式管理來源管制政策且有可驗證控制",
+      "expected_evidence": "管理路由、網路架構、Proxy/防火牆設定",
+      "manual_boundary": "替代控制與實際網路部署",
+      "applicability": "存在管理介面或高權限管理 API 且有正式來源管制要求"
+    },
+    "AC-04": {
+      "mode": "static",
+      "pass_condition": "角色及服務僅取得必要權限且預設拒絕",
+      "expected_evidence": "授權政策、權限矩陣、權限測試",
+      "manual_boundary": "業務職責及必要權限基準",
+      "applicability": "系統具有身分、角色、授權資源或服務帳號"
+    },
+    "AC-05": {
+      "mode": "external",
+      "pass_condition": "執行身分符合最小系統權限需求",
+      "expected_evidence": "部署設定、服務帳號、容器映像設定",
+      "manual_boundary": "主機實際執行身分",
+      "applicability": "部署執行環境有作業系統身分與權限"
+    },
+    "AC-06": {
+      "mode": "static",
+      "pass_condition": "遠端請求依契約完成身分與存取驗證",
+      "expected_evidence": "Endpoint、Middleware、Handler、部署網路規則",
+      "manual_boundary": "來源 IP 是否為正式控制要求",
+      "applicability": "系統提供遠端存取功能、API 或管理入口"
+    },
+    "AC-07": {
+      "mode": "hybrid",
+      "pass_condition": "敏感資料夾不可列示且無法直接讀取",
+      "expected_evidence": "Web Server 設定、StaticFiles、實測 URL",
+      "manual_boundary": "實際部署的目錄瀏覽功能",
+      "applicability": "系統提供 Web 靜態資源、檔案下載或檔案目錄存取"
+    },
+    "AC-08": {
+      "mode": "static",
+      "pass_condition": "每個受保護資源均實施伺服端物件層級授權",
+      "expected_evidence": "完整授權呼叫鏈、查詢條件、反例測試",
+      "manual_boundary": "跨機關授權例外是否正式核准",
+      "applicability": "存在需按使用者、角色、組織、租戶或資源歸屬授權的資料操作"
+    },
+    "AU-01": {
+      "mode": "hybrid",
+      "pass_condition": "適用的密碼政策符合組織正式要求",
+      "expected_evidence": "Identity 設定、驗證器、註冊測試",
+      "manual_boundary": "純 SSO 系統由 IdP 承擔的責任",
+      "applicability": "系統自行受理或驗證使用者密碼"
+    },
+    "AU-02": {
+      "mode": "hybrid",
+      "pass_condition": "符合經核准的密碼生命週期政策",
+      "expected_evidence": "密碼管理設定、政策文件",
+      "manual_boundary": "週期強制更換不宜無條件套用；確認 IdP 政策",
+      "applicability": "系統管理本地密碼且正式政策訂有密碼生命週期要求"
+    },
+    "AU-03": {
+      "mode": "hybrid",
+      "pass_condition": "驗證端點具有效防自動化攻擊控制",
+      "expected_evidence": "登入/Token 端點、節流設定、負向測試",
+      "manual_boundary": "IdP 或 WAF 是否代管控制",
+      "applicability": "系統具有可被嘗試猜測的認證／Token 驗證流程"
+    },
+    "AU-04": {
+      "mode": "hybrid",
+      "pass_condition": "憑證只經受保護通道傳輸",
+      "expected_evidence": "HTTPS/HSTS/TLS 設定、傳輸流程",
+      "manual_boundary": "Proxy 終止 TLS 後內網鏈路",
+      "applicability": "系統傳輸認證資料、Token、Cookie 或其他認證秘密"
+    },
+    "AU-05": {
+      "mode": "hybrid",
+      "pass_condition": "符合風險政策且有 CAPTCHA 或可驗證等效機制",
+      "expected_evidence": "端點實作、限速/WAF 設定、測試",
+      "manual_boundary": "CAPTCHA 非唯一方法；核對業務風險",
+      "applicability": "存在須防範自動化濫用的公開或匿名入口，且政策或風險分析要求保護"
+    },
+    "AU-06": {
+      "mode": "static",
+      "pass_condition": "重設流程有短效單次權杖與安全身分驗證",
+      "expected_evidence": "重設 Controller、Token 設計、失效測試",
+      "manual_boundary": "使用外部 IdP 時責任歸屬",
+      "applicability": "本系統提供密碼重設、忘記密碼或憑證復原功能"
+    },
+    "AU-07": {
+      "mode": "static",
+      "pass_condition": "不揭露憑證、秘密或非必要帳號狀態",
+      "expected_evidence": "API 回應、例外處理、差異測試",
+      "manual_boundary": "業務流程合法提示的範圍",
+      "applicability": "系統提供可洩漏帳號狀態或認證資訊的驗證／查詢介面"
+    },
+    "AU-08": {
+      "mode": "static",
+      "pass_condition": "密碼使用適當自適應雜湊與 salt；其他秘密按用途安全保存",
+      "expected_evidence": "密碼雜湊器、秘密儲存實作、設定",
+      "manual_boundary": "不同秘密類別採不同控制",
+      "applicability": "系統自行保存密碼、API Key 或其他驗證秘密"
+    },
+    "AU-09": {
+      "mode": "hybrid",
+      "pass_condition": "要求 MFA 的身分與流程確實強制驗證",
+      "expected_evidence": "IdP 設定、角色政策、驗證紀錄",
+      "manual_boundary": "外部 SSO 是否強制 MFA",
+      "applicability": "有高權限或高風險操作且正式政策要求 MFA"
+    },
+    "AU-10": {
+      "mode": "hybrid",
+      "pass_condition": "符合已定義的來源識別及核驗要求",
+      "expected_evidence": "ForwardedHeaders、網關、白名單、記錄",
+      "manual_boundary": " NAT、代理與裝置識別的實際架構",
+      "applicability": "需依正式政策識別／限制連線來源或可信網路節點"
+    },
+    "IN-01": {
+      "mode": "static",
+      "pass_condition": "資料值使用參數化且識別字經允許清單限制",
+      "expected_evidence": "SQL 呼叫位置、來源追蹤、參數化證據",
+      "manual_boundary": "第三方查詢組件與 SP 內容",
+      "applicability": "系統產生、操作或執行 SQL 查詢"
+    },
+    "IN-02": {
+      "mode": "static",
+      "pass_condition": "各輸出情境採正確編碼；CSV 公式注入另納入檢查",
+      "expected_evidence": "模板/匯出程式、來源到輸出追蹤",
+      "manual_boundary": "CSV Injection 與 XSS 應分別描述發現",
+      "applicability": "將不可信輸入輸出至 HTML、DOM、Script、CSV 或試算表相容格式"
+    },
+    "IN-03": {
+      "mode": "static",
+      "pass_condition": "適用端點具可驗證 CSRF 防護或等效安全設計",
+      "expected_evidence": "Cookie、API 授權、CSRF Token、測試",
+      "manual_boundary": "Bearer-only 與 Cookie 架構需分別判斷",
+      "applicability": "具備 Cookie 或其他會自動附帶憑證的狀態變更操作"
+    },
+    "IN-04": {
+      "mode": "static",
+      "pass_condition": "命令與引數不可被未信任輸入任意控制",
+      "expected_evidence": "命令呼叫、輸入流、白名單設定",
+      "manual_boundary": "背景 Job、外部工具是否存在",
+      "applicability": "系統可執行外部命令、Shell、Process 或腳本"
+    },
+    "IN-05": {
+      "mode": "static",
+      "pass_condition": "重要約束於服務端驗證且拒絕非法狀態",
+      "expected_evidence": "DTO、Validator、API 負向測試",
+      "manual_boundary": "業務欄位合法值與界限",
+      "applicability": "系統處理不可信請求、訊息、檔案或 CLI 參數"
+    },
+    "IN-06": {
+      "mode": "hybrid",
+      "pass_condition": "上傳限制符合檔案風險與組織政策",
+      "expected_evidence": "上傳 Handler、魔術位元、儲存 ACL、測試",
+      "manual_boundary": "是否需要 AV/CDR 或 PDF 主動內容檢查",
+      "applicability": "系統接受上傳檔案或匯入外部檔案"
+    },
+    "IN-07": {
+      "mode": "static",
+      "pass_condition": "所有可控路徑被限制於允許根目錄",
+      "expected_evidence": "檔案 API、路徑處理及測試",
+      "manual_boundary": "主機符號連結、Volume 與 ACL",
+      "applicability": "外部輸入會影響檔案路徑、檔名或讀寫位置"
+    },
+    "IN-08": {
+      "mode": "static",
+      "pass_condition": "可控目的地經允許清單及內網阻擋",
+      "expected_evidence": "HTTP Client、URL 驗證、DNS/redirect 設定",
+      "manual_boundary": "外部網路防火牆是否有替代控制",
+      "applicability": "系統接收可影響伺服器對外連線目的地之資料"
+    },
+    "CR-01": {
+      "mode": "hybrid",
+      "pass_condition": "所有適用機敏傳輸採足夠保護",
+      "expected_evidence": "傳輸設定、網路拓樸、連線設定",
+      "manual_boundary": "實際 TLS 組態與內部服務鏈路",
+      "applicability": "機敏資料跨程序、主機、網路或服務傳輸"
+    },
+    "CR-02": {
+      "mode": "static",
+      "pass_condition": "適用用途採受認可演算法且金鑰管理正確",
+      "expected_evidence": "密碼 API、金鑰長度、使用情境",
+      "manual_boundary": "雜湊作非安全校驗與安全用途須區分",
+      "applicability": "系統使用密碼學、簽章、JWT 或安全雜湊等功能"
+    },
+    "CR-03": {
+      "mode": "static",
+      "pass_condition": "秘密不硬編碼、不意外公開且可安全輪換",
+      "expected_evidence": "設定檔、Ignore 規則、Secret 存取路徑",
+      "manual_boundary": "實際部署的 Secret Store 與存取權限",
+      "applicability": "系統使用密鑰、憑證、連線字串、密碼或其他部署秘密"
+    },
+    "CR-04": {
+      "mode": "hybrid",
+      "pass_condition": "依資料分級及正式要求提供適當靜態加密",
+      "expected_evidence": "資料模型、加密設定、備份策略",
+      "manual_boundary": "磁碟/TDE/欄位加密之實際控制與資料分級",
+      "applicability": "系統持久化機敏資料或個資"
+    },
+    "CR-05": {
+      "mode": "hybrid",
+      "pass_condition": "部署情境所需標頭完整且值安全",
+      "expected_evidence": "程式 Middleware、Nginx/IIS 設定、HTTP 回應",
+      "manual_boundary": "API 與 Web UI 所需標頭不同",
+      "applicability": "系統提供 HTTP 回應或瀏覽器可存取資源"
+    },
+    "CR-06": {
+      "mode": "static",
+      "pass_condition": "敏感 Cookie 使用正確屬性與作用範圍",
+      "expected_evidence": "Cookie 設定、實際 Set-Cookie、登入測試",
+      "manual_boundary": "跨站 SSO 可能需特殊 SameSite 配置",
+      "applicability": "系統發送或使用 Cookie"
+    },
+    "EH-01": {
+      "mode": "static",
+      "pass_condition": "對外不輸出 Stack Trace、秘密或內部拓樸",
+      "expected_evidence": "例外中介軟體、HTTP 回應、負向測試",
+      "manual_boundary": "部署環境旗標是否正確",
+      "applicability": "系統向使用者或外部呼叫方回傳錯誤訊息"
+    },
+    "EH-02": {
+      "mode": "static",
+      "pass_condition": "重要錯誤路徑可控制回應並記錄必要資訊",
+      "expected_evidence": "Middleware、Filter、背景服務錯誤策略",
+      "manual_boundary": "非 HTTP 工作的例外處置",
+      "applicability": "系統處理可能失敗的工作或服務請求"
+    },
+    "EH-03": {
+      "mode": "static",
+      "pass_condition": "資源依生命週期正確釋放並處理取消",
+      "expected_evidence": "using/await using、DI 生命週期、測試",
+      "manual_boundary": "運行中連線池與記憶體監測",
+      "applicability": "系統持有檔案、連線、Stream 或其他需釋放資源"
+    },
+    "EH-04": {
+      "mode": "external",
+      "pass_condition": "重大事件有可驗證告警及處理程序",
+      "expected_evidence": "監控設定、告警規則、演練紀錄",
+      "manual_boundary": "外部監控平台與值班制度",
+      "applicability": "系統正式運作且依政策有重大事件偵測／通知義務"
+    },
+    "EH-05": {
+      "mode": "hybrid",
+      "pass_condition": "正式環境不啟用危險除錯或測試功能",
+      "expected_evidence": "環境判斷、部署設定、測試路由",
+      "manual_boundary": "Testing 是否可能公開部署",
+      "applicability": "具有可區分的開發、測試或正式設定／建置"
+    },
+    "EH-06": {
+      "mode": "hybrid",
+      "pass_condition": "部署必須設定唯一強秘密並移除危險預設值",
+      "expected_evidence": "組態初始化、部署腳本、Secret 配置",
+      "manual_boundary": "實際服務帳號與設備帳密",
+      "applicability": "系統或依賴服務有帳密、憑證與預設設定"
+    },
+    "LG-01": {
+      "mode": "static",
+      "pass_condition": "關鍵安全事件有一致紀錄且能追查",
+      "expected_evidence": "日誌程式、事件測試、範例日誌",
+      "manual_boundary": "外部 IdP/WAF 的紀錄責任",
+      "applicability": "系統執行登入、授權、敏感資料存取或安全相關操作"
+    },
+    "LG-02": {
+      "mode": "static",
+      "pass_condition": "應受稽核的管理行為具人員、時間、對象與結果",
+      "expected_evidence": "Audit Action、Controller、測試事件",
+      "manual_boundary": "哪些讀取行為需稽核由資料分級決定",
+      "applicability": "系統具有管理員、特權操作、敏感讀取或匯出作業"
+    },
+    "LG-03": {
+      "mode": "static",
+      "pass_condition": "日誌欄位符合追溯需求且不過度收集個資",
+      "expected_evidence": "事件 Schema、範例輸出、整合測試",
+      "manual_boundary": "跨系統追蹤識別碼",
+      "applicability": "系統產生安全或稽核日誌"
+    },
+    "LG-04": {
+      "mode": "static",
+      "pass_condition": "採可解析的統一格式與必要識別碼",
+      "expected_evidence": "Logger 設定、輸出範例、收集器",
+      "manual_boundary": "SIEM 收集格式及轉換規則",
+      "applicability": "系統有需被統一收集、關聯、查詢的日誌"
+    },
+    "LG-05": {
+      "mode": "external",
+      "pass_condition": "保存期限與容量管制符合政策",
+      "expected_evidence": "Logger/Logrotate 設定、磁碟政策",
+      "manual_boundary": "正式保留年限與集中儲存",
+      "applicability": "系統有日誌保存或容量管理責任"
+    },
+    "LG-06": {
+      "mode": "external",
+      "pass_condition": "時間戳一致且主機同步符合允收誤差",
+      "expected_evidence": "時間產生程式、系統同步設定",
+      "manual_boundary": "NTP/PTP 及時鐘偏差",
+      "applicability": "系統記錄時間戳並需跨事件追蹤"
+    },
+    "LG-07": {
+      "mode": "external",
+      "pass_condition": "日誌得到適當隔離、權限與備份",
+      "expected_evidence": "檔案 ACL、遠端傳送、備份策略",
+      "manual_boundary": "SIEM/主機實際權限與復原測試",
+      "applicability": "系統儲存或處理安全、稽核或機敏日誌"
+    },
+    "LG-08": {
+      "mode": "static",
+      "pass_condition": "敏感資訊依分類遮蔽且測試通過",
+      "expected_evidence": "Logger、過濾器、敏感欄位測試",
+      "manual_boundary": "實際收集器與 Debug 日誌",
+      "applicability": "系統會記錄請求、回應、事件、例外或操作日誌"
+    },
+    "LG-09": {
+      "mode": "external",
+      "pass_condition": "稽核故障有定義的處理策略和可觀測性",
+      "expected_evidence": "Queue、Retry、Fallback、負向測試",
+      "manual_boundary": "是否應 fail-closed 須按業務風險",
+      "applicability": "系統稽核管道會失敗、佇列滿載、丟棄或中斷"
+    },
+    "LG-10": {
+      "mode": "hybrid",
+      "pass_condition": "採用所需的完整性驗證且金鑰安全",
+      "expected_evidence": "簽章/雜湊流程、驗證機制、金鑰管理",
+      "manual_boundary": "哪些資料必須具完整性防竄改要求",
+      "applicability": "系統依政策必須提供不可竄改或高保證的完整性驗證"
+    },
+    "DP-01": {
+      "mode": "hybrid",
+      "pass_condition": "漏洞均已修補或正式風險接受且範圍完整",
+      "expected_evidence": "Lockfile、掃描輸出、漏洞版本、例外記錄",
+      "manual_boundary": "掃描資料庫更新時間及可利用性",
+      "applicability": "系統使用外部套件、工具鏈、映像或執行環境依賴"
+    },
+    "DP-02": {
+      "mode": "external",
+      "pass_condition": "部署必須變更預設憑證並安全保存",
+      "expected_evidence": "Container/部署設定、Secret 注入",
+      "manual_boundary": "實際服務配置與預設帳密狀態",
+      "applicability": "外部服務或元件具備預設密碼、初始帳號或初始化憑證"
+    },
+    "DP-03": {
+      "mode": "external",
+      "pass_condition": "僅必要服務及埠暴露且有網路限制",
+      "expected_evidence": "Compose、Web Server、Firewall 設定",
+      "manual_boundary": "主機實際開放 Port",
+      "applicability": "系統部署暴露埠號、可存取服務或管理功能"
+    },
+    "DP-04": {
+      "mode": "hybrid",
+      "pass_condition": "所有關鍵組件仍受維護或有核准緩解",
+      "expected_evidence": "版本清單、EOL 日期、升級政策",
+      "manual_boundary": "廠商延伸支援協議",
+      "applicability": "使用可辨識版本與支援生命週期的元件、Runtime 或平台"
+    },
+    "PD-01": {
+      "mode": "external",
+      "pass_condition": "蒐集目的、法定依據及適用告知義務獲確認",
+      "expected_evidence": "表單、隱私告知、資料欄位",
+      "manual_boundary": "同意不是所有蒐集情境唯一合法依據；需法務確認",
+      "applicability": "系統蒐集可識別個人之資料"
+    },
+    "PD-02": {
+      "mode": "static",
+      "pass_condition": "依角色與目的最小化、遮蔽或去識別化",
+      "expected_evidence": "DTO、Mapper、API 回應、權限矩陣",
+      "manual_boundary": "依法或業務要求完整提供的例外",
+      "applicability": "系統展示、匯出、傳送或提供個資"
+    },
+    "PD-03": {
+      "mode": "hybrid",
+      "pass_condition": "個資傳輸符合適用加密政策",
+      "expected_evidence": "TLS、HTTP Client、DB 連線設定",
+      "manual_boundary": "網路封包與真實 Proxy 架構",
+      "applicability": "系統傳輸個資"
+    },
+    "PD-04": {
+      "mode": "static",
+      "pass_condition": "適用個資活動有必要稽核欄位與合理保留",
+      "expected_evidence": "資料 API、Audit Schema、範例事件",
+      "manual_boundary": "稽核範圍與保存期限須依政策決定",
+      "applicability": "系統提供個資查詢、讀取、異動或匯出"
+    },
+    "PD-05": {
+      "mode": "hybrid",
+      "pass_condition": "依敏感度與政策提供必要加密及權限隔離",
+      "expected_evidence": "資料模型、DB/TDE、備份加密、ACL",
+      "manual_boundary": "欄位加密非所有個資的唯一強制方案",
+      "applicability": "系統保存個資於資料庫、快取、檔案或備份"
+    },
+    "PD-06": {
+      "mode": "static",
+      "pass_condition": "符合介接契約且來源/用途/資料範圍受控",
+      "expected_evidence": "API Policy、Client DB、網路設定",
+      "manual_boundary": "IP 限制是否為明訂要求",
+      "applicability": "系統對外或跨邊界提供個資存取／交換服務"
+    },
+    "PD-07": {
+      "mode": "external",
+      "pass_condition": "保留與刪除政策一致且可提供執行證據",
+      "expected_evidence": "資料模型、排程、刪除紀錄、備份政策",
+      "manual_boundary": "法定保存期限、訴訟保全例外",
+      "applicability": "系統保存個資並受保留／刪除政策約束"
+    },
+    "PD-08": {
+      "mode": "external",
+      "pass_condition": "有適用通報制度及負責人且定期驗證",
+      "expected_evidence": "應變計畫、監控告警、演練紀錄",
+      "manual_boundary": "法定通報義務由法遵或資安單位確認",
+      "applicability": "公司依法或政策需針對處理個資的系統辦理事故通報"
+    },
+    "BC-01": {
+      "mode": "external",
+      "pass_condition": "達到已定義 RPO/RTO 且有備份與演練證據",
+      "expected_evidence": "備份工作、儲存策略、還原記錄",
+      "manual_boundary": "正式維運備份平台與密鑰保存",
+      "applicability": "系統持有需在故障後復原的資料或狀態"
+    },
+    "BC-02": {
+      "mode": "hybrid",
+      "pass_condition": "各環境有受控隔離且測試功能不進正式",
+      "expected_evidence": "設定、部署流程、資料遮蔽策略",
+      "manual_boundary": "部署網段及權限分離",
+      "applicability": "系統存在開發、測試、正式等不同生命週期環境"
+    },
+    "BC-03": {
+      "mode": "external",
+      "pass_condition": "符合正式可用度與容錯要求",
+      "expected_evidence": "架構圖、健康檢查、切換測試",
+      "manual_boundary": "正式 SLA 與可用性目標",
+      "applicability": "系統明訂可用性目標、SLA 或高可用義務"
+    },
+    "BC-04": {
+      "mode": "external",
+      "pass_condition": "文件受版本控管且可用於營運與事故處置",
+      "expected_evidence": "README、部署指南、Runbook",
+      "manual_boundary": "文件是否反映正式環境",
+      "applicability": "系統正式運作並需部署、維護或事故處置"
+    },
+    "BC-05": {
+      "mode": "external",
+      "pass_condition": "Repo 及必要附件定期備份且可復原",
+      "expected_evidence": "Git/Gitea 備份設定、復原測試",
+      "manual_boundary": "代管平台備份服務",
+      "applicability": "系統原始碼／組態保存於 Git 等版控系統"
+    },
+    "BC-06": {
+      "mode": "hybrid",
+      "pass_condition": "程式及部署變更可追蹤且通過核准流程",
+      "expected_evidence": "Git 規則、CI、審核紀錄",
+      "manual_boundary": "企業變更管理制度",
+      "applicability": "系統經過程式、設定或部署變更"
+    },
+    "BC-07": {
+      "mode": "external",
+      "pass_condition": "依規定完成備援啟動演練並追蹤問題",
+      "expected_evidence": "演練報告、切換記錄、改善項目",
+      "manual_boundary": "實際機房及備援配置",
+      "applicability": "系統具備備援方案且正式制度要求復原或切換演練"
+    },
+    "SI-01": {
+      "mode": "hybrid",
+      "pass_condition": "CI 最小權限且第三方建置步驟可信及受控",
+      "expected_evidence": "Workflow、Action 版本、Token 權限",
+      "manual_boundary": "公司自建 CI runner 安全與簽章政策",
+      "applicability": "系統透過自動化 CI/CD、建置 Runner 或套件發布管線處理程式碼"
+    },
+    "SI-02": {
+      "mode": "static",
+      "pass_condition": "跨來源靜態資源採適當完整性策略或可信替代方案",
+      "expected_evidence": "HTML script/link、建置設定、CSP",
+      "manual_boundary": "動態內容不適用靜態 SRI 的情境",
+      "applicability": "前端網頁在執行期載入第三方來源的可執行靜態資源"
+    },
+    "SI-03": {
+      "mode": "static",
+      "pass_condition": "只使用受控安全的反序列化設定",
+      "expected_evidence": "Serializer 設定、輸入來源、測試",
+      "manual_boundary": "歷史相容格式及第三方套件",
+      "applicability": "系統反序列化不可信的外部資料"
+    }
+  }
+}
