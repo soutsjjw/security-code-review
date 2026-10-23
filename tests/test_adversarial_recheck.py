@@ -210,6 +210,31 @@ class AdversarialSecondPassTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "禁止自動覆寫"):
                 begin_second_pass(self.root, self.assessment)
 
+    def test_explicit_restart_archives_previous_results_instead_of_erasing(self):
+        old = copy.deepcopy(self.baseline)
+        self.check("AC-08")["decision_reason"] = "不同的複核後來源結論"
+        with (patch("review_safety.snapshot_errors", return_value=[]),
+              patch("review_safety.closure_errors", return_value=[]),
+              patch("control_effectiveness.verification_errors", return_value=[]),
+              patch("decision_adjudication.adjudication_errors", return_value=[]),
+              patch("review_completion.completion_errors", return_value=[]),
+              patch("review_decision.decision_quality_errors", return_value=[]),
+              patch("source_coverage.build_source_coverage", return_value={
+                  "review_integrity_errors": [], "missing_source_file_count": 0,
+              })):
+            with self.assertRaisesRegex(ValueError, "禁止自動覆寫"):
+                begin_second_pass(self.root, self.assessment)
+            result = begin_second_pass(self.root, self.assessment, restart=True)
+        self.assertTrue(result["restarted"])
+        archive = list((self.root / "reports/security-code-review/analysis/second-pass-history")
+                       .glob("*.json"))
+        self.assertEqual(len(archive), 1)
+        history = json.loads(archive[0].read_text("utf-8"))
+        self.assertEqual(history["first_pass_baseline"], old)
+        self.assertIn("AC-08", history["adversarial_reviews"])
+        self.assertEqual(json.loads((self.root / REVIEWS).read_text("utf-8")), {})
+        self.assertEqual(progress(self.root, self.assessment)["pending_count"], 70)
+
     def test_stage_and_integrate_reject_missing_baseline_or_stale_result(self):
         # 這只測試資料整合，未對虛構 70 項給出實際安全結論。
         draft = report_dir(self.root) / "second-pass-test.json"
@@ -218,6 +243,14 @@ class AdversarialSecondPassTests(unittest.TestCase):
             stage(self.root, draft)
             with self.assertRaisesRegex(ValueError, "assessment.json 不存在"):
                 integrate(self.root)
+
+    def test_progress_excludes_invalid_but_present_second_pass_records(self):
+        self.records["AC-08"]["open_issues"] = ["尚未查驗直接 Repository 呼叫"]
+        self.evaluate()
+        pending = progress(self.root, self.assessment)
+        self.assertEqual(pending["pending_count"], 1)
+        self.assertEqual(pending["pending_ids"], ["AC-08"])
+        self.assertGreater(pending["error_count"], 0)
 
     def test_progress_lists_unreviewed_rules_without_faking_completed(self):
         self.assertEqual(progress(self.root, self.assessment)["pending_count"], 0)
