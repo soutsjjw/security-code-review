@@ -108,6 +108,9 @@ def snapshot_errors(target: Path) -> list[str]:
     before = original.get("source_hashes")
     if not isinstance(before, dict):
         return ["審查快照未記錄完整來源 SHA256"]
+    index = _read(report_dir(target) / INDEX, {}) or {}
+    if index.get("source_hashes") != before:
+        return ["分析結構索引與審查快照不同步；須重新執行 analysis_prepare.py 後才可審查或交付"]
     changed = sorted(k for k in actual.keys() & before.keys() if actual[k] != before[k])
     added = sorted(actual.keys() - before.keys())
     removed = sorted(before.keys() - actual.keys())
@@ -193,7 +196,7 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
             errors.append(f"{rid}: open_issues 必須列出尚待補查任務（無則為空陣列）")
         elif closure["open_issues"]:
             errors.append(f"{rid}: 仍有未關閉的跨檔／全專案補查任務")
-        if scopes[rid] == "cross_file" and isinstance(paths, list) and len(paths) < 2:
+        if scopes[rid] == "cross_file" and isinstance(paths, list) and len(paths) == 1:
             # 合法的單檔實作仍可結案，但需說明如何排除其他呼叫端／設定。
             note = closure.get("single_file_justification")
             if not isinstance(note, str) or len(note.strip()) < 20:
