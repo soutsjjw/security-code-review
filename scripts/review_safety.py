@@ -20,6 +20,7 @@ STAGED = Path("analysis/staged")
 RECHECK = Path("analysis/recheck-required.json")
 INDEX = Path("analysis/structure-index.json")
 CONTROL_VERIFICATIONS = Path("analysis/control-verifications.json")
+DECISION_AUDITS = Path("analysis/decision-audits.json")
 
 # 全專案責任檢查即使沒有任何檔案命中也必須執行。
 PROJECT_RULES = frozenset((
@@ -264,8 +265,10 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
 
 def safety_errors(target: Path, assessment: dict) -> list[str]:
     from control_effectiveness import verification_errors
+    from decision_adjudication import adjudication_errors
     errors = (snapshot_errors(target) + closure_errors(target, assessment)
-              + verification_errors(target, assessment.get("checks", [])))
+              + verification_errors(target, assessment.get("checks", []))
+              + adjudication_errors(target, assessment.get("checks", [])))
     outstanding = _read(report_dir(target) / RECHECK, {}) or {}
     ids = outstanding.get("rule_ids", [])
     if ids:
@@ -292,8 +295,8 @@ def stage(target: Path, payload_path: Path) -> str:
     payload = _read(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
-    for key in ("file_reviews", "checks", "findings", "closures", "control_verifications"):
-        is_map = key in {"closures", "control_verifications"}
+    for key in ("file_reviews", "checks", "findings", "closures", "control_verifications", "decision_audits"):
+        is_map = key in {"closures", "control_verifications", "decision_audits"}
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
@@ -326,11 +329,13 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     findings = {r["id"]: r for r in data.get("findings", [])}
     closures = _read(report_dir(target) / CLOSURES, {}) or {}
     control_verifications = _read(report_dir(target) / CONTROL_VERIFICATIONS, {}) or {}
+    decision_audits = _read(report_dir(target) / DECISION_AUDITS, {}) or {}
     known_fingerprints = {_fingerprint(f): fid for fid, f in findings.items()}
     new_files: set[str] = set()
     new_checks: set[str] = set()
     new_closures: set[str] = set()
     new_control_verifications: set[str] = set()
+    new_decision_audits: set[str] = set()
     aliases: dict[str, str] = {}
     recheck = _read(report_dir(target) / RECHECK, {}) or {}
     required_recheck = set(recheck.get("rule_ids", []))
@@ -404,6 +409,16 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
                 raise ValueError(f"{rid}: P2 控制有效性紀錄衝突，須人工核對或明確允許修訂")
             control_verifications[rid] = record
             new_control_verifications.add(rid)
+        for rid, record in part.get("decision_audits", {}).items():
+            if rid not in checks:
+                raise ValueError(f"{rid}: P3 判定紀錄包含未知規則")
+            if not isinstance(record, dict):
+                raise ValueError(f"{rid}: P3 判定紀錄必須為物件")
+            if (rid in decision_audits and decision_audits[rid] != record
+                    and (rid in new_decision_audits or not allow_revision)):
+                raise ValueError(f"{rid}: P3 判定紀錄衝突，須人工核對或明確允許修訂")
+            decision_audits[rid] = record
+            new_decision_audits.add(rid)
 
     # 不允許因去重而留下錯誤 Finding ID 參照。
     for check in checks.values():
@@ -420,6 +435,7 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     # 正式驗證必須在完整審查完成後執行；partial 仍可保留 pending。
     _write(report_dir(target) / CLOSURES, closures)
     _write(report_dir(target) / CONTROL_VERIFICATIONS, control_verifications)
+    _write(report_dir(target) / DECISION_AUDITS, decision_audits)
     _write(assessment_path, data)
     if required_recheck:
         recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
@@ -428,7 +444,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
         path.unlink()
     return {"applied": len(paths), "files": len(new_files),
             "checks": len(new_checks), "findings": len(findings), "closures": len(new_closures),
-            "control_verifications": len(new_control_verifications)}
+            "control_verifications": len(new_control_verifications),
+            "decision_audits": len(new_decision_audits)}
 
 
 def refresh_snapshot(target: Path) -> None:
