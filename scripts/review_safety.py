@@ -101,6 +101,12 @@ def snapshot_errors(target: Path) -> list[str]:
         return ["審查快照版本無效"]
     if _revision(target) != original.get("git_revision"):
         return ["Git Revision 已改變，禁止混用不同提交的審查證據"]
+    assessment = _read(report_dir(target) / "assessment.json", {}) or {}
+    excluded = sorted({str(item.get("path", "")) for item in
+                       (assessment.get("scope_details") or {}).get("excluded_paths", [])
+                       if isinstance(item, dict)})
+    if excluded != original.get("excluded_paths", []):
+        return ["審查排除範圍已改變，須重新盤點與核對來源快照"]
     try:
         actual = current_hashes(target, original.get("excluded_paths", []))
     except (OSError, ValueError, TypeError) as exc:
@@ -358,10 +364,14 @@ def refresh_snapshot(target: Path) -> None:
     old = _read(report_dir(target) / SNAPSHOT)
     if old is None:
         raise ValueError("尚未建立審查快照")
-    current = current_hashes(target, old.get("excluded_paths", []))
+    assessment = _read(report_dir(target) / "assessment.json", {}) or {}
+    excludes = sorted({str(row.get("path", "")) for row in
+                       (assessment.get("scope_details") or {}).get("excluded_paths", [])
+                       if isinstance(row, dict)})
+    current = current_hashes(target, excludes)
     _write(report_dir(target) / SNAPSHOT,
            {"schema_version": 1, "git_revision": _revision(target),
-            "source_hashes": current, "excluded_paths": old.get("excluded_paths", [])})
+            "source_hashes": current, "excluded_paths": excludes})
     # 原有結論、Findings 和 file_reviews 保留以供追溯，不自動宣稱符合。
     # 失去可驗證依賴閉包時，保守要求所有 completed 規則重新查證。
     assessment = _read(report_dir(target) / "assessment.json", {}) or {}
