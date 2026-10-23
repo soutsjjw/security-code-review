@@ -508,16 +508,19 @@ def main() -> int:
     parser.add_argument("--integrate", action="store_true")
     parser.add_argument("--allow-revision", action="store_true",
                         help="人工核對後允許覆核既有 completed；仍禁止抹除已確認 fail")
+    parser.add_argument("--restart-second-pass", action="store_true",
+                        help="明確重新執行第一輪後，歸檔舊快照／複核紀錄並重啟第二輪")
     parser.add_argument("--begin-second-pass", action="store_true",
                         help="第一輪 70 項完成後，固定不可變結果並開始反向複核")
     parser.add_argument("--snapshot-refresh", action="store_true",
                         help="明確更新來源版本，清除過期結案；所有受影響規則須重審")
     args = parser.parse_args()
     try:
-        if args.begin_second_pass:
+        if args.begin_second_pass or args.restart_second_pass:
             from adversarial_recheck import begin_second_pass
             data = _read(report_dir(args.target) / "assessment.json", {}) or {}
-            print(json.dumps(begin_second_pass(args.target, data), ensure_ascii=False))
+            print(json.dumps(begin_second_pass(args.target, data, restart=args.restart_second_pass),
+                             ensure_ascii=False))
         elif args.snapshot_refresh:
             refresh_snapshot(args.target)
             print("PASS: snapshot refreshed; previous conclusions require recheck")
@@ -535,7 +538,7 @@ def main() -> int:
                 return 1
             print("PASS: review safeguards verified")
         else:
-            parser.error("請指定 --plan、--validate、--stage、--integrate、--begin-second-pass 或 --snapshot-refresh")
+            parser.error("請指定 --plan、--validate、--stage、--integrate、--begin-second-pass、--restart-second-pass 或 --snapshot-refresh")
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
