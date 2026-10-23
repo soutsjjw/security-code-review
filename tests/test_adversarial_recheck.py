@@ -168,6 +168,30 @@ class AdversarialSecondPassTests(unittest.TestCase):
         _write(self.root / SNAPSHOT, self.snapshot)
         self.assertIn("第一輪快照與目前來源不同", str(self.evaluate()))
 
+    def test_real_deployment_configuration_proof_is_accepted(self):
+        deployment = self.root / "deployment.yaml"
+        deployment.write_text("replicas: 3\n", encoding="utf-8")
+        self.snapshot["source_hashes"]["deployment.yaml"] = "synthetic-deployment-sha"
+        _write(self.root / SNAPSHOT, self.snapshot)
+        stamp = snapshot_fingerprint(self.snapshot)
+        self.baseline["snapshot_fingerprint"] = stamp
+        c = self.check("BC-03")
+        c["status"] = "pass"
+        c["execution"]["inspected_paths"].append("deployment.yaml")
+        c["evidence"] = [{"kind": "configuration", "path": "deployment.yaml",
+                          "line_start": 1, "line_end": 1}]
+        self.baseline["checks"]["BC-03"] = {"status": "pass", "digest": digest(c)}
+        _write(self.root / BASELINE, self.baseline)
+        for record in self.records.values():
+            record["snapshot_fingerprint"] = stamp
+        item = self.make_record(c)
+        item["hypotheses"][0]["evidence"] = {
+            "kind": "configuration", "path": "deployment.yaml",
+            "line_start": 1, "line_end": 1
+        }
+        self.records["BC-03"] = item
+        self.assertEqual(self.evaluate(), [])
+
     def test_real_external_gap_must_match_decision_audit(self):
         rid = "BC-03"
         check = self.check(rid)
