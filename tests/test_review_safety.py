@@ -121,7 +121,8 @@ class P0ReviewSafetyTests(unittest.TestCase):
                 "examined_relationship_ids": dp_ids, "open_issues": []},
         })
         self.assertEqual(closure_errors(self.root, self.assessment), [])
-        self.assertEqual(safety_errors(self.root, self.assessment), [])
+        # P1 結案成功仍不代表 P2 控制有效性已獲證明。
+        self.assertIn("AC-01: P2 缺少", str(safety_errors(self.root, self.assessment)))
 
     def test_stage_does_not_touch_assessment_and_conflict_is_not_silent(self):
         original = (self.report / "assessment.json").read_bytes()
