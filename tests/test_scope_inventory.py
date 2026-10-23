@@ -63,6 +63,26 @@ class ScopeInventoryTests(unittest.TestCase):
             self.assertEqual(after["inventory_file_count"], 1)
             self.assertNotEqual(build_scope_inventory(assessment, root), before)
 
+    def test_eligible_gap_lists_every_path_and_explains_source_coverage(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / "app.cs").write_text("class Sample {}", encoding="utf-8")
+            (root / "README.md").write_text("docs", encoding="utf-8")
+            (root / "image.png").write_bytes(b"png")
+            (root / "pipeline.yml").write_text("steps: []", encoding="utf-8")
+            assessment = {"checks": [], "file_reviews": [make_file_review(root, "app.cs", ())]}
+            result = build_scope_inventory(assessment, root)
+            self.assertEqual(result["eligible_file_count"], 4)
+            self.assertEqual(result["reviewed_file_count"], 1)
+            self.assertEqual(result["source_file_count"], 2)
+            self.assertEqual(result["reviewed_source_file_count"], 1)
+            self.assertEqual(result["missing_source_file_count"], 1)
+            self.assertEqual(result["eligible_unreviewed_file_count"], 3)
+            listed = {row["path"]: row["reason"] for row in result["eligible_unreviewed_files"]}
+            self.assertEqual(set(listed), {"README.md", "image.png", "pipeline.yml"})
+            self.assertIn("應審查來源檔", listed["pipeline.yml"])
+            self.assertIn("非強制逐檔", listed["README.md"])
+
     def test_unknown_project_count(self):
         with tempfile.TemporaryDirectory() as t:
             out = build_scope_inventory({"checks": []}, Path(t))
