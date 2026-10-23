@@ -190,6 +190,17 @@ class AdversarialSecondPassTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "先完成全部 70 項"):
             begin_second_pass(self.root, self.assessment)
 
+    def test_begin_does_not_skip_unintegrated_or_source_recheck_obligations(self):
+        _write(self.root / "reports/security-code-review/analysis/recheck-required.json",
+               {"rule_ids": ["AC-08"]})
+        with self.assertRaisesRegex(ValueError, "重新查核規則"):
+            begin_second_pass(self.root, self.assessment)
+        (self.root / "reports/security-code-review/analysis/recheck-required.json").unlink()
+        _write(self.root / "reports/security-code-review/analysis/staged/draft.json",
+               {"snapshot_git_revision": "synthetic-test-revision"})
+        with self.assertRaisesRegex(ValueError, "未整合的第一輪暫存"):
+            begin_second_pass(self.root, self.assessment)
+
     def test_begin_pins_completed_first_pass_and_is_idempotent(self):
         (self.root / BASELINE).unlink()
         with (patch("review_safety.snapshot_errors", return_value=[]),
