@@ -83,13 +83,13 @@ Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼
 
 索引前置命令由 Skill 自動呼叫；進階參數及限制請見 [進階使用說明](docs/advanced-usage.md)。
 
-## 單代理安全完整性守門（六項 P0）
+## 單代理安全審查完整性守門
 
 本次強化仍採用**單代理逐檔審查**，沒有加入子代理分工或平行處理。現有 Roslyn／CodeGraph 來源索引新增 DI、Middleware、組態、Endpoint 與跨專案候選；70 項規則都要檢查，跨檔與全專案規則另需完成控制鏈與責任結案。
 
 `analysis_prepare.py` 建立 Git／SHA256 固定來源快照。審查中結果透過 `review_safety.py` 獨立暫存、整合與衝突檢查；只在來源快照一致、跨檔與全專案補查已結案、既有逐檔覆蓋和規則證據驗證都通過後，才交付正式報告。現有 `assessment.json` 與 HTML／JSON 格式不變；既有 Findings 不得被新結果覆蓋或清除。
 
-Agent 會自動操作新增工具。詳細的恢復方式、結案格式及指令見 [六項 P0 完整性守門](docs/p0-review-guards.md)。
+Agent 會自動操作新增工具。詳細的恢復方式、結案格式及指令見 [完整性守門操作指引](docs/review-integrity-guards.md)。
 
 ## 檢核依據
 
