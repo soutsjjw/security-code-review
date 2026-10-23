@@ -43,10 +43,10 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 **本階段不使用子代理或並行審查。** 沿用既有逐檔檢閱、70 項規則、真實證據與正式報告契約。完整操作與例外見 [P0 完整性守門](docs/p0-review-guards.md)。
 
-1. `analysis_prepare.py` 現會建立固定 Git Revision／全來源 SHA256 的 `analysis/review-snapshot.json`，以及 `structure-index.json` 的 `typed_relationships`。候選包含 DI、設定引用、Middleware、Endpoint 授權、跨專案引用及方法呼叫；皆僅供定位，需閱讀來源查證，並補查反射／動態設定等無法可靠建立的關聯。
+1. `analysis_prepare.py` 現會建立固定 Git Revision／全來源 SHA256 的 `analysis/review-snapshot.json`，以及 `structure-index.json` 的 `typed_relationships`。候選包含 DI、設定引用、Middleware、Endpoint 授權、跨專案引用及方法呼叫；新版 Roslyn 提供語意符號及介面分派候選，無法解析時保留完整同名方法清單，不得截斷候選。所有呼叫點與邊皆僅供定位，需閱讀來源查證，並補查反射／動態設定等無法可靠建立的關聯。
 2. 呼叫 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的 `local / cross_file / project` 最小責任範圍；**所有 `project` 規則都要查核，即使來源完全沒有命中**。不得以「查無關鍵字」推定不適用。每個來源檔仍要評估全部 70 條規則的適用性。
 3. 逐檔審查及規則結果先以 JSON 分批透過 `review_safety.py --target "<TARGET_ROOT>" --stage "<JSON路徑>"` 暫存，再以 `--integrate` 整合；整合工具只保存與衝突檢查，不會替 Agent 做安全結論。**所有正式結果仍只能由整合後的 assessment.json 與原有驗證器交付**。舊 Findings 不可覆寫／刪除；不同結果需重新核對，而非任取最後寫入值。
-4. 每條 `cross_file`／`project` completed 規則必須另外完成 `analysis/rule-closures.json` 結案紀錄，包含實際追查來源、控制責任、全域搜尋、跨檔關聯、可能的繞過路徑與未解補查；`open_issues` 非空、只有單一來源卻未說明其他關聯、責任或搜尋不明時**不得 completed**。靜態確定的缺陷直接 fail＋Finding；外部缺口依既有判定階梯處理。
+4. 每條 `cross_file`／`project` completed 規則必須另外完成 `analysis/rule-closures.json` 結案紀錄，包含實際追查來源、控制責任、全域搜尋、跨檔關聯、可能的繞過路徑與未解補查；`open_issues` 非空、只有單一來源卻未說明其他關聯、責任或搜尋不明時**不得 completed**。新版索引亦要求透過 `callsite_reviews` 對相關呼叫點逐一以來源證據核實或具體排除，未處理或歧義未解者不得結案。靜態確定的缺陷直接 fail＋Finding；外部缺口依既有判定階梯處理。
 5. 來源版本異動會阻擋佇列完成和正式報告。Agent 必須核對變更後明確執行 `review_safety.py --target "<TARGET_ROOT>" --snapshot-refresh`，再重建分析索引並重新檢核已完成的受影響判斷；沒有可驗證完整依賴閉包時，保守重審全部 completed 規則。刷新保留既有 Findings，不代表既有 pass 自動仍有效。
 6. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
 
