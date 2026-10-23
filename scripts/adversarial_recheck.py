@@ -111,7 +111,7 @@ def begin_second_pass(target: Path, assessment: dict[str, Any]) -> dict[str, Any
 
 def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
                      inspected: set[str], known: set[str], status: str,
-                     audit: dict | None) -> list[str]:
+                     audit: dict | None, formal_evidence: list[dict]) -> list[str]:
     if not isinstance(proof, dict):
         return [f"{rid}: {label} 缺少具體來源證據"]
     kind = proof.get("kind")
@@ -130,8 +130,12 @@ def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
         return []
     if kind == "external_artifact":
         reference = proof.get("artifact_id")
-        if not isinstance(reference, str) or not reference.strip():
-            return [f"{rid}: {label} 外部工件缺少識別碼"]
+        if (not isinstance(reference, str) or not reference.strip()
+                or not any(isinstance(item, dict) and item.get("artifact_id") == reference
+                           and item.get("kind") in {"deployment", "operating_record", "policy",
+                                                    "scan", "test", "interview"}
+                           for item in formal_evidence)):
+            return [f"{rid}: {label} 外部工件必須引用正式檢核中已存在的工件識別碼"]
         return []
     return [f"{rid}: {label} 缺少有效 source / external_gap / external_artifact 證據"]
 
@@ -224,7 +228,7 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
                 results.append(result)
             errors += _evidence_errors(target, hypothesis.get("evidence"), rid,
                                        label, inspected_set, known, status,
-                                       decision_audits.get(rid))
+                                       decision_audits.get(rid), check.get("evidence") or [])
         if (status == "pass" and any(x not in {"blocked", "not_applicable"} for x in results)
                 or status == "fail" and "confirmed_vulnerability" not in results
                 or status == "review" and "external_boundary" not in results
@@ -254,7 +258,7 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
                 errors.append(f"{rid}: 矛盾[{i}] 缺少具體裁決原因")
             errors += _evidence_errors(target, contradiction.get("evidence"), rid,
                                        f"矛盾[{i}]", inspected_set, known, status,
-                                       decision_audits.get(rid))
+                                       decision_audits.get(rid), check.get("evidence") or [])
     return errors
 
 
