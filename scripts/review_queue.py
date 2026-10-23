@@ -17,6 +17,7 @@ from datetime import date
 from pathlib import Path
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
+from review_decision import decision_quality_errors, load_decision_matrix
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
@@ -144,6 +145,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     web_guide_by_rule = web_guide_review_hints(rules)
     web_appendix_by_rule = appendix_review_hints(rules)
     web_headers_by_rule = header_review_hints(rules)
+    decision_matrix = load_decision_matrix()
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     if detail_id is not None and detail_id not in master_ids:
         raise ValueError(f"未知規則 ID：{detail_id}")
@@ -166,7 +168,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                 })
             if len(source_candidates) >= 15:
                 break
-    rule_errors = completion_errors(checks) if not remaining else []
+    rule_errors = (completion_errors(checks) + decision_quality_errors(checks, source_root=source_root)
+                   if not remaining else [])
     # 70/70 完成但證據品質不合格時，原佇列 next_checks 為空，Agent 容易停止。
     # 從來源完整性／規則完整性錯誤抽取須重新核對的真實規則，不變更原始狀態。
     ids_to_recheck: set[str] = set()
@@ -214,6 +217,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "verification_method": r.get("inspection", {}).get("verification_method", ""),
             "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
             "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
+            "decision_guidance": decision_matrix[r["id"]],
             "tacert_v2_checks": tacert_by_rule[r["id"]],
             "owasp_2025_categories": owasp_by_rule[r["id"]],
             "system_baseline_v13_controls": system_baseline_by_rule[r["id"]],
@@ -237,7 +241,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                         "已完成全部 70 項及應審查原始碼覆蓋，執行 complete_review.py 並驗證 HTML/JSON。"
                         if not remaining else
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
-                        "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
+                        "依 decision_guidance 先判斷主要證據方式及符合條件，能以靜態證據證實的 pass/fail 不得一律保留 review；逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
     # 完整 --detail-id 回傳實際非空對照所需的文件，供 Agent 按需讀取。
     if detail_id is not None:
@@ -254,7 +258,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         } for r in selected]
         if remaining:
             queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
-                                    "需要詳細規範時使用 --detail-id <規則ID>，並依 standard_documents 讀取標準文件。逐檔紀錄與 Finding 仍不可省略。")
+                                    "需要詳細規範時使用 --detail-id <規則ID>，並依 decision_guidance 與 standard_documents 查核。逐檔紀錄與 Finding 仍不可省略。")
         elif ids_to_recheck:
             queue["instruction"] = (
                 "70 項執行紀錄雖已 completed，仍有實際程式碼證據／適用性檢查失敗。"
