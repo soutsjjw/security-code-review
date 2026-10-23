@@ -176,6 +176,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div class="panel" id="strengthsContent"></div>
 
   <h2 id="checklist">詳細檢核結果</h2>
+  <p class="small muted">弱點等級：重大／高／中／低／資訊，僅依實際 Finding 顯示；「—」代表沒有對應的已記錄弱點，不等於低風險。適用防護等級：普／中／高，表示規則對應的防護基準，兩者不能互換。</p>
   <div class="filters" id="stFilter" aria-label="檢核結果篩選">
     <button type="button" class="on" data-f="all" aria-pressed="true">全部</button>
     <button type="button" data-f="fail" aria-pressed="false">不符合</button>
@@ -366,7 +367,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     const st=el('div','stat '+STATUS[key][1]); st.append(el('div','n',n),el('div','l',label)); $('statusStats').append(st);
   }
   $('findingCountTitle').textContent='發現項目（共 '+findings.length+' 項）';
-  const sevKeys=severity('critical')?['critical','high','medium','low','info']:['high','medium','low','info'];
+  const sevKeys=['critical','high','medium','low','info'];
   for(const key of sevKeys){ const st=el('div','stat '+SEVERITY[key][1]); st.append(el('div','n',severity(key)),el('div','l',SEVERITY[key][0])); $('severityStats').append(st); }
   $('severityStats').style.gridTemplateColumns='repeat('+sevKeys.length+',minmax(0,1fr))';
   const overall=presentation.overall_risk||{}; const level=overall.level||'review';
@@ -426,7 +427,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   if (!findings.length) $('findingSummary').append(empty('沒有已確認的弱點發現；不代表系統沒有安全風險。'));
   else {
     const table=el('table');const thead=el('thead');const htr=el('tr');
-    ['編號','等級','發現','對應檢核'].forEach(x=>htr.append(el('th',null,x)));thead.append(htr);table.append(thead);
+    ['編號','弱點等級','發現','對應檢核'].forEach(x=>htr.append(el('th',null,x)));thead.append(htr);table.append(thead);
     const body=el('tbody');
     for (const f of findings){ const tr=el('tr');
       const td1=el('td');td1.append(hrefRef(f.id,f.id,'mono'));tr.append(td1);
@@ -463,12 +464,17 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     const sub=statusEntries.filter(([k])=>counts[k]).map(([k,name])=>name+' '+counts[k]).join(' · ');
     summary.append(el('span','muted small',sub||'尚未評估'));d.append(summary);
     const wrap=el('div','tablewrap');const table=el('table','checklist');const thead=el('thead');const thtr=el('tr');
-    ['編號','檢核項目','等級','結果','說明 / 依據'].forEach(t=>thtr.append(el('th',null,t)));thead.append(thtr);table.append(thead);
+    ['編號','檢核項目','弱點等級','適用防護等級','結果','說明 / 依據'].forEach(t=>thtr.append(el('th',null,t)));thead.append(thtr);table.append(thead);
     const tbody=el('tbody');
     for(const r of group){const c=checksById.get(r.id);const state=STATUS[c?.status]?c.status:'missing';
       const tr=el('tr');tr.dataset.st=state;
       const levels=r.origin?.legacy_levels||r.levels||r.applicability_level||'依 Profile';
-      tr.append(el('td','mono',r.id),el('td',null,r.title),el('td','small nowrap',levels));
+      const linked=findings.filter(f=>asArray(f.check_ids).includes(r.id));
+      const order=['critical','high','medium','low','info'];
+      const foundLevels=linked.map(f=>f.severity==='med'?'medium':f.severity);
+      const highest=order.find(level=>foundLevels.includes(level));
+      const risk=highest?SEVERITY[highest][0]:'—';
+      tr.append(el('td','mono',r.id),el('td',null,r.title),el('td','small nowrap',risk),el('td','small nowrap',levels));
       const td4=el('td');td4.append(chip(STATUS[state][0],STATUS[state][1]));tr.append(td4);
       const td5=el('td','small');const reason=c?text(c.decision_reason,'未提供判定理由'):'尚無審查結果';
       td5.append(document.createTextNode(reason));
