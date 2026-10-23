@@ -111,6 +111,12 @@ class P3AdjudicationTests(unittest.TestCase):
         audit["external_gap"]["category"] = "test_result"
         self.assertIn("必須明確命名", "；".join(self.check(audit=audit)))
 
+    def test_malformed_external_category_is_reported_without_crashing(self):
+        audit = copy.deepcopy(self.audit)
+        audit["external_gap"]["category"] = ["organization_policy"]
+        errors = self.check(audit=audit)
+        self.assertTrue(any("必須明確命名" in x for x in errors), errors)
+
     def test_unfinished_static_work_cannot_hide_under_review(self):
         for mutation in ("inconclusive", "open_question", "no_paths", "no_evidence",
                          "weak_source", "wrong_classification", "bad_line"):
