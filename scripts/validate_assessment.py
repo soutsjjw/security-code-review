@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import date
 from jsonschema import Draft202012Validator,FormatChecker
 from review_completion import completion_errors
+from review_decision import decision_quality_errors
 from assessment_consistency import consistency_errors,consistency_warnings,finding_quality_issues
 from source_coverage import build_source_coverage
 from scope_inventory import scope_project_issues
@@ -28,6 +29,8 @@ errs=[e.message for e in Draft202012Validator(schema,format_checker=FormatChecke
 valid={r['id'] for r in json.loads((ROOT/'rules.json').read_text('utf-8'))['rules']}
 checks=data.get('checks',[]); ids=[c.get('id') for c in checks]
 errs.extend(completion_errors(checks, allow_demo=allow_demo))
+if not allow_demo:
+ errs.extend(decision_quality_errors(checks, source_root=source_root))
 if not allow_demo:
  errs.extend(consistency_errors(data))
  for w in consistency_warnings(data):print('WARNING:',w,file=sys.stderr)
