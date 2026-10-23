@@ -36,6 +36,8 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+      - name: Test Windows project inventory UTF-8 subprocess output
+        run: python -m unittest discover -s tests -p test_scope_projects.py -v
       - name: Test Windows Python runner
         run: python -m unittest discover -s tests -p test_python_runner.py -v
       - name: Check Windows CMD runner
