@@ -23,11 +23,11 @@ PROJECT_FILE = """<Project Sdk="Microsoft.NET.Sdk">
 </Project>
 """
 STATUSES = {"pass", "fail", "review", "na"}
-_RULE_ID = re.compile(r"^(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}$")
+_RULE_ID = re.compile(r"^(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}$")
 
 
 def _relative_path(value: Any) -> str:
-    if not isinstance(value, str) or not value or "\\\\" in value or "\\x00" in value:
+    if not isinstance(value, str) or not value or "\\" in value or "\x00" in value:
         raise ValueError("檔案路徑無效")
     path = PurePosixPath(value)
     if path.is_absolute() or any(part in {".", ".."} for part in value.split("/")):
