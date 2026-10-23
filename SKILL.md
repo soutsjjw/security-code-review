@@ -58,6 +58,12 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 P1 呼叫鏈驗證與 P2 控制有效性驗證互為補充，兩者皆非自動安全判定。完整欄位及示例見 [P2 有效性驗證](docs/p2-control-effectiveness.md)。
 
+## P3：嚴格 review 裁決（必須執行）
+
+任何 `completed+review` 均須先證明：已完成儲存庫內應完成的程式碼與設定追查、目前沒有足以直接 `fail` 的靜態缺陷、缺少的外部資料**真正會影響本規則判定**，且已指名可核對的工件。不能因缺少非必要動態／邊界測試、未完成呼叫鏈分析或缺乏使用者提供的權限矩陣而 `review`。已證實弱點直接 `fail`＋Finding；查核未完成則保留 `pending/blocked`，不以 `review` 代替。
+
+以 `review_queue.py --detail-id <RULE_ID>` 取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [P3 判定裁決指引](docs/p3-review-adjudication.md)。
+
 ## 共同證據與結果判定（所有規範均適用）
 
 **核心原則：結論由程式碼、設定與儲存庫內容決定；`review` 只用於「即使完整讀完儲存庫仍無法回答」的規則。** 不得推測已通過或虛構已執行的掃描；`na` 必須有已核對的不適用理由；70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
@@ -132,7 +138,7 @@ P1 呼叫鏈驗證與 P2 控制有效性驗證互為補充，兩者皆非自動�
      & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
    `--check` 僅需於開始時執行一次。啟動器依序偵測 `python`、`python3`、`py -3`，並確認 Python 3.10+ 與 `requirements.txt` 套件版本可用；其後每次呼叫均以同樣優先序選擇可用環境，不直接假設 `python` 存在。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
-2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `decision_guidance`、`control_effectiveness_guidance`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核且本規則必要的部署、政策或動態證據確實無法取代時可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
+2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `decision_guidance`、`control_effectiveness_guidance`、`decision_adjudication_guidance`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核且本規則必要的部署、政策或動態證據確實無法取代時可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
 3. **每完成一項／每批立即保存**：先將單檔／規則結果透過 `review_safety.py --stage` 獨立暫存，再用 `--integrate` 無衝突整合到 `TARGET_ROOT/reports/security-code-review/assessment.json`；已有 Finding 必須保留。跨檔／全專案規則未結案時保持 `pending`，不得提前填為 `completed`。然後再次執行佇列（不必重新初始化）。
 4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
 5. 由 Agent 內部呼叫 `complete_review.py`，產出最終 `CodeReview_YYYYMMDD.html`、`report.json` 並驗證。最終答覆優先交付這兩個路徑、70 項狀態摘要與 Finding 數；改善建議應收錄於報告中，不要在最終訊息中先要求修復。
