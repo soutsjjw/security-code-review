@@ -20,8 +20,8 @@ from review_safety import initialize_snapshot
 from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
-INDEX_VERSION = 2
-ROSLYN_VERSION = "roslyn-syntax-v2"
+INDEX_VERSION = 3
+ROSLYN_VERSION = "roslyn-symbol-candidates-v3"
 CANDIDATE_VERSION = 2
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
@@ -86,11 +86,13 @@ def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list
 
 
 def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
-    """以 Roslyn 呼叫點／宣告名稱建立候選跨檔關聯；絕不聲稱已完成型別繫結。
+    """P1：語意符號優先、歧義不丟棄；僅產生候選，不自動完成安全查核。
 
-    未編譯整個 Solution 時同名方法仍有歧義，必須由 Agent 核實接收者類型。
+    獨立編譯的專案引用、執行時多型與 dynamic 皆可能影響真實目標。
+    一個呼叫點的全部候選會保留；不得以[:8]、[:200] 靜默截斷。
     """
     from collections import defaultdict
+    import hashlib
 
     declarations: dict[str, list[tuple[str, dict]]] = defaultdict(list)
     for path, entry in indexed.items():
@@ -102,34 +104,77 @@ def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
         hints: list[dict] = []
         for call in entry.get("calls", []):
             name = call.get("called_method")
-            if not isinstance(name, str):
+            line = call.get("line") or call.get("caller_line")
+            if not isinstance(name, str) or not isinstance(line, int) or line < 1:
                 continue
-            options = [
-                (target, method) for target, method in declarations.get(name, [])
-                if target != path
-            ]
-            if not options:
+            caller = str(call.get("containing_method") or "")
+            count = call.get("argument_count")
+            callsite_id = hashlib.sha256(
+                f"{path}|{line}|{caller}|{name}|{count}".encode("utf-8")
+            ).hexdigest()[:24]
+            semantic = call.get("semantic_targets")
+            precise = []
+            if isinstance(semantic, list):
+                precise = [
+                    target for target in semantic
+                    if isinstance(target, dict) and target.get("path") in indexed
+                    and target["path"] != path
+                ]
+            if precise:
+                targets = sorted(precise, key=lambda x: (x["path"], x.get("line") or 0))
+                resolution = ("semantic_dispatch_candidate"
+                              if call.get("semantic_state") == "dispatch_candidate"
+                              else "semantic_symbol_candidate")
+                reason = "Roslyn 合成編譯推測符號；須核對實際專案綁定與 DI"
+            else:
+                candidates = [
+                    (target, method) for target, method in declarations.get(name, [])
+                    if target != path and (
+                        not isinstance(count, int)
+                        or not isinstance(method.get("parameter_count"), int)
+                        or method["parameter_count"] == count
+                    )
+                ]
+                # 由 Roslyn 得到的 receiver_type 可限縮候選，不把 receiver 變數名稱
+                # 當成真實型別，也不把沒有比對到的目標誤認為安全。
+                receiver_type = call.get("receiver_type")
+                typed = [
+                    (target, method) for target, method in candidates
+                    if isinstance(receiver_type, str)
+                    and receiver_type.rsplit(".", 1)[-1].split("<", 1)[0]
+                    == method.get("containing_type")
+                ]
+                matches = typed or candidates
+                targets = [
+                    {"path": target, "method": method["name"], "line": method.get("line"),
+                     "containing_type": method.get("containing_type")}
+                    for target, method in matches
+                ]
+                resolution = ("receiver_type_candidate" if typed else "name_only_ambiguous")
+                reason = ("Roslyn 未能確認直接跨檔符號；同名方法或介面分派可能有歧義"
+                          if matches else "呼叫未取得儲存庫內可用目標")
+            if not targets:
+                # 外部框架呼叫無本地目標時不產生大量虛構的跨檔邊。
+                # 介面或動態分派是否缺少本地實作仍由 Agent 全案核查。
                 continue
-            receiver = call.get("receiver")
-            precise = [
-                (target, method) for target, method in options
-                if isinstance(receiver, str) and receiver == method.get("containing_type")
-            ]
-            matches = precise if precise else options
+            unique = {(t["path"], t.get("line") or 0, t.get("method") or name): t
+                      for t in targets}
+            targets = [unique[k] for k in sorted(unique)]
             hints.append({
-                "caller_method": call.get("containing_method"),
-                "caller_line": call.get("line"),
+                "id": callsite_id,
+                "caller_method": caller,
+                "caller_line": line,
                 "called_method": name,
-                "receiver": receiver,
-                "resolution": "receiver_type_name_hint" if precise else "name_only_ambiguous",
-                "candidate_count": len(matches),
-                "possible_targets": [
-                    {"path": target, "method": method["name"], "line": method.get("line")}
-                    for target, method in matches[:8]
-                ],
+                "receiver": call.get("receiver"),
+                "receiver_type": call.get("receiver_type"),
+                "resolution": resolution,
+                "reason": reason,
+                "candidate_count": len(targets),
+                "possible_targets": targets,
+                "requires_manual_verification": True,
             })
         if hints:
-            graph[path] = hints[:200]
+            graph[path] = sorted(hints, key=lambda x: (x["caller_line"], x["id"]))
     return graph
 
 
@@ -207,6 +252,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "candidate_version": CANDIDATE_VERSION, "rule_candidates": rule_candidates,
         "source_hashes": source, "roslyn_files": indexed,
         "cross_file_call_hints": call_hints,
+        "callsite_candidate_count": sum(len(v) for v in call_hints.values()),
         "typed_relationships": typed_relationships,
         "changed_paths": changed, "removed_paths": removed, "recheck_paths": recheck,
         "codegraph": codegraph, "roslyn": {k: v for k, v in roslyn.items() if k != "executable"},
@@ -233,6 +279,8 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "typed_relationship_kinds": sorted({edge["kind"] for edge in typed_relationships}),
         "cross_file_caller_count": len(call_hints),
         "cross_file_callsite_count": sum(len(v) for v in call_hints.values()),
+        "callsite_candidate_target_count": sum(
+            len(x["possible_targets"]) for calls in call_hints.values() for x in calls),
         "cross_file_examples": [
             {"path": path, "calls": calls[:3]} for path, calls in list(call_hints.items())[:5]
         ],
