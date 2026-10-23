@@ -164,6 +164,20 @@ class ControlEffectivenessTests(unittest.TestCase):
         self.assertTrue(self.evaluate(bad))
         self.assertEqual(self.evaluate(None, status="fail"), [])
 
+    def test_detail_id_exposes_p2_scenarios_without_replacing_70_rules(self):
+        from review_queue import build_queue
+        _, rules = load_rules()
+        pending = [{"id": r["id"], "status": "review",
+                    "execution": {"state": "pending", "methods": [],
+                                  "summary": "尚未執行"}}
+                   for r in rules]
+        queue = build_queue({"checks": pending}, rules, 10, detail_id="AC-08")
+        self.assertEqual(queue["total"], 70)
+        guidance_item = queue["next_checks"][0]["control_effectiveness_guidance"]
+        self.assertTrue(guidance_item["required_for_pass"])
+        self.assertEqual(
+            guidance_item["required_scenarios"], list(REQUIRED_SCENARIOS["AC-08"]))
+
     def test_staged_records_are_preserved_and_conflicts_rejected(self):
         ruleset, rules = load_rules()
         initialize(self.root, report_dir(self.root), ruleset, rules)
