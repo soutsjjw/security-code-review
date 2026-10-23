@@ -128,6 +128,16 @@ def build_scope_inventory(
         inspected[path].update(rule_ids)
 
     reviewed_files = [{"path": p, "check_ids": sorted(ids)} for p, ids in sorted(inspected.items())]
+    source_paths = set(coverage["source_paths"])
+    unreviewed_eligible = [
+        {
+            "path": p,
+            "reason": ("屬應審查來源檔，但缺少有效逐檔紀錄"
+                       if p in source_paths else
+                       "非強制逐檔的原始碼／設定檔類型；已盤點但未計入來源覆蓋率"),
+        }
+        for p in sorted(eligible - set(inspected))
+    ]
     project_rows = []
     declared = details.get("projects", [])
     project_paths = set()
@@ -150,6 +160,11 @@ def build_scope_inventory(
         "eligible_file_count": len(eligible),
         "excluded_file_count": inventoried - len(eligible),
         "reviewed_file_count": len(reviewed_files),
+        "source_file_count": coverage["source_file_count"],
+        "reviewed_source_file_count": coverage["reviewed_source_file_count"],
+        "missing_source_file_count": coverage["missing_source_file_count"],
+        "eligible_unreviewed_file_count": len(unreviewed_eligible),
+        "eligible_unreviewed_files": unreviewed_eligible,
         "reviewed_files": reviewed_files,
         "file_types": sorted({Path(p).suffix.lower() or "（無副檔名）" for p in inspected}),
         "declared_project_count": len(project_rows) if declared else None,
