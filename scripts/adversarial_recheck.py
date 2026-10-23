@@ -71,6 +71,13 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
             or any((c.get("execution") or {}).get("state") != "completed"
                    for c in checks if isinstance(c, dict))):
         raise ValueError("須先完成全部 70 項第一輪檢核，才能固定第二輪起點")
+    # 不得把尚未整合的第一輪草稿或來源變更後待重查工作封存為已完成。
+    staged_dir = target / RELATIVE / "staged"
+    if staged_dir.is_dir() and any(staged_dir.glob("*.json")):
+        raise ValueError("仍有未整合的第一輪暫存結果，不得固定第一輪快照")
+    recheck = _read(target / RELATIVE / "recheck-required.json", {})
+    if isinstance(recheck, dict) and recheck.get("rule_ids"):
+        raise ValueError("來源異動後仍有未完成的重新查核規則，不得開始第二輪")
     from review_completion import completion_errors
     from review_decision import decision_quality_errors
     from review_safety import snapshot_errors, closure_errors
@@ -168,8 +175,11 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
     if not isinstance(snapshot, dict) or baseline.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
         return ["第二輪：第一輪快照與目前來源不同，禁止沿用舊複核結論"]
     original = baseline.get("checks")
-    if not isinstance(original, dict) or set(original) != {c["id"] for c in checks}:
-        return ["第二輪：第一輪結論 ID 與目前 70 項不一致"]
+    if (not isinstance(original, dict) or set(original) != {c["id"] for c in checks}
+            or any(not isinstance(v, dict) or v.get("status") not in {"pass", "fail", "review", "na"}
+                   or not isinstance(v.get("digest"), str) or len(v["digest"]) != 64
+                   for v in original.values())):
+        return ["第二輪：第一輪結論 ID 或不可變指紋無效"]
     stored = _read(target / REVIEWS, {})
     if not isinstance(stored, dict):
         return ["第二輪：adversarial-reviews.json 應為規則 ID 對應的物件"]
