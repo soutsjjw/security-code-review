@@ -142,6 +142,40 @@ class P1CallchainTests(unittest.TestCase):
             _write(report / CLOSURES, {"AC-08": closure})
             self.assertTrue(any("verified/excluded" in e for e in closure_errors(root, {"checks": checks})))
 
+    def test_incremental_change_invalidates_unmodified_callsite_symbols(self):
+        from review_safety import refresh_snapshot
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "Case.csproj").write_text(
+                '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
+                '<TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>',
+                encoding="utf-8")
+            (root / "Caller.cs").write_text(
+                "public class Caller { public void Go() => new Target().Run(); }",
+                encoding="utf-8")
+            (root / "Target.cs").write_text(
+                "public class Target { public void Run() {} }",
+                encoding="utf-8")
+            pending_runs = []
+            def fake_roslyn(source_root, pending, probe):
+                pending_runs.append(sorted(pending))
+                return ({p: {"methods": [], "calls": [], "types": []} for p in pending}, [])
+            with (patch("analysis_prepare.probe_roslyn", return_value={"available": True, "sdk_version": "8.0"}),
+                  patch("analysis_prepare.probe_codegraph", return_value={"available": False}),
+                  patch("analysis_prepare._run_roslyn", side_effect=fake_roslyn)):
+                prepare(root, "full")
+                unchanged = prepare(root, "incremental")
+                self.assertEqual(unchanged["roslyn_reused_count"], 2)
+                self.assertEqual(len(pending_runs), 2)  # 第二輪有快取，不會重新索引
+                self.assertEqual(pending_runs[-1], [])
+                (root / "Target.cs").write_text(
+                    "public class Target { public void Run(int value) {} }",
+                    encoding="utf-8")
+                refresh_snapshot(root)
+                result = prepare(root, "incremental")
+                self.assertEqual(pending_runs[-1], ["Caller.cs", "Target.cs"])
+                self.assertEqual(result["roslyn_reused_count"], 0)
+
     def test_roslyn_traces_real_p0_controller_handler_service_repository(self):
         if not probe_roslyn()["available"]:
             self.skipTest("dotnet SDK 8+ unavailable")
