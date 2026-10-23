@@ -48,7 +48,8 @@ argument-hint: "[專案路徑或檢核範圍]"
 3. 逐檔審查及規則結果先以 JSON 分批透過 `review_safety.py --target "<TARGET_ROOT>" --stage "<JSON路徑>"` 暫存，再以 `--integrate` 整合；整合工具只保存與衝突檢查，不會替 Agent 做安全結論。**所有正式結果仍只能由整合後的 assessment.json 與原有驗證器交付**。舊 Findings 不可覆寫／刪除；不同結果需重新核對，而非任取最後寫入值。
 4. 每條 `cross_file`／`project` completed 規則必須另外完成 `analysis/rule-closures.json` 結案紀錄，包含實際追查來源、控制責任、全域搜尋、跨檔關聯、可能的繞過路徑與未解補查；`open_issues` 非空、只有單一來源卻未說明其他關聯、責任或搜尋不明時**不得 completed**。新版索引亦要求透過 `callsite_reviews` 對相關呼叫點逐一以來源證據核實或具體排除，未處理或歧義未解者不得結案。靜態確定的缺陷直接 fail＋Finding；外部缺口依既有判定階梯處理。
 5. 來源版本異動會阻擋佇列完成和正式報告。Agent 必須核對變更後明確執行 `review_safety.py --target "<TARGET_ROOT>" --snapshot-refresh`，再重建分析索引並重新檢核已完成的受影響判斷；沒有可驗證完整依賴閉包時，保守重審全部 completed 規則。刷新保留既有 Findings，不代表既有 pass 自動仍有效。
-6. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
+6. 先執行 `--begin-second-pass`，由同一代理完成全部 70 項實際反向複核；矛盾未裁決或證據缺漏均不得交付。
+7. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
 
 ## 安全控制有效性與繞過路徑驗證（必須執行）
 
@@ -63,6 +64,12 @@ argument-hint: "[專案路徑或檢核範圍]"
 任何 `completed+review` 均須先證明：已完成儲存庫內應完成的程式碼與設定追查、目前沒有足以直接 `fail` 的靜態缺陷、缺少的外部資料**真正會影響本規則判定**，且已指名可核對的工件。不能因缺少非必要動態／邊界測試、未完成呼叫鏈分析或缺乏使用者提供的權限矩陣而 `review`。已證實弱點直接 `fail`＋Finding；查核未完成則保留 `pending/blocked`，不以 `review` 代替。
 
 以 `review_queue.py --detail-id <RULE_ID>` 取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [待確認判定指引](docs/review-decision-adjudication.md)。
+
+## 單代理第二輪反向複核與矛盾裁決（必須執行）
+
+第一輪完成全部 70 項規則、100% 來源檢閱及跨檔／控制有效性／外部判定證據後，**不得直接交付**。執行 `review_safety.py --target "<TARGET_ROOT>" --begin-second-pass`，固定第一輪全部判定指紋及 Git／來源快照到 `analysis/first-pass-baseline.json`。同一主代理必須**重新閱讀來源**，以攻擊者角度挑戰每項結論，對全部 70 項提出反例假設；高風險規則至少核對兩個不同攻擊面。這是分階段的自我複核，**不是獨立代理或盲審**，不得宣稱真正獨立性。
+
+以 `review_queue.py` 的 `second_pass.pending_ids` 繼續，`--detail-id` 取得 `adversarial_guidance`；將真實反向搜尋、攻擊假設、核對結果與來源證據寫入 `adversarial_reviews`，並以 `review_safety.py --stage/--integrate` 保存。若發現矛盾，必須先依法修訂原檢核與 Finding，再以 `contradictions` 說明來源、修訂原因及結果，不能只寫「已複核」。70 項第二輪證據齊備且 `review_safety.py --validate` 與 `ready_for_report=true` 後才可產生報告。詳見 [第二輪反向複核指引](docs/adversarial-second-pass.md)。
 
 ## 共同證據與結果判定（所有規範均適用）
 
