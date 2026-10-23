@@ -141,14 +141,16 @@ Windows PowerShell 對應指令：
 **按需載入標準文件（P5）**：`--compact` 只回傳精簡待辦；每條規則仍須呼叫 `review_queue.py --target "<TARGET_ROOT>" --detail-id <規則ID>`，依輸出 `next_checks[].standard_documents` 的路徑（相對 `SKILL_ROOT`）實際讀取對應的 `docs/*.md`。同一執行工作階段已讀且未變更的文件可重用；對照多項標準時須讀全數對應文件，並依 YAML 規則與真實來源執行查核。標準文件缺失時不可把該對照宣稱為已審查；共同結論限制以 [SKILL.md](../SKILL.md) 為準。
 
 1. 若受測專案已存在 `assessment.json`，先讀取並保留原有 Finding、證據及完成進度；否則才建立 70 項待審查草稿。
-2. 依 `next_checks` 清單逐條搜尋程式碼、追蹤呼叫鏈及組態，記錄真實檔案路徑、行號、方法、證據與理由。
+2. 依 `next_checks` 清單及 `--detail-id` 的 `decision_guidance`（70 項判定矩陣）逐條搜尋程式碼、追蹤呼叫鏈及組態，記錄真實檔案路徑、行號、方法、證據與理由。能以充分靜態證據判定的控制不得因欠缺非必要動態測試一律列為 review；已證實弱點直接 fail 並保留 Finding。
 3. 每項審查後記錄 `execution.state`（`pending`、`completed`、`blocked`）以及 `status`（`pass`、`fail`、`review`、`na`）；**不能因待辦清單列出某規則就當作完成**。
 4. 每批保存 `assessment.json` 並重新取得下一批；全部 70 項須有真實逐條證據，且 `source_coverage.missing_source_file_count=0`、`review_integrity_errors=[]`、`rule_integrity_errors=[]`、`ready_for_report=true`，才生成最終報告。
 5. 真的無法繼續時保留所有進度與實際錯誤，不得把部分結果當成最終交付。
 
-若已完成可執行的來源靜態分析但沒有部署／政策／人工／動態佐證，使用 `status=review` 並明列已查證內容、來源證據和具體缺口，允許 `execution.state=completed`。**每項 pass/fail/review 必須有可定位的 `checks[].evidence[]`；單靠 inspected_paths 或制式理由不算已完成。** 尚未執行的規則不可標記為 `review` 或 `completed`，也不得為通過驗證虛構工件。
+若規則的符合性結論確實需要額外部署／政策／人工／動態佐證，且無法由充分靜態來源與設定證據取代，才使用 `status=review` 並明列已查證內容、來源證據和具體缺口，允許 `execution.state=completed`。**每項 pass/fail/review 必須有可定位的 `checks[].evidence[]`；單靠 inspected_paths 或制式理由不算已完成。** 尚未執行的規則不可標記為 `review` 或 `completed`，也不得為通過驗證虛構工件。
 
 找到弱點時以真實證據建立 Finding，保留風險、影響及改善建議，繼續其餘審查；**本 Skill 不修改受測原始碼，亦不要求先修復才能產生報告**。
+
+判定矩陣位於 `policies/review-decision-matrix.json`：`static` 主要由程式碼／組態判定；`hybrid` 僅在具體外部條件阻斷結論時待確認；`external` 必須有可追查的部署／制度／測試佐證才可 pass。實際無足夠證據時不強行通過，保留進度並重審。`review_queue.py` 的 `rule_integrity_errors`／`recheck_rule_ids` 會回送只附宣告或模板理由的 completed 規則。
 
 完成後，Agent 在受測專案執行：
 
