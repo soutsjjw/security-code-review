@@ -39,63 +39,26 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
-## TACERT「網站安全管理指南」V2 補充檢核
+## 共同證據與結果判定（所有規範均適用）
 
-- 文件：臺灣學術網路危機處理中心，《網站安全管理指南》，2022 年 8 月修訂 V2（PDF 11 頁）。檢核對照：`standards/tacert-v2-checklist.yaml`。
-- 現有 70 項規則維持不變；另外以 **12 項常見缺失＋14 項網站安全檢測＋13 類防護措施（共 39 個補充檢核焦點）** 加強查核。這 39 個焦點不代表另外執行 39 個獨立規則，也不得把 70 項進度虛增。
-- `review_queue.py` 的 `next_checks[].tacert_v2_checks` 會列出對應 TACERT 焦點、PDF 頁碼、檢查方向及證據要求。Agent 應對各項適用焦點實際查核，將結論、未取得之證據及 TACERT 項目 ID 寫入**原有規則的** `decision_reason`／`execution.summary`；證據仍依既有 Schema 存入 `evidence`。
-- 可從原始碼與版控組態核對的項目採靜態查核；防火牆、RDP、Port 掃描、Windows 事件、登錄檔、惡意軟體防護、DDoS、備份還原、滲透測試等需部署/營運/動態佐證。缺少證據時 **不得假稱 Pass，也不得假稱實際掃描**，記錄已做的靜態分析與待確認範圍後繼續其他項目。
-- 相同風險僅記錄一個 Finding，可關聯多條規則；`related_rule_ids` 只是補充對照，**不是完整規範等價映射**。如 TACERT 建議「管理員定期變更密碼」，須先核對目前適用政策與等效控制，不直接以缺少輪替機制宣稱違反法律。
-- 本版第二章 OWASP Top 10 列的是 **2021** 風險分類，不能直接引用為 **OWASP Top 10 2025**。二者於 `standards/standards-register.yaml` 分列。
+**只有確實執行適用的檢核、取得可定位且足以支持結論的來源／設定／測試／部署／政策證據，才能將對應項目記為 `pass` 或宣稱符合。** 缺少必要的外部、動態、部署、營運、政策或審核佐證時，不得推測已通過或虛構已執行的掃描；記錄已完成的靜態查核、實際證據與缺口，依資料契約使用 `review`／`not_assessed`／`pending_level` 等狀態，並繼續其他項目。能由靜態證據確認弱點者應記 `fail` 與 Finding；`na` 必須有已核對的不適用理由。70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
 
-## OWASP Top 10:2025 十類風險對照
+## 標準文件按需載入（必須執行）
 
-- 官方規範：https://top10.owasp.org/2025/，對照：`standards/owasp-top10-2025.yaml`（A01～A10，含審查方向、相關原規則、未完整涵蓋事項）；不修改 TACERT V2 對 2021 的歷史引用。
-- 對 `review_queue.py` 各筆 `next_checks[].owasp_2025_categories`，按專案適用性實際檢查 `review_steps`。需於已查核規則的 `decision_reason`／`execution.summary` 指明相關 OWASP 2025 ID、取得的真實證據和仍待確認的 `coverage_gap`；不因缺少動態或外部證據中止其他審查。
-- **新重點**：A03 供應鏈（傳遞相依、SBOM、受信任來源、CI/CD、工件簽章與發佈控制）；A09 記錄外還需驗證告警與應變；A10 錯誤／逾時／交易失敗與 fail-closed；SSRF 對應 A01:2025。
-- 一個既有規則可能涉及多個 OWASP 類別，但不因此重複計數 Finding；`OWASP Top 10:2025` 是風險分類，**不將類別對照或關聯規則 Pass 直接視為該類別完全符合**。制度、平台或動態項目待佐證時保留 `review` 與說明。
-- 從舊版續用的 `assessment.json` 若先前已完成，**不可僅因對照新增而宣稱 2025 已實際審查**；須核對舊證據是否涵蓋新重點，對缺漏部分重新分析並留下真實查核紀錄。 `report.json` 和 HTML 會呈現版本化風險對照及覆蓋限制。
+以下文件保存標準專屬審查限制；原 `standards/*.yaml` 清冊與 `rules.json` 仍是機械化對照及規則主檔，**不以 Markdown 取代**。對每條規則先用 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 取得完整內容，查看對應欄位；**欄位有適用項目時，須在做該規則結論之前讀取對應 Markdown 文件與 YAML 查核方向**，不可只因 `--compact` 沒有顯示細節而省略。
 
-## 《資通系統防護基準驗證實務》V1.3 第二層驗證
+| `--detail-id` 標準欄位（非空時） | 必讀文件（相對 `SKILL_ROOT`） |
+| --- | --- |
+| `tacert_v2_checks` | [TACERT V2](docs/tacert-v2-review.md) |
+| `owasp_2025_categories` | [OWASP Top 10:2025](docs/owasp-top10-2025-review.md) |
+| `system_baseline_v13_controls` | [防護基準 V1.3](docs/system-baseline-v1.3-review.md) |
+| `web_guide_v32_checks` | [WEB 指引 V3.2](docs/web-guide-v3.2-review.md) |
+| `web_guide_v32_appendix1` | [V3.2 附件 1](docs/web-guide-v3.2-appendix1-review.md) |
+| `web_guide_v32_appendix3` | [V3.2 附件 3](docs/web-guide-v3.2-appendix3-review.md) |
 
-- 國家資通安全研究院 115/06/03 V1.3 之第 2 章包含七構面、27 類、**80 項控制措施**。以 `standards/tw-system-baseline-v1.3.yaml` 為第二層版本化清冊，保存原文 2.x 條次、PDF 頁碼、適用「普／中／高」、查核型態（source/hybrid/external）、證據方向與原 70 項相關規則。
-- **不得修改或重新編號原 70 項，也不得將 80 項加總成 150 個 Code Review 規則**。佇列 `next_checks[].system_baseline_v13_controls` 是源碼檢查參照；對 source/hybrid 可閱讀程式碼與設定，external 需政策、正式工具掃描、滲透測試、部署、演練或營運紀錄。將已檢查方向及待補證據註記於相關 70 項的審查摘要，不得謊稱已完成獨立驗證。
-- 系統防護需求等級「普／中／高」（附表九／十）**與**機關責任等級「A～E」不同。依 `project.protection_demand_level` 及 `protection_demand_level_basis` 取得正式依據決定適用數（普 45、中 62、高 80）；若證據不足則不填值或設為「待確認」，不可因看見特定程式碼而推定正式級別。
-- `report.json.system_baseline` 與 HTML 的獨立章節記錄各項狀態。不提供另外的真實驗證資料時，自動標示 `pending_level`／`not_assessed`／`not_applicable_by_level`；**既有 70 項 Pass 不會推論成防護基準 Pass**。
-- 在受測專案的 `reports/security-code-review/baseline_assessment.json` 可記錄經實際核對的獨立項目：`{ "controls": [{ "id": "TW-SB-2.1.3.2", "status": "review", "reason": "已檢查原始碼，尚待實機授權測試", "reviewer": "審核人員", "verified_on": "2026-10-20", "evidence": [] }] }`。需完整理由、日期和審核者，`pass/fail` 更須有具體獨立佐證路徑或外部工件編號。
-- 只對確實完成的項目寫入人工決定，無佐證不得填 `pass`；也不要把人工基準結果寫進原有 `assessment.json.checks`。如果舊版報告已有 Finding 或已審查結果，一律保留；補充基準不須清空原紀錄。
-- PDF 的附件一僅見起始頁，未取得完整附件，故對照以第 2 章 80 項內容為準；不是聲稱已比對完整附表影本。
-- `complete_review.py` 仍在受測專案執行，沿用 `$security-code-review`。只有 70/70 審查完成才產生報告；獨立防護基準項目可保留待確認，不影響既有交付條件，但不可對外宣稱整體符合性驗證完成。
-
-## WEB 應用程式安全參考指引 V3.2（限定 ASP.NET/.NET 與通用 Web 安全）
-
-- 來源：《WEB應用程式安全參考指引》V3.2（114/12/31），第 4 章七構面、29 類控制、35 個明確細部技術條次；以 `standards/nics-web-guide-v3.2.yaml` 記錄章節、PDF 頁碼、審查方向與相關原 70 項規則。**這是技術參考，不是獨立 29/35 條新增完成規則、不是法定符合性結果**。
-- **使用者排除 Java、PHP 實作技術**：不得使用此 V3.2 指引中的 Java/Servlet/JSP 或 PHP 語法、設定範例、函式庫或專屬檢測命令來設計檢核；僅採用 ASP.NET/.NET 的實作建議以及與語言無關的 Web 安全要求。這不代表遇到其他語言時跳過既有 70 項通用安全檢查。
-- 對佇列 `next_checks[].web_guide_v32_checks` 的適用項目，實際核查程式碼路徑／行號及設定；V3.2 的細部條次含 `observed_levels` 與原 PDF 表格依據，只表示該節實作建議表至少一項涉及的普／中／高等級（同節多項可能適用不同等級），不得直接推定整個控制適用或自動 N/A；在 `decision_reason`／`execution.summary` 記錄相應 `NICS-WEB-4.x.x[.x]` ID、證據、不能確認的外部事項，並保持既有 Finding 與 70/70 計數。
-- V3.2 新增 `4.5.3.4 HTTP 安全標頭`：需對照 `CR-05` 審查 CSP、HSTS、nosniff、X-Frame-Options、Referrer-Policy、Permissions-Policy 的實際設定與有效性；**文件部分 CSP 範例含 unsafe-inline / unsafe-eval，不能照抄或以有設定標頭即宣稱安全**。HSTS 與實際回應標頭可能仍需部署佐證。
-- 指引第 3 章使用 OWASP Top 10:2021，保留歷史版本；既有 OWASP Top 10:2025 仍為獨立新版本分類。
-- 主文件 PDF 共 253 頁，末頁僅列附件 1～3 標題；**附件 1 的完整五頁 PDF 已另行提供並建立 55 項清冊**，附件 2 尚未取得；附件 3 的 10 頁 PDF 已取得並建立六項安全標頭對照。
-- `report.json.web_guide_v32` 與離線 HTML 的「WEB 應用程式安全參考指引 V3.2 技術對照」只呈現來源、技術範圍、控制映射及查核焦點；原始碼檢核結果與 V1.3 防護基準獨立呈現，不依映射自動推論合規。
-
-## 附件 1：Web 應用程式安全查檢表（V3.2 主文件附錄）
-
-- 來源：`附件1 Web應用程式安全查檢表.pdf`（完整 5 頁）。7 大構面、27 類共 **55 項**；依原文 ◎ 統計普33、中44、高55。版本化清冊：`standards/nics-web-v3.2-appendix1.yaml`，ID `NICS-WEB-A1-001` 至 `055`。原附件的「是否符合」欄空白，不能假設全數通過。
-- `review_queue.py` 每批 `next_checks[].web_guide_v32_appendix1` 提供相關附件細項；在原有 70 項實際審查時按適用情境、原始碼路徑與行號、依賴及設定真實證據檢查，需政策、運作、正式掃描或滲透測試證據者標示待確認。**原 70 項 Pass 不等於附件符合**，不新增重複 Finding。
-- 附件的普／中／高採用 `project.protection_demand_level` 和 `project.protection_demand_level_basis`，與 A～E 機關責任等級完全分開。尚無系統分級則 55 項為 `pending_level`，有分級而未驗證的適用項為 `not_assessed`，非適用級別為 `not_applicable_by_level`，不允許自動推定 Pass。
-- 當有真實可核對證據，可在受測目錄 `reports/security-code-review/web_appendix1_assessment.json` 寫入 `{"checks":[{"id":"NICS-WEB-A1-001","status":"review","reason":"已查驗程式碼，實際逾時效果尚待佐證","reviewer":"資安審查人員","verified_on":"2026-10-20","evidence":[]}]}`。這是**格式示範**；`pass/fail` 需有實際證據參照，所有人工記錄均需理由、審核者及日期，不能聲稱自動 SAST、實際防火牆設定或滲透測試已完成。既有 `assessment.json` 與 Findings 不得刪除。
-- `generate_report.py` 自動載入上述選填檔案；`report.json.web_guide_v32_appendix1` 與 HTML 新增逐項對照／狀態／證據章節。重跑舊報告不能推定此前已完成新的 55 項，必須先覆核證據。
-- 維持技術限定：**ASP.NET/.NET 與不分語言的 Web 安全要求，排除 Java／PHP 專屬實作**。附件只列 27 類，未列 V3.2 主文 `4.4.5`、`4.7.1` 及 `4.5.3.4` HTTP 安全標頭細節；主文仍需完整檢測。
-- 附件的「12 字元與字元類型、定期輪替、CAPTCHA、Regex」是來源明列的實作要求，不可在未確認機關政策、風險與等效防護前無條件判定安全或法遵違規。
-
-## 附件 3：HTTP 安全標頭防護設定（六項 CR-05 技術子檢核）
-
-- 來源：《附件3 HTTP安全標頭防護設定.pdf》，共 10 頁。標準 `NICS-WEB-GUIDE-APPENDIX3`；清冊 `standards/nics-web-v3.2-appendix3.yaml`，依主文 `NICS-WEB-4.5.3.4` 對照六項：Content-Security-Policy、Strict-Transport-Security、X-Content-Type-Options、X-Frame-Options、Referrer-Policy、Permissions-Policy。
-- **不增加正式規則數**，原 `CR-05` 是主要檢核，CSP 同時關聯 `IN-02`，HSTS 同時關聯 `CR-01`，**不得將 HTTP 標頭直接視為 `CR-06` Cookie 安全屬性**。佇列 `next_checks[].web_guide_v32_appendix3` 提示要實際查核的設定值、路徑、部署等細節；Finding 仍以原有規則記錄。
-- **技術限制**：只採 ASP.NET/.NET、IIS、`web.config`、Middleware、反向代理及通用 HTTP 回應要求；排除 Java Servlet Filter、`web.xml` 與 PHP 專屬檢查。不得把原 PDF 第 9 頁含 `unsafe-inline`／`unsafe-eval` 的 CSP 程式碼當作安全建議；須確認 CSP 真正強制執行且不過寬、HSTS 子網域和 preload 風險、Permissions-Policy 正確語法與實際瀏覽器支援。
-- 必須分開記錄 **靜態程式碼／設定檢查** 與 **實際 HTTPS HTTP 回應證據**，並核對部署環境、URL 或測試工件識別、日期、標頭有效值。未提供回應證據時只能記 `review` 或 `not_assessed`，不得因設定檔出現標頭而自動 Pass。可根據實際來源錯誤記 `fail`，但應註明部署影響待驗。
-- `report.json.web_guide_v32_appendix3` 與 HTML 會獨立顯示六項結果；無真實證據預設六項皆 `not_assessed`，不受原 `CR-05` 的 Pass 影響。若有實際查證，Agent 可於受測專案 `reports/security-code-review/web_appendix3_assessment.json` 記錄 `{"checks":[{"id":"NICS-WEB-A3-CSP","status":"review","reason":"已檢查配置但待實測 HTTPS 回應","reviewer":"資安審查人員","verified_on":"2026-10-20","environment":"測試環境","observed_value":"default-src 'self'","evidence":["web.config:42"],"http_response_evidence":[]}]}`（格式示意）。pass 須非空 `http_response_evidence` 和 `environment`；fail 須有真實設定或回應證據；其他人工判定皆需理由、審核者與日期。
-- 來源 PDF 第 7 頁提及 SecurityHeaders.com、Mozilla Observatory、Google CSP Evaluator，作為**經授權**的輔助驗證工具；工具評分或警示不能直接當法遵結論。附件3自身沒有正式「普／中／高」獨立矩陣，不得擅自判斷 N/A。
-- 保留原有所有 Finding、70 項續跑流程、V3.2 主文與附件1。即使缺少外部部署證據，仍要完成其餘的程式碼審查；不修改受測專案原始碼。
+- 同一工作階段可快取已讀且未變更的文件，不必逐條重複讀取；但每一條規則仍須按自身映射、`review_steps`／`coverage_gap` 與來源證據獨立核對，不能因讀過文件就標記完成。
+- 若一條規則有多個非空對照，須載入全部相關文件；附件內容不能取代 V3.2 主文，必要時同時載入 [V3.2 主文](docs/web-guide-v3.2-review.md)。檔案讀取失敗時須記錄未完成的對照與原因，不能聲稱已完成該項查核。
+- 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
 
 ## 自動審查流程
 
@@ -148,7 +111,7 @@ argument-hint: "[專案路徑或檢核範圍]"
    - 缺少部署、政策、外部證據或動態測試時，標記已完成靜態查核的 `review` 並說明仍待確認的範圍；不得因該項缺證據而停止其餘檢核。
    - **唯讀解碼已獲本 Skill 的一般執行授權，不得再次詢問使用者可否讀取 CP950／CP1252。** 先依 BOM 使用 UTF-8-BOM／UTF-16 等編碼，無 BOM 優先 UTF-8，失敗則自動嚴格回退 CP950、CP1252。回退警告只需記入診斷／報告限制，**不是人工確認閘門**；疑似誤判編碼時以其他線索核對，不得默默扭曲證據。可使用 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "<相對來源檔>" --start 1 --end 200`（Windows 以 `run-python.cmd` 搭配 `source_reader.py` 執行） 取得帶行號的唯讀內容，不得修改來源、忽略解碼錯誤位元組或憑空填證據。
    - 如果個別來源仍無法安全解碼，記錄檔案與解碼錯誤並繼續其他可讀檔案與檢核；只有對完成剩餘審查構成實質阻斷的錯誤才能中斷，並清楚列出未完成範圍。
-   - 缺乏證據不得 Pass；N/A 須有理由；不得自動執行破壞性測試或捏造動態測試、環境與政策簽核。
+   - 不得自動執行破壞性測試；所有結論與外部證據遵循「共同證據與結果判定」。
 ### 必須記錄審查範圍與檔案明細
 
 - 在 `assessment.scope_details.projects` 記錄真正納入的專案：每項具有 `name` 及相對 `TARGET_ROOT` 的 `path`；單一專案可使用 `path: "."`，多專案各列一筆。不要由 manifest 數直接推定審查專案數。`--init` 會依 `.csproj` 預填此清單；也可執行 `scope_inventory.py --target <TARGET_ROOT>` 取得。盤點到 `.csproj` 卻未宣告時，驗證器會拒絕交付；漏列的專案會警示。
@@ -170,7 +133,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 70 個 `execution.state=completed` **且** `source_coverage.missing_source_file_count=0` **且** `review_integrity_errors`、`rule_integrity_errors` 均為空，才能使 `ready_for_report=true`；必須提供實際 `TARGET_ROOT` 作來源驗證。當 70 項已完成但仍有未讀檔案，應繼續按 `next_source_paths` 逐檔補查、必要時重新審查已完成規則，不能直接進入報告階段；產生器及驗證器會拒絕來源覆蓋不足的報告。
 - 僅可排除預設第三方套件／建置產物目錄，以及 `scope_details.excluded_paths` 明確記載、可辯護且不屬於本次審查的範圍；`scope_details.projects` 用於統計，不可用來偷偷縮小應審查檔案範圍。
 - **交付前主動檢查**：大量同質 review、重複證據、錯誤規則對應、已證實弱點卻未建 Finding，以及 completed 但缺真實證據的規則。只可重新閱讀原始碼與補查佐證，不能僅修飾 JSON 通過驗證。機械驗證無法證明 Agent 確實閱讀程式碼；必要時應由審查者抽驗。
-- `status=review` 只代表已實際查核，但具體控制仍缺部署、動態、政策等佐證；必須指出已讀檔案或可核對證據與待補的證據。靜態程式碼足以證實弱點時應記 `fail` 與 Finding；證據已滿足適用檢核要求才記 `pass`；確實不適用且有理由才記 `na`。不得對大多數規則一律填 `review` 以規避實際分析。
+- `status=review` 須列出已核對的來源／設定及仍待補的外部工件，不能把 `review` 當成尚未分析的預設結論；判定底線依「共同證據與結果判定」。
 
 4. 在 **受測專案**（非 Skill）建立 `reports/security-code-review/`，並寫入：
    - `assessment.json`：符合 `schemas/assessment.schema.json` 的 70 項檢核、已驗證 Finding、真實 Git Revision 與證據。
