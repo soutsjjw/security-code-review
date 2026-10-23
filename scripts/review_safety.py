@@ -135,9 +135,18 @@ def scope_tasks(target: Path) -> list[dict]:
                        if any(hit.get("rule_id") == rid for hit in hits))
         edge_ids = [edge["id"] for edge in relations
                     if edge.get("source") in paths or edge.get("target") in paths]
+        callsite_ids = sorted({
+            call["id"] for origin, entries in (index.get("cross_file_call_hints") or {}).items()
+            for call in entries if isinstance(call, dict) and isinstance(call.get("id"), str)
+            and (origin in paths or any(
+                item.get("path") in paths for item in call.get("possible_targets", [])
+                if isinstance(item, dict)
+            ))
+        })
         tasks.append({"rule_id": rid, "scope": scope,
                       "candidate_paths": paths,
                       "relationship_ids": sorted(set(edge_ids)),
+                      "callsite_ids": callsite_ids,
                       "needs_closure": scope != "local" and rid not in closures,
                       "project_responsibility_check": scope == "project"})
     return tasks
@@ -195,6 +204,51 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
         if unresolved:
             errors.append(f"{rid}: 尚有 {len(unresolved)} 筆跨檔／組態候選未查證或排除："
                           + "、".join(unresolved[:5]))
+        # P1 只對新索引中與本規則相關的呼叫點加上明確覆核要求。
+        # Symbol / name-based 邊都只是候選，不能自動宣稱 verified。
+        if index.get("schema_version", 0) >= 3:
+            callsites = {
+                call["id"]: (origin, call)
+                for origin, entries in (index.get("cross_file_call_hints") or {}).items()
+                for call in entries if isinstance(call, dict) and isinstance(call.get("id"), str)
+                and (origin in relevant_paths or any(
+                    isinstance(target, dict) and target.get("path") in relevant_paths
+                    for target in call.get("possible_targets", [])
+                ))
+            }
+            reviews = closure.get("callsite_reviews", {})
+            if not isinstance(reviews, dict):
+                errors.append(f"{rid}: callsite_reviews 必須為呼叫點 ID 對應的覆核紀錄")
+                reviews = {}
+            unknown = set(reviews) - set(callsites)
+            if unknown:
+                errors.append(f"{rid}: 包含不屬於本規則責任範圍的呼叫點："
+                              + "、".join(sorted(unknown)[:5]))
+            for callsite_id, (origin, call) in callsites.items():
+                review = reviews.get(callsite_id)
+                if not isinstance(review, dict):
+                    errors.append(f"{rid}: 跨檔呼叫點 {callsite_id} 尚未由 Agent 核對來源")
+                    continue
+                status = review.get("status")
+                reason = review.get("reason", "")
+                if status not in {"verified", "excluded"} or not isinstance(reason, str) or len(reason.strip()) < 20:
+                    errors.append(f"{rid}: 呼叫點 {callsite_id} 須提供具體 verified/excluded 判定與理由")
+                    continue
+                if origin not in paths:
+                    errors.append(f"{rid}: 呼叫點 {callsite_id} 來源未列入 examined_paths")
+                selected = review.get("selected_targets", [])
+                candidates = {item.get("path") for item in call.get("possible_targets", [])
+                              if isinstance(item, dict)}
+                if not isinstance(selected, list) or any(
+                    not isinstance(p, str) or p not in candidates for p in selected
+                ):
+                    errors.append(f"{rid}: 呼叫點 {callsite_id} 目標必須來自已列出的候選來源")
+                elif status == "verified" and (
+                    not selected or any(p not in paths for p in selected)
+                ):
+                    errors.append(f"{rid}: 呼叫點 {callsite_id} 已確認目標必須列入 examined_paths")
+                elif status == "excluded" and selected:
+                    errors.append(f"{rid}: 呼叫點 {callsite_id} 已排除，不可同時宣稱確認目標")
         if not isinstance(closure.get("open_issues"), list):
             errors.append(f"{rid}: open_issues 必須列出尚待補查任務（無則為空陣列）")
         elif closure["open_issues"]:
