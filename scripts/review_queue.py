@@ -114,6 +114,17 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
         project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+# 與 SKILL.md「標準文件按需載入」一致；路徑一律相對 SKILL_ROOT。
+STANDARD_GUIDES = {
+    "tacert_v2_checks": "docs/tacert-v2-review.md",
+    "owasp_2025_categories": "docs/owasp-top10-2025-review.md",
+    "system_baseline_v13_controls": "docs/system-baseline-v1.3-review.md",
+    "web_guide_v32_checks": "docs/web-guide-v3.2-review.md",
+    "web_guide_v32_appendix1": "docs/web-guide-v3.2-appendix1-review.md",
+    "web_guide_v32_appendix3": "docs/web-guide-v3.2-appendix3-review.md",
+}
+
+
 def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: Path | None = None,
                 compact: bool = False, detail_id: str | None = None) -> dict:
     checks = data.get("checks")
@@ -228,6 +239,12 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
                         "逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
+    # 完整 --detail-id 回傳實際非空對照所需的文件，供 Agent 按需讀取。
+    if detail_id is not None:
+        for item in queue["next_checks"]:
+            item["standard_documents"] = [
+                path for field, path in STANDARD_GUIDES.items() if item.get(field)
+            ]
     if compact:
         # 唯一目的：減少送入 AI 上下文的佇列字數；詳細規範請用 --detail-id。
         queue["next_checks"] = [{
@@ -237,7 +254,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         } for r in selected]
         if remaining:
             queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
-                                    "需要詳細規範時使用 --detail-id <規則ID>。逐檔紀錄與 Finding 仍不可省略。")
+                                    "需要詳細規範時使用 --detail-id <規則ID>，並依 standard_documents 讀取標準文件。逐檔紀錄與 Finding 仍不可省略。")
         elif ids_to_recheck:
             queue["instruction"] = (
                 "70 項執行紀錄雖已 completed，仍有實際程式碼證據／適用性檢查失敗。"
