@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from analysis_prepare import prepare
 from control_effectiveness import (REQUIRED_SCENARIOS, VERIFICATIONS,
-                                   guidance, verification_errors)
+                                   guidance, snapshot_fingerprint, verification_errors)
 from quality_baseline import PROJECT_FILE, load_catalog
 from review_queue import load_rules, initialize
 from review_safety import _write, integrate, report_dir, stage
@@ -68,6 +68,7 @@ class ControlEffectivenessTests(unittest.TestCase):
         return {
             "status": "pass",
             "git_revision": self.snapshot["git_revision"],
+            "snapshot_fingerprint": snapshot_fingerprint(self.snapshot),
             "source_hashes": self.snapshot["source_hashes"],
             "entry_points": [entry],
             "enforcement_points": [enforcement],
@@ -141,8 +142,20 @@ class ControlEffectivenessTests(unittest.TestCase):
         bad["git_revision"] = "wrong"
         self.assertIn("Git Revision", str(self.evaluate(bad)))
         bad = copy.deepcopy(self.record)
+        bad["snapshot_fingerprint"] = "outdated"
+        self.assertIn("完整來源快照指紋已失效", str(self.evaluate(bad)))
+        bad = copy.deepcopy(self.record)
         bad["enforcement_points"][0]["path"] = "../outside.cs"
         self.assertIn("路徑不存在", str(self.evaluate(bad)))
+
+    def test_unrelated_new_source_invalidates_old_snapshot_evidence(self):
+        prior_fingerprint = snapshot_fingerprint(self.snapshot)
+        modified = copy.deepcopy(self.snapshot)
+        modified["source_hashes"]["NewEndpoint.cs"] = "f" * 64
+        self.assertNotEqual(prior_fingerprint, snapshot_fingerprint(modified))
+        _write(self.root / "reports/security-code-review/analysis/review-snapshot.json",
+               modified)
+        self.assertIn("完整來源快照指紋已失效", str(self.evaluate(self.record)))
 
     def test_insecure_p0_code_cannot_be_excused_as_pending_bypass_in_pass(self):
         # P0 的不安全案例已有已知弱點；待查狀態不得成為 completed pass。
