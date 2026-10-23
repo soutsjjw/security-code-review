@@ -5,6 +5,8 @@ import contextlib
 import copy
 import io
 import json
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -90,6 +92,27 @@ class QualityBaselineTests(unittest.TestCase):
                                      {"Case.csproj", *case["files"].keys()})
             with self.assertRaisesRegex(ValueError, "不是空的"):
                 materialize(root, self.catalog)
+
+    def test_fixtures_compile_with_dotnet8_when_available(self):
+        """編譯只是語法健全性檢查，不表示任何案例已通過資安審查。"""
+        dotnet = shutil.which("dotnet")
+        if not dotnet:
+            self.skipTest("dotnet CLI not installed")
+        versions = subprocess.run([dotnet, "--list-sdks"], capture_output=True, text=True, check=False)
+        if versions.returncode or not any(line.startswith("8.") for line in versions.stdout.splitlines()):
+            self.skipTest("net8.0 targeting SDK not available")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "projects"
+            materialize(root, self.catalog)
+            for case in self.catalog["cases"]:
+                with self.subTest(case=case["id"]):
+                    project = root / case["id"]
+                    result = subprocess.run(
+                        [dotnet, "build", "Case.csproj", "--nologo", "--ignore-failed-sources"],
+                        cwd=project, capture_output=True, text=True, check=False, timeout=120,
+                    )
+                    self.assertEqual(result.returncode, 0,
+                                     f"{case['id']} 編譯失敗:\\n{result.stdout[-1800:]}\\n{result.stderr[-1200:]}")
 
     def test_scoring_measures_expected_status_finding_trace_and_evidence(self):
         result = evaluate(self.catalog, self.make_perfect_predictions())
