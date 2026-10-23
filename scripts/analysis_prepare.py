@@ -127,6 +127,16 @@ def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
                               if call.get("semantic_state") == "dispatch_candidate"
                               else "semantic_symbol_candidate")
                 reason = "Roslyn 合成編譯推測符號；須核對實際專案綁定與 DI"
+            elif call.get("semantic_state") == "symbol_candidate" and semantic:
+                # Roslyn 已找到同檔直接呼叫；不得再用常見方法名向其他檔案
+                # 虛構跨檔邊。動態分派不走此分支。
+                continue
+            elif call.get("semantic_state") == "dispatch_candidate":
+                # 僅發現介面/虛擬宣告而無跨檔實作，不表示執行時不存在外部實作。
+                # 保留未解呼叫點，交由 Agent 核對 DI/Proxy/其它專案。
+                targets = []
+                resolution = "dispatch_requires_manual_search"
+                reason = "多型呼叫缺少可定位跨檔實作；須追查 DI、覆寫與執行期配置"
             else:
                 candidates = [
                     (target, method) for target, method in declarations.get(name, [])
@@ -154,9 +164,9 @@ def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
                 resolution = ("receiver_type_candidate" if typed else "name_only_ambiguous")
                 reason = ("Roslyn 未能確認直接跨檔符號；同名方法或介面分派可能有歧義"
                           if matches else "呼叫未取得儲存庫內可用目標")
-            if not targets:
+            if not targets and resolution != "dispatch_requires_manual_search":
                 # 外部框架呼叫無本地目標時不產生大量虛構的跨檔邊。
-                # 介面或動態分派是否缺少本地實作仍由 Agent 全案核查。
+                # 介面或動態分派仍以上方保留的未解呼叫點追查。
                 continue
             unique = {(t["path"], t.get("line") or 0, t.get("method") or name): t
                       for t in targets}
