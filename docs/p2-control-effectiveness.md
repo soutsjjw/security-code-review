@@ -21,6 +21,7 @@ P2 不是新的安全規則，也不讓 Python 自行找漏洞或給出 `pass`�
     "AC-08": {
       "status": "pass",
       "git_revision": "<review-snapshot.json 目前 git_revision>",
+      "snapshot_fingerprint": "<整份來源快照的 fingerprint>",
       "source_hashes": {
         "src/OrderController.cs": "<此檔快照 SHA256>",
         "src/OrderService.cs": "<此檔快照 SHA256>",
@@ -54,10 +55,11 @@ P2 不是新的安全規則，也不讓 Python 自行找漏洞或給出 `pass`�
 }
 ```
 
-範例中的 `bypass_scenarios` **不完整，不能用於 AC-08 結案**；所有 `required_scenarios` 均需個別記錄，`outcome` 為 `blocked` 或經證據查明的 `not_applicable`，且每條有具體理由和可定位來源證據。`enforcement_points` 至少一筆必須與正式 `checks[].evidence` 位置重疊。所有紀錄路徑都必須列入該規則的 `execution.inspected_paths`，並與現有來源快照一致。
+範例中的 `bypass_scenarios` **不完整，不能用於 AC-08 結案**；所有 `required_scenarios` 均需個別記錄，`outcome` 為 `blocked` 或經證據查明的 `not_applicable`，且每條有具體理由和可定位來源證據。`enforcement_points` 至少一筆必須與正式 `checks[].evidence` 位置重疊。所有紀錄路徑都必須列入該規則的 `execution.inspected_paths`，並與現有來源快照一致。`snapshot_fingerprint` 由整份來源清單、SHA256 與 Git Revision 計算，避免不在當前證據路徑內的其他檔案新增後，舊的 `pass` 仍被沿用。
 
 ```bash
 python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id AC-08
+python "<SKILL_ROOT>/scripts/control_effectiveness.py" --target "<TARGET_ROOT>" --snapshot-fingerprint
 python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --stage "<TARGET_ROOT>/reports/security-code-review/analysis/p2-batch.json"
 python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --integrate
 python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --validate
