@@ -137,6 +137,8 @@ argument-hint: "[專案路徑或檢核範圍]"
    - **完成狀態必須具備逐條證據**：對 `pass/fail/review`，除了 `execution.inspected_paths`，每項 `checks[].evidence[]` 至少要有可定位的真實來源路徑與行號，或可追查的設定／測試／部署工件。單純把路徑掛在已完成規則、只有 `kind=other` 的空泛描述、或由搜尋字串推定安全結論，均不得標 `completed`。跨檔案證據須保持對應，重要否定性結論須說明搜尋與控制責任分析範圍。
    - **不要為通過檢查而虛構工件編號或隨意改寫模板**：實際沒有可定位證據時保留 `pending` 或 `blocked`，列出未完成原因並繼續可執行的其他檢核；已完成但缺外部佐證才用 `review`。每條規則的摘要、結論、證據描述須對應其真正的控制內容，不可只替換規則 ID／檔名／行號／數字。
    - **審查是識別風險並產出報告，不是修復程式。** 發現密碼鎖定、例外訊息、TOTP 或任何疑似漏洞時，立即將已確認風險保存為 `assessment.findings[]`、將相應檢核狀態更新為 `fail` 或證據尚不足時 `review`，並保存檔案、行號、佐證、影響、改善建議與信心水準。接著**繼續剩餘檢核**，不得把「需要優先處理／修復」當作停止掃描、要求使用者先改程式或提前交付部分結果的理由。風險優先級僅用於最後報告排序，所有改碼與修補皆屬後續獨立工作。
+   - **Finding 與狀態必須連動**：信心為 `confirmed` 的 Finding，其 `check_ids` 中至少一個主要規則必須記 `fail`（不可停在 `review`，也不可為 `pass`）；`fail`／`pass` 的 `decision_reason` 不得寫「保留 review」。驗證器會拒絕這類矛盾。
+   - **`review` 需分類**：每個 `review` 建議加上 `review_kind`——`static_done_external_pending`（靜態查核已完成、僅缺部署／政策／動態證據）或 `external_only`（本質上需外部或制度證據）；報告會分開統計。`review` 超過 70% 時驗證器會警示，請在 `presentation.review_ratio_explanation` 說明原因，並重新檢視靜態即可判定的規則。
    - 缺少部署、政策、外部證據或動態測試時，標記已完成靜態查核的 `review` 並說明仍待確認的範圍；不得因該項缺證據而停止其餘檢核。
    - **唯讀解碼已獲本 Skill 的一般執行授權，不得再次詢問使用者可否讀取 CP950／CP1252。** 先依 BOM 使用 UTF-8-BOM／UTF-16 等編碼，無 BOM 優先 UTF-8，失敗則自動嚴格回退 CP950、CP1252。回退警告只需記入診斷／報告限制，**不是人工確認閘門**；疑似誤判編碼時以其他線索核對，不得默默扭曲證據。可使用 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "<相對來源檔>" --start 1 --end 200`（Windows 以 `run-python.cmd` 搭配 `source_reader.py` 執行） 取得帶行號的唯讀內容，不得修改來源、忽略解碼錯誤位元組或憑空填證據。
    - 如果個別來源仍無法安全解碼，記錄檔案與解碼錯誤並繼續其他可讀檔案與檢核；只有對完成剩餘審查構成實質阻斷的錯誤才能中斷，並清楚列出未完成範圍。
@@ -165,7 +167,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 4. 在 **受測專案**（非 Skill）建立 `reports/security-code-review/`，並寫入：
    - `assessment.json`：符合 `schemas/assessment.schema.json` 的 70 項檢核、已驗證 Finding、真實 Git Revision 與證據。
-   - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`。Agent **須在 70 項程式碼審查時同步嘗試法定 A～E 級的初步研判**，不先要求使用者填級別，亦不因缺少資訊中斷審查。依《資通安全責任等級分級辦法》第 4～10 條查證已實際讀取的程式碼、權限區分、設定、設計及業務文件與服務覆蓋範圍；證據充足時寫入 `project.security_level_assessment`，包含 `status:"preliminary"`、`level:"A～E之一"`、`basis`（規定條次及具體理由）、`evidence:[{path,line_start,line_end}]`（須已列入 completed 的 inspected_paths）及 `missing_information`。不可僅憑登入功能、漏洞數推定 A／B 級；C 級權限管理只是第 6 條**技術條件線索**，尚需確認機關維運事實及更高級別是否適用；未找到權限程式碼不能推斷 D／E 級。
+   - `project.json`：本系統的顯示資料，至少 `name` 與 `language_framework`（`--init` 會從 `.csproj` 預填；仍為佔位值時 `complete_review.py` 會拒絕交付）。Agent **須在 70 項程式碼審查時同步嘗試法定 A～E 級的初步研判**，不先要求使用者填級別，亦不因缺少資訊中斷審查。依《資通安全責任等級分級辦法》第 4～10 條查證已實際讀取的程式碼、權限區分、設定、設計及業務文件與服務覆蓋範圍；證據充足時寫入 `project.security_level_assessment`，包含 `status:"preliminary"`、`level:"A～E之一"`、`basis`（規定條次及具體理由）、`evidence:[{path,line_start,line_end}]`（須已列入 completed 的 inspected_paths）及 `missing_information`。不可僅憑登入功能、漏洞數推定 A／B 級；C 級權限管理只是第 6 條**技術條件線索**，尚需確認機關維運事實及更高級別是否適用；未找到權限程式碼不能推斷 D／E 級。
    - 若證據不足，Agent 應記錄 `security_level_assessment: {status:"undetermined",level:"待確認",basis:"無法判定原因",evidence:[],missing_information:["待核對機關業務及核定資料"]}`，報告顯示說明，**不詢問使用者且繼續其餘 70 項審查**。若未填初判，報告產生器自動檢視 completed 規則的 inspected_paths，以具體角色／權限管理程式碼提出 C 級技術線索，否則自動記錄「待確認」原因。
    - `security_level`（A～E）只用於已提供的**正式**認定／核定資料，並需 `security_level_basis`；AI 初判不得寫入此欄。正式分級優先顯示，與程式碼整體風險、資通系統防護需求分級分開。
    - `presentation.json`（選用）：真實審查方法／限制、改善優先序及 Before / After。不可補造程式碼、風險或安全優點。

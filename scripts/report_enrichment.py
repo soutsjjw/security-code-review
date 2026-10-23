@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from source_reader import DEFAULT_LEGACY_ENCODINGS, read_source_text
+from assessment_consistency import (
+    clip_text, review_breakdown, review_ratio, REVIEW_RATIO_WARN,
+)
 
 # 只使用明確指向個人的欄位線索，不以搜尋不到欄位宣稱「未處理個資」。
 PERSONAL_FIELD = re.compile(
@@ -127,9 +130,13 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
     most = max(findings, key=lambda f: RISK_ORDER[f["severity"]])
     level = "medium" if most["severity"] == "med" else most["severity"]
     confidence = most.get("confidence", "未記錄")
-    impact = str(most.get("impact") or "影響範圍尚待核實").strip().replace("\n", " ")[:100]
+    impact = clip_text(most.get("impact") or "影響範圍尚待核實", 120)
     still_review = sum(c.get("status") == "review" for c in assessment.get("checks", []))
     supplement = f"；另有 {still_review} 項規則需補證據" if still_review else ""
+    counts = {s: sum(f.get("severity") == s for f in findings) for s in RISK_ORDER}
+    breakdown = "、".join(f"{RISK_LEVEL['medium' if s == 'med' else s]} {n} 筆" for s, n in counts.items() if n)
+    if len(findings) > 1 and breakdown:
+        supplement = f"；共 {len(findings)} 筆已記錄弱點（{breakdown}）" + supplement
     return {
         "level": level,
         "summary": (
@@ -145,6 +152,7 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
 def build_pending_information(
     project: dict[str, Any], assessment: dict[str, Any],
     limitations: list[str] | None = None,
+    review_ratio_note: str | None = None,
 ) -> list[str]:
     pending: list[str] = []
     if project.get("security_level") not in ("A", "B", "C", "D", "E", "不適用"):
@@ -157,7 +165,17 @@ def build_pending_information(
     review_ids = [c["id"] for c in assessment.get("checks", []) if c.get("status") == "review"]
     if review_ids:
         listed = "、".join(review_ids[:8])
-        pending.append(f"{len(review_ids)} 項檢核尚缺部署／政策／動態佐證（例如 {listed}）")
+        kinds = review_breakdown(assessment.get("checks", []))
+        if kinds["static"] or kinds["external"]:
+            pending.append(
+                f"{len(review_ids)} 項 review：靜態查核已完成、僅缺部署／政策／動態佐證 {kinds['static']} 項；"
+                f"本質上需外部或制度證據 {kinds['external']} 項；未分類 {kinds['unclassified']} 項（例如 {listed}）")
+        else:
+            pending.append(f"{len(review_ids)} 項檢核尚缺部署／政策／動態佐證（例如 {listed}）")
+    review, total = review_ratio(assessment)
+    if total and review / total > REVIEW_RATIO_WARN:
+        note = (review_ratio_note or "").strip() or "尚未說明比例偏高的原因"
+        pending.append(f"review 占 {review}/{total}，超過 {int(REVIEW_RATIO_WARN * 100)}% 警示門檻：{note}")
     for item in limitations or []:
         if isinstance(item, str) and item.strip():
             pending.append(item.strip())

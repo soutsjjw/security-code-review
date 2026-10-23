@@ -138,6 +138,10 @@
           "exception_id": {
             "type": "string"
           },
+          "review_kind": {
+            "enum": ["static_done_external_pending", "external_only"],
+            "description": "僅 status=review 使用：static_done_external_pending＝靜態查核已完成、僅缺部署／政策／動態證據；external_only＝本規則本質上需外部或制度證據。"
+          },
           "finding_ids": {
             "type": "array",
             "items": {

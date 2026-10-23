@@ -14,6 +14,7 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
 from source_coverage import build_source_coverage
+from assessment_consistency import project_placeholder_errors
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +60,16 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f'ERROR: assessment.json 審查日期無效：{exc}', file=sys.stderr)
         return 2
+    try:
+        project_data = json.loads(project.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as exc:
+        print(f'ERROR: project.json 無法讀取：{exc}', file=sys.stderr)
+        return 2
+    placeholder_errors = project_placeholder_errors(project_data)
+    if placeholder_errors:
+        for problem in placeholder_errors:
+            print('ERROR: ' + problem, file=sys.stderr)
+        return 1
     # 在執行報告產生前拒絕未涵蓋全部應審查來源的假性 70/70。
     try:
         coverage = build_source_coverage(obj, target)

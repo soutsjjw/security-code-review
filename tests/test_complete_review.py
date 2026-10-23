@@ -1,6 +1,7 @@
 """驗證在被審查專案根目錄之外安裝 Skill 時仍能正確輸出。"""
 import copy
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,12 @@ SKILL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
 from report_common import load_json
 from review_fixture import make_file_review
+
+
+def _clean_env():
+    """移除執行器標識，使「無法辨識介面」的斷言不受目前執行環境影響。"""
+    return {k: v for k, v in os.environ.items()
+            if k not in ('CLAUDECODE', 'CODEX_THREAD_ID', 'SECURITY_CODE_REVIEW_EXECUTOR')}
 
 
 class CompleteReviewTests(unittest.TestCase):
@@ -73,9 +80,9 @@ class CompleteReviewTests(unittest.TestCase):
                 'limitations':['測試資料均為待確認；不是實際審查']
             }, ensure_ascii=False), encoding='utf-8')
             cmd = [sys.executable, str(SKILL_ROOT / 'scripts/complete_review.py'), '--target', str(target)]
-            run = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
+            run = subprocess.run(cmd, cwd=base, capture_output=True, text=True, env=_clean_env())
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            rerun = subprocess.run(cmd, cwd=base, capture_output=True, text=True)
+            rerun = subprocess.run(cmd, cwd=base, capture_output=True, text=True, env=_clean_env())
             self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
             self.assertTrue((output / 'CodeReview_20261018.html').is_file())
             self.assertTrue((output / 'report.json').is_file())
@@ -103,6 +110,20 @@ class CompleteReviewTests(unittest.TestCase):
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn('原始碼審查覆蓋不足', rejected.stderr)
             self.assertEqual((output / 'report.json').read_bytes(), old_report)
+
+    def test_placeholder_project_is_rejected_before_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            output = target / 'reports/security-code-review'
+            output.mkdir(parents=True)
+            (output / 'assessment.json').write_text(json.dumps({'assessment_date': '2026-10-18'}), encoding='utf-8')
+            (output / 'project.json').write_text(
+                json.dumps({'name': 'x', 'language_framework': '待實際盤點'}, ensure_ascii=False), encoding='utf-8')
+            run = subprocess.run([sys.executable, str(SKILL_ROOT/'scripts/complete_review.py'), '--target', str(target)],
+                                 cwd=target, capture_output=True, text=True)
+            self.assertEqual(run.returncode, 1)
+            self.assertIn('language_framework', run.stderr)
+            self.assertFalse((output / 'report.json').exists())
 
     def test_missing_inputs_are_rejected_without_writing(self):
         with tempfile.TemporaryDirectory() as tmp:

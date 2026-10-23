@@ -17,6 +17,7 @@ from datetime import date
 from pathlib import Path
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
+from assessment_consistency import detect_language_framework
 from analysis_candidates import candidate_hits
 from source_reader import read_source_text
 
@@ -89,7 +90,7 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
             "project_id": target.name,
             "git_revision": git_revision,
             "assessment_date": date.today().isoformat(),
-            "scope": "受測專案全部原始碼，需由 Codex 逐項核對",
+            "scope": "受測專案全部原始碼；逐項結論以 checks 與 file_reviews 的實際證據為準",
             "checks": [{
                 "id": rule["id"],
                 "status": "review",
@@ -107,7 +108,7 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
         }
         assessment_path.write_text(json.dumps(assessment, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if not project_path.exists():
-        project = {"name": target.name, "language_framework": "待實際盤點"}
+        project = {"name": target.name, "language_framework": detect_language_framework(target)}
         project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 

@@ -147,9 +147,14 @@ def main() -> int:
             resolve_personal_data(project, data['assessment'], a.source_root, encodings)
             presentation = data['presentation']
             presentation['reviewer'] = detect_reviewer(presentation.get('reviewer'))
+            # init 預設的內部名稱不是實際執行介面；僅在報告資料中統一，不改寫原始 assessment.json。
+            for check in data['assessment'].get('checks', []):
+                if check.get('reviewer') == 'security-code-review-agent':
+                    check['reviewer'] = presentation['reviewer']
             presentation['overall_risk'] = build_overall_risk(data['assessment'])
             presentation['pending_information'] = build_pending_information(
-                project, data['assessment'], presentation.get('limitations', [])
+                project, data['assessment'], presentation.get('limitations', []),
+                presentation.get('review_ratio_explanation')
             )
         ignored_artifacts = (a.report, a.save_report, a.output)
         if a.source_root is not None:
