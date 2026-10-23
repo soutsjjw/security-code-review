@@ -20,6 +20,7 @@ RELATIVE = Path("reports/security-code-review")
 SNAPSHOT = Path("analysis/review-snapshot.json")
 CLOSURES = Path("analysis/rule-closures.json")
 STAGED = Path("analysis/staged")
+RECHECK = Path("analysis/recheck-required.json")
 INDEX = Path("analysis/structure-index.json")
 
 # 全專案責任檢查即使沒有任何檔案命中也必須執行。
@@ -181,7 +182,12 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
 
 
 def safety_errors(target: Path, assessment: dict) -> list[str]:
-    return snapshot_errors(target) + closure_errors(target, assessment)
+    errors = snapshot_errors(target) + closure_errors(target, assessment)
+    outstanding = _read(report_dir(target) / RECHECK, {}) or {}
+    ids = outstanding.get("rule_ids", [])
+    if ids:
+        errors.append("來源異動後仍有待重新檢核的規則：" + "、".join(ids[:15]))
+    return errors
 
 
 def _fingerprint(finding: dict) -> str:
@@ -240,6 +246,9 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     new_checks: set[str] = set()
     new_closures: set[str] = set()
     aliases: dict[str, str] = {}
+    recheck = _read(report_dir(target) / RECHECK, {}) or {}
+    required_recheck = set(recheck.get("rule_ids", []))
+    newly_rechecked: set[str] = set()
 
     # 先於記憶體完整調和、偵測衝突，絕不分批覆蓋正式檔。
     for path in paths:
@@ -283,6 +292,10 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
                     raise ValueError(f"{rid}: 已完成的規則不同，須明確人工允許修訂")
             checks[rid] = record
             new_checks.add(rid)
+            if rid in required_recheck and (record.get("execution") or {}).get("state") == "completed":
+                if not record.get("evidence") or not (record.get("execution") or {}).get("methods"):
+                    raise ValueError(f"{rid}: 來源異動後重新完成須附實際分析證據及方法")
+                newly_rechecked.add(rid)
         for rid, record in part.get("closures", {}).items():
             if rid not in rule_scopes():
                 raise ValueError(f"{rid}: 結案包含未知規則")
@@ -306,6 +319,9 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     # 正式驗證必須在完整審查完成後執行；partial 仍可保留 pending。
     _write(report_dir(target) / CLOSURES, closures)
     _write(assessment_path, data)
+    if required_recheck:
+        recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
+        _write(report_dir(target) / RECHECK, recheck)
     for path in paths:
         path.unlink()
     return {"applied": len(paths), "files": len(new_files),
@@ -323,7 +339,13 @@ def refresh_snapshot(target: Path) -> None:
     _write(report_dir(target) / SNAPSHOT,
            {"schema_version": 1, "git_revision": _revision(target),
             "source_hashes": current, "excluded_paths": old.get("excluded_paths", [])})
-    # 原有結案與 Finding 不刪除；但安全結論必須重新審查，不能繼承。
+    # 原有結論、Findings 和 file_reviews 保留以供追溯，不自動宣稱符合。
+    # 失去可驗證依賴閉包時，保守要求所有 completed 規則重新查證。
+    assessment = _read(report_dir(target) / "assessment.json", {}) or {}
+    completed = [row["id"] for row in assessment.get("checks", [])
+                 if (row.get("execution") or {}).get("state") == "completed"]
+    _write(report_dir(target) / RECHECK,
+           {"rule_ids": sorted(completed), "reason": "審查來源或 Git 版本已變更，需重新驗證影響閉包"})
     (report_dir(target) / CLOSURES).unlink(missing_ok=True)
 
 
