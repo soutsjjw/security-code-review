@@ -2075,6 +2075,34 @@
           "type": "integer",
           "minimum": 0
         },
+        "source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed_source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible_unreviewed_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible_unreviewed_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "reason"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "reason": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          }
+        },
         "reviewed_files": {
           "type": "array",
           "items": {
