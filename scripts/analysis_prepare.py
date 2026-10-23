@@ -239,7 +239,12 @@ def prepare(root: Path, mode: str = "full") -> dict:
             candidate_reused += 1
         else:
             rule_candidates[path] = candidate_hits(path, read_source_text(root / path)[0])
-    reused = {p: old_entries[p] for p in csharp if p not in changed and p in old_entries}
+    # 語意符號解析依賴完整工作區：任何來源／組態變更都可能改變
+    # 未變更呼叫端的目標，因此不可重用舊的 semantic_targets。
+    # 只有完整來源 SHA256 一致時，才重用既有 Roslyn 候選索引。
+    semantic_invalidated = bool(changed or removed)
+    reused = ({p: old_entries[p] for p in csharp if p in old_entries}
+              if not semantic_invalidated else {})
     pending = [p for p in csharp if p not in reused]
     parsed, errors = _run_roslyn(root, pending, roslyn)
     indexed = {**reused, **parsed}
