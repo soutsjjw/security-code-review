@@ -2,6 +2,8 @@
 """P2 控制有效性守門。只檢查人工紀錄與真實來源是否一致，絕不自行判斷安全。"""
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -54,6 +56,14 @@ def guidance(rule_id: str) -> dict[str, Any]:
                              "bypass_scenarios 與 source_evidence；任何未解繞過不得標 pass",
         "note": "僅為審查工作紀錄，不會自動判斷安全或從候選索引繼承 pass",
     }
+
+
+def snapshot_fingerprint(snapshot: dict[str, Any]) -> str:
+    """將完整 Git 版本與所有來源 SHA256 固定為單一指紋，避免跨檔新增時沿用舊 pass。"""
+    basis = {"git_revision": snapshot.get("git_revision"),
+             "source_hashes": snapshot.get("source_hashes")}
+    raw = json.dumps(basis, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -127,6 +137,8 @@ def verification_errors(target: Path, checks: list[dict]) -> list[str]:
             errors.append(f"{rid}: P2 控制驗證紀錄與規則 pass 不一致")
         if record.get("git_revision") != snapshot.get("git_revision"):
             errors.append(f"{rid}: P2 控制驗證的 Git Revision 與快照不一致")
+        if record.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
+            errors.append(f"{rid}: P2 控制驗證的完整來源快照指紋已失效，必須重查可能的旁路")
         inspected = set((check.get("execution") or {}).get("inspected_paths") or [])
         if not inspected:
             errors.append(f"{rid}: P2 沒有可核對的 inspected_paths")
@@ -193,3 +205,19 @@ def verification_errors(target: Path, checks: list[dict]) -> list[str]:
         if not isinstance(open_issues, list) or open_issues:
             errors.append(f"{rid}: P2 有未解決的繞過路徑或未提供 open_issues=[]，不可 pass")
     return errors
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="顯示 P2 全來源快照指紋；不產生任何安全判定")
+    parser.add_argument("--target", type=Path, required=True)
+    parser.add_argument("--snapshot-fingerprint", action="store_true", required=True)
+    args = parser.parse_args()
+    snapshot = _read_json(args.target.resolve() / SNAPSHOT, None)
+    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("source_hashes"), dict):
+        parser.error("缺少可用 review-snapshot.json；須先執行 analysis_prepare.py")
+    print(snapshot_fingerprint(snapshot))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
