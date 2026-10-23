@@ -19,14 +19,19 @@ _MIDDLEWARE = re.compile(r"\b(?:UseRouting|UseAuthentication|UseAuthorization|Us
 
 
 def _edge(kind: str, source: str, line: int, *, target: str | None = None,
-          symbol: str = "", detail: str = "") -> dict:
+          symbol: str = "", detail: str = "", callsite_id: str = "") -> dict:
     basis = f"{kind}|{source}|{line}|{target or ''}|{symbol}|{detail}"
-    return {
+    if callsite_id:
+        basis += "|" + callsite_id
+    edge = {
         "id": hashlib.sha256(basis.encode("utf-8")).hexdigest()[:20],
         "kind": kind, "source": source, "line": line,
         "target": target, "symbol": symbol, "detail": detail,
         "resolution": "candidate_only",
     }
+    if callsite_id:
+        edge["callsite_id"] = callsite_id
+    return edge
 
 
 def build_relationships(root: Path, source_paths: list[str],
@@ -122,5 +127,6 @@ def build_relationships(root: Path, source_paths: list[str],
                     continue
                 add(_edge("method_call_hint", source, line, target=target,
                           symbol=str(call.get("called_method") or ""),
-                          detail=str(call.get("resolution") or "ambiguous")))
+                          detail=str(call.get("resolution") or "ambiguous"),
+                          callsite_id=str(call.get("id") or "")))
     return sorted(result.values(), key=lambda r: (r["source"], r["line"], r["kind"], r["id"]))
