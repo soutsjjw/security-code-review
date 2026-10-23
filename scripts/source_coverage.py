@@ -76,6 +76,7 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *, igno
     counts = Counter(Path(path).suffix.lower() or Path(path).name for path in missing)
     return {
         "source_file_count": len(expected),
+        "source_paths": sorted(expected),
         "reviewed_source_file_count": len(expected & inspected),
         "missing_source_file_count": len(missing),
         "missing_source_paths": missing,
