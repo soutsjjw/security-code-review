@@ -76,6 +76,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 現有判定階梯保持不變，新增對 `completed+review` 的證據守門：Agent 必須**實際查完靜態控制及跨檔關聯**，證明仍存在會改變結果的外部工件缺口，才在正式 `decision_reason` 以「待確認：」列出工件。未完成的靜態調查保留 `pending/blocked`；已證實的程式碼缺陷 `fail`＋Finding；缺非必要測試不得當作外部缺口。由 `review_queue.py --detail-id` 的 `decision_adjudication_guidance` 讀取規則 `mode`、`manual_boundary` 與必查欄位，將來源證據和外部問題保存於 `decision_audits`，以原有 `review_safety.py --stage / --integrate` 整合。判定驗證機制不自動改寫任何既有結論，詳細流程見 [待確認判定與外部證據指引](review-decision-adjudication.md)。
 
+## 單代理第二輪反向複核
+
+第一輪須先完成 70 項與所有逐檔／跨檔／證據守門，再使用 `review_safety.py --begin-second-pass` 固定第一輪判定與來源快照。主代理之後重新閱讀實際程式碼，逐項從攻擊者觀點檢查反例，高風險規則至少兩個不同攻擊面。透過 `review_queue.py` 的 `second_pass.pending_ids` 續行，`--detail-id` 的 `adversarial_guidance` 提示反例要求；第二輪資料經 `adversarial_reviews` 暫存整合。任何矛盾先修訂原始判定／Finding 再記錄裁決，不得只重複第一輪理由。**同一代理的第二輪自我複核不等於真正獨立審查。** 詳見 [第二輪反向複核指引](adversarial-second-pass.md)。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
@@ -87,7 +91,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
-- 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性及待確認判定驗證。
+- 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性、待確認判定驗證及第二輪反向複核。
 
 完成條件：
 
@@ -136,6 +140,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
+   - 執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
    - review_queue.py 回傳 ready_for_report=true。
