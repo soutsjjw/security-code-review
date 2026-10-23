@@ -334,6 +334,10 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     ['語言 / 框架',project.language_framework], ['審查範圍',scopeSummary],
     ['已審查專案數量',coverage ? text(coverage.reviewed_project_count,'未提供專案對照') : '未提供'],
     ['有逐檔紀錄的檔案數',coverage ? coverage.reviewed_file_count : '未提供'],
+    ['應審查來源檔案數',coverage ? text(coverage.source_file_count,'未提供') : '未提供'],
+    ['已驗證來源檔案數',coverage ? text(coverage.reviewed_source_file_count,'未提供') : '未提供'],
+    ['缺少來源審查紀錄數',coverage ? text(coverage.missing_source_file_count,'未提供') : '未提供'],
+    ['eligible 未列入審查清單數',coverage ? text(coverage.eligible_unreviewed_file_count,'未提供') : '未提供'],
     ['盤點檔案數',coverage ? coverage.inventory_file_count : '未提供'],
     ['排除檔案數',coverage ? coverage.excluded_file_count : '未提供'],
     ['已審查檔案類型',coverage ? asArray(coverage.file_types).join('、')||'未記錄' : '未提供'],
@@ -401,7 +405,21 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     if(asArray(coverage.reviewed_files).length) {
       scopeFiles.append(scopeTable(['審查檔案','關聯檢核項目'],
         coverage.reviewed_files.map(p=>[p.path,asArray(p.check_ids).join('、')||'無直接適用（十類已篩選）'])));
-    } else scopeFiles.append(empty('尚未記錄 execution.inspected_paths，不能宣稱已審查全部檔案。'));
+    } else scopeFiles.append(empty('尚無有效逐檔審查紀錄，不能宣稱已審查全部來源檔。'));
+    scopeFiles.append(el('h4',null,'eligible 與實際審查檔案數量對帳'));
+    scopeFiles.append(el('p','small muted',
+      'eligible 是所有未排除的工作樹檔案；應審查來源檔僅包含支援的原始碼／設定副檔名。'+
+      '本次 eligible '+coverage.eligible_file_count+'、已審查 '+coverage.reviewed_file_count+
+      '，差額 '+(coverage.eligible_file_count-coverage.reviewed_file_count)+'。'+
+      '應審查來源 '+text(coverage.source_file_count,'未提供')+'、已審查來源 '+
+      text(coverage.reviewed_source_file_count,'未提供')+'、缺少來源 '+
+      text(coverage.missing_source_file_count,'未提供')+'；缺少來源為 0 不表示 eligible 全部已審查。'));
+    const notReviewed=asArray(coverage.eligible_unreviewed_files);
+    if(notReviewed.length) {
+      scopeFiles.append(el('p','small muted','下列逐檔完整列出差額及原因（不截斷）：'+notReviewed.length+' 個檔案。'));
+      scopeFiles.append(scopeTable(['未列入已審查清單的 eligible 檔案','原因'],
+        notReviewed.map(f=>[f.path,f.reason])));
+    } else scopeFiles.append(empty('沒有未列入已審查清單的 eligible 檔案。'));
   }
 
   // 發現摘要
