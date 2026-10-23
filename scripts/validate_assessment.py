@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date
 from jsonschema import Draft202012Validator,FormatChecker
 from review_completion import completion_errors
-from assessment_consistency import consistency_errors,consistency_warnings
+from assessment_consistency import consistency_errors,consistency_warnings,finding_quality_issues
 from source_coverage import build_source_coverage
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -31,6 +31,9 @@ if not allow_demo:
  errs.extend(consistency_errors(data))
  for w in consistency_warnings(data):print('WARNING:',w,file=sys.stderr)
 if source_root is not None and not allow_demo:
+ fe,fw=finding_quality_issues(data,source_root)
+ errs.extend(fe)
+ for w in fw:print('WARNING:',w,file=sys.stderr)
  try:
   coverage=build_source_coverage(data,source_root)
   errs.extend(coverage['review_integrity_errors'][:30])

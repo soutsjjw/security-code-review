@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 from source_reader import DEFAULT_LEGACY_ENCODINGS, read_source_text
 from assessment_consistency import (
-    clip_text, review_breakdown, review_ratio, REVIEW_RATIO_WARN,
+    clip_text, impact_type_label, review_breakdown, review_ratio, REVIEW_RATIO_WARN,
 )
 
 # 只使用明確指向個人的欄位線索，不以搜尋不到欄位宣稱「未處理個資」。
@@ -131,6 +131,9 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
     level = "medium" if most["severity"] == "med" else most["severity"]
     confidence = most.get("confidence", "未記錄")
     impact = clip_text(most.get("impact") or "影響範圍尚待核實", 120)
+    type_label = impact_type_label(most)
+    if type_label:
+        impact = f"{impact}（影響面向：{type_label}）"
     still_review = sum(c.get("status") == "review" for c in assessment.get("checks", []))
     supplement = f"；另有 {still_review} 項規則需補證據" if still_review else ""
     counts = {s: sum(f.get("severity") == s for f in findings) for s in RISK_ORDER}

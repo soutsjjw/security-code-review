@@ -302,6 +302,31 @@
               "medium",
               "low"
             ]
+          },
+          "impact_type": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": ["confidentiality", "integrity", "availability"]
+            },
+            "description": "影響面向；嚴重度須與其對應（僅影響可用性者不宜直接列為 high）。"
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "usage_traced": {
+                "type": "string",
+                "minLength": 10,
+                "description": "已追查引用的變數／方法確實被使用或傳出的說明；抑制死碼啟發式。"
+              },
+              "design_notes": {
+                "type": "string",
+                "minLength": 5,
+                "description": "引用片段附近的註解／文件是否說明刻意設計，以及如何納入判斷；抑制註解警示。"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

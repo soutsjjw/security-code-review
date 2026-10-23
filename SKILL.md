@@ -139,6 +139,12 @@ argument-hint: "[專案路徑或檢核範圍]"
    - **審查是識別風險並產出報告，不是修復程式。** 發現密碼鎖定、例外訊息、TOTP 或任何疑似漏洞時，立即將已確認風險保存為 `assessment.findings[]`、將相應檢核狀態更新為 `fail` 或證據尚不足時 `review`，並保存檔案、行號、佐證、影響、改善建議與信心水準。接著**繼續剩餘檢核**，不得把「需要優先處理／修復」當作停止掃描、要求使用者先改程式或提前交付部分結果的理由。風險優先級僅用於最後報告排序，所有改碼與修補皆屬後續獨立工作。
    - **Finding 與狀態必須連動**：信心為 `confirmed` 的 Finding，其 `check_ids` 中至少一個主要規則必須記 `fail`（不可停在 `review`，也不可為 `pass`）；`fail`／`pass` 的 `decision_reason` 不得寫「保留 review」。驗證器會拒絕這類矛盾。
    - **`review` 需分類**：每個 `review` 建議加上 `review_kind`——`static_done_external_pending`（靜態查核已完成、僅缺部署／政策／動態證據）或 `external_only`（本質上需外部或制度證據）；報告會分開統計。`review` 超過 70% 時驗證器會警示，請在 `presentation.review_ratio_explanation` 說明原因，並重新檢視靜態即可判定的規則。
+   - **建立 Finding 前的自我檢查（驗證器會抽查其中可機械判斷者）**：
+     - **追查使用處**：引用某變數或方法作為風險證據前，確認它真的被傳出、儲存或執行；宣告後從未使用的變數是死碼，不是風險路徑。驗證器遇到 Finding 點名（以名稱或單行行號）的局部變數在檔案中只宣告一次，會拒絕；已追查確實有使用時，於 `verification.usage_traced` 說明。
+     - **讀相鄰註解與文件**：判定前先讀引用片段前後的註解、README 與設計文件，已說明的刻意設計或已知限制要納入判斷（如供應商不支援 SRI、標頭明確標為選配），並於 `verification.design_notes` 記錄；驗證器對片段附近含說明性註解者警示。
+     - **標示 `impact_type`**：`confidentiality`／`integrity`／`availability` 擇一或多個，嚴重度須對應。僅影響可用性（例如驗證流程永遠失敗而非被繞過）不宜列為 high；僅有可用性且為 high／critical 時驗證器警示。
+     - **證據要點出具體欄位**：日誌、個資、機敏資料類 Finding 須列出實際受影響的屬性或欄位（例如 `UserLoginCommand.Password` 經 `{@Request}` 寫入 Serilog），不可只寫「完整 request 物件」。
+     - **部署假設不是 Finding**：僅因「程式碼看不出部署層有無限制」（如來源網路、VPN）而無具體缺陷時，記為對應規則的 `review` 並寫明待補工件，不建立 Finding。
    - 缺少部署、政策、外部證據或動態測試時，標記已完成靜態查核的 `review` 並說明仍待確認的範圍；不得因該項缺證據而停止其餘檢核。
    - **唯讀解碼已獲本 Skill 的一般執行授權，不得再次詢問使用者可否讀取 CP950／CP1252。** 先依 BOM 使用 UTF-8-BOM／UTF-16 等編碼，無 BOM 優先 UTF-8，失敗則自動嚴格回退 CP950、CP1252。回退警告只需記入診斷／報告限制，**不是人工確認閘門**；疑似誤判編碼時以其他線索核對，不得默默扭曲證據。可使用 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "<相對來源檔>" --start 1 --end 200`（Windows 以 `run-python.cmd` 搭配 `source_reader.py` 執行） 取得帶行號的唯讀內容，不得修改來源、忽略解碼錯誤位元組或憑空填證據。
    - 如果個別來源仍無法安全解碼，記錄檔案與解碼錯誤並繼續其他可讀檔案與檢核；只有對完成剩餘審查構成實質阻斷的錯誤才能中斷，並清楚列出未完成範圍。
