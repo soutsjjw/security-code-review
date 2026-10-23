@@ -80,8 +80,12 @@ def load_catalog(path: Path = DEFAULT_CATALOG) -> dict[str, Any]:
             raise ValueError(f"{case_id}: 錨點不存在或不唯一")
         if not isinstance(row.get("rationale"), str) or len(row["rationale"]) < 15:
             raise ValueError(f"{case_id}: 缺少人工預期判定理由")
-        if status == "review" and not row.get("external_artifact"):
-            raise ValueError(f"{case_id}: review 必須指名儲存庫外工件")
+        if status == "review":
+            keywords = row.get("external_keywords")
+            if (not isinstance(row.get("external_artifact"), str)
+                    or not isinstance(keywords, list) or not keywords
+                    or any(not isinstance(word, str) or not word.strip() for word in keywords)):
+                raise ValueError(f"{case_id}: review 必須指名儲存庫外工件及關鍵詞")
     return data
 
 
@@ -113,13 +117,17 @@ def assessment_predictions(target: Path, catalog: dict[str, Any]) -> dict[str, A
         if len(matches) != 1:
             raise ValueError(f"{case['id']}: 找不到唯一的 {case['rule_id']} 規則結論")
         check = matches[0]
+        # 只有真正完成的規則才是一次有效判定；未完成不得冒充 review/pass。
+        if (check.get("execution") or {}).get("state") != "completed":
+            continue
         finding_ids = set(check.get("finding_ids") or [])
-        has_finding = bool(finding_ids) or any(
-            case["rule_id"] in (finding.get("check_ids") or [])
+        has_finding = any(
+            finding.get("id") in finding_ids or case["rule_id"] in (finding.get("check_ids") or [])
             for finding in data.get("findings", []) if isinstance(finding, dict)
         )
         predictions.append({
             "case_id": case["id"], "status": check.get("status"),
+            "decision_reason": check.get("decision_reason", ""),
             "finding": has_finding,
             "inspected_paths": (check.get("execution") or {}).get("inspected_paths", []),
             "evidence": [
@@ -177,6 +185,13 @@ def evaluate(catalog: dict[str, Any], predictions: dict[str, Any]) -> dict[str, 
         inspected = set(row.get("inspected_paths", [])) if row else set()
         trace_complete = bool(row is not None and required_paths.issubset(inspected))
         evidence_valid = bool(row is not None and _valid_evidence(case, row.get("evidence")))
+        if case["expected_status"] == "review":
+            reason = str(row.get("decision_reason", "")) if row else ""
+            gap = reason.partition("待確認：")[2]
+            review_gap_specific = (bool(gap.strip()) and len(gap.strip()) >= 8
+                                   and any(word in gap for word in case["external_keywords"]))
+        else:
+            review_gap_specific = True
         # 錨點只做參考，不要求所有正確審查一定引用同一行。
         anchor = case["anchor"]
         anchor_line = next(
@@ -201,8 +216,9 @@ def evaluate(catalog: dict[str, Any], predictions: dict[str, Any]) -> dict[str, 
             "case_id": case_id, "rule_id": case["rule_id"], "expected": case["expected_status"],
             "actual": status, "status_match": status_match, "finding_match": finding_match,
             "trace_complete": trace_complete, "evidence_valid": evidence_valid,
-            "anchor_cited": anchor_cited,
-            "passed": all((status_match, finding_match, trace_complete, evidence_valid)),
+            "review_gap_specific": review_gap_specific, "anchor_cited": anchor_cited,
+            "passed": all((status_match, finding_match, trace_complete,
+                           evidence_valid, review_gap_specific)),
         })
     total = len(outcomes)
     known_fail = sum(case["expected_status"] == "fail" for case in expected.values())
@@ -217,6 +233,9 @@ def evaluate(catalog: dict[str, Any], predictions: dict[str, Any]) -> dict[str, 
         "fail_precision": round(correct_fail / predicted_fail, 4) if predicted_fail else None,
         "review_correct": sum(x["status_match"] and x["expected"] == "review" for x in outcomes),
         "review_count": sum(x["expected"] == "review" for x in outcomes),
+        "review_gap_specific_count": sum(
+            x["review_gap_specific"] for x in outcomes if x["expected"] == "review"
+        ),
         "trace_complete_count": sum(x["trace_complete"] for x in outcomes),
         "evidence_valid_count": sum(x["evidence_valid"] for x in outcomes),
         "passed_count": sum(x["passed"] for x in outcomes),
