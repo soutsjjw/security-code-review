@@ -110,7 +110,8 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - source_coverage.missing_source_file_count = 0。
    - review_integrity_errors 為空。
    - assessment.file_reviews 與 execution.inspected_paths 一致。
-   - review_safety.py --validate 通過，safety_integrity_errors 為空。\n   - review_queue.py 回傳 ready_for_report=true。
+   - review_safety.py --validate 通過，safety_integrity_errors 為空。
+   - review_queue.py 回傳 ready_for_report=true。
    - 所有完成判定均有足夠的真實檢核依據。
 
 7. 正式交付前再次檢查：
