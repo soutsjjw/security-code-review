@@ -40,6 +40,9 @@
 - `rule_reviews` 必須逐一覆蓋上述所有 `rule_ids`，記錄 `pass / fail / review`、具體理由及檔案內有效行號；同一檔案可以關聯多項規則，但**沒有固定最低項數**。無直接適用規則時可以是空陣列，十類仍要逐項判斷。
 - 同一個 `rule_reviews[].rule_id` 必須已完成 `checks[].execution.state=completed`，且該檔案在該規則 `execution.inspected_paths` 中；反向亦同，禁止只靠路徑灌滿覆蓋率。
 - `sha256` 需從實際來源內容計算，不可填 Git Revision 或事後任意編造。來源異動後必須重新檢查、更新雜湊與相關紀錄。
+- **跨檔理由不得制式化**：若大量沒有 `rule_reviews` 的檔案，在相同安全類別重複同一個理由模板，完整性驗證會拒絕交付。要逐檔追查控制責任並寫明實際來源差異；抽樣（例如 20 檔）只能用來複核可信度，不能取代完整來源覆蓋。
+- **覆蓋數字要對帳**：`eligible_file_count` 是全部未排除工作樹檔案，`reviewed_file_count` 是已驗證的逐檔紀錄；`source_file_count` 是必要審查的原始碼／設定檔，`missing_source_file_count` 只計算這個來源子集。正式報告 `eligible_unreviewed_files` 必須完整列出差額與原因，不得把 `missing_source_file_count=0` 解讀成所有 eligible 已審查。
+- **SHA256 不符先調查、不可批次重寫**：執行 `python <SKILL_ROOT>/scripts/hash_audit.py --target <TARGET_ROOT>`（或透過 run-python 包裝程式）。工具只讀取來源與 assessment.json，分別列出 BOM／CRLF 相容、真實不符、無法讀取及不合法雜湊。真正不符須核對審查當時的 Git revision／來源版本並重新審查；不可直接以正規化雜湊覆蓋紀錄。
 - **跨平台雜湊**：標準算法是對「移除 UTF-8 BOM、CRLF 視為 LF」後的內容計算 SHA256，使同一版本在 Windows（autocrlf 檢出 CRLF）與 Linux／macOS 得到相同值。取得方式：`sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "<相對來源檔>" --digest`。驗證時**同時接受**舊版以原始位元組計算的雜湊（含 CRLF／LF、有無 BOM 的檢出差異），既有報告不需重算；空白、縮排或程式碼的實質異動仍會被判定為已異動。
 - 舊的 `assessment.json`、Finding、既有外部證據仍須保留；缺少 `file_reviews` 僅代表此項完成證據不足，不得自行產出假資料補齊。
 
