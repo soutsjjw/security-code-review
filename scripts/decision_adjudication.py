@@ -133,7 +133,7 @@ def adjudication_errors(target: Path, checks: list[dict]) -> list[str]:
             issues.append(f"{rid}: P3 缺少可核對的外部工件與阻斷原因")
             continue
         category, artifact = gap.get("category"), gap.get("artifact")
-        if category not in CATEGORIES or not isinstance(artifact, str) or len(artifact.strip()) < 8:
+        if not isinstance(category, str) or category not in CATEGORIES or not isinstance(artifact, str) or len(artifact.strip()) < 8:
             issues.append(f"{rid}: P3 必須明確命名部署／制度／平台／外部掃描工件")
         question = gap.get("blocking_question")
         explanation = gap.get("why_decisive")
