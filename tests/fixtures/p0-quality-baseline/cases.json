@@ -10,9 +10,11 @@
       "expected_finding": false,
       "files": {
         "SessionRecord.cs": "public sealed record SessionRecord(string UserId, DateTimeOffset ExpiresAt);\n",
-        "SessionValidator.cs": "public sealed class SessionValidator\n{\n    public bool IsActive(SessionRecord? session, DateTimeOffset now) =>\n        session is not null && session.ExpiresAt > now;\n}\n"
+        "SessionValidator.cs": "public sealed class SessionValidator\n{\n    public bool IsActive(SessionRecord? session, DateTimeOffset now) =>\n        session is not null && session.ExpiresAt > now;\n}\n",
+        "SessionEndpoint.cs": "public sealed class SessionEndpoint\n{\n    private readonly SessionValidator _validator;\n    public SessionEndpoint(SessionValidator validator) => _validator = validator;\n    public string? GetPrivateData(SessionRecord? session, DateTimeOffset now) =>\n        _validator.IsActive(session, now) ? \"private-data\" : null;\n}\n"
       },
       "required_paths": [
+        "SessionEndpoint.cs",
         "SessionRecord.cs",
         "SessionValidator.cs"
       ],
@@ -30,9 +32,11 @@
       "expected_finding": true,
       "files": {
         "SessionRecord.cs": "public sealed record SessionRecord(string UserId, DateTimeOffset ExpiresAt);\n",
-        "SessionValidator.cs": "public sealed class SessionValidator\n{\n    public bool IsActive(SessionRecord? session, DateTimeOffset now) =>\n        session is not null; // ExpiresAt 從未檢查，失效 Session 仍可使用\n}\n"
+        "SessionValidator.cs": "public sealed class SessionValidator\n{\n    public bool IsActive(SessionRecord? session, DateTimeOffset now) =>\n        session is not null; // ExpiresAt 從未檢查，失效 Session 仍可使用\n}\n",
+        "SessionEndpoint.cs": "public sealed class SessionEndpoint\n{\n    private readonly SessionValidator _validator;\n    public SessionEndpoint(SessionValidator validator) => _validator = validator;\n    public string? GetPrivateData(SessionRecord? session, DateTimeOffset now) =>\n        _validator.IsActive(session, now) ? \"private-data\" : null;\n}\n"
       },
       "required_paths": [
+        "SessionEndpoint.cs",
         "SessionRecord.cs",
         "SessionValidator.cs"
       ],
@@ -143,9 +147,11 @@
       "expected_status": "pass",
       "expected_finding": false,
       "files": {
-        "PasswordHasher.cs": "using System.Security.Cryptography;\npublic static class PasswordHasher\n{\n    public static (byte[] Salt, byte[] Hash) Hash(string password)\n    {\n        var salt = RandomNumberGenerator.GetBytes(16);\n        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 210_000, HashAlgorithmName.SHA256, 32);\n        return (salt, hash);\n    }\n}\n"
+        "PasswordHasher.cs": "using System.Security.Cryptography;\npublic static class PasswordHasher\n{\n    public static (byte[] Salt, byte[] Hash) Hash(string password)\n    {\n        var salt = RandomNumberGenerator.GetBytes(16);\n        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 210_000, HashAlgorithmName.SHA256, 32);\n        return (salt, hash);\n    }\n}\n",
+        "AccountRegistration.cs": "public sealed class AccountRegistration\n{\n    private readonly Dictionary<string, (byte[] Salt, byte[] Hash)> _users = new();\n    public void Register(string username, string password) => _users[username] = PasswordHasher.Hash(password);\n}\n"
       },
       "required_paths": [
+        "AccountRegistration.cs",
         "PasswordHasher.cs"
       ],
       "anchor": {
@@ -161,9 +167,11 @@
       "expected_status": "fail",
       "expected_finding": true,
       "files": {
-        "PasswordHasher.cs": "using System.Security.Cryptography;\nusing System.Text;\npublic static class PasswordHasher\n{\n    public static byte[] Hash(string password) => SHA256.HashData(Encoding.UTF8.GetBytes(password));\n}\n"
+        "PasswordHasher.cs": "using System.Security.Cryptography;\nusing System.Text;\npublic static class PasswordHasher\n{\n    public static byte[] Hash(string password) => SHA256.HashData(Encoding.UTF8.GetBytes(password));\n}\n",
+        "AccountRegistration.cs": "public sealed class AccountRegistration\n{\n    private readonly Dictionary<string, byte[]> _users = new();\n    public void Register(string username, string password) => _users[username] = PasswordHasher.Hash(password);\n}\n"
       },
       "required_paths": [
+        "AccountRegistration.cs",
         "PasswordHasher.cs"
       ],
       "anchor": {
@@ -261,9 +269,11 @@
       "files": {
         "SessionIdlePolicy.cs": "using Microsoft.Extensions.Configuration;\npublic static class SessionIdlePolicy\n{\n    public static bool IsActive(IConfiguration config, DateTimeOffset issued, DateTimeOffset now)\n    {\n        var minutes = config.GetValue<int>(\"Session:IdleMinutes\");\n        if (minutes <= 0) return false;\n        return now - issued < TimeSpan.FromMinutes(minutes);\n    }\n}\n",
         "appsettings.json": "{ \"Session\": { \"IdleMinutes\": 20 } }\n",
-        "appsettings.Production.json": "{ \"Session\": { \"IdleMinutes\": 15 } }\n"
+        "appsettings.Production.json": "{ \"Session\": { \"IdleMinutes\": 15 } }\n",
+        "SessionAccess.cs": "using Microsoft.Extensions.Configuration;\npublic sealed class SessionAccess\n{\n    public bool CanAccess(IConfiguration config, DateTimeOffset issued, DateTimeOffset now) =>\n        SessionIdlePolicy.IsActive(config, issued, now);\n}\n"
       },
       "required_paths": [
+        "SessionAccess.cs",
         "SessionIdlePolicy.cs",
         "appsettings.json",
         "appsettings.Production.json"
@@ -283,9 +293,11 @@
       "files": {
         "SessionIdlePolicy.cs": "using Microsoft.Extensions.Configuration;\npublic static class SessionIdlePolicy\n{\n    public static bool IsActive(IConfiguration config, DateTimeOffset issued, DateTimeOffset now)\n    {\n        var minutes = config.GetValue<int>(\"Session:IdleMinutes\");\n        if (minutes <= 0) minutes = 525600; // 異常配置變成一年免逾時\n        return now - issued < TimeSpan.FromMinutes(minutes);\n    }\n}\n",
         "appsettings.json": "{ \"Session\": { \"IdleMinutes\": 20 } }\n",
-        "appsettings.Production.json": "{ \"Session\": { \"IdleMinutes\": 0 } }\n"
+        "appsettings.Production.json": "{ \"Session\": { \"IdleMinutes\": 0 } }\n",
+        "SessionAccess.cs": "using Microsoft.Extensions.Configuration;\npublic sealed class SessionAccess\n{\n    public bool CanAccess(IConfiguration config, DateTimeOffset issued, DateTimeOffset now) =>\n        SessionIdlePolicy.IsActive(config, issued, now);\n}\n"
       },
       "required_paths": [
+        "SessionAccess.cs",
         "SessionIdlePolicy.cs",
         "appsettings.json",
         "appsettings.Production.json"
@@ -313,7 +325,10 @@
         "text": "CreateBackupPath"
       },
       "rationale": "程式僅能證明備份作業線索，無法證明已執行備援啟動演練。",
-      "external_artifact": "正式備援啟動／災難復原演練紀錄"
+      "external_artifact": "正式備援啟動／災難復原演練紀錄",
+      "external_keywords": [
+        "演練"
+      ]
     },
     {
       "id": "availability-topology-external",
@@ -334,7 +349,12 @@
         "text": "replicas: 3"
       },
       "rationale": "僅知宣告副本數與健康檢查程式，缺少實際負載均衡／跨故障域證據。",
-      "external_artifact": "正式部署拓撲、負載均衡與故障域配置"
+      "external_artifact": "正式部署拓撲、負載均衡與故障域配置",
+      "external_keywords": [
+        "拓撲",
+        "負載均衡",
+        "故障域"
+      ]
     }
   ]
 }
