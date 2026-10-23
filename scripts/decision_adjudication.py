@@ -8,12 +8,37 @@ from typing import Any
 
 from control_effectiveness import snapshot_fingerprint
 from review_decision import load_decision_matrix, _is_weak_source_evidence
+from source_reader import read_source_text
 
 RELATIVE = Path("reports/security-code-review/analysis")
 INDEX = RELATIVE / "structure-index.json"
 SNAPSHOT = RELATIVE / "review-snapshot.json"
 AUDITS = RELATIVE / "decision-audits.json"
 CONTRACT_VERSION = 1
+
+CONFIG_SUFFIXES = frozenset({".json", ".yaml", ".yml", ".xml", ".config", ".props", ".targets", ".ini"})
+
+
+def _meaningful_static_source(root: Path, evidence: dict[str, Any]) -> bool:
+    """原始碼／組態證據可以來自設定檔；僅檢查內容非空泛，不代表控制安全。"""
+    if _is_weak_source_evidence(evidence, root) is False:
+        return True
+    path = evidence["path"]
+    if Path(path).suffix.lower() not in CONFIG_SUFFIXES:
+        return False
+    try:
+        lines = read_source_text(root / path)[0].splitlines()
+    except (OSError, UnicodeError, ValueError):
+        return False
+    lo, hi = evidence["line_start"], evidence["line_end"]
+    if hi > len(lines):
+        return False
+    return any(
+        len(s := line.strip()) >= 8
+        and not s.startswith(("//", "#", "<!--", "/*", "*", "}", "]", "</"))
+        for line in lines[lo - 1:hi]
+    )
+
 
 CATEGORIES = frozenset({
     "deployment", "operational_record", "organization_policy", "platform_configuration",
@@ -125,8 +150,8 @@ def adjudication_errors(target: Path, checks: list[dict]) -> list[str]:
                        and type(x.get("line_end")) is int
                        and x["line_start"] <= hi and x["line_end"] >= lo for x in formal):
                 issues.append(label + " 未與正式來源證據關聯")
-            if _is_weak_source_evidence(
-                    {"path": path, "line_start": lo, "line_end": hi}, target) is not False:
+            if not _meaningful_static_source(
+                    target, {"path": path, "line_start": lo, "line_end": hi}):
                 issues.append(label + " 只有宣告、註解或無效行號，無法證實靜態控制")
         gap = record.get("external_gap")
         if not isinstance(gap, dict):
