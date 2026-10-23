@@ -70,9 +70,15 @@ class EvidenceQualityTests(unittest.TestCase):
             )
             self.assertEqual(decision_quality_errors([row("AC-01", end=2)], source_root=root), [])
 
-    def test_static_rule_cannot_use_generic_external_pending(self):
+    def test_static_rule_with_specific_external_boundary_is_valid_review(self):
         c = row("IN-07", status="review", review_kind="static_done_external_pending")
-        self.assertTrue(any("主要可由靜態來源判定" in e for e in decision_quality_errors([c])))
+        c["decision_reason"] = "已追查檔案 API 路徑約束；仍待確認主機符號連結與 Volume 掛載權限設定"
+        self.assertEqual(decision_quality_errors([c]), [])
+
+    def test_static_rule_with_generic_external_pending_is_rejected(self):
+        c = row("IN-07", status="review", review_kind="static_done_external_pending")
+        c["decision_reason"] = "已完成路徑檢核；目前缺少需補動態測試結果及邊界案例紀錄"
+        self.assertTrue(any("制式結論" in e for e in decision_quality_errors([c])))
 
     def test_hybrid_rule_may_have_genuine_external_boundary(self):
         c = row("AC-01", status="review", review_kind="static_done_external_pending")
