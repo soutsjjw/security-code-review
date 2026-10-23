@@ -22,6 +22,7 @@ from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
 from source_reader import read_source_text
+from review_safety import safety_errors, scope_tasks
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
@@ -170,10 +171,11 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                 break
     rule_errors = (completion_errors(checks) + decision_quality_errors(checks, source_root=source_root)
                    if not remaining else [])
+    safety_issues = (safety_errors(source_root, data) if source_root is not None else [])
     # 70/70 完成但證據品質不合格時，原佇列 next_checks 為空，Agent 容易停止。
     # 從來源完整性／規則完整性錯誤抽取須重新核對的真實規則，不變更原始狀態。
     ids_to_recheck: set[str] = set()
-    for diagnostic in [*integrity_errors, *rule_errors]:
+    for diagnostic in [*integrity_errors, *rule_errors, *safety_issues]:
         ids_to_recheck.update(
             match for match in re.findall(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b", diagnostic)
             if match in master_ids
@@ -194,7 +196,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "blocked": states.get("blocked", 0),
         "findings_saved": len(data.get("findings", [])),
         "ready_for_report": (source_root is not None and len(remaining) == 0 and unreviewed == 0
-                             and not integrity_errors and not rule_errors),
+                             and not integrity_errors and not rule_errors and not safety_issues),
         "source_coverage": ({
             "source_file_count": coverage["source_file_count"],
             "reviewed_source_file_count": coverage["reviewed_source_file_count"],
@@ -205,9 +207,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "next_source_candidates": source_candidates,
         "review_integrity_errors": integrity_errors[:20],
         "rule_integrity_errors": rule_errors[:30],
+        "safety_integrity_errors": safety_issues[:30],
+        "review_scope_tasks": ([{"rule_id": t["rule_id"], "scope": t["scope"]}
+                                for t in scope_tasks(source_root)]
+                               if source_root is not None else []),
         "remaining_ids": [r["id"] for r in remaining],
         "recheck_rule_ids": sorted(ids_to_recheck),
-        "recheck_reason_count": len(integrity_errors) + len(rule_errors),
+        "recheck_reason_count": len(integrity_errors) + len(rule_errors) + len(safety_issues),
         "next_checks": [{
             "id": r["id"],
             "title": r["title"],
@@ -229,6 +235,9 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                         "；".join(rule_errors[:3]) +
                         "。須重新檢查規則與來源，不得僅補 JSON／模板字串。"
                         if not remaining and rule_errors else
+                        "審查來源快照／跨檔或全專案結案仍有缺口：" + "；".join(safety_issues[:3]) +
+                        "。須補足真實來源關聯與責任查核，不得僅勾選 completed。"
+                        if not remaining and safety_issues else
                         "正式報告需要指定真實受測來源目錄與完整逐檔證據。"
                         if not remaining and source_root is None else
                         "逐檔規則適用性或來源佐證不完整，先修復 file_reviews 中的問題，" +
