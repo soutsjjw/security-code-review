@@ -41,7 +41,40 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 ## 共同證據與結果判定（所有規範均適用）
 
-**只有確實執行適用的檢核、取得可定位且足以支持結論的來源／設定／測試／部署／政策證據，才能將對應項目記為 `pass` 或宣稱符合。** 只有對該規則結論確屬必要、且無法由完整來源／組態／呼叫鏈取代的外部、動態、部署、營運、政策或審核佐證缺少時，才保留待確認；不得推測已通過或虛構已執行的掃描；記錄已完成的靜態查核、實際證據與缺口，依資料契約使用 `review`／`not_assessed`／`pending_level` 等狀態，並繼續其他項目。能由靜態證據確認弱點者應記 `fail` 與 Finding；`na` 必須有已核對的不適用理由。70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
+**核心原則：結論由程式碼、設定與儲存庫內容決定；`review` 只用於「即使完整讀完儲存庫仍無法回答」的規則。** 不得推測已通過或虛構已執行的掃描；`na` 必須有已核對的不適用理由；70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
+
+### 判定階梯（每條規則依序判斷，取第一個成立者）
+
+1. **`fail` + Finding**：來源／設定／呼叫鏈已證實缺陷、規則間矛盾、不安全預設值，或規則要求的控制在儲存庫中應有而不存在（須記錄搜尋範圍與責任分析）。控制存在但不完整者同為 `fail`，以較低嚴重度表達。
+2. **`pass`**：適用控制已由實際控制邏輯、設定與呼叫鏈證實有效，且符合該規則 `pass_condition`。
+3. **控制成立但缺測試／文件**：依控制本身判 `pass`（或第 1 項 `fail`），在 `decision_reason` 註明「儲存庫無對應測試」，必要時建立 Low／Info Finding；**不得因此 `review`**。
+4. **`review`**：僅限下列「可接受的外部缺口」，且須指名所缺工件。
+5. **`na`**：已核對不適用理由與控制責任歸屬。
+
+### 可接受的 `review` 缺口（須指名具體工件）
+
+- **部署拓撲／主機**：防火牆、VPN、反向代理與 TLS 終止、AppPool／容器／服務帳號、主機 ACL、實際 HTTPS response。
+- **營運與制度紀錄**：備份與還原演練、DR 演練、告警接收與值班、事故通報、法務核准、保留與輪替政策核定。
+- **儲存庫外的平台設定**：branch protection、集中日誌平台、正式 secret provider 內容、雲端／資料庫設定。
+- **規則 `manual_boundary` 所列且確實阻斷結論的事項**（例如逾時長度是否符合組織政策）。
+- **無法取得的掃描結果**：已嘗試執行（如 `dotnet list package --vulnerable`）而因環境失敗者，須記錄指令與錯誤；未嘗試不得列為缺口。
+
+### 不得作為 `review` 理由
+
+- 缺測試（含逾期重放、邊界、整合、授權測試）。判定矩陣 `expected_evidence` 所列測試為建議佐證，**缺少不構成 `review`**。
+- 缺角色／權限／ownership 矩陣：Agent 須逐 Controller／Handler 讀碼自行建立，不得要求使用者提供。
+- 自承尚未完成的盤點（資料流、Handler／Repository 清單、反序列化點）：應完成後再判定；無法完成時 `execution.state` 保持 `pending`／`blocked`，不得標 `completed`＋`review`。
+- `decision_reason` 已描述缺陷、矛盾或不安全預設值（如演算法不一致、清空 `KnownProxies`、`DateTime.Now`、註解掉的標頭、固定金鑰路徑、placeholder 密碼）：必須 `fail`。
+- 「無法證明」「未見控制」類措辭：須改寫為明確結論（控制缺席＝`fail`，控制存在＝`pass`）。
+- 儲存庫中通常以檔案表達的控制缺席（CI 設定、相依更新設定、安全標頭實作、稽核寫入、rate limit、log 保留組態）：記 `fail`，並註明「若於平台層另有控制，提供工件後可更新」，不以 `review` 迴避。
+
+### 標記 `review` 前的自檢（三題皆須通過）
+
+1. 取得完整部署環境與營運文件後，結論是否可能改變？否 → 不得 `review`。
+2. 所缺工件能否指名（檔名、平台、紀錄名稱）？不能 → 不得 `review`。
+3. `decision_reason` 是否已出現缺陷、矛盾或不安全預設值？是 → 改 `fail`。
+
+`review` 的 `decision_reason` 須以「待確認：」列出工件清單，並先寫已由程式碼判定的部分。預期 `review` 比例約 25% 以下；超過 40% 須逐條以上述自檢重審（驗證器於 70% 警示，不作為放行標準）。
 
 ## 標準文件按需載入（必須執行）
 
@@ -94,24 +127,24 @@ argument-hint: "[專案路徑或檢核範圍]"
    - **先查跨檔案候選**：在逐檔判斷 `file_reviews` 適用性時，可執行 `scripts/analysis_candidates.py --source-root <TARGET_ROOT> --path <來源相對路徑>`，取得保守的 .NET 安全規則候選；必須實際追查方法、資料流、呼叫鏈和相關設定，建立多對多關聯。同檔可屬多規則，同規則也可有多檔；不可各選一個代表檔案，亦不得機械式將所有候選判為 pass/review。若高信心候選經核對不適用，在該檔 `candidate_exclusions` 明確逐條記錄不適用原因，禁止複製制式文字。候選只是定位輔助，不保證資料流正確。
    - **個別規則與個別片段重新核對**：每個 `file_reviews[].rule_reviews` 的行號必須定位到該規則的實際安全控制語句、資料流判斷或明確設定；不可只引用 `using`、屬性、欄位或 Handler 類別繼承。尤其 `AU-01` 不能用郵件 Token URL；`AU-08` 不能只用 UserManager 欄位；`PD-07` 不能用 JWT Service 欄位；`DP-01`、`DP-04` 不能只引用 `ManagePackageVersionsCentrally`；`SI-01` 不能用 .devcontainer 的 remoteUser。這些正向關鍵字也不是通過保證，必須實際核對安全條件及效果。
    - **候選排除不得制式複製**：遇到 `ValidateAsync`、`ValidationException`、授權決策或實際上傳控制，不能以「只有型別宣告」排除；跨檔同文套用的 `candidate_exclusions` 應重新調查。若 70 項均為 `completed` 但品質檢查失敗，`review_queue.py` 會從 `recheck_rule_ids`、`next_checks` 重新列出規則，必須繼續檢核；`completed` 和 `pass` 不得自行修改或自動重置既有 Finding。
-   - **判定矩陣優先**：`decision_guidance.mode=static` 代表以來源／設定作主要證據，已完成靜態查核後不得只因沒有動態測試一律 `review`；`hybrid` 只有在指出足以阻斷本項符合性結論的外部條件時才 `review`；`external` 的 `pass` 必須有真實部署、制度、測試或相應組態工件。三類都須根據實際安全控制直接記錄已證實的 `fail`，不得機械把 70 項轉成 pass。`pass_condition`、`expected_evidence`、`manual_boundary` 必須按規則逐條核對。
+   - **判定矩陣優先**：`decision_guidance.mode=static` 以來源／設定為主要證據，完成靜態查核後必須給出 `pass`／`fail`，不得因沒有動態測試而 `review`；`hybrid` 先依程式碼給出結論，僅在 `manual_boundary` 所列事項確實阻斷結論時才 `review`，`expected_evidence` 中的測試為建議佐證，缺少不構成 `review`；`external` 的 `pass` 必須有真實部署、制度、測試或相應組態工件，缺工件時可 `review`，但來源已證實的缺陷仍須 `fail`。`pass_condition`、`expected_evidence`、`manual_boundary` 必須按規則逐條核對，不得機械把 70 項轉成 pass 或 review。
    - **嚴格排除弱證據**：`using`、註解、單獨的方法／類別宣告、空括號及初始化入口等不可作為安全控制符合的唯一來源證據；需要可核查的實際控制邏輯、判斷分支或工件。 `review` 必須明確列出已執行的靜態步驟和本規則實際缺少的資料，不能套用「部署設定、正式政策、運作紀錄或動態測試」清單。
    - 對每項填寫 `execution: {state, methods, summary, inspected_paths?}`；掃描中為 `pending`，已實際執行檢核才標 `completed`，出現無法進行的真正錯誤標 `blocked`。
    - **實際案例**：AC-01 要追查 `Program.cs` 到 Cookie／Session／JWT 過期組態及伺服端檢查，不能只引用 Refresh Token 行；若來源已明確顯示與適用閒置期限衝突，先記錄可證實的 `fail`，不強制要求邊界實測才能記錄發現。AU-09 必須查 MFA 啟用與繞過分支；IN-07 要追查外部路徑輸入至檔案 API；PD-02 必須追查顯示／匯出遮蔽，不能只引用 IDNo 欄位；BC-03 必須有高可用部署或演練證據；DP-01 須查明依賴清單及漏洞資料，不得只引用集中版本管理開關。
-   - `status` 仍為 `pass`、`fail`、`review` 或 `na`。**pass**：已有足夠證據支持適用控制符合要求；**fail**：靜態程式碼已能證實弱點時建立 Finding，勿等待動態測試才判定；**review**：已完成可執行的靜態查核，但明列真正無法以來源判定的部署／政策／動態證據缺口；**na**：明確查證不適用及其控制責任。不得把所有靜態可判定的檢核預設為 review，也不得強制某個 pass/fail 比例。
+   - `status` 仍為 `pass`、`fail`、`review` 或 `na`，判定依「共同證據與結果判定」的階梯。**pass**：控制已由證據證實；**fail**：靜態程式碼或儲存庫內容已能證實缺陷或控制缺席，建立 Finding，勿等待動態測試；**review**：僅限「可接受的 review 缺口」且已指名工件；**na**：明確查證不適用及其控制責任。不得把靜態可判定的檢核預設為 review，也不得強制某個 pass/fail 比例。
    - **完成狀態必須具備逐條證據**：對 `pass/fail/review`，除了 `execution.inspected_paths`，每項 `checks[].evidence[]` 至少要有可定位的真實來源路徑與行號，或可追查的設定／測試／部署工件。單純把路徑掛在已完成規則、只有 `kind=other` 的空泛描述、或由搜尋字串推定安全結論，均不得標 `completed`。跨檔案證據須保持對應，重要否定性結論須說明搜尋與控制責任分析範圍。
    - **不要為通過檢查而虛構工件編號或隨意改寫模板**：實際沒有可定位證據時保留 `pending` 或 `blocked`，列出未完成原因並繼續可執行的其他檢核；已完成但缺外部佐證才用 `review`。每條規則的摘要、結論、證據描述須對應其真正的控制內容，不可只替換規則 ID／檔名／行號／數字。
    - **審查是識別風險並產出報告，不是修復程式。** 發現密碼鎖定、例外訊息、TOTP 或任何疑似漏洞時，立即將已確認風險保存為 `assessment.findings[]`、將相應檢核狀態更新為 `fail` 或證據尚不足時 `review`，並保存檔案、行號、佐證、影響、改善建議與信心水準。接著**繼續剩餘檢核**，不得把「需要優先處理／修復」當作停止掃描、要求使用者先改程式或提前交付部分結果的理由。風險優先級僅用於最後報告排序，所有改碼與修補皆屬後續獨立工作。
    - **Finding 與狀態必須連動**：信心為 `confirmed` 的 Finding，其 `check_ids` 中至少一個主要規則必須記 `fail`（不可停在 `review`，也不可為 `pass`）；`fail`／`pass` 的 `decision_reason` 不得寫「保留 review」。驗證器會拒絕這類矛盾。
    - **品質守門**：正式驗證與佇列重審會套用 `scripts/review_decision.py` 的 70 項矩陣與弱證據辨識，拒絕單純 `using`、`namespace`、屬性、參數識別符，以及已知制式化審查理由。驗證器是最低限度守門，通過驗證也不證明真實控制有效。若被標記 `recheck_rule_ids`，必須重新閱讀實際控制流程、補足真實證據，不能只更換理由字串。
-   - **`review` 需分類**：每個 `review` 建議加上 `review_kind`——`static_done_external_pending`（靜態查核已完成、僅缺部署／政策／動態證據）或 `external_only`（本質上需外部或制度證據）；報告會分開統計。`review` 超過 70% 時驗證器會警示，請在 `presentation.review_ratio_explanation` 說明原因，並重新檢視靜態即可判定的規則。
+   - **`review` 需分類**：每個 `review` 須加上 `review_kind`——`external_only`（本質上需外部或制度證據）或 `static_done_external_pending`（靜態部分已有明確結論，僅其中一項外部條件待補；`decision_reason` 須先寫靜態結論，再以「待確認：」列工件）。靜態部分若已含缺陷，不得使用本分類，須改 `fail`。報告會分開統計；`review` 比例準則見「共同證據與結果判定」。
    - **建立 Finding 前的自我檢查（驗證器會抽查其中可機械判斷者）**：
      - **追查使用處**：引用某變數或方法作為風險證據前，確認它真的被傳出、儲存或執行；宣告後從未使用的變數是死碼，不是風險路徑。驗證器遇到 Finding 點名（以名稱或單行行號）的局部變數在檔案中只宣告一次，會拒絕；已追查確實有使用時，於 `verification.usage_traced` 說明。
      - **讀相鄰註解與文件**：判定前先讀引用片段前後的註解、README 與設計文件，已說明的刻意設計或已知限制要納入判斷（如供應商不支援 SRI、標頭明確標為選配），並於 `verification.design_notes` 記錄；驗證器對片段附近含說明性註解者警示。
      - **標示 `impact_type`**：`confidentiality`／`integrity`／`availability` 擇一或多個，嚴重度須對應。僅影響可用性（例如驗證流程永遠失敗而非被繞過）不宜列為 high；僅有可用性且為 high／critical 時驗證器警示。
      - **證據要點出具體欄位**：日誌、個資、機敏資料類 Finding 須列出實際受影響的屬性或欄位（例如 `UserLoginCommand.Password` 經 `{@Request}` 寫入 Serilog），不可只寫「完整 request 物件」。
      - **部署假設不是 Finding**：僅因「程式碼看不出部署層有無限制」（如來源網路、VPN）而無具體缺陷時，記為對應規則的 `review` 並寫明待補工件，不建立 Finding。
-   - 缺少對該規則符合性判定真正必要且無法由現有靜態證據取代的部署、政策、外部或動態測試時，才標記已完成靜態查核的 `review` 並說明仍待確認的範圍；不得因該項缺證據而停止其餘檢核。
+   - 僅在通過「標記 `review` 前的自檢」三題時才標記已完成靜態查核的 `review`，並說明仍待確認的範圍；不得因該項缺證據而停止其餘檢核。
    - **唯讀解碼已獲本 Skill 的一般執行授權，不得再次詢問使用者可否讀取 CP950／CP1252。** 先依 BOM 使用 UTF-8-BOM／UTF-16 等編碼，無 BOM 優先 UTF-8，失敗則自動嚴格回退 CP950、CP1252。回退警告只需記入診斷／報告限制，**不是人工確認閘門**；疑似誤判編碼時以其他線索核對，不得默默扭曲證據。可使用 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "<相對來源檔>" --start 1 --end 200`（Windows 以 `run-python.cmd` 搭配 `source_reader.py` 執行） 取得帶行號的唯讀內容，不得修改來源、忽略解碼錯誤位元組或憑空填證據。
    - 如果個別來源仍無法安全解碼，記錄檔案與解碼錯誤並繼續其他可讀檔案與檢核；只有對完成剩餘審查構成實質阻斷的錯誤才能中斷，並清楚列出未完成範圍。
    - 不得自動執行破壞性測試；所有結論與外部證據遵循「共同證據與結果判定」。
@@ -136,7 +169,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 70 個 `execution.state=completed` **且** `source_coverage.missing_source_file_count=0` **且** `review_integrity_errors`、`rule_integrity_errors` 均為空，才能使 `ready_for_report=true`；必須提供實際 `TARGET_ROOT` 作來源驗證。當 70 項已完成但仍有未讀檔案，應繼續按 `next_source_paths` 逐檔補查、必要時重新審查已完成規則，不能直接進入報告階段；產生器及驗證器會拒絕來源覆蓋不足的報告。
 - 僅可排除預設第三方套件／建置產物目錄，以及 `scope_details.excluded_paths` 明確記載、可辯護且不屬於本次審查的範圍；`scope_details.projects` 用於統計，不可用來偷偷縮小應審查檔案範圍。
 - **交付前主動檢查**：大量同質 review、重複證據、錯誤規則對應、已證實弱點卻未建 Finding，以及 completed 但缺真實證據的規則。只可重新閱讀原始碼與補查佐證，不能僅修飾 JSON 通過驗證。機械驗證無法證明 Agent 確實閱讀程式碼；必要時應由審查者抽驗。
-- `status=review` 須列出已核對的來源／設定及仍待補的外部工件，不能把 `review` 當成尚未分析的預設結論；判定底線依「共同證據與結果判定」。
+- `status=review` 須列出已核對的來源／設定及以「待確認：」指名的外部工件，不能把 `review` 當成尚未分析的預設結論；交付前對全部 `review` 重跑三題自檢，不通過者改判 `pass`／`fail`。
 
 4. 在 **受測專案**（非 Skill）建立 `reports/security-code-review/`，並寫入：
    - `assessment.json`：符合 `schemas/assessment.schema.json` 的 70 項檢核、已驗證 Finding、真實 Git Revision 與證據。
