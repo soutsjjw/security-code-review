@@ -43,6 +43,10 @@ jobs:
         env:
           PYTHONUTF8: '0'
         run: python -m unittest discover -s tests -p test_quality_baseline.py -v
+      - name: Test Windows P1 Roslyn cross-file candidates
+        env:
+          PYTHONUTF8: '0'
+        run: python -m unittest discover -s tests -p test_p1_callchains.py -v
       - name: Test Windows project inventory UTF-8 subprocess output
         run: python -m unittest discover -s tests -p test_scope_projects.py -v
       - name: Test Windows Python runner
