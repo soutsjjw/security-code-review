@@ -39,9 +39,9 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
-## 單代理完整性守門（六項 P0，必須執行）
+## 單代理審查完整性守門（必須執行）
 
-**本階段不使用子代理或並行審查。** 沿用既有逐檔檢閱、70 項規則、真實證據與正式報告契約。完整操作與例外見 [P0 完整性守門](docs/p0-review-guards.md)。
+**本 Skill 不使用子代理或並行審查。** 沿用既有逐檔檢閱、70 項規則、真實證據與正式報告契約。完整操作與例外見 [完整性守門操作指引](docs/review-integrity-guards.md)。
 
 1. `analysis_prepare.py` 現會建立固定 Git Revision／全來源 SHA256 的 `analysis/review-snapshot.json`，以及 `structure-index.json` 的 `typed_relationships`。候選包含 DI、設定引用、Middleware、Endpoint 授權、跨專案引用及方法呼叫；新版 Roslyn 提供語意符號及介面分派候選，無法解析時保留完整同名方法清單，不得截斷候選。所有呼叫點與邊皆僅供定位，需閱讀來源查證，並補查反射／動態設定等無法可靠建立的關聯。
 2. 呼叫 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的 `local / cross_file / project` 最小責任範圍；**所有 `project` 規則都要查核，即使來源完全沒有命中**。不得以「查無關鍵字」推定不適用。每個來源檔仍要評估全部 70 條規則的適用性。
@@ -50,19 +50,19 @@ argument-hint: "[專案路徑或檢核範圍]"
 5. 來源版本異動會阻擋佇列完成和正式報告。Agent 必須核對變更後明確執行 `review_safety.py --target "<TARGET_ROOT>" --snapshot-refresh`，再重建分析索引並重新檢核已完成的受影響判斷；沒有可驗證完整依賴閉包時，保守重審全部 completed 規則。刷新保留既有 Findings，不代表既有 pass 自動仍有效。
 6. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
 
-## P2：安全控制有效性及繞過驗證（必須執行）
+## 安全控制有效性與繞過路徑驗證（必須執行）
 
 每條適用規則除了確認安全機制存在，還須從真實程式碼核對 **入口 → 控制執行分支 → 受保護操作**、拒絕分支及可替代／繞過路徑。不能因 `[Authorize]`、`UseAuthorization()`、參數化 API 或雜湊 API 存在就直接 pass。對介面實作、DI、環境覆寫、匿名入口、直接 Repository 存取與重放路徑應以反向攻擊視角逐一追查。
 
 `review_queue.py --detail-id <RULE_ID>` 的 `control_effectiveness_guidance` 指定最低繞過情境；靜態／混合規則判 `completed + pass` 時，必須於 `review_safety.py --stage` 的批次 JSON 中提供 `control_verifications`，記錄 `entry_points`、`enforcement_points`、`protected_operations`、`control_condition`、`failure_behavior`、`search_summary`、`bypass_scenarios` 與 `open_issues=[]`，並經 `--integrate` 保存為 `analysis/control-verifications.json`。證據路徑、行號及雜湊均需核對當次來源快照；`enforcement_points` 至少一筆須對應正式規則來源證據。情境未查或有未解的繞過不得判 pass；不要填模板、虛構不存在的攻擊測試，也不得用 `review` 迴避尚未完成的靜態調查。外部規則維持原判定階梯與外部工件驗證要求，已確認缺陷仍是 `fail`＋Finding。
 
-P1 呼叫鏈驗證與 P2 控制有效性驗證互為補充，兩者皆非自動安全判定。完整欄位及示例見 [P2 有效性驗證](docs/p2-control-effectiveness.md)。
+跨檔呼叫鏈驗證與安全控制有效性驗證互為補充，兩者皆非自動安全判定。完整欄位及示例見 [安全控制有效性驗證指引](docs/control-effectiveness-review.md)。
 
-## P3：嚴格 review 裁決（必須執行）
+## 待確認判定與外部證據驗證（必須執行）
 
 任何 `completed+review` 均須先證明：已完成儲存庫內應完成的程式碼與設定追查、目前沒有足以直接 `fail` 的靜態缺陷、缺少的外部資料**真正會影響本規則判定**，且已指名可核對的工件。不能因缺少非必要動態／邊界測試、未完成呼叫鏈分析或缺乏使用者提供的權限矩陣而 `review`。已證實弱點直接 `fail`＋Finding；查核未完成則保留 `pending/blocked`，不以 `review` 代替。
 
-以 `review_queue.py --detail-id <RULE_ID>` 取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [P3 判定裁決指引](docs/p3-review-adjudication.md)。
+以 `review_queue.py --detail-id <RULE_ID>` 取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [待確認判定指引](docs/review-decision-adjudication.md)。
 
 ## 共同證據與結果判定（所有規範均適用）
 
