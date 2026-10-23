@@ -8,6 +8,7 @@ from review_decision import decision_quality_errors
 from assessment_consistency import consistency_errors,consistency_warnings,finding_quality_issues
 from source_coverage import build_source_coverage
 from scope_inventory import scope_project_issues
+from review_safety import safety_errors
 
 ROOT=Path(__file__).resolve().parent.parent
 args=sys.argv[1:]
@@ -35,6 +36,7 @@ if not allow_demo:
  errs.extend(consistency_errors(data))
  for w in consistency_warnings(data):print('WARNING:',w,file=sys.stderr)
 if source_root is not None and not allow_demo:
+ errs.extend(safety_errors(source_root,data))
  se,sw=scope_project_issues(data,source_root)
  errs.extend(se)
  for w in sw:print('WARNING:',w,file=sys.stderr)
