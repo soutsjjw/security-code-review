@@ -125,7 +125,7 @@ argument-hint: "[專案路徑或檢核範圍]"
      ```
    `--check` 僅需於開始時執行一次。啟動器依序偵測 `python`、`python3`、`py -3`，並確認 Python 3.10+ 與 `requirements.txt` 套件版本可用；其後每次呼叫均以同樣優先序選擇可用環境，不直接假設 `python` 存在。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
 2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `decision_guidance`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核且本規則必要的部署、政策或動態證據確實無法取代時可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
-3. **每完成一項／每批立即保存** `TARGET_ROOT/reports/security-code-review/assessment.json`，保持既有 Findings 與其他已完成項目，不得將已知風險清空；然後再次執行上方佇列命令（不必重新初始化也可移除 `--init`）。
+3. **每完成一項／每批立即保存**：先將單檔／規則結果透過 `review_safety.py --stage` 獨立暫存，再用 `--integrate` 無衝突整合到 `TARGET_ROOT/reports/security-code-review/assessment.json`；已有 Finding 必須保留。跨檔／全專案規則未結案時保持 `pending`，不得提前填為 `completed`。然後再次執行佇列（不必重新初始化）。
 4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
 5. 由 Agent 內部呼叫 `complete_review.py`，產出最終 `CodeReview_YYYYMMDD.html`、`report.json` 並驗證。最終答覆優先交付這兩個路徑、70 項狀態摘要與 Finding 數；改善建議應收錄於報告中，不要在最終訊息中先要求修復。
 
@@ -134,7 +134,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 1. 讀取 `standards/standards-register.yaml`、`policies/applicability-matrix.yaml`、`policies/review-decision-matrix.json` 與 `rules/{AC,AU,IN,CR,EH,LG,DP,PD,BC,SI}.yaml`，共 70 項；不得跳過、增加或重編 ID。
 2. 盤點 `TARGET_ROOT` 的語言、框架、認證授權、資料流、儲存、相依套件、部署與 CI/CD；根據 `profiles/project-profile.example.yaml` 辨識適用情境。排除 `.git/`、`reports/`、`.agents/skills/`、`.claude/skills/` 與生成物／相依套件目錄，避免把 Skill 本身當成受測程式碼；不要排除專案的 CI 設定。缺乏政策資料時不擅自決定法規適用級別。
-3. **必須按前述佇列迴圈逐項完成 70 項檢核，不能只填入 70 個 ID 或一律設為 review 就結束。** 依每條規則的 `inspection.search_targets`、`applicability` 與證據要求搜尋目標專案、追蹤程式碼呼叫鏈並核對組態；可分批掃描，但必須持續直到 70 項各自完成，才允許產製報告。一次呼叫應自動持續，不因找到高風險問題而暫停。每完成一組就將結果保存到受測專案的 `reports/security-code-review/assessment.json`，重新啟動時先載入已查核結果並僅補做尚未完成的 ID；不得憑空標記完成。
+3. **必須按前述佇列迴圈逐項完成 70 項檢核，不能只填入 70 個 ID 或一律設為 review 就結束。** 逐檔／規則紀錄應先使用 `review_safety.py --stage`、`--integrate` 完成無衝突保存；跨檔及全專案結案檢查通過前不可交付。 依每條規則的 `inspection.search_targets`、`applicability` 與證據要求搜尋目標專案、追蹤程式碼呼叫鏈並核對組態；可分批掃描，但必須持續直到 70 項各自完成，才允許產製報告。一次呼叫應自動持續，不因找到高風險問題而暫停。每完成一組就將結果保存到受測專案的 `reports/security-code-review/assessment.json`，重新啟動時先載入已查核結果並僅補做尚未完成的 ID；不得憑空標記完成。
    - **先查跨檔案候選**：在逐檔判斷 `file_reviews` 適用性時，可執行 `scripts/analysis_candidates.py --source-root <TARGET_ROOT> --path <來源相對路徑>`，取得保守的 .NET 安全規則候選；必須實際追查方法、資料流、呼叫鏈和相關設定，建立多對多關聯。同檔可屬多規則，同規則也可有多檔；不可各選一個代表檔案，亦不得機械式將所有候選判為 pass/review。若高信心候選經核對不適用，在該檔 `candidate_exclusions` 明確逐條記錄不適用原因，禁止複製制式文字。候選只是定位輔助，不保證資料流正確。
    - **個別規則與個別片段重新核對**：每個 `file_reviews[].rule_reviews` 的行號必須定位到該規則的實際安全控制語句、資料流判斷或明確設定；不可只引用 `using`、屬性、欄位或 Handler 類別繼承。尤其 `AU-01` 不能用郵件 Token URL；`AU-08` 不能只用 UserManager 欄位；`PD-07` 不能用 JWT Service 欄位；`DP-01`、`DP-04` 不能只引用 `ManagePackageVersionsCentrally`；`SI-01` 不能用 .devcontainer 的 remoteUser。這些正向關鍵字也不是通過保證，必須實際核對安全條件及效果。
    - **候選排除不得制式複製**：遇到 `ValidateAsync`、`ValidationException`、授權決策或實際上傳控制，不能以「只有型別宣告」排除；跨檔同文套用的 `candidate_exclusions` 應重新調查。若 70 項均為 `completed` 但品質檢查失敗，`review_queue.py` 會從 `recheck_rule_ids`、`next_checks` 重新列出規則，必須繼續檢核；`completed` 和 `pass` 不得自行修改或自動重置既有 Finding。
