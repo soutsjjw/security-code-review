@@ -133,7 +133,7 @@ def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
     if not isinstance(proof, dict):
         return [f"{rid}: {label} 缺少具體來源證據"]
     kind = proof.get("kind")
-    if kind == "source":
+    if kind in {"source", "configuration"}:
         issues, _ = _location_errors(target, known, inspected, proof, f"{rid}: {label}")
         if issues:
             return issues
@@ -155,7 +155,7 @@ def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
                            for item in formal_evidence)):
             return [f"{rid}: {label} 外部工件必須引用正式檢核中已存在的工件識別碼"]
         return []
-    return [f"{rid}: {label} 缺少有效 source / external_gap / external_artifact 證據"]
+    return [f"{rid}: {label} 缺少有效 source / configuration / external_gap / external_artifact 證據"]
 
 
 def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
