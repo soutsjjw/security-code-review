@@ -179,7 +179,8 @@ class P3AdjudicationTests(unittest.TestCase):
             with self.subTest(case=case_id):
                 case = self.cases[case_id]
                 rule_id = case["rule_id"]
-                artifact = case["external_artifact"]
+                artifact = (case["external_artifact"] + "：正式切換測試結果報告"
+                            if rule_id == "BC-07" else case["external_artifact"])
                 rule = guidance(rule_id)
                 review = {
                     "id": rule_id, "status": "review",
