@@ -144,7 +144,9 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
     closures = _read(report_dir(target) / CLOSURES, {}) or {}
     scopes = rule_scopes()
     index = _read(report_dir(target) / INDEX, {}) or {}
-    known_edges = {r["id"] for r in index.get("typed_relationships", [])}
+    edges = index.get("typed_relationships", [])
+    known_edges = {r["id"] for r in edges}
+    candidates = index.get("rule_candidates") or {}
     current = set((_read(report_dir(target) / SNAPSHOT, {}) or {}).get("source_hashes", {}))
     errors = []
     for check in assessment.get("checks", []):
@@ -171,7 +173,25 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
         ids = closure.get("examined_relationship_ids")
         if not isinstance(ids, list) or any(x not in known_edges for x in ids):
             errors.append(f"{rid}: 跨檔關聯 ID 無效，須由索引與來源逐項核對")
-        if closure.get("open_issues"):
+            ids = []
+        dismissed = closure.get("dismissed_relationships", {})
+        if not isinstance(dismissed, dict) or any(
+                x not in known_edges or not isinstance(note, str) or len(note.strip()) < 20
+                for x, note in dismissed.items()):
+            errors.append(f"{rid}: 被排除的關聯須使用有效 ID 與至少 20 字具體排除理由")
+            dismissed = {}
+        candidate_paths = {p for p, hits in candidates.items()
+                           if any(hit.get("rule_id") == rid for hit in hits)}
+        relevant_paths = candidate_paths | (set(paths) if isinstance(paths, list) else set())
+        related = {edge["id"] for edge in edges
+                   if edge.get("source") in relevant_paths or edge.get("target") in relevant_paths}
+        unresolved = sorted(related - set(ids) - set(dismissed))
+        if unresolved:
+            errors.append(f"{rid}: 尚有 {len(unresolved)} 筆跨檔／組態候選未查證或排除："
+                          + "、".join(unresolved[:5]))
+        if not isinstance(closure.get("open_issues"), list):
+            errors.append(f"{rid}: open_issues 必須列出尚待補查任務（無則為空陣列）")
+        elif closure["open_issues"]:
             errors.append(f"{rid}: 仍有未關閉的跨檔／全專案補查任務")
         if scopes[rid] == "cross_file" and isinstance(paths, list) and len(paths) < 2:
             # 合法的單檔實作仍可結案，但需說明如何排除其他呼叫端／設定。
