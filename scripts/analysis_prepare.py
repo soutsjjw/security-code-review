@@ -15,10 +15,12 @@ from analysis_adapters import ADAPTERS, probe_codegraph, probe_roslyn
 from analysis_candidates import DOTNET_EXTENSIONS, candidate_hits
 from source_reader import source_digest
 from source_reader import read_source_text
+from review_relationships import build_relationships
+from review_safety import initialize_snapshot
 from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
-INDEX_VERSION = 1
+INDEX_VERSION = 2
 ROSLYN_VERSION = "roslyn-syntax-v2"
 CANDIDATE_VERSION = 2
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -196,6 +198,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     parsed, errors = _run_roslyn(root, pending, roslyn)
     indexed = {**reused, **parsed}
     call_hints = cross_file_call_hints(indexed)
+    typed_relationships = build_relationships(root, sorted(source), call_hints)
     # 變更的呼叫端/組態可能影響未變動來源；沒有受驗證依賴閉包前採保守重審。
     recheck = sorted(source) if changed or removed or not compatible or mode == "full" else []
     payload = {
@@ -204,11 +207,14 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "candidate_version": CANDIDATE_VERSION, "rule_candidates": rule_candidates,
         "source_hashes": source, "roslyn_files": indexed,
         "cross_file_call_hints": call_hints,
+        "typed_relationships": typed_relationships,
         "changed_paths": changed, "removed_paths": removed, "recheck_paths": recheck,
         "codegraph": codegraph, "roslyn": {k: v for k, v in roslyn.items() if k != "executable"},
         "roslyn_errors": errors,
         "warning": "結構索引及快取不能代替安全審查證據；不得直接寫入 completed/pass/na 或繼承失效的 Finding。"
     }
+    # 工作樹快照固定單次審查所使用的完整來源版本，禁止混用舊證據。
+    initialize_snapshot(root, source, excluded)
     index.parent.mkdir(parents=True, exist_ok=True)
     temp_index = index.with_suffix(".tmp")
     temp_index.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -223,6 +229,8 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "candidate_file_count": sum(bool(hits) for hits in rule_candidates.values()),
         "candidate_link_count": sum(len(hits) for hits in rule_candidates.values()),
         "candidate_reused_count": candidate_reused,
+        "typed_relationship_count": len(typed_relationships),
+        "typed_relationship_kinds": sorted({edge["kind"] for edge in typed_relationships}),
         "cross_file_caller_count": len(call_hints),
         "cross_file_callsite_count": sum(len(v) for v in call_hints.values()),
         "cross_file_examples": [
