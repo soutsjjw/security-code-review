@@ -18,6 +18,7 @@ from pathlib import Path
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
 from review_decision import decision_quality_errors, load_decision_matrix
+from control_effectiveness import guidance as control_effectiveness_guidance
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
@@ -224,6 +225,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
             "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
             "decision_guidance": decision_matrix[r["id"]],
+            "control_effectiveness_guidance": control_effectiveness_guidance(r["id"]),
             "tacert_v2_checks": tacert_by_rule[r["id"]],
             "owasp_2025_categories": owasp_by_rule[r["id"]],
             "system_baseline_v13_controls": system_baseline_by_rule[r["id"]],
@@ -267,7 +269,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         } for r in selected]
         if remaining:
             queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
-                                    "需要詳細規範時使用 --detail-id <規則ID>，並依 decision_guidance 與 standard_documents 查核。逐檔紀錄與 Finding 仍不可省略。")
+                                    "需要詳細規範時使用 --detail-id <規則ID>，並依 decision_guidance、control_effectiveness_guidance 與 standard_documents 查核。逐檔紀錄、控制繞過證據與 Finding 仍不可省略。")
         elif ids_to_recheck:
             queue["instruction"] = (
                 "70 項執行紀錄雖已 completed，仍有實際程式碼證據／適用性檢查失敗。"
