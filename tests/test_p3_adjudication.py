@@ -15,7 +15,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from analysis_prepare import prepare
 from assessment_consistency import consistency_errors
 from control_effectiveness import snapshot_fingerprint
-from decision_adjudication import (AUDITS, CATEGORIES, adjudication_errors, guidance)
+from decision_adjudication import (AUDITS, CATEGORIES, _meaningful_static_source,
+                                   adjudication_errors, guidance)
 from quality_baseline import PROJECT_FILE, load_catalog
 from review_queue import build_queue, initialize, load_rules
 from review_safety import _write, integrate, report_dir, stage
@@ -116,6 +117,19 @@ class P3AdjudicationTests(unittest.TestCase):
         audit["external_gap"]["category"] = ["organization_policy"]
         errors = self.check(audit=audit)
         self.assertTrue(any("必須明確命名" in x for x in errors), errors)
+
+    def test_real_configuration_value_is_acceptable_not_empty_placeholder(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = root / "appsettings.Production.json"
+            config.write_text('{\n  "Session": { "IdleMinutes": 20 }\n}\n', encoding="utf-8")
+            item = {"path": config.name, "line_start": 2, "line_end": 2}
+            self.assertTrue(_meaningful_static_source(root, item))
+            config.write_text("{}\n", encoding="utf-8")
+            item["line_start"] = item["line_end"] = 1
+            self.assertFalse(_meaningful_static_source(root, item))
+            self.assertFalse(_meaningful_static_source(
+                root, {"path": config.name, "line_start": 7, "line_end": 7}))
 
     def test_unfinished_static_work_cannot_hide_under_review(self):
         for mutation in ("inconclusive", "open_question", "no_paths", "no_evidence",
