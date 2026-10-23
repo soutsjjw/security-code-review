@@ -96,7 +96,7 @@ class ControlEffectivenessTests(unittest.TestCase):
                 info = guidance(rule["id"])
                 self.assertEqual(info["pass_condition"] != "", True)
                 self.assertTrue(info["required_scenarios"])
-                self.assertIn("control", info["evidence_contract"] if False else "control")  # pure contract
+                self.assertIn("entry_points", info["evidence_contract"])
         self.assertIn("horizontal_access", guidance("AC-08")["required_scenarios"])
         self.assertFalse(guidance("BC-03")["required_for_pass"])
 
