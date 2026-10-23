@@ -66,6 +66,12 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 詳細 JSON 實例、參數、版本限制與不支援的語意分析類型見 [六項 P0 守門指引](p0-review-guards.md)。
 
+## P2：安全控制存在不代表有效
+
+在原有 P0／P1 查核之外，對靜態與混合規則的 `completed + pass`，必須按 `review_queue.py --detail-id` 提供的 `control_effectiveness_guidance`，逐項確認安全控制入口、實際執行分支、受保護操作、失敗時拒絕行為與所有最低繞過情境。Agent 將真實來源行號、完整追查結果、Git Revision 與 SHA256 寫入批次 JSON 的 `control_verifications`，由 `review_safety.py --stage / --integrate` 保存於 `analysis/control-verifications.json`。未補齊時 `--validate` 與 `ready_for_report` 不會通過；`fail`／`review`／`na` 仍遵循現有判定階梯，不能因欠缺 P2 工作紀錄擅自改判。
+
+**P2 必須真實查核，不是套用繞過清單就自動 Pass。** 詳細 JSON 契約與例外見 [P2 控制有效性與繞過驗證](p2-control-effectiveness.md)。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
@@ -77,7 +83,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
-- 維持單代理執行，不啟動子代理或平行審查；保留六項 P0 完整性守門。
+- 維持單代理執行，不啟動子代理或平行審查；保留六項 P0 完整性守門，並執行 P1 跨檔呼叫點與 P2 控制有效性驗證。
 
 完成條件：
 
