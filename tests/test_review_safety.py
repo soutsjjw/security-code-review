@@ -97,19 +97,24 @@ class P0ReviewSafetyTests(unittest.TestCase):
         errors = closure_errors(self.root, self.assessment)
         self.assertIn("AC-01", str(errors))
         self.assertIn("DP-01", str(errors))
+        edges = json.loads((self.report / "analysis/structure-index.json").read_text("utf-8"))["typed_relationships"]
+        ac_ids = [e["id"] for e in edges if e.get("source") in {"Program.cs", "Auth/IdentityService.cs"}
+                  or e.get("target") in {"Program.cs", "Auth/IdentityService.cs"}]
+        dp_ids = [e["id"] for e in edges if e.get("source") in {"Api.csproj", "Auth/Auth.csproj"}
+                  or e.get("target") in {"Api.csproj", "Auth/Auth.csproj"}]
         _write(self.report / CLOSURES, {
             "AC-01": {
                 "status": "pass", "summary": "已追查登入到驗證鏈並確認關聯設定與逾期驗證",
                 "examined_paths": ["Program.cs", "Auth/IdentityService.cs"],
                 "control_owner": "IdentityService",
                 "search_summary": "已檢查 Program 與 Identity 服務及引用的設定檔",
-                "examined_relationship_ids": [], "open_issues": []},
+                "examined_relationship_ids": ac_ids, "open_issues": []},
             "DP-01": {
                 "status": "review", "summary": "已核對所有 csproj 與集中套件版本但需外部弱點資料",
                 "examined_paths": ["Api.csproj", "Auth/Auth.csproj"],
                 "control_owner": "套件管理與維運責任",
                 "search_summary": "已檢查兩個專案的套件參考與版本登錄範圍",
-                "examined_relationship_ids": [], "open_issues": []},
+                "examined_relationship_ids": dp_ids, "open_issues": []},
         })
         self.assertEqual(closure_errors(self.root, self.assessment), [])
         self.assertEqual(safety_errors(self.root, self.assessment), [])
