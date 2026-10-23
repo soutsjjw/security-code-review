@@ -44,8 +44,8 @@ class ControlEffectivenessTests(unittest.TestCase):
                           "inspected_paths": case["required_paths"]},
             "decision_reason": "依使用者 ID 對資料庫每筆 Order 執行 owner 限制，未找到繞過的存取路徑",
         }
-        self.check["evidence"] = [self.location(
-            "OrderService.cs", "_repository.FindByOwner(id, userId)")]
+        self.check["evidence"] = [{**self.location(
+            "OrderService.cs", "_repository.FindByOwner(id, userId)"), "kind": "source"}]
         self.record = self.good_record()
 
     def location(self, filename, needle):
