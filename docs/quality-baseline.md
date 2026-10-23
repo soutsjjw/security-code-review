@@ -52,7 +52,7 @@ python scripts/quality_baseline.py --materialize /tmp/security-review-p0
 python scripts/quality_baseline.py --assessments /tmp/security-review-p0 --output p0-results.json
 ```
 
-評分器會從每個案例的 70 項檢核中，取出**指定規則**的 `status`、Finding、`inspected_paths` 和來源證據行號；缺少 assessment 或規則證據的案例不會被當成通過。
+評分器會從每個案例的 70 項檢核中，取出**指定規則**的 `status`、Finding、`inspected_paths` 和來源證據行號；缺少 assessment、尚未 `completed` 的規則或缺少來源證據的案例不會被當成通過；只有實際存在的 Finding 才算有效。
 
 也可以比對事先擷取的預測資料：
 
@@ -88,6 +88,7 @@ python scripts/quality_baseline.py --evaluate predictions.json --output p0-resul
 - `fail_recall`／`missed_fail`：已知弱點的召回率／漏報數。
 - `fail_precision`／`false_positive_fail`：已知案例中 fail 的精確率／誤報數。
 - `review_correct`：預期外部待確認案例判定正確數。
+- `review_gap_specific_count`：預期 review 必須在「待確認：」後指出相符的外部工件關鍵詞；其他同義工件仍需人工複核，避免制式缺測試理由被放行。
 - `trace_complete_count`：每案例要求追查的來源檔是否均已列入 `inspected_paths`。
 - `evidence_valid_count`：來源證據路徑與行號是否有效。
 - `anchor_cited`：是否引用已知參考錨點，僅供參考，**不強制把其他合法來源證據判錯**。
