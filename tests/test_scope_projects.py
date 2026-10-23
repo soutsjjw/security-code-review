@@ -64,14 +64,26 @@ class ProjectDetectionTests(unittest.TestCase):
 
     def test_cli_lists_projects(self):
         run = subprocess.run([sys.executable, str(SKILL_ROOT / "scripts/scope_inventory.py"),
-                              "--target", str(self.root)], capture_output=True, text=True)
+                              "--target", str(self.root)], capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertEqual(len(json.loads(run.stdout)), 4)
+
+    def test_cli_emits_utf8_for_names_not_representable_in_cp950(self):
+        # Windows Python 預設 stdout 可能是 cp950，非 CP950 字元需仍能產生 JSON。
+        project_dir = self.root / "src" / "Audit🔐"
+        project_dir.mkdir(parents=True)
+        (project_dir / "Audit🔐.csproj").write_text("<Project/>", encoding="utf-8")
+        run = subprocess.run([sys.executable, str(SKILL_ROOT / "scripts/scope_inventory.py"),
+                              "--target", str(self.root)], capture_output=True,
+                             text=True, encoding="utf-8")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        projects = json.loads(run.stdout)
+        self.assertTrue(any(p["name"] == "Audit🔐" for p in projects))
 
     def test_init_prefills_projects(self):
         run = subprocess.run([sys.executable, str(SKILL_ROOT / "scripts/review_queue.py"),
                               "--target", str(self.root), "--init", "--batch-size", "1", "--compact"],
-                             capture_output=True, text=True)
+                             capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(run.returncode, 0, run.stderr)
         data = json.loads((self.root / "reports/security-code-review/assessment.json").read_text("utf-8"))
         self.assertEqual(len(data["scope_details"]["projects"]), 4)
