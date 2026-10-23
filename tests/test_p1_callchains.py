@@ -203,6 +203,48 @@ class P1CallchainTests(unittest.TestCase):
                 self.assertEqual(pending_runs[-1], ["Caller.cs", "Target.cs"])
                 self.assertEqual(result["roslyn_reused_count"], 0)
 
+    def test_roslyn_keeps_interface_and_virtual_runtime_dispatch_candidates(self):
+        if not probe_roslyn()["available"]:
+            self.skipTest("dotnet SDK 8+ unavailable")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "Case.csproj").write_text(
+                '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
+                '<TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>',
+                encoding="utf-8")
+            sources = {
+                "IGuard.cs": "public interface IGuard { bool Check(); }\n",
+                "GuardA.cs": "public sealed class GuardA : IGuard { public bool Check() => true; }\n",
+                "GuardB.cs": "public sealed class GuardB : IGuard { public bool Check() => false; }\n",
+                "Base.cs": "public class Base { public virtual bool Check() => true; }\n",
+                "Override.cs": "public sealed class Override : Base { public override bool Check() => false; }\n",
+                "Caller.cs": (
+                    "public sealed class Caller {\n"
+                    " public bool Guard(IGuard x) => x.Check();\n"
+                    " public bool Virtual(Base x) => x.Check();\n"
+                    "}\n"
+                ),
+            }
+            for name, content in sources.items():
+                (root / name).write_text(content, encoding="utf-8")
+            with patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
+                result = prepare(root)
+            self.assertFalse(result["roslyn_errors"], result["roslyn_errors"])
+            index = json.loads((root / "reports/security-code-review/analysis/structure-index.json")
+                               .read_text("utf-8"))
+            calls = index["cross_file_call_hints"]["Caller.cs"]
+            by_caller = {call["caller_method"]: call for call in calls}
+            self.assertEqual(by_caller["Guard"]["resolution"], "semantic_dispatch_candidate")
+            self.assertEqual(
+                {x["path"] for x in by_caller["Guard"]["possible_targets"]},
+                {"IGuard.cs", "GuardA.cs", "GuardB.cs"}
+            )
+            self.assertEqual(by_caller["Virtual"]["resolution"], "semantic_dispatch_candidate")
+            self.assertEqual(
+                {x["path"] for x in by_caller["Virtual"]["possible_targets"]},
+                {"Base.cs", "Override.cs"}
+            )
+
     def test_roslyn_traces_real_p0_controller_handler_service_repository(self):
         if not probe_roslyn()["available"]:
             self.skipTest("dotnet SDK 8+ unavailable")
