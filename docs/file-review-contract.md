@@ -5,7 +5,7 @@
 ```json
 {
   "path": "src/Auth/Session.cs",
-  "sha256": "必須填入該檔案原始位元組的 64 字元小寫 SHA256",
+  "sha256": "必須填入該檔案標準內容（移除 UTF-8 BOM、CRLF 視為 LF）的 64 字元小寫 SHA256；可用 source_reader.py --digest 取得",
   "summary": "實際追蹤 Session 授權管線與使用權杖的呼叫；已檢查使用者身份與存取限制。",
   "methods": ["唯讀原始碼檢閱", "資料流及呼叫鏈追蹤"],
   "category_screening": {
@@ -39,7 +39,8 @@
 - **強制補查**：同一套固定文字排除多個 `candidate_exclusions` 會被拒絕；若掃描結果仍有 `review_integrity_errors`／`recheck_rule_ids`，即使 70/70 completed 也不得產生正式報告。保留既有 Finding 和有效歷史證據，必須真正重新核對原始碼、方法呼叫、設定及外部證據。
 - `rule_reviews` 必須逐一覆蓋上述所有 `rule_ids`，記錄 `pass / fail / review`、具體理由及檔案內有效行號；同一檔案可以關聯多項規則，但**沒有固定最低項數**。無直接適用規則時可以是空陣列，十類仍要逐項判斷。
 - 同一個 `rule_reviews[].rule_id` 必須已完成 `checks[].execution.state=completed`，且該檔案在該規則 `execution.inspected_paths` 中；反向亦同，禁止只靠路徑灌滿覆蓋率。
-- `sha256` 需從實際位元組計算，不可填 Git Revision 或事後任意編造。來源異動後必須重新檢查、更新雜湊與相關紀錄。
+- `sha256` 需從實際來源內容計算，不可填 Git Revision 或事後任意編造。來源異動後必須重新檢查、更新雜湊與相關紀錄。
+- **跨平台雜湊**：標準算法是對「移除 UTF-8 BOM、CRLF 視為 LF」後的內容計算 SHA256，使同一版本在 Windows（autocrlf 檢出 CRLF）與 Linux／macOS 得到相同值。取得方式：`sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" --source-root "<TARGET_ROOT>" --path "<相對來源檔>" --digest`。驗證時**同時接受**舊版以原始位元組計算的雜湊（含 CRLF／LF、有無 BOM 的檢出差異），既有報告不需重算；空白、縮排或程式碼的實質異動仍會被判定為已異動。
 - 舊的 `assessment.json`、Finding、既有外部證據仍須保留；缺少 `file_reviews` 僅代表此項完成證據不足，不得自行產出假資料補齊。
 
 候選定位（不改寫報告或來源）：`python scripts/analysis_candidates.py --source-root <受測專案> --path src/Web/Controllers/AccountController.cs`；遇到 `candidate_exclusions` 必須人工核對控制責任，不得依訊號自動填寫排除或結論。

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
@@ -14,6 +13,7 @@ from pathlib import Path
 
 from analysis_adapters import ADAPTERS, probe_codegraph, probe_roslyn
 from analysis_candidates import DOTNET_EXTENSIONS, candidate_hits
+from source_reader import source_digest
 from source_reader import read_source_text
 from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
@@ -43,7 +43,7 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
             if _default_rule(rel) or any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in excluded):
                 continue
             if path.suffix.lower() in SOURCE_SUFFIXES or name in SOURCE_FILENAMES or path.suffix.lower() == ".vue":
-                files[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+                files[rel] = source_digest(path.read_bytes())
     return dict(sorted(files.items()))
 
 

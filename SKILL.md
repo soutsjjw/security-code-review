@@ -148,7 +148,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 在 `assessment.scope_details.projects` 記錄真正納入的專案：每項具有 `name` 及相對 `TARGET_ROOT` 的 `path`；單一專案可使用 `path: "."`，多專案各列一筆。不要由 manifest 數直接推定審查專案數。
 - 在 `scope_details.excluded_paths` 可記錄額外排除的目錄／檔案及 `reason`；不得排除仍被列為已審查的檔案；專案 CI 設定不能預設排除。
 - 每項 completed 規則，將**實際閱讀、追蹤與核對**的相對來源路徑填入 `execution.inspected_paths`；單純搜尋命中或盤點檔名不算已審查，不能大量填入尚未實際閱讀的路徑。此清單**不是逐檔完成的獨立證據**。
-- 逐檔審查須同步寫入 `assessment.file_reviews[]`（詳見 [逐檔資料契約](docs/file-review-contract.md)）：來源 SHA256、內容導向摘要、已執行方法、AC／AU／IN／CR／EH／LG／DP／PD／BC／SI 十類規則的適用性篩選與理由，以及適用規則的逐條結論、實際行號；與 `execution.inspected_paths` **雙向一致**。不能照檔名、規則 ID 或副檔名自動填結論，也不能以預設全數「不適用」替代閱讀。
+- 逐檔審查須同步寫入 `assessment.file_reviews[]`（詳見 [逐檔資料契約](docs/file-review-contract.md)）：來源 SHA256（以 `source_reader.py --digest` 取得，忽略 BOM 與 CRLF／LF 差異）、內容導向摘要、已執行方法、AC／AU／IN／CR／EH／LG／DP／PD／BC／SI 十類規則的適用性篩選與理由，以及適用規則的逐條結論、實際行號；與 `execution.inspected_paths` **雙向一致**。不能照檔名、規則 ID 或副檔名自動填結論，也不能以預設全數「不適用」替代閱讀。
 - **禁止「第一個命中即返回」的單一關鍵字分類器。** 對每個檔案需檢查所有 70 項規則的真正適用條件，先建立可能相關的候選清單（可能跨類別、同一類別多條），接著逐條追查實作、呼叫鏈與組態，再將**全部確實適用且已檢核的規則**列入 `rule_reviews`。不能 `return`／`break` 於首次命中後，也不能把未命中的檔案預設掛 `SI-01`，不能硬性要求每檔多於一條規則。
 - **按規則主檔辨認真正含義**：以 `rules.json` 的 `id`、`title`、`inspection`、`applicability` 為準，不可自行以字首或關鍵字隨意指定 `XX-01`。例如 `AU-01` 是密碼強度規範，不是稽核事件；`IN-01` 是 SQL Injection，不是所有輸入驗證；`DP-01` 是依賴套件安全性，不是個資；`PD-01` 是個資蒐集合法性，不是部署設定。
 - `category_screening.reason` 應描述**本檔案中該類控制的責任、已檢查的具體實作或為何無直接相關控制**；同一句「未見此檔直接實作該類控制」不能複製到不同類別。逐檔 `summary` 與每條 `rule_reviews.reason` 不得只變更行數、檔名、規則 ID 就大量生成。驗證器會拒絕這種制式紀錄；不得為通過驗證而亂補規則。

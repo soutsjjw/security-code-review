@@ -3,9 +3,38 @@
 from __future__ import annotations
 
 import codecs
+import hashlib
 from pathlib import Path
 
 DEFAULT_LEGACY_ENCODINGS = ("cp950", "cp1252")
+
+
+def canonical_bytes(raw: bytes) -> bytes:
+    """跨平台標準內容：移除 UTF-8 BOM，CRLF 一律視為 LF。
+
+    Git 的 autocrlf 或編輯器設定會使同一版本在 Windows／Linux 的位元組不同，
+    因此逐檔雜湊以此標準內容計算；其他內容（含空白、縮排）異動仍會改變雜湊。
+    """
+    if raw.startswith(codecs.BOM_UTF8):
+        raw = raw[len(codecs.BOM_UTF8):]
+    return raw.replace(b"\r\n", b"\n")
+
+
+def source_digest(raw: bytes) -> str:
+    """逐檔 SHA256 的標準算法：對 canonical_bytes 計算。"""
+    return hashlib.sha256(canonical_bytes(raw)).hexdigest()
+
+
+def digest_matches(stored: object, raw: bytes) -> bool:
+    """接受標準雜湊，以及舊版以原始位元組計算的雜湊（含 CRLF／LF、有無 BOM 的檢出差異）。"""
+    if not isinstance(stored, str):
+        return False
+    base = canonical_bytes(raw)
+    candidates = {hashlib.sha256(raw).hexdigest(), hashlib.sha256(base).hexdigest()}
+    for bom in (b"", codecs.BOM_UTF8):
+        candidates.add(hashlib.sha256(bom + base.replace(b"\n", b"\r\n")).hexdigest())
+        candidates.add(hashlib.sha256(bom + base).hexdigest())
+    return stored in candidates
 
 
 def read_source_text(path: Path, legacy_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS) -> tuple[str, str]:
@@ -46,6 +75,8 @@ def main() -> int:
     parser.add_argument("--start", type=int, default=1)
     parser.add_argument("--end", type=int, default=200)
     parser.add_argument("--source-encodings", default=",".join(DEFAULT_LEGACY_ENCODINGS))
+    parser.add_argument("--digest", action="store_true",
+                        help="只輸出該檔案的標準 SHA256（忽略 BOM 與 CRLF／LF 差異），供填入 file_reviews[].sha256")
     args = parser.parse_args()
     root = args.source_root.resolve()
     candidate = args.path.replace("\\", "/")
@@ -56,6 +87,9 @@ def main() -> int:
     path = (root / candidate).resolve()
     if not path.is_relative_to(root) or not path.is_file():
         parser.error("路徑不得超出受測專案，且檔案必須存在")
+    if args.digest:
+        print(f"{source_digest(path.read_bytes())}  {candidate}")
+        return 0
     encodings = tuple(x.strip() for x in args.source_encodings.split(",") if x.strip())
     try:
         source, encoding = read_source_text(path, encodings)

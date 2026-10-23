@@ -2,7 +2,6 @@
 """驗證逐檔適用性與來源佐證；檔案清單或單一規則登錄不代表已審查。"""
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from collections import defaultdict
@@ -10,7 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from source_reader import read_source_text
+from source_reader import digest_matches, read_source_text
 from analysis_candidates import (candidate_hits, has_executable_control,
                                  meaningful_source_excerpt, source_relevant_to_rule)
 from review_completion import _template
@@ -83,8 +82,8 @@ def verified_file_rule_reviews(
             errors.append(f"{path}: 無法安全閱讀來源：{exc}")
             continue
         digest = row.get("sha256")
-        if not isinstance(digest, str) or not SHA256.fullmatch(digest) or digest != hashlib.sha256(content).hexdigest():
-            faults.append("sha256 缺失、不合法或來源檔已異動；必須重新審查")
+        if not isinstance(digest, str) or not SHA256.fullmatch(digest) or not digest_matches(digest, content):
+            faults.append("sha256 缺失、不合法或來源檔已異動（已忽略 BOM 與 CRLF／LF 差異）；必須重新審查")
         if not isinstance(row.get("summary"), str) or len(row["summary"].strip()) < 20:
             faults.append("須記錄至少 20 字的逐檔實際分析摘要")
         methods = row.get("methods")
