@@ -69,7 +69,8 @@ def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list
         try:
             result = subprocess.run([probe["executable"], "run", "--project", str(work / "roslyn-indexer.csproj"),
                                      "--configuration", "Release", "--", str(root), str(manifest)],
-                                    capture_output=True, text=True, cwd=work, env=env,
+                                    capture_output=True, text=True, encoding="utf-8",
+                                    errors="replace", cwd=work, env=env,
                                     timeout=180, check=False)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {}, [f"Roslyn 執行失敗：{type(exc).__name__}"]
