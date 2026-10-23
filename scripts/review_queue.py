@@ -20,6 +20,7 @@ from review_completion import completion_errors
 from review_decision import decision_quality_errors, load_decision_matrix
 from control_effectiveness import guidance as control_effectiveness_guidance
 from decision_adjudication import guidance as decision_adjudication_guidance
+from adversarial_recheck import guidance as adversarial_guidance, progress as adversarial_progress
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
@@ -174,6 +175,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     rule_errors = (completion_errors(checks) + decision_quality_errors(checks, source_root=source_root)
                    if not remaining else [])
     safety_issues = (safety_errors(source_root, data) if source_root is not None else [])
+    second_pass = (adversarial_progress(source_root, data, batch_size)
+                   if source_root is not None else {"enabled": False})
     # 70/70 完成但證據品質不合格時，原佇列 next_checks 為空，Agent 容易停止。
     # 從來源完整性／規則完整性錯誤抽取須重新核對的真實規則，不變更原始狀態。
     ids_to_recheck: set[str] = set()
@@ -210,6 +213,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "review_integrity_errors": integrity_errors[:20],
         "rule_integrity_errors": rule_errors[:30],
         "safety_integrity_errors": safety_issues[:30],
+        "second_pass": second_pass,
         "review_scope_tasks": ([{"rule_id": t["rule_id"], "scope": t["scope"]}
                                 for t in scope_tasks(source_root)]
                                if source_root is not None else []),
@@ -228,6 +232,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "decision_guidance": decision_matrix[r["id"]],
             "control_effectiveness_guidance": control_effectiveness_guidance(r["id"]),
             "decision_adjudication_guidance": decision_adjudication_guidance(r["id"]),
+            "adversarial_guidance": adversarial_guidance(r["id"]),
             "tacert_v2_checks": tacert_by_rule[r["id"]],
             "owasp_2025_categories": owasp_by_rule[r["id"]],
             "system_baseline_v13_controls": system_baseline_by_rule[r["id"]],
@@ -256,6 +261,13 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
                         "依 decision_guidance 先判斷主要證據方式及符合條件，能以靜態證據證實的 pass/fail 不得一律保留 review；逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
+    if not remaining and second_pass.get("enabled") and second_pass.get("pending_count", 0):
+        queue["instruction"] = (
+            "先執行 review_safety.py --begin-second-pass 固定第一輪結論。"
+            if not second_pass.get("baseline_ready") else
+            "依 second_pass.pending_ids 重新閱讀來源、提出反例並以 adversarial_reviews "
+            "紀錄；未處理矛盾與未解問題禁止正式結案。"
+        )
     # 完整 --detail-id 回傳實際非空對照所需的文件，供 Agent 按需讀取。
     if detail_id is not None:
         for item in queue["next_checks"]:
