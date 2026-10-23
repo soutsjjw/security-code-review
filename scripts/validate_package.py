@@ -144,6 +144,10 @@ if build_appendix3(j['rules'])['status_counts'] != {'not_assessed':6}:
 csp=next((item for item in headers_checks if item['header']=='Content-Security-Policy'),{})
 if not any('unsafe-inline' in v and 'unsafe-eval' in v for v in csp.get('implementation_cautions',[])):
  errors.append('WEB Appendix3 must highlight weak CSP example')
+# P5：文件拆分後仍須確保 Skill 能按 --detail-id 找到每個標準的查核指引。
+from validate_skill_docs import documentation_errors
+errors.extend(documentation_errors(ROOT))
+
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:
  print('\n'.join('ERROR: '+e for e in errors),file=sys.stderr)
