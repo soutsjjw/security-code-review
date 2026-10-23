@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from analysis_adapters import ModernDotNetAdapter, probe_codegraph
 from analysis_prepare import INDEX_NAME, prepare, source_files
 from token_metrics import record_usage
+from review_safety import refresh_snapshot
 
 
 class AnalysisPrepareTests(unittest.TestCase):
@@ -52,6 +53,9 @@ class AnalysisPrepareTests(unittest.TestCase):
                 self.assertEqual(second["roslyn_indexed_count"], 0)
                 self.assertFalse((root / "reports/security-code-review/assessment.json").exists())
                 (root / "Service.cs").write_text("public class Service { public void Changed() {} }", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "快照"):
+                    prepare(root, "incremental")
+                refresh_snapshot(root)
                 third = prepare(root, "incremental")
                 self.assertEqual(third["changed_file_count"], 1)
                 self.assertEqual(third["recheck_file_count"], 2)
@@ -78,6 +82,9 @@ class AnalysisPrepareTests(unittest.TestCase):
                 self.assertEqual(same["candidate_reused_count"], 1)
                 (root / "Service.cs").write_text(
                     "class Guard : AuthorizationHandler<Req> { }\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "快照"):
+                    prepare(root, "incremental")
+                refresh_snapshot(root)
                 changed = prepare(root, "incremental")
                 self.assertEqual(changed["candidate_reused_count"], 0)
                 self.assertEqual(changed["candidate_link_count"], 1)
