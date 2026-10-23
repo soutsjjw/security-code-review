@@ -8,13 +8,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-
-from source_reader import source_digest
 
 RELATIVE = Path("reports/security-code-review")
 SNAPSHOT = Path("analysis/review-snapshot.json")
@@ -301,6 +298,11 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
             if fid in findings and findings[fid] != record:
                 raise ValueError(f"{fid}: Finding ID 衝突，拒絕覆寫既有弱點")
             if fingerprint in known_fingerprints and known_fingerprints[fingerprint] != fid:
+                canonical = findings[known_fingerprints[fingerprint]]
+                # 同位置／標題不代表證據、影響與建議相同；不得靜默遺失詳情。
+                if ({k: v for k, v in canonical.items() if k != "id"} !=
+                        {k: v for k, v in record.items() if k != "id"}):
+                    raise ValueError(f"{fid}: Finding 疑似重複但內容不同，須人工整併證據")
                 aliases[fid] = known_fingerprints[fingerprint]
                 continue
             findings[fid] = record
