@@ -36,6 +36,13 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test Windows P0 baseline fixtures and subprocess decoding
+        env:
+          PYTHONUTF8: '0'
+        run: python -m unittest discover -s tests -p test_quality_baseline.py -v
       - name: Test Windows project inventory UTF-8 subprocess output
         run: python -m unittest discover -s tests -p test_scope_projects.py -v
       - name: Test Windows Python runner
