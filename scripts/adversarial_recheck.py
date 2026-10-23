@@ -16,6 +16,7 @@ INDEX = RELATIVE / "structure-index.json"
 SNAPSHOT = RELATIVE / "review-snapshot.json"
 BASELINE = RELATIVE / "first-pass-baseline.json"
 REVIEWS = RELATIVE / "adversarial-reviews.json"
+HISTORY = RELATIVE / "second-pass-history"
 HIGH_RISK_RULES = frozenset({
     "AC-01", "AC-02", "AC-04", "AC-06", "AC-08",
     "AU-03", "AU-06", "AU-08", "AU-09",
@@ -58,7 +59,7 @@ def _enabled(target: Path) -> bool:
     return isinstance(index, dict) and index.get("adversarial_second_pass_version") == CONTRACT_VERSION
 
 
-def begin_second_pass(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
+def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool = False) -> dict[str, Any]:
     """在第一輪完整結案後才建立不可默默覆寫的版本錨點，不產生任何安全結論。"""
     target = target.resolve()
     if not _enabled(target):
@@ -100,13 +101,23 @@ def begin_second_pass(target: Path, assessment: dict[str, Any]) -> dict[str, Any
     }
     path = target / BASELINE
     existing = _read(path)
+    from review_safety import _write
     if existing is not None and existing != checkpoint:
-        raise ValueError("已存在不同的第一輪快照，禁止自動覆寫；須釐清先前複核進度")
-    if existing is None:
-        from review_safety import _write
+        if not restart:
+            raise ValueError("已存在不同的第一輪快照，禁止自動覆寫；"
+                             "需先查明差異，經人工重新驗證後才能 --restart-second-pass")
+        old_reviews = _read(target / REVIEWS, {})
+        archived = {"first_pass_baseline": existing, "adversarial_reviews": old_reviews}
+        archive_file = target / HISTORY / (digest(existing)[:32] + ".json")
+        if archive_file.is_file() and _read(archive_file) != archived:
+            raise ValueError("歷次複核歸檔出現內容衝突，拒絕覆寫")
+        _write(archive_file, archived)
+        _write(target / REVIEWS, {})
+    if existing != checkpoint:
         _write(path, checkpoint)
     return {"rule_count": 70, "snapshot_fingerprint": checkpoint["snapshot_fingerprint"],
-            "already_existed": existing is not None}
+            "already_existed": existing == checkpoint,
+            "restarted": bool(restart and existing is not None and existing != checkpoint)}
 
 
 def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
