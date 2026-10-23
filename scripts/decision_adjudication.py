@@ -44,7 +44,9 @@ CATEGORIES = frozenset({
     "deployment", "operational_record", "organization_policy", "platform_configuration",
     "external_scan",
 })
-TEST_ONLY = ("動態測試", "邊界測試", "測試結果", "測試案例", "缺少測試", "缺乏測試")
+GENERIC_MISSING_TEST = ("缺少動態測試", "缺乏動態測試", "未提供動態測試",
+                        "待補動態測試", "缺少邊界測試", "缺乏邊界測試",
+                        "缺少測試案例", "缺乏測試案例", "缺少測試結果", "缺乏測試結果")
 
 
 def guidance(rule_id: str) -> dict[str, Any]:
@@ -180,9 +182,9 @@ def adjudication_errors(target: Path, checks: list[dict]) -> list[str]:
                  or not isinstance(gap.get("failure_detail"), str)
                  or len(gap["failure_detail"].strip()) < 16)):
             issues.append(f"{rid}: P3 外部掃描缺口須提供實際嘗試的命令與失敗細節")
-        if isinstance(artifact, str) and any(word in artifact for word in TEST_ONLY):
+        if isinstance(artifact, str) and any(word in artifact for word in GENERIC_MISSING_TEST):
             issues.append(f"{rid}: P3 不得僅因缺少非必要動態測試／邊界測試而 review")
-        if isinstance(question, str) and any(word in question for word in TEST_ONLY):
+        if isinstance(question, str) and any(word in question for word in GENERIC_MISSING_TEST):
             if category != "external_scan":
                 issues.append(f"{rid}: P3 請改查證真正的外部阻斷事項，而非泛稱缺少測試")
     return issues
