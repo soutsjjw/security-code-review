@@ -39,6 +39,17 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
+## 單代理完整性守門（六項 P0，必須執行）
+
+**本階段不使用子代理或並行審查。** 沿用既有逐檔檢閱、70 項規則、真實證據與正式報告契約。完整操作與例外見 [P0 完整性守門](docs/p0-review-guards.md)。
+
+1. `analysis_prepare.py` 現會建立固定 Git Revision／全來源 SHA256 的 `analysis/review-snapshot.json`，以及 `structure-index.json` 的 `typed_relationships`。候選包含 DI、設定引用、Middleware、Endpoint 授權、跨專案引用及方法呼叫；皆僅供定位，需閱讀來源查證，並補查反射／動態設定等無法可靠建立的關聯。
+2. 呼叫 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的 `local / cross_file / project` 最小責任範圍；**所有 `project` 規則都要查核，即使來源完全沒有命中**。不得以「查無關鍵字」推定不適用。每個來源檔仍要評估全部 70 條規則的適用性。
+3. 逐檔審查及規則結果先以 JSON 分批透過 `review_safety.py --target "<TARGET_ROOT>" --stage "<JSON路徑>"` 暫存，再以 `--integrate` 整合；整合工具只保存與衝突檢查，不會替 Agent 做安全結論。**所有正式結果仍只能由整合後的 assessment.json 與原有驗證器交付**。舊 Findings 不可覆寫／刪除；不同結果需重新核對，而非任取最後寫入值。
+4. 每條 `cross_file`／`project` completed 規則必須另外完成 `analysis/rule-closures.json` 結案紀錄，包含實際追查來源、控制責任、全域搜尋、跨檔關聯、可能的繞過路徑與未解補查；`open_issues` 非空、只有單一來源卻未說明其他關聯、責任或搜尋不明時**不得 completed**。靜態確定的缺陷直接 fail＋Finding；外部缺口依既有判定階梯處理。
+5. 來源版本異動會阻擋佇列完成和正式報告。Agent 必須核對變更後明確執行 `review_safety.py --target "<TARGET_ROOT>" --snapshot-refresh`，再重建分析索引並重新檢核已完成的受影響判斷；沒有可驗證完整依賴閉包時，保守重審全部 completed 規則。刷新保留既有 Findings，不代表既有 pass 自動仍有效。
+6. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
+
 ## 共同證據與結果判定（所有規範均適用）
 
 **核心原則：結論由程式碼、設定與儲存庫內容決定；`review` 只用於「即使完整讀完儲存庫仍無法回答」的規則。** 不得推測已通過或虛構已執行的掃描；`na` 必須有已核對的不適用理由；70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
