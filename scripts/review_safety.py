@@ -21,6 +21,7 @@ RECHECK = Path("analysis/recheck-required.json")
 INDEX = Path("analysis/structure-index.json")
 CONTROL_VERIFICATIONS = Path("analysis/control-verifications.json")
 DECISION_AUDITS = Path("analysis/decision-audits.json")
+ADVERSARIAL_REVIEWS = Path("analysis/adversarial-reviews.json")
 
 # 全專案責任檢查即使沒有任何檔案命中也必須執行。
 PROJECT_RULES = frozenset((
@@ -266,9 +267,11 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
 def safety_errors(target: Path, assessment: dict) -> list[str]:
     from control_effectiveness import verification_errors
     from decision_adjudication import adjudication_errors
+    from adversarial_recheck import second_pass_errors
     errors = (snapshot_errors(target) + closure_errors(target, assessment)
               + verification_errors(target, assessment.get("checks", []))
-              + adjudication_errors(target, assessment.get("checks", [])))
+              + adjudication_errors(target, assessment.get("checks", []))
+              + second_pass_errors(target, assessment))
     outstanding = _read(report_dir(target) / RECHECK, {}) or {}
     ids = outstanding.get("rule_ids", [])
     if ids:
@@ -295,8 +298,8 @@ def stage(target: Path, payload_path: Path) -> str:
     payload = _read(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
-    for key in ("file_reviews", "checks", "findings", "closures", "control_verifications", "decision_audits"):
-        is_map = key in {"closures", "control_verifications", "decision_audits"}
+    for key in ("file_reviews", "checks", "findings", "closures", "control_verifications", "decision_audits", "adversarial_reviews"):
+        is_map = key in {"closures", "control_verifications", "decision_audits", "adversarial_reviews"}
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
@@ -330,12 +333,14 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     closures = _read(report_dir(target) / CLOSURES, {}) or {}
     control_verifications = _read(report_dir(target) / CONTROL_VERIFICATIONS, {}) or {}
     decision_audits = _read(report_dir(target) / DECISION_AUDITS, {}) or {}
+    adversarial_reviews = _read(report_dir(target) / ADVERSARIAL_REVIEWS, {}) or {}
     known_fingerprints = {_fingerprint(f): fid for fid, f in findings.items()}
     new_files: set[str] = set()
     new_checks: set[str] = set()
     new_closures: set[str] = set()
     new_control_verifications: set[str] = set()
     new_decision_audits: set[str] = set()
+    new_adversarial_reviews: set[str] = set()
     aliases: dict[str, str] = {}
     recheck = _read(report_dir(target) / RECHECK, {}) or {}
     required_recheck = set(recheck.get("rule_ids", []))
@@ -419,6 +424,25 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
                 raise ValueError(f"{rid}: P3 判定紀錄衝突，須人工核對或明確允許修訂")
             decision_audits[rid] = record
             new_decision_audits.add(rid)
+        for rid, record in part.get("adversarial_reviews", {}).items():
+            if rid not in checks:
+                raise ValueError(f"{rid}: 第二輪複核包含未知規則")
+            from adversarial_recheck import BASELINE, digest
+            baseline = _read(target / BASELINE, {})
+            original = (baseline.get("checks") or {}).get(rid) if isinstance(baseline, dict) else None
+            if not isinstance(original, dict):
+                raise ValueError(f"{rid}: 尚未執行 --begin-second-pass 固定第一輪判定")
+            if (checks[rid].get("execution") or {}).get("state") != "completed":
+                raise ValueError(f"{rid}: 第一輪檢核尚未完成，不得儲存第二輪結論")
+            if not isinstance(record, dict) or record.get("baseline_digest") != original["digest"]:
+                raise ValueError(f"{rid}: 第二輪紀錄未對應不可變的第一輪判定指紋")
+            if record.get("final_digest") != digest(checks[rid]):
+                raise ValueError(f"{rid}: 第二輪紀錄必須對應整合後的正式判定")
+            if (rid in adversarial_reviews and adversarial_reviews[rid] != record
+                    and (rid in new_adversarial_reviews or not allow_revision)):
+                raise ValueError(f"{rid}: 第二輪複核紀錄衝突，須人工核對或明確允許修訂")
+            adversarial_reviews[rid] = record
+            new_adversarial_reviews.add(rid)
 
     # 不允許因去重而留下錯誤 Finding ID 參照。
     for check in checks.values():
@@ -436,6 +460,7 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     _write(report_dir(target) / CLOSURES, closures)
     _write(report_dir(target) / CONTROL_VERIFICATIONS, control_verifications)
     _write(report_dir(target) / DECISION_AUDITS, decision_audits)
+    _write(report_dir(target) / ADVERSARIAL_REVIEWS, adversarial_reviews)
     _write(assessment_path, data)
     if required_recheck:
         recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
@@ -445,7 +470,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     return {"applied": len(paths), "files": len(new_files),
             "checks": len(new_checks), "findings": len(findings), "closures": len(new_closures),
             "control_verifications": len(new_control_verifications),
-            "decision_audits": len(new_decision_audits)}
+            "decision_audits": len(new_decision_audits),
+            "adversarial_reviews": len(new_adversarial_reviews)}
 
 
 def refresh_snapshot(target: Path) -> None:
@@ -482,11 +508,17 @@ def main() -> int:
     parser.add_argument("--integrate", action="store_true")
     parser.add_argument("--allow-revision", action="store_true",
                         help="人工核對後允許覆核既有 completed；仍禁止抹除已確認 fail")
+    parser.add_argument("--begin-second-pass", action="store_true",
+                        help="第一輪 70 項完成後，固定不可變結果並開始反向複核")
     parser.add_argument("--snapshot-refresh", action="store_true",
                         help="明確更新來源版本，清除過期結案；所有受影響規則須重審")
     args = parser.parse_args()
     try:
-        if args.snapshot_refresh:
+        if args.begin_second_pass:
+            from adversarial_recheck import begin_second_pass
+            data = _read(report_dir(args.target) / "assessment.json", {}) or {}
+            print(json.dumps(begin_second_pass(args.target, data), ensure_ascii=False))
+        elif args.snapshot_refresh:
             refresh_snapshot(args.target)
             print("PASS: snapshot refreshed; previous conclusions require recheck")
         elif args.stage:
@@ -503,7 +535,7 @@ def main() -> int:
                 return 1
             print("PASS: review safeguards verified")
         else:
-            parser.error("請指定 --plan、--validate、--stage、--integrate 或 --snapshot-refresh")
+            parser.error("請指定 --plan、--validate、--stage、--integrate、--begin-second-pass 或 --snapshot-refresh")
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
