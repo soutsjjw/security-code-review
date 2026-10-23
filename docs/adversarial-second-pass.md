@@ -4,7 +4,7 @@
 
 ## 執行順序與完成條件
 
-1. 第一輪照既有 SKILL 流程，逐項完成 70 項規則、逐檔 10 類評估、P1 跨檔閉包、控制有效性查核、review 外部證據裁決，以及 Finding／來源快照確認。**不得先填第二輪紀錄再補做第一輪**。
+1. 第一輪照既有 SKILL 流程，逐項完成 70 項規則、逐檔 10 類評估、跨檔關聯與控制責任結案、控制有效性查核、review 外部證據裁決，以及 Finding／來源快照確認。**不得先填第二輪紀錄再補做第一輪**。
 2. 在受測專案目錄執行：
    ```bash
    python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --begin-second-pass
