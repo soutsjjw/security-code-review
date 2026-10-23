@@ -131,6 +131,25 @@ foreach (var (relative, syntax) in trees)
                         if (impl is not null) methodSymbols.Add(impl);
                     }
                 }
+                else if (resolved && dispatch)
+                {
+                    // A virtual call may bind to an override at runtime; list known overrides
+                    // as candidates even if the callsite binds to its base declaration.
+                    foreach (var type in allTypes.Where(x => x.TypeKind == TypeKind.Class))
+                    foreach (var member in type.GetMembers(selected!.Name).OfType<IMethodSymbol>())
+                    {
+                        for (var overridden = member.OverriddenMethod;
+                             overridden is not null; overridden = overridden.OverriddenMethod)
+                        {
+                            if (SymbolEqualityComparer.Default.Equals(
+                                    overridden.OriginalDefinition, selected!.OriginalDefinition))
+                            {
+                                methodSymbols.Add(member);
+                                break;
+                            }
+                        }
+                    }
+                }
                 var targets = methodSymbols
                     .SelectMany(Declarations)
                     .DistinctBy(x => JsonSerializer.Serialize(x))
