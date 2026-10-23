@@ -270,6 +270,25 @@ class AdversarialSecondPassTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root / REVIEWS).read_text("utf-8")), {})
         self.assertEqual(progress(self.root, self.assessment)["pending_count"], 70)
 
+    def test_staged_second_pass_can_integrate_and_conflict_is_rejected(self):
+        # 只測試 staging API；此合成 assessment 並非完整實際審查。
+        _write(report_dir(self.root) / "assessment.json",
+               {"checks": self.checks, "file_reviews": [], "findings": []})
+        draft = report_dir(self.root) / "adversarial-draft.json"
+        _write(draft, {"adversarial_reviews": {"AC-08": self.records["AC-08"]}})
+        with patch("review_safety.snapshot_errors", return_value=[]):
+            stage(self.root, draft)
+            saved = integrate(self.root)
+            self.assertEqual(saved["adversarial_reviews"], 1)
+            original = json.loads((self.root / REVIEWS).read_text("utf-8"))
+            self.assertEqual(original["AC-08"], self.records["AC-08"])
+            edited = copy.deepcopy(self.records["AC-08"])
+            edited["search_summary"] += "，再核對一條服務入口"
+            _write(draft, {"adversarial_reviews": {"AC-08": edited}})
+            stage(self.root, draft)
+            with self.assertRaisesRegex(ValueError, "第二輪複核紀錄衝突"):
+                integrate(self.root)
+
     def test_stage_and_integrate_reject_missing_baseline_or_stale_result(self):
         # 這只測試資料整合，未對虛構 70 項給出實際安全結論。
         draft = report_dir(self.root) / "second-pass-test.json"
