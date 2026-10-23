@@ -58,6 +58,14 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 數字必須是實際 API／執行器回傳資料，上述僅示範命令格式。統計位於 `reports/security-code-review/analysis/token-usage.jsonl`，不包含程式碼或推論出的 Token 值。
 
+## 單代理 P0 完整性檢查（不含子代理）
+
+執行 `analysis_prepare.py` 後，先以 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的最小責任範圍及需追查的來源／關聯候選。每檔依序完整篩選全部規則；`cross_file` 和 `project` 類別須補足結案證據。透過 `--stage <JSON路徑>`、`--integrate` 進行工作中結果的獨立暫存與有衝突檢查的整合，並以 `--validate` 確認結案及工作樹版本；正式結果仍維持原有 assessment Schema。
+
+新機制拒絕來源快照異動與混合 Git Revision，並要求跨檔結案及全專案責任確認。若原始碼真的異動，須先調查、明確 `--snapshot-refresh` 並重新執行 `analysis_prepare.py`，再重新覆核全部無法證明未受影響的安全結論；既有 Findings 與歷史證據保留。不要把索引候選當作已完成的呼叫鏈，也不能複製制式結案文字。
+
+詳細 JSON 實例、參數、版本限制與不支援的語意分析類型見 [六項 P0 守門指引](p0-review-guards.md)。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入：
@@ -97,12 +105,12 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
 
-6. 每批保存真實審查結果，持續執行直到：
+6. 每批先以 review_safety.py --stage 暫存並 --integrate 保存真實審查結果；完成跨檔與全專案結案後，持續執行直到：
    - 70 項規則均已實際完成。
    - source_coverage.missing_source_file_count = 0。
    - review_integrity_errors 為空。
    - assessment.file_reviews 與 execution.inspected_paths 一致。
-   - review_queue.py 回傳 ready_for_report=true。
+   - review_safety.py --validate 通過，safety_integrity_errors 為空。\n   - review_queue.py 回傳 ready_for_report=true。
    - 所有完成判定均有足夠的真實檢核依據。
 
 7. 正式交付前再次檢查：
