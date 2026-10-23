@@ -18,6 +18,7 @@ from pathlib import Path
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
 from assessment_consistency import detect_language_framework
+from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
 from source_reader import read_source_text
 
@@ -104,6 +105,7 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
                     "summary": "尚未執行審查，必須進行規則核對"
                 }
             } for rule in rules],
+            "scope_details": {"projects": detect_projects(target)},
             "findings": []
         }
         assessment_path.write_text(json.dumps(assessment, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

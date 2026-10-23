@@ -151,7 +151,7 @@ argument-hint: "[專案路徑或檢核範圍]"
    - 缺乏證據不得 Pass；N/A 須有理由；不得自動執行破壞性測試或捏造動態測試、環境與政策簽核。
 ### 必須記錄審查範圍與檔案明細
 
-- 在 `assessment.scope_details.projects` 記錄真正納入的專案：每項具有 `name` 及相對 `TARGET_ROOT` 的 `path`；單一專案可使用 `path: "."`，多專案各列一筆。不要由 manifest 數直接推定審查專案數。
+- 在 `assessment.scope_details.projects` 記錄真正納入的專案：每項具有 `name` 及相對 `TARGET_ROOT` 的 `path`；單一專案可使用 `path: "."`，多專案各列一筆。不要由 manifest 數直接推定審查專案數。`--init` 會依 `.csproj` 預填此清單；也可執行 `scope_inventory.py --target <TARGET_ROOT>` 取得。盤點到 `.csproj` 卻未宣告時，驗證器會拒絕交付；漏列的專案會警示。
 - 在 `scope_details.excluded_paths` 可記錄額外排除的目錄／檔案及 `reason`；不得排除仍被列為已審查的檔案；專案 CI 設定不能預設排除。
 - 每項 completed 規則，將**實際閱讀、追蹤與核對**的相對來源路徑填入 `execution.inspected_paths`；單純搜尋命中或盤點檔名不算已審查，不能大量填入尚未實際閱讀的路徑。此清單**不是逐檔完成的獨立證據**。
 - 逐檔審查須同步寫入 `assessment.file_reviews[]`（詳見 [逐檔資料契約](docs/file-review-contract.md)）：來源 SHA256（以 `source_reader.py --digest` 取得，忽略 BOM 與 CRLF／LF 差異）、內容導向摘要、已執行方法、AC／AU／IN／CR／EH／LG／DP／PD／BC／SI 十類規則的適用性篩選與理由，以及適用規則的逐條結論、實際行號；與 `execution.inspected_paths` **雙向一致**。不能照檔名、規則 ID 或副檔名自動填結論，也不能以預設全數「不適用」替代閱讀。
