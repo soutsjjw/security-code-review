@@ -27,7 +27,7 @@ Windows PowerShell：
 
 新增第二層審查證據閘門：`file_reviews[].rule_reviews` 與 `checks[].evidence` 每筆來源證據都必須引用實際相關的控制邏輯；不得以方法宣告、`using`、欄位、泛用設定，或跨檔共用的排除理由來湊數。當 70/70 completed 仍未通過，`review_queue.py --compact` 會顯示 `recheck_rule_ids` 和需重新驗證的 `next_checks`。這些是補查工作，不改寫 Findings。
 
-Roslyn 索引保留型別、方法的起訖行及呼叫所在方法；`cross_file_call_hints` 只記錄跨檔可能被呼叫的方法，`resolution=name_only_ambiguous` **不是**語意繫結，必須核對實際 receiver 類型或使用現有 CodeGraph 關聯。與 CodeGraph 不可用時一樣回退為人工查核，不能假裝已追蹤資料流。
+Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型別及合成編譯得到的符號／介面實作候選；`cross_file_call_hints` 記錄不截斷的跨檔候選與呼叫點 ID。`semantic_*` 仍不等於真正專案建置／執行期目標，`receiver_type_candidate` 和 `name_only_ambiguous` 亦須人工核對。新索引下須依 [P1 結案協定](p0-review-guards.md#p1跨檔呼叫點必須人工結案) 完成 `callsite_reviews`；未解歧義不得將跨檔規則標為 completed。與 CodeGraph 不可用時一樣回退為人工查核，不能假裝已追蹤資料流。
 
 這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的 `next_source_candidates` 顯示下一批缺少有效逐檔審查紀錄的檔案及其候選規則。
 
