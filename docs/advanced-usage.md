@@ -119,6 +119,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - 下列情形不得標 review：缺測試（含重放、邊界、整合、授權測試）；缺角色或 ownership 矩陣（須自行讀碼建立）；自承尚未完成的資料流或 Handler 盤點；decision_reason 已寫出缺陷或矛盾。
    - 靜態控制成立但缺測試／文件時，依控制實際情形判 pass 或 fail，於 decision_reason 說明缺口；不得因此 review。
    - 標記 review 前須通過 SKILL.md 的三題自檢。review 比例超過 40% 須逐條重審，不能以比例機械改判。
+   - 對 completed+review 建立 decision_audits：須核對實際 static_evidence、searched_paths、manual_boundary、外部工件及 blocking_question；open_static_questions 必須為空。只有缺非必要動態測試不得 review，且不能將未完成的程式碼追查列為 static_done_external_pending。
    - 不得預設所有檢核為 review，也不得僅因未執行動態測試就把靜態可判定項目設為 review。
 
 5. 保留既有 assessment.json、file_reviews、Findings 及所有證據。
@@ -134,6 +135,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - review_integrity_errors 與 rule_integrity_errors 均為空。
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
+   - P3 的 decision-audits.json 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
    - review_queue.py 回傳 ready_for_report=true。
