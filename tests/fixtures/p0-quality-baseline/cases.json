@@ -1,0 +1,340 @@
+{
+  "schema_version": 1,
+  "description": "P0 正確性對照案例；各案例隔離為一個現代 .NET 專案，標籤是已知案例期望，不代表掃描器已成功判定。",
+  "cases": [
+    {
+      "id": "session-expiry-safe",
+      "family": "session-expiry",
+      "rule_id": "AC-01",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "SessionRecord.cs": "public sealed record SessionRecord(string UserId, DateTimeOffset ExpiresAt);\n",
+        "SessionValidator.cs": "public sealed class SessionValidator\n{\n    public bool IsActive(SessionRecord? session, DateTimeOffset now) =>\n        session is not null && session.ExpiresAt > now;\n}\n"
+      },
+      "required_paths": [
+        "SessionRecord.cs",
+        "SessionValidator.cs"
+      ],
+      "anchor": {
+        "path": "SessionValidator.cs",
+        "text": "session.ExpiresAt > now"
+      },
+      "rationale": "每次驗證 Session 時明確拒絕過期資料；無需以缺少動態測試為由改判 review。"
+    },
+    {
+      "id": "session-expiry-bypass",
+      "family": "session-expiry",
+      "rule_id": "AC-01",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "SessionRecord.cs": "public sealed record SessionRecord(string UserId, DateTimeOffset ExpiresAt);\n",
+        "SessionValidator.cs": "public sealed class SessionValidator\n{\n    public bool IsActive(SessionRecord? session, DateTimeOffset now) =>\n        session is not null; // ExpiresAt 從未檢查，失效 Session 仍可使用\n}\n"
+      },
+      "required_paths": [
+        "SessionRecord.cs",
+        "SessionValidator.cs"
+      ],
+      "anchor": {
+        "path": "SessionValidator.cs",
+        "text": "session is not null;"
+      },
+      "rationale": "控制鏈忽略 ExpiresAt，即使 Session 已過期仍允許通過。"
+    },
+    {
+      "id": "idor-owner-checked",
+      "family": "object-authorization",
+      "rule_id": "AC-08",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "Order.cs": "public sealed record Order(int Id, string OwnerId, string Content);\n",
+        "OrderController.cs": "using System.Security.Claims;\npublic sealed class OrderController\n{\n    private readonly OrderHandler _handler;\n    public OrderController(OrderHandler handler) => _handler = handler;\n    public Order? GetOrder(int id, ClaimsPrincipal principal) => _handler.Handle(id, principal);\n}\n",
+        "OrderHandler.cs": "using System.Security.Claims;\npublic sealed class OrderHandler\n{\n    private readonly OrderService _service;\n    public OrderHandler(OrderService service) => _service = service;\n    public Order? Handle(int id, ClaimsPrincipal principal) => _service.GetOrder(id, principal);\n}\n",
+        "OrderRepository.cs": "public sealed class OrderRepository\n{\n    private static readonly Order[] Orders = { new(1, \"alice\", \"private\") };\n    public Order? FindById(int id) => Orders.FirstOrDefault(order => order.Id == id);\n    public Order? FindByOwner(int id, string owner) => Orders.FirstOrDefault(order => order.Id == id && order.OwnerId == owner);\n}\n",
+        "OrderService.cs": "using System.Security.Claims;\npublic sealed class OrderService\n{\n    private readonly OrderRepository _repository;\n    public OrderService(OrderRepository repository) => _repository = repository;\n    public Order? GetOrder(int id, ClaimsPrincipal principal)\n    {\n        var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;\n        if (string.IsNullOrWhiteSpace(userId)) return null;\n        return _repository.FindByOwner(id, userId);\n    }\n}\n"
+      },
+      "required_paths": [
+        "OrderController.cs",
+        "OrderHandler.cs",
+        "OrderService.cs",
+        "OrderRepository.cs"
+      ],
+      "anchor": {
+        "path": "OrderService.cs",
+        "text": "_repository.FindByOwner(id, userId)"
+      },
+      "rationale": "從入口經 Handler、Service 到 Repository 對實際物件擁有者施行限制。"
+    },
+    {
+      "id": "idor-missing-owner-check",
+      "family": "object-authorization",
+      "rule_id": "AC-08",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "Order.cs": "public sealed record Order(int Id, string OwnerId, string Content);\n",
+        "OrderController.cs": "using System.Security.Claims;\npublic sealed class OrderController\n{\n    private readonly OrderHandler _handler;\n    public OrderController(OrderHandler handler) => _handler = handler;\n    public Order? GetOrder(int id, ClaimsPrincipal principal) => _handler.Handle(id, principal);\n}\n",
+        "OrderHandler.cs": "using System.Security.Claims;\npublic sealed class OrderHandler\n{\n    private readonly OrderService _service;\n    public OrderHandler(OrderService service) => _service = service;\n    public Order? Handle(int id, ClaimsPrincipal principal) => _service.GetOrder(id, principal);\n}\n",
+        "OrderRepository.cs": "public sealed class OrderRepository\n{\n    private static readonly Order[] Orders = { new(1, \"alice\", \"private\") };\n    public Order? FindById(int id) => Orders.FirstOrDefault(order => order.Id == id);\n    public Order? FindByOwner(int id, string owner) => Orders.FirstOrDefault(order => order.Id == id && order.OwnerId == owner);\n}\n",
+        "OrderService.cs": "using System.Security.Claims;\npublic sealed class OrderService\n{\n    private readonly OrderRepository _repository;\n    public OrderService(OrderRepository repository) => _repository = repository;\n    public Order? GetOrder(int id, ClaimsPrincipal principal)\n    {\n        return _repository.FindById(id); // principal 未用於存取限制\n    }\n}\n"
+      },
+      "required_paths": [
+        "OrderController.cs",
+        "OrderHandler.cs",
+        "OrderService.cs",
+        "OrderRepository.cs"
+      ],
+      "anchor": {
+        "path": "OrderService.cs",
+        "text": "_repository.FindById(id)"
+      },
+      "rationale": "雖有登入使用者參數，資料讀取卻只依傳入 ID，存在水平越權。"
+    },
+    {
+      "id": "sql-parameterized",
+      "family": "sql-injection",
+      "rule_id": "IN-01",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "ProductController.cs": "using System.Data.Common;\npublic sealed class ProductController\n{\n    private readonly ProductHandler _handler;\n    public ProductController(ProductHandler handler) => _handler = handler;\n    public void Find(DbConnection connection, string productId) => _handler.Handle(connection, productId);\n}\n",
+        "ProductHandler.cs": "using System.Data.Common;\npublic sealed class ProductHandler\n{\n    private readonly ProductRepository _repository;\n    public ProductHandler(ProductRepository repository) => _repository = repository;\n    public void Handle(DbConnection connection, string id) => _repository.Find(connection, id);\n}\n",
+        "ProductRepository.cs": "using System.Data.Common;\npublic sealed class ProductRepository\n{\n    public void Find(DbConnection connection, string id)\n    {\n        using var cmd = connection.CreateCommand();\n        cmd.CommandText = \"SELECT Name FROM Products WHERE Id = @id\";\n        var parameter = cmd.CreateParameter();\n        parameter.ParameterName = \"@id\";\n        parameter.Value = id;\n        cmd.Parameters.Add(parameter);\n        using var reader = cmd.ExecuteReader();\n    }\n}\n"
+      },
+      "required_paths": [
+        "ProductController.cs",
+        "ProductHandler.cs",
+        "ProductRepository.cs"
+      ],
+      "anchor": {
+        "path": "ProductRepository.cs",
+        "text": "cmd.Parameters.Add(parameter)"
+      },
+      "rationale": "不可信輸入自 Controller 傳入 Repository，透過資料庫參數綁定。"
+    },
+    {
+      "id": "sql-concatenated",
+      "family": "sql-injection",
+      "rule_id": "IN-01",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "ProductController.cs": "using System.Data.Common;\npublic sealed class ProductController\n{\n    private readonly ProductHandler _handler;\n    public ProductController(ProductHandler handler) => _handler = handler;\n    public void Find(DbConnection connection, string productId) => _handler.Handle(connection, productId);\n}\n",
+        "ProductHandler.cs": "using System.Data.Common;\npublic sealed class ProductHandler\n{\n    private readonly ProductRepository _repository;\n    public ProductHandler(ProductRepository repository) => _repository = repository;\n    public void Handle(DbConnection connection, string id) => _repository.Find(connection, id);\n}\n",
+        "ProductRepository.cs": "using System.Data.Common;\npublic sealed class ProductRepository\n{\n    public void Find(DbConnection connection, string id)\n    {\n        using var cmd = connection.CreateCommand();\n        cmd.CommandText = \"SELECT Name FROM Products WHERE Id = '\" + id + \"'\";\n        using var reader = cmd.ExecuteReader();\n    }\n}\n"
+      },
+      "required_paths": [
+        "ProductController.cs",
+        "ProductHandler.cs",
+        "ProductRepository.cs"
+      ],
+      "anchor": {
+        "path": "ProductRepository.cs",
+        "text": " + id + "
+      },
+      "rationale": "外部參數未經參數化直接串接 SQL；不得因未執行攻擊測試而判 review。"
+    },
+    {
+      "id": "password-salted-pbkdf2",
+      "family": "password-hashing",
+      "rule_id": "AU-08",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "PasswordHasher.cs": "using System.Security.Cryptography;\npublic static class PasswordHasher\n{\n    public static (byte[] Salt, byte[] Hash) Hash(string password)\n    {\n        var salt = RandomNumberGenerator.GetBytes(16);\n        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 210_000, HashAlgorithmName.SHA256, 32);\n        return (salt, hash);\n    }\n}\n"
+      },
+      "required_paths": [
+        "PasswordHasher.cs"
+      ],
+      "anchor": {
+        "path": "PasswordHasher.cs",
+        "text": "Rfc2898DeriveBytes.Pbkdf2"
+      },
+      "rationale": "使用密碼專用 KDF、逐筆隨機 salt，示範安全的密碼雜湊控制。"
+    },
+    {
+      "id": "password-unsalted-sha256",
+      "family": "password-hashing",
+      "rule_id": "AU-08",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "PasswordHasher.cs": "using System.Security.Cryptography;\nusing System.Text;\npublic static class PasswordHasher\n{\n    public static byte[] Hash(string password) => SHA256.HashData(Encoding.UTF8.GetBytes(password));\n}\n"
+      },
+      "required_paths": [
+        "PasswordHasher.cs"
+      ],
+      "anchor": {
+        "path": "PasswordHasher.cs",
+        "text": "SHA256.HashData"
+      },
+      "rationale": "直接使用快速 SHA256 而非密碼 KDF，且未加入隨機 salt。"
+    },
+    {
+      "id": "di-strict-guard",
+      "family": "di-registration",
+      "rule_id": "AC-08",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "AccessGuard.cs": "public interface IAccessGuard { bool CanRead(string ownerId, string currentUserId); }\npublic sealed class StrictAccessGuard : IAccessGuard\n{\n    public bool CanRead(string ownerId, string currentUserId) =>\n        !string.IsNullOrWhiteSpace(currentUserId) && ownerId == currentUserId;\n}\npublic sealed class PermitAllGuard : IAccessGuard\n{\n    public bool CanRead(string ownerId, string currentUserId) => true;\n}\n",
+        "AccessController.cs": "public sealed class AccessController\n{\n    private readonly IAccessGuard _guard;\n    public AccessController(IAccessGuard guard) => _guard = guard;\n    public string? Download(string owner, string user) => _guard.CanRead(owner, user) ? \"private-data\" : null;\n}\n",
+        "Services.cs": "using Microsoft.Extensions.DependencyInjection;\npublic static class Services\n{\n    public static void Register(IServiceCollection services) => services.AddScoped<IAccessGuard, StrictAccessGuard>();\n}\n"
+      },
+      "required_paths": [
+        "Services.cs",
+        "AccessController.cs",
+        "AccessGuard.cs"
+      ],
+      "anchor": {
+        "path": "Services.cs",
+        "text": "AddScoped<IAccessGuard, StrictAccessGuard>()"
+      },
+      "rationale": "確認 DI 真正解析到拒絕不當存取的實作，而非僅看介面名稱。"
+    },
+    {
+      "id": "di-permit-all-guard",
+      "family": "di-registration",
+      "rule_id": "AC-08",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "AccessGuard.cs": "public interface IAccessGuard { bool CanRead(string ownerId, string currentUserId); }\npublic sealed class StrictAccessGuard : IAccessGuard\n{\n    public bool CanRead(string ownerId, string currentUserId) =>\n        !string.IsNullOrWhiteSpace(currentUserId) && ownerId == currentUserId;\n}\npublic sealed class PermitAllGuard : IAccessGuard\n{\n    public bool CanRead(string ownerId, string currentUserId) => true;\n}\n",
+        "AccessController.cs": "public sealed class AccessController\n{\n    private readonly IAccessGuard _guard;\n    public AccessController(IAccessGuard guard) => _guard = guard;\n    public string? Download(string owner, string user) => _guard.CanRead(owner, user) ? \"private-data\" : null;\n}\n",
+        "Services.cs": "using Microsoft.Extensions.DependencyInjection;\npublic static class Services\n{\n    public static void Register(IServiceCollection services) => services.AddScoped<IAccessGuard, PermitAllGuard>();\n}\n"
+      },
+      "required_paths": [
+        "Services.cs",
+        "AccessController.cs",
+        "AccessGuard.cs"
+      ],
+      "anchor": {
+        "path": "Services.cs",
+        "text": "AddScoped<IAccessGuard, PermitAllGuard>()"
+      },
+      "rationale": "雖有授權介面，DI 實際註冊允許所有使用者的實作，導致越權。"
+    },
+    {
+      "id": "middleware-protected-admin",
+      "family": "middleware-authorization",
+      "rule_id": "AC-08",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "Pipeline.cs": "using Microsoft.AspNetCore.Builder;\npublic static class Pipeline\n{\n    public static void Configure(WebApplication app)\n    {\n        app.UseRouting();\n        app.UseAuthentication();\n        app.UseAuthorization();\n        app.MapGet(\"/admin/secret\", () => \"restricted\").RequireAuthorization();\n    }\n}\n"
+      },
+      "required_paths": [
+        "Pipeline.cs"
+      ],
+      "anchor": {
+        "path": "Pipeline.cs",
+        "text": ".RequireAuthorization()"
+      },
+      "rationale": "驗證 Middleware 順序與敏感端點授權要求都存在。"
+    },
+    {
+      "id": "middleware-anonymous-admin",
+      "family": "middleware-authorization",
+      "rule_id": "AC-08",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "Pipeline.cs": "using Microsoft.AspNetCore.Builder;\npublic static class Pipeline\n{\n    public static void Configure(WebApplication app)\n    {\n        app.UseRouting();\n        app.UseAuthentication();\n        app.UseAuthorization();\n        app.MapGet(\"/admin/secret\", () => \"restricted\").AllowAnonymous();\n    }\n}\n"
+      },
+      "required_paths": [
+        "Pipeline.cs"
+      ],
+      "anchor": {
+        "path": "Pipeline.cs",
+        "text": ".AllowAnonymous()"
+      },
+      "rationale": "即使 Middleware 已啟用，敏感路由上的 AllowAnonymous 仍可繞過授權。"
+    },
+    {
+      "id": "config-production-expiry",
+      "family": "configuration-overrides",
+      "rule_id": "AC-01",
+      "expected_status": "pass",
+      "expected_finding": false,
+      "files": {
+        "SessionIdlePolicy.cs": "using Microsoft.Extensions.Configuration;\npublic static class SessionIdlePolicy\n{\n    public static bool IsActive(IConfiguration config, DateTimeOffset issued, DateTimeOffset now)\n    {\n        var minutes = config.GetValue<int>(\"Session:IdleMinutes\");\n        if (minutes <= 0) return false;\n        return now - issued < TimeSpan.FromMinutes(minutes);\n    }\n}\n",
+        "appsettings.json": "{ \"Session\": { \"IdleMinutes\": 20 } }\n",
+        "appsettings.Production.json": "{ \"Session\": { \"IdleMinutes\": 15 } }\n"
+      },
+      "required_paths": [
+        "SessionIdlePolicy.cs",
+        "appsettings.json",
+        "appsettings.Production.json"
+      ],
+      "anchor": {
+        "path": "SessionIdlePolicy.cs",
+        "text": "if (minutes <= 0) return false;"
+      },
+      "rationale": "核對預設及 Production 覆寫後仍維持正值，異常值採失效關閉。"
+    },
+    {
+      "id": "config-production-disables-expiry",
+      "family": "configuration-overrides",
+      "rule_id": "AC-01",
+      "expected_status": "fail",
+      "expected_finding": true,
+      "files": {
+        "SessionIdlePolicy.cs": "using Microsoft.Extensions.Configuration;\npublic static class SessionIdlePolicy\n{\n    public static bool IsActive(IConfiguration config, DateTimeOffset issued, DateTimeOffset now)\n    {\n        var minutes = config.GetValue<int>(\"Session:IdleMinutes\");\n        if (minutes <= 0) minutes = 525600; // 異常配置變成一年免逾時\n        return now - issued < TimeSpan.FromMinutes(minutes);\n    }\n}\n",
+        "appsettings.json": "{ \"Session\": { \"IdleMinutes\": 20 } }\n",
+        "appsettings.Production.json": "{ \"Session\": { \"IdleMinutes\": 0 } }\n"
+      },
+      "required_paths": [
+        "SessionIdlePolicy.cs",
+        "appsettings.json",
+        "appsettings.Production.json"
+      ],
+      "anchor": {
+        "path": "SessionIdlePolicy.cs",
+        "text": "minutes = 525600"
+      },
+      "rationale": "正式環境覆寫為零，程式竟設定一年時效；只看預設設定會漏報。"
+    },
+    {
+      "id": "recovery-drill-external",
+      "family": "external-drill",
+      "rule_id": "BC-07",
+      "expected_status": "review",
+      "expected_finding": false,
+      "files": {
+        "BackupWorker.cs": "public sealed class BackupWorker\n{\n    public string CreateBackupPath(DateTimeOffset now) => $\"backups/{now:yyyyMMdd}.zip\";\n}\n"
+      },
+      "required_paths": [
+        "BackupWorker.cs"
+      ],
+      "anchor": {
+        "path": "BackupWorker.cs",
+        "text": "CreateBackupPath"
+      },
+      "rationale": "程式僅能證明備份作業線索，無法證明已執行備援啟動演練。",
+      "external_artifact": "正式備援啟動／災難復原演練紀錄"
+    },
+    {
+      "id": "availability-topology-external",
+      "family": "external-ha",
+      "rule_id": "BC-03",
+      "expected_status": "review",
+      "expected_finding": false,
+      "files": {
+        "deployment.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\nspec:\n  replicas: 3\n",
+        "HealthCheck.cs": "public static class HealthCheck\n{\n    public static bool IsReady() => true;\n}\n"
+      },
+      "required_paths": [
+        "deployment.yaml",
+        "HealthCheck.cs"
+      ],
+      "anchor": {
+        "path": "deployment.yaml",
+        "text": "replicas: 3"
+      },
+      "rationale": "僅知宣告副本數與健康檢查程式，缺少實際負載均衡／跨故障域證據。",
+      "external_artifact": "正式部署拓撲、負載均衡與故障域配置"
+    }
+  ]
+}
