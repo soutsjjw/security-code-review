@@ -12,6 +12,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+
+def run_utf8_process(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+    """解碼 dotnet 輸出不依賴 Windows ACP/CP950，保留錯誤訊息供診斷。"""
+    return subprocess.run(command, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", check=False, **kwargs)
+
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -95,13 +102,23 @@ class QualityBaselineTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "不是空的"):
                 materialize(root, self.catalog)
 
+    def test_dotnet_output_decoding_is_independent_of_windows_cp950(self):
+        """模擬不合法於 CP950/UTF-8 的輸出位元組，避免 subprocess reader thread 中止。"""
+        code = ("import sys; "
+                "sys.stdout.buffer.write(bytes([0xa3]) + '中文'.encode('utf-8')); "
+                "sys.stderr.buffer.write(bytes([0xff]))")
+        result = run_utf8_process([sys.executable, "-c", code])
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "\ufffd中文")
+        self.assertEqual(result.stderr, "\ufffd")
+
     def test_fixtures_compile_with_dotnet8_when_available(self):
         """編譯只是語法健全性檢查，不表示任何案例已通過資安審查。"""
         dotnet = shutil.which("dotnet")
         if not dotnet:
             self.skipTest("dotnet CLI not installed")
-        versions = subprocess.run([dotnet, "--list-sdks"], capture_output=True, text=True, check=False)
-        if versions.returncode or not any(line.startswith("8.") for line in versions.stdout.splitlines()):
+        versions = run_utf8_process([dotnet, "--list-sdks"])
+        if versions.returncode or not any(line.startswith("8.") for line in (versions.stdout or "").splitlines()):
             self.skipTest("net8.0 targeting SDK not available")
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "projects"
@@ -109,12 +126,12 @@ class QualityBaselineTests(unittest.TestCase):
             for case in self.catalog["cases"]:
                 with self.subTest(case=case["id"]):
                     project = root / case["id"]
-                    result = subprocess.run(
+                    result = run_utf8_process(
                         [dotnet, "build", "Case.csproj", "--nologo", "--ignore-failed-sources"],
-                        cwd=project, capture_output=True, text=True, check=False, timeout=120,
+                        cwd=project, timeout=120,
                     )
                     self.assertEqual(result.returncode, 0,
-                                     f"{case['id']} 編譯失敗:\\n{result.stdout[-1800:]}\\n{result.stderr[-1200:]}")
+                                     f"{case['id']} 編譯失敗:\\n{(result.stdout or '')[-1800:]}\\n{(result.stderr or '')[-1200:]}")
 
     def test_scoring_measures_expected_status_finding_trace_and_evidence(self):
         result = evaluate(self.catalog, self.make_perfect_predictions())
