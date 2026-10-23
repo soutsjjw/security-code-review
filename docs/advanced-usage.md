@@ -27,7 +27,7 @@ Windows PowerShell：
 
 新增第二層審查證據閘門：`file_reviews[].rule_reviews` 與 `checks[].evidence` 每筆來源證據都必須引用實際相關的控制邏輯；不得以方法宣告、`using`、欄位、泛用設定，或跨檔共用的排除理由來湊數。當 70/70 completed 仍未通過，`review_queue.py --compact` 會顯示 `recheck_rule_ids` 和需重新驗證的 `next_checks`。這些是補查工作，不改寫 Findings。
 
-Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型別及合成編譯得到的符號／介面實作候選；`cross_file_call_hints` 記錄不截斷的跨檔候選與呼叫點 ID。`semantic_*` 仍不等於真正專案建置／執行期目標，`receiver_type_candidate` 和 `name_only_ambiguous` 亦須人工核對。新索引下須依 [P1 結案協定](p0-review-guards.md#p1跨檔呼叫點必須人工結案) 完成 `callsite_reviews`；未解歧義不得將跨檔規則標為 completed。與 CodeGraph 不可用時一樣回退為人工查核，不能假裝已追蹤資料流。
+Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型別及合成編譯得到的符號／介面實作候選；`cross_file_call_hints` 記錄不截斷的跨檔候選與呼叫點 ID。`semantic_*` 仍不等於真正專案建置／執行期目標，`receiver_type_candidate` 和 `name_only_ambiguous` 亦須人工核對。新索引下須依 [跨檔呼叫點結案要求](review-integrity-guards.md#跨檔呼叫點必須人工結案) 完成 `callsite_reviews`；未解歧義不得將跨檔規則標為 completed。與 CodeGraph 不可用時一樣回退為人工查核，不能假裝已追蹤資料流。
 
 這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的 `next_source_candidates` 顯示下一批缺少有效逐檔審查紀錄的檔案及其候選規則。
 
@@ -58,23 +58,23 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 數字必須是實際 API／執行器回傳資料，上述僅示範命令格式。統計位於 `reports/security-code-review/analysis/token-usage.jsonl`，不包含程式碼或推論出的 Token 值。
 
-## 單代理 P0 完整性檢查（不含子代理）
+## 單代理審查完整性檢查（不含子代理）
 
 執行 `analysis_prepare.py` 後，先以 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的最小責任範圍及需追查的來源／關聯候選。每檔依序完整篩選全部規則；`cross_file` 和 `project` 類別須補足結案證據。透過 `--stage <JSON路徑>`、`--integrate` 進行工作中結果的獨立暫存與有衝突檢查的整合，並以 `--validate` 確認結案及工作樹版本；正式結果仍維持原有 assessment Schema。
 
 新機制拒絕來源快照異動與混合 Git Revision，並要求跨檔結案及全專案責任確認。若原始碼真的異動，須先調查、明確 `--snapshot-refresh` 並重新執行 `analysis_prepare.py`，再重新覆核全部無法證明未受影響的安全結論；既有 Findings 與歷史證據保留。不要把索引候選當作已完成的呼叫鏈，也不能複製制式結案文字。
 
-詳細 JSON 實例、參數、版本限制與不支援的語意分析類型見 [六項 P0 守門指引](p0-review-guards.md)。
+詳細 JSON 實例、參數、版本限制與不支援的語意分析類型見 [完整性守門指引](review-integrity-guards.md)。
 
-## P2：安全控制存在不代表有效
+## 安全控制有效性與繞過路徑驗證
 
-在原有 P0／P1 查核之外，對靜態與混合規則的 `completed + pass`，必須按 `review_queue.py --detail-id` 提供的 `control_effectiveness_guidance`，逐項確認安全控制入口、實際執行分支、受保護操作、失敗時拒絕行為與所有最低繞過情境。Agent 將真實來源行號、完整追查結果、Git Revision 與 SHA256 寫入批次 JSON 的 `control_verifications`，由 `review_safety.py --stage / --integrate` 保存於 `analysis/control-verifications.json`。未補齊時 `--validate` 與 `ready_for_report` 不會通過；`fail`／`review`／`na` 仍遵循現有判定階梯，不能因欠缺 P2 工作紀錄擅自改判。
+在來源完整性與跨檔呼叫鏈查核之外，對靜態與混合規則的 `completed + pass`，必須按 `review_queue.py --detail-id` 提供的 `control_effectiveness_guidance`，逐項確認安全控制入口、實際執行分支、受保護操作、失敗時拒絕行為與所有最低繞過情境。Agent 將真實來源行號、完整追查結果、Git Revision 與 SHA256 寫入批次 JSON 的 `control_verifications`，由 `review_safety.py --stage / --integrate` 保存於 `analysis/control-verifications.json`。未補齊時 `--validate` 與 `ready_for_report` 不會通過；`fail`／`review`／`na` 仍遵循現有判定階梯，不能因欠缺控制有效性查核紀錄擅自改判。
 
-**P2 必須真實查核，不是套用繞過清單就自動 Pass。** 詳細 JSON 契約與例外見 [P2 控制有效性與繞過驗證](p2-control-effectiveness.md)。
+**安全控制必須真實查核，不是套用繞過清單就自動 Pass。** 詳細 JSON 契約與例外見 [安全控制有效性與繞過驗證指引](control-effectiveness-review.md)。
 
-## P3：待確認的具體外部缺口裁決
+## 待確認判定與外部證據驗證
 
-現有判定階梯保持不變，新增對 `completed+review` 的證據守門：Agent 必須**實際查完靜態控制及跨檔關聯**，證明仍存在會改變結果的外部工件缺口，才在正式 `decision_reason` 以「待確認：」列出工件。未完成的靜態調查保留 `pending/blocked`；已證實的程式碼缺陷 `fail`＋Finding；缺非必要測試不得當作外部缺口。由 `review_queue.py --detail-id` 的 `decision_adjudication_guidance` 讀取規則 `mode`、`manual_boundary` 與必查欄位，將來源證據和外部問題保存於 `decision_audits`，以原有 `review_safety.py --stage / --integrate` 整合。P3 不自動改寫任何既有結論，詳細流程見 [P3 review 判定裁決](p3-review-adjudication.md)。
+現有判定階梯保持不變，新增對 `completed+review` 的證據守門：Agent 必須**實際查完靜態控制及跨檔關聯**，證明仍存在會改變結果的外部工件缺口，才在正式 `decision_reason` 以「待確認：」列出工件。未完成的靜態調查保留 `pending/blocked`；已證實的程式碼缺陷 `fail`＋Finding；缺非必要測試不得當作外部缺口。由 `review_queue.py --detail-id` 的 `decision_adjudication_guidance` 讀取規則 `mode`、`manual_boundary` 與必查欄位，將來源證據和外部問題保存於 `decision_audits`，以原有 `review_safety.py --stage / --integrate` 整合。判定驗證機制不自動改寫任何既有結論，詳細流程見 [待確認判定與外部證據指引](review-decision-adjudication.md)。
 
 ## Codex 可選 `/goal` 完整審查指令
 
@@ -87,7 +87,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
-- 維持單代理執行，不啟動子代理或平行審查；保留六項 P0 完整性守門，並執行 P1 跨檔呼叫點、P2 控制有效性及 P3 review 裁決驗證。
+- 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性及待確認判定驗證。
 
 完成條件：
 
@@ -135,7 +135,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
    - review_integrity_errors 與 rule_integrity_errors 均為空。
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
-   - P3 的 decision-audits.json 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
+   - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
    - review_queue.py 回傳 ready_for_report=true。
