@@ -51,6 +51,10 @@ jobs:
         env:
           PYTHONUTF8: "0"
         run: python -m unittest discover -s tests -p test_control_effectiveness.py -v
+      - name: Test Windows P3 review adjudication
+        env:
+          PYTHONUTF8: '0'
+        run: python -m unittest discover -s tests -p test_p3_adjudication.py -v
       - name: Test Windows project inventory UTF-8 subprocess output
         run: python -m unittest discover -s tests -p test_scope_projects.py -v
       - name: Test Windows Python runner
