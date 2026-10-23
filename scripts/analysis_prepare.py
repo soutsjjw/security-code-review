@@ -102,7 +102,7 @@ def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
     graph: dict[str, list[dict]] = {}
     for path, entry in indexed.items():
         hints: list[dict] = []
-        for call in entry.get("calls", []):
+        for call_number, call in enumerate(entry.get("calls", [])):
             name = call.get("called_method")
             line = call.get("line") or call.get("caller_line")
             if not isinstance(name, str) or not isinstance(line, int) or line < 1:
@@ -110,7 +110,7 @@ def cross_file_call_hints(indexed: dict[str, dict]) -> dict[str, list[dict]]:
             caller = str(call.get("containing_method") or "")
             count = call.get("argument_count")
             callsite_id = hashlib.sha256(
-                f"{path}|{line}|{caller}|{name}|{count}".encode("utf-8")
+                f"{path}|{line}|{caller}|{name}|{count}|{call_number}".encode("utf-8")
             ).hexdigest()[:24]
             semantic = call.get("semantic_targets")
             precise = []
