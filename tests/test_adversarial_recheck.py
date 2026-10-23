@@ -98,7 +98,9 @@ class AdversarialSecondPassTests(unittest.TestCase):
     def test_second_pass_missing_or_baseline_missing_blocks_final_report(self):
         del self.records["AC-08"]
         self.assertIn("AC-08: 第二輪反向複核缺少紀錄", str(self.evaluate()))
-        _write(self.root / BASELINE, {})
+        _write(self.root / BASELINE, {"schema_version": 1,
+                                     "snapshot_fingerprint": self.baseline["snapshot_fingerprint"],
+                                     "checks": {}})
         self.assertIn("第一輪結論 ID", str(self.evaluate()))
         (self.root / BASELINE).unlink()
         self.assertIn("--begin-second-pass", str(self.evaluate()))
