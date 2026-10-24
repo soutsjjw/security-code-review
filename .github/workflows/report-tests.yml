@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Validate all 70 rule quality contracts
+        run: python scripts/quality_gate.py --matrix-only --output /tmp/q5-rule-contracts.json
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
@@ -71,6 +73,10 @@ jobs:
         env:
           PYTHONUTF8: '0'
         run: python -m unittest discover -s tests -p test_evidence_integrity.py -v
+      - name: Test Windows 70-rule quality and real-project validation gate
+        env:
+          PYTHONUTF8: '0'
+        run: python -m unittest discover -s tests -p test_q5_quality_gate.py -v
       - name: Test Windows real-artifact quality acceptance gate
         env:
           PYTHONUTF8: '0'
