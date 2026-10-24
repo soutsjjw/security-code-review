@@ -101,10 +101,10 @@ class ControlEffectivenessTests(unittest.TestCase):
         self.assertIn("horizontal_access", guidance("AC-08")["required_scenarios"])
         self.assertFalse(guidance("BC-03")["required_for_pass"])
 
-    def test_missing_p2_evidence_blocks_pass_not_fail_or_external_review(self):
+    def test_new_index_requires_outcome_evidence_for_fail_and_review(self):
         self.assertIn("P2 缺少", str(self.evaluate()))
-        self.assertEqual(self.evaluate(status="fail"), [])
-        self.assertEqual(self.evaluate(status="review"), [])
+        self.assertIn("Q3 缺少", str(self.evaluate(status="fail")))
+        self.assertIn("Q3 缺少", str(self.evaluate(status="review")))
         self.assertEqual(self.evaluate(status="na"), [])
         self.assertEqual(self.evaluate(state="pending"), [])
 
@@ -162,7 +162,7 @@ class ControlEffectivenessTests(unittest.TestCase):
         bad = copy.deepcopy(self.record)
         bad["bypass_scenarios"][0]["outcome"] = "unresolved"
         self.assertTrue(self.evaluate(bad))
-        self.assertEqual(self.evaluate(None, status="fail"), [])
+        self.assertIn("Q3 缺少", str(self.evaluate(None, status="fail")))
 
     def test_detail_id_exposes_p2_scenarios_without_replacing_70_rules(self):
         from review_queue import build_queue
