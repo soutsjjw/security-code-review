@@ -101,7 +101,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 ## 全規則品質契約與真實審查驗收
 
-發布前先執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only`，逐條驗證 70 項適用性、Pass／Fail／Review 判定契約及具體反向情境。對已完成的受測專案，執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --target "<TARGET_ROOT>" --output "<QUALITY_RESULT>.json"`，確認 Q1～Q4 完整性守門、100% 來源覆蓋、70/70、第二輪 70/70、正式 HTML／JSON 結果與來源快照一致。另用固定 16 案例真正完成全規則審查，交由 `quality_acceptance.py` 驗收；可依同一受測來源與題庫比較前後版本。這兩個工具都**不代替主代理實際審查，也不能把模擬測試標示為真實模型驗收**。缺少 Agent 真實工件時只能標示未完成品質驗收。操作說明見 [真實審查品質驗收](docs/quality-acceptance.md)。
+發布前先執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only`，逐條驗證 70 項適用性、Pass／Fail／Review 判定契約及具體反向情境。對已完成的受測專案，執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --target "<TARGET_ROOT>" --output "<QUALITY_RESULT>.json"`，確認判定、跨檔、控制有效性與反向複核品質守門、100% 來源覆蓋、70/70、第二輪 70/70、正式 HTML／JSON 結果與來源快照一致。另用固定 16 案例真正完成全規則審查，交由 `quality_acceptance.py` 驗收；可依同一受測來源與題庫比較前後版本。這兩個工具都**不代替主代理實際審查，也不能把模擬測試標示為真實模型驗收**。缺少 Agent 真實工件時只能標示未完成品質驗收。操作說明見 [真實審查品質驗收](docs/quality-acceptance.md)。
 
 ## 共同證據與結果判定（所有規範均適用）
 
