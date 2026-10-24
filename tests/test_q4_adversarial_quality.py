@@ -145,7 +145,7 @@ class AdversarialQualityTests(unittest.TestCase):
             row["evidence"] = {"kind": "source", **self.guard}
         errors = self.errors(record=candidate)
         self.assertIn("同一行", "；".join(errors))
-        self.assertIn("共用", "；".join(errors))
+        self.assertIn("控制交會點", "；".join(errors))
         candidate["shared_evidence_justification"] = (
             "兩個不同入口都會匯入 OrderService 的 FindByOwner 控制行；核對不同的呼叫前提")
         for row in candidate["hypotheses"]:
@@ -236,6 +236,22 @@ class AdversarialQualityTests(unittest.TestCase):
             "snapshot_fingerprint": self.baseline["snapshot_fingerprint"], "checks": originals
         }, {})
         self.assertIn("共用制式", "；".join(errs))
+
+    def test_new_index_rejects_existing_synthetic_pass_through_old_gate(self):
+        from adversarial_recheck import INDEX, second_pass_errors
+        from test_adversarial_recheck import AdversarialSecondPassTests
+        legacy = AdversarialSecondPassTests()
+        legacy.setUp()
+        try:
+            self.assertEqual(second_pass_errors(legacy.root, legacy.assessment), [])
+            index_path = legacy.root / INDEX
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            index["adversarial_quality_version"] = 1
+            _write(index_path, index)
+            issues = second_pass_errors(legacy.root, legacy.assessment)
+            self.assertTrue(any("Q4" in issue for issue in issues), issues[:5])
+        finally:
+            legacy.doCleanups()
 
     def test_eight_rules_reusing_one_source_without_specific_reason_are_detected(self):
         checks, records, originals = [], {}, {}
