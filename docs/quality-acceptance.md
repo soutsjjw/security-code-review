@@ -4,7 +4,7 @@
 
 ## 驗收資料
 
-固定題庫為 `tests/fixtures/p0-quality-baseline/cases.json`：7 組安全／不安全對照、2 項真實外部待確認控制。由 `quality_baseline.py` 生成 16 個獨立 .NET 8 專案：
+固定題庫由 `quality_baseline.py` 內建載入：7 組安全／不安全對照、2 項真實外部待確認控制。由 `quality_baseline.py` 生成 16 個獨立 .NET 8 專案：
 
 ```bash
 python "<SKILL_ROOT>/scripts/quality_baseline.py" --materialize "<EMPTY_CASE_WORKSPACE>"
