@@ -66,6 +66,8 @@ def prepare_index(root: Path, catalog: dict) -> dict:
         raise ScopeError("分類結構索引僅支援 .NET Core／現代 .NET；不允許略過不支援框架")
     index_path = _shared_path(root)
     seal = root / INDEX_SEAL
+    if seal.is_symlink():
+        raise ScopeError("共享索引完整性紀錄不允許 symbolic link")
     if index_path.is_file():
         old = _load(index_path)
         seal_obj = _load(seal) if seal.is_file() else None
@@ -130,6 +132,8 @@ def _index(root: Path, assessment: dict) -> tuple[dict, list[str]]:
         return {}, ["尚未建立分類共用的來源結構索引；先執行 --prepare"]
     obj = _load(path)
     seal_path = root / INDEX_SEAL
+    if seal_path.is_symlink():
+        return {}, ["共享索引完整性紀錄不允許 symbolic link"]
     seal = _load(seal_path) if seal_path.is_file() else None
     snap = _snapshot(root)
     if (not isinstance(seal, dict) or seal.get("index_sha256") != _digest(obj)
