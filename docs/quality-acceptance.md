@@ -30,6 +30,37 @@ python "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<CASE_WORKSPACE
 
 **CI 的合成測試只能驗證這個驗收工具是否正確阻擋錯誤資料，不代表模型的漏洞發現率、誤報率或效率已實測改善。**
 
+## 全 70 項品質契約覆蓋與真實專案驗收
+
+固定的 16 個已知答案案例仍由上方 `quality_acceptance.py` 驗收，不能以合成評分代替 Agent 審查。新版另外提供 `quality_gate.py`：
+
+```bash
+# 在 security-code-review Skill 儲存庫根目錄執行，只驗證 70 條規則的品質契約
+python scripts/quality_gate.py --matrix-only --output q5-rule-contracts.json
+
+# 對已完成正式完整 70 項審查的 Northwind 執行，不會觸發 Agent 或修改原始碼
+python scripts/quality_gate.py --target "<NORTHWIND_ROOT>" --output northwind-quality.json
+
+# 比較相同受測來源 Git Revision、來源 SHA256 與 70 項規則的前後 Skill 審查
+python scripts/quality_gate.py --target "<NORTHWIND_ROOT>" --compare previous-northwind-quality.json --output current-northwind-quality.json
+```
+
+**重要：`--matrix-only` 是品質契約覆蓋，不是 70 條規則的安全通過率。** 它逐條確認來源的適用條件、Pass 條件、外部判定邊界、通用 Fail／Review 證據要求，以及每條規則至少兩個明確的反向查證情境。原有 16 個已知答案案例保持不變，不能聲稱已新增 70 個帶正確答案的漏洞案例。
+
+`--target` 僅接受真實受測工作目錄中的 `assessment.json`、`review-snapshot.json`、`structure-index.json`、`report.json` 及同日期 HTML；要求 70/70 `completed`、100% 逐檔來源覆蓋、正式報告 Schema 與來源一致、全部第二輪有效性驗證通過，並確認判定品質、跨檔證據、Fail／Review 有效性及第二輪品質守門都已啟用。缺一項則拒絕驗收，不會以 `review` 數量減少作為合格門檻。
+
+比較僅允許**同一受測專案、相同來源快照及規則集**，避免把新弱點、來源修復或版本差異誤算為模型精準度改變。原本的 Fail 被改判、Finding 被刪減或來源覆蓋退步時，輸出須人工複核的 regression；不以整體 Review／Pass 比率推斷品質改善。比較結果不會回寫或自動修改正式 Findings。
+
+本功能產生 `measurement_source=static_quality_contracts`（70 項契約）或 `real_project_artifacts`（真實專案工件）。兩者都不會自動進行 AI 審查；Unit Test 中建立的 70 項 completed 模擬 JSON **只為驗證器的拒絕與比較行為**，絕不代表 Northwind 已完成掃描或 Q1～Q4 的效果獲得真實驗收。
+
+Q5 正式交付需同時提供：
+- `--matrix-only` 通過的 70 項契約資料。
+- 16 個隔離案例完整 Agent 審查後的 `quality_acceptance.py` 通過結果；若資源不足，明確標為未驗收。
+- 使用目前 Skill 對 Northwind 真實完整審查所產生的 `quality_gate.py --target` 驗收 JSON，最好另附同來源舊版結果以比較。
+- 模型／執行器設定與實際執行日誌。CI 綠燈、模擬輸入及空白報告均不可代替真實掃描。
+
+CLI 退出碼：0 為契約或真實驗收通過；1 為規則或審查完整性不符；2 為目錄、工件或比較輸入錯誤。
+
 ## 與前一版正式實測比較
 
 ```bash
