@@ -5,6 +5,11 @@ on:
     paths:
       - 'scripts/partial_*.py'
       - 'scripts/review_queue.py'
+      - 'scripts/review_safety.py'
+      - 'scripts/evidence_integrity.py'
+      - 'scripts/atomic_json_io.py'
+      - 'tests/test_evidence_integrity.py'
+      - 'tests/test_atomic_json_io.py'
       - 'tests/test_category_transaction_acceptance.py'
       - 'tests/test_partial_*.py'
       - '.github/workflows/category-transaction-acceptance.yml'
