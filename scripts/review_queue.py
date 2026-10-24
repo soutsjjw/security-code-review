@@ -307,7 +307,19 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=10)
     parser.add_argument("--compact", action="store_true", help="僅回傳精簡檢核工作清單；詳細規範另查")
     parser.add_argument("--detail-id", help="僅查詢一條規則的詳細提示（包括已完成規則）")
+    parser.add_argument("--categories", action="append", metavar="AC,AU",
+                        help="P2：指定分類，建立／查詢隔離進度；不啟用正式報告")
+    parser.add_argument("--stage", type=Path, help="P2：暫存單一分類的批次 JSON")
+    parser.add_argument("--integrate", action="store_true", help="P2：整合單一分類的 staged JSON")
     args = parser.parse_args()
+    if args.categories and len(args.categories) != 1:
+        parser.error("--categories 只能指定一次")
+    if (args.stage or args.integrate) and not args.categories:
+        parser.error("--stage/--integrate 僅適用 --categories 的單一分類")
+    if args.stage and args.integrate:
+        parser.error("--stage 與 --integrate 不可同時指定")
+    if args.categories and (args.stage or args.integrate) and (args.init or args.detail_id or args.compact):
+        parser.error("分類暫存／整合不可混用 --init、--detail-id 或 --compact")
     if args.compact and args.detail_id:
         parser.error("--compact 與 --detail-id 不可同時指定")
     if not 1 <= args.batch_size <= 70:
@@ -316,6 +328,34 @@ def main() -> int:
     if not target.is_dir() or target == SKILL_ROOT or SKILL_ROOT in target.parents:
         parser.error("受測路徑不存在或指向 Skill 安裝目錄")
     out = target / REPORT_RELATIVE
+    if args.categories:
+        from review_scope import parse_categories, load_catalog
+        from partial_review import initialize as init_partial, queue as partial_queue
+        from partial_review import stage as stage_partial, integrate as integrate_partial
+        try:
+            selected = parse_categories(args.categories[0])
+            catalog = load_catalog()
+            if args.stage or args.integrate:
+                if len(selected) != 1:
+                    raise ValueError("分類 --stage/--integrate 每次只能指定一個分類")
+                category = selected[0]
+                if args.stage:
+                    result = {"staged_path": str(stage_partial(target, category, args.stage, catalog)),
+                              "ready_for_report": False}
+                else:
+                    result = integrate_partial(target, category, catalog)
+            else:
+                if args.init:
+                    init_partial(target, selected, catalog)
+                result = partial_queue(target, selected, catalog, args.batch_size,
+                                       detail_id=args.detail_id, compact=args.compact)
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     try:
         ruleset, rules = load_rules()
         if args.init:
