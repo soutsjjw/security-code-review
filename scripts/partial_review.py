@@ -85,6 +85,20 @@ def _category_dir(root: Path, category: str) -> Path:
     return directory
 
 
+def _artifact(root: Path, category: str, relative: Path | str) -> Path:
+    """只可寫入分類私有目錄；拒絕任何中間 symlink。"""
+    directory = _category_dir(root, category)
+    path = directory / relative
+    if path == directory or not path.resolve().is_relative_to(directory.resolve()):
+        raise ScopeError("分類工件路徑無效")
+    current = path
+    while current != directory:
+        if current.is_symlink():
+            raise ScopeError(f"分類工件路徑不允許 symbolic link：{current}")
+        current = current.parent
+    return path
+
+
 def _category_rules(catalog: dict, category: str) -> list[dict]:
     return [rule for rule in catalog["rules"] if rule["category"] == category]
 
@@ -125,7 +139,7 @@ def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[s
         cat = row["category"]
         directory = _category_dir(root, cat)
         assessment_file = directory / "assessment.json"
-        snapshot_file = directory / SNAPSHOT_FILE
+        snapshot_file = _artifact(root, cat, SNAPSHOT_FILE)
         project_file = directory / "project.json"
         if assessment_file.exists() or snapshot_file.exists():
             # 不補寫／修補既有半套資料：未齊者要求人工調查，避免隱性覆蓋。
@@ -155,7 +169,7 @@ def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[s
 
 
 def _verify_snapshot(root: Path, directory: Path, assessment: dict) -> None:
-    stored_path = directory / SNAPSHOT_FILE
+    stored_path = _artifact(root, assessment["category"], SNAPSHOT_FILE)
     if not stored_path.is_file():
         raise ScopeError("缺少分類來源快照；不可沿用舊有 completed")
     stored = _load(stored_path)
@@ -233,7 +247,7 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     payload = _load(input_path)
     _validate_payload(payload, category, catalog)
     directory = _category_dir(root, category)
-    pending = directory / STAGED_FILE
+    pending = _artifact(root, category, STAGED_FILE)
     if pending.exists():
         raise ScopeError(f"{category}: 已有未整合的 staged 交易；請先 --integrate")
     # O_EXCL 阻擋兩個 Agent 同時啟動 staging（不允許失敗時覆寫）。
@@ -249,7 +263,7 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
 def integrate(root: Path, category: str, catalog: dict) -> dict:
     current = read_category(root, category, catalog)
     directory = _category_dir(root, category)
-    pending = directory / STAGED_FILE
+    pending = _artifact(root, category, STAGED_FILE)
     if not pending.is_file():
         raise ScopeError(f"{category}: 沒有待整合的 staged 交易")
     staged = _load(pending)
