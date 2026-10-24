@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""P2：分類審查的隔離佇列、逐檔覆蓋與分批保存。
+
+本模組只保存由 Agent 實際完成的原始證據，不執行安全分析，也不產生正式報告。
+P3/P4 守門尚未接入前，ready_for_report 永遠為 False。
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+from datetime import date
+from typing import Any
+
+from review_scope import CATEGORY_COUNTS, PARTIAL_ROOT, ScopeError, build_scope_plan, load_catalog
+from source_coverage import build_source_coverage
+from review_completion import completion_errors
+from review_decision import decision_quality_errors
+from source_reader import read_source_text
+from analysis_candidates import candidate_hits
+from assessment_consistency import detect_language_framework
+from scope_inventory import detect_projects
+
+STAGED_FILE = Path("analysis/staged/pending.json")
+SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
+WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"})
+
+
+def _digest(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
+                                      separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _load(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _atomic(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=".partial-", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def _git_revision(root: Path) -> str:
+    result = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                            capture_output=True, text=True, check=False)
+    return result.stdout.strip() if result.returncode == 0 else "not-a-git-repository"
+
+
+def _snapshot(root: Path) -> dict[str, Any]:
+    # 使用正式來源盤點的相同排除範圍，不把 reports/ 或 Skill 當成受測檔案。
+    coverage = build_source_coverage({"checks": [], "file_reviews": []}, root)
+    files = {path: hashlib.sha256((root / path).read_bytes()).hexdigest()
+             for path in coverage["source_paths"]}
+    return {"git_revision": _git_revision(root), "source_hashes": files,
+            "fingerprint": _digest({"git_revision": _git_revision(root), "source_hashes": files})}
+
+
+def _category_dir(root: Path, category: str) -> Path:
+    if category not in CATEGORY_COUNTS:
+        raise ScopeError(f"未支援分類：{category}")
+    return root / PARTIAL_ROOT / category
+
+
+def _category_rules(catalog: dict, category: str) -> list[dict]:
+    return [rule for rule in catalog["rules"] if rule["category"] == category]
+
+
+def _pending_check(rule: dict) -> dict:
+    return {
+        "id": rule["id"], "status": "review",
+        "applicability_reason": "待查證來源與控制責任",
+        "decision_reason": "尚未執行審查",
+        "evidence": [], "reviewer": "security-code-review-agent",
+        "execution": {"state": "pending", "methods": [],
+                      "summary": "尚未執行審查，必須查核原始碼與控制流程"},
+    }
+
+
+def _assert_assessment(data: Any, category: str, catalog: dict) -> None:
+    expected = [r["id"] for r in _category_rules(catalog, category)]
+    if not isinstance(data, dict) or data.get("review_mode") != "partial" or data.get("category") != category:
+        raise ScopeError(f"{category}: assessment 的分類身分無效")
+    checks = data.get("checks")
+    if (not isinstance(checks, list) or len(checks) != len(expected)
+            or [c.get("id") for c in checks if isinstance(c, dict)] != expected):
+        raise ScopeError(f"{category}: checks 必須按規則主檔順序精確涵蓋 {len(expected)} 項")
+    if data.get("ruleset_version") != catalog["ruleset_version"]:
+        raise ScopeError(f"{category}: 規則版本不符")
+    if (not isinstance(data.get("findings"), list)
+            or not isinstance(data.get("file_reviews"), list)):
+        raise ScopeError(f"{category}: findings/file_reviews 格式錯誤")
+    if data.get("source_snapshot_sha256") is None:
+        raise ScopeError(f"{category}: 缺少來源快照識別")
+
+
+def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[str]:
+    plan = build_scope_plan(root, categories, catalog)
+    snapshot = _snapshot(root)
+    created: list[str] = []
+    for row in plan["category_reports"]:
+        cat = row["category"]
+        directory = _category_dir(root, cat)
+        assessment_file = directory / "assessment.json"
+        snapshot_file = directory / SNAPSHOT_FILE
+        project_file = directory / "project.json"
+        if assessment_file.exists() or snapshot_file.exists():
+            # 不補寫／修補既有半套資料：未齊者要求人工調查，避免隱性覆蓋。
+            if not assessment_file.is_file() or not snapshot_file.is_file():
+                raise ScopeError(f"{cat}: 分類進度不完整，不允許重新初始化覆寫")
+            existing = _load(assessment_file)
+            _assert_assessment(existing, cat, catalog)
+            _verify_snapshot(root, directory, existing)
+            continue
+        if directory.exists() and any(directory.iterdir()):
+            raise ScopeError(f"{cat}: 分類目錄已有其他資料，拒絕覆寫")
+        assessment = {
+            "review_mode": "partial", "category": cat, "ruleset_version": catalog["ruleset_version"],
+            "project_id": root.name, "git_revision": snapshot["git_revision"],
+            "assessment_date": date.today().isoformat(),
+            "scope": f"僅 {cat} 分類；來源盤點仍包含所有適用程式與組態",
+            "source_snapshot_sha256": snapshot["fingerprint"],
+            "checks": [_pending_check(r) for r in _category_rules(catalog, cat)],
+            "file_reviews": [], "findings": [], "scope_details": {"projects": detect_projects(root)},
+        }
+        _atomic(snapshot_file, snapshot)
+        _atomic(assessment_file, assessment)
+        if not project_file.exists():
+            _atomic(project_file, {"name": root.name, "language_framework": detect_language_framework(root)})
+        created.append(cat)
+    return created
+
+
+def _verify_snapshot(root: Path, directory: Path, assessment: dict) -> None:
+    stored_path = directory / SNAPSHOT_FILE
+    if not stored_path.is_file():
+        raise ScopeError("缺少分類來源快照；不可沿用舊有 completed")
+    stored = _load(stored_path)
+    if (not isinstance(stored, dict) or stored.get("fingerprint") != _digest({
+            "git_revision": stored.get("git_revision"),
+            "source_hashes": stored.get("source_hashes"),
+        })):
+        raise ScopeError("分類來源快照內容損壞")
+    if assessment["source_snapshot_sha256"] != stored["fingerprint"]:
+        raise ScopeError("assessment 與來源快照識別不一致")
+    if _snapshot(root) != stored:
+        raise ScopeError("來源檔案或 Git Revision 已異動；拒絕沿用分類審查證據")
+
+
+def read_category(root: Path, category: str, catalog: dict) -> dict:
+    directory = _category_dir(root, category)
+    path = directory / "assessment.json"
+    if not path.is_file():
+        raise ScopeError(f"{category}: 尚無分類進度，請先指定 --init")
+    assessment = _load(path)
+    _assert_assessment(assessment, category, catalog)
+    _verify_snapshot(root, directory, assessment)
+    return assessment
+
+
+def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
+    if not isinstance(payload, dict) or not payload or not set(payload) <= WRITE_KEYS:
+        raise ScopeError("stage JSON 僅允許非空的 checks、file_reviews、findings")
+    allowed = {r["id"] for r in _category_rules(catalog, category)}
+    for key, id_key in (("checks", "id"), ("file_reviews", "path"), ("findings", "id")):
+        rows = payload.get(key, [])
+        if not isinstance(rows, list):
+            raise ScopeError(f"{key} 必須為陣列")
+        if any(not isinstance(row, dict) or not isinstance(row.get(id_key), str)
+               or not row[id_key] for row in rows):
+            raise ScopeError(f"{key} 包含無效物件／識別")
+        values = [row[id_key] for row in rows]
+        if len(values) != len(set(values)):
+            raise ScopeError(f"{key} 存在重複識別")
+    for check in payload.get("checks", []):
+        if check["id"] not in allowed:
+            raise ScopeError(f"不可寫入未選分類規則：{check['id']}")
+        state = (check.get("execution") or {}).get("state")
+        if state not in ("pending", "completed", "blocked"):
+            raise ScopeError(f"{check['id']}: execution.state 無效")
+        if check.get("status") not in ("pass", "fail", "review", "na"):
+            raise ScopeError(f"{check['id']}: status 無效")
+        if state == "completed":
+            issues = completion_errors([check]) + decision_quality_errors([check])
+            if issues:
+                raise ScopeError("; ".join(issues[:3]))
+    for row in payload.get("file_reviews", []):
+        screening = row.get("category_screening")
+        if not isinstance(screening, dict) or set(screening) != {category}:
+            raise ScopeError(f"{category}: file_reviews 僅可包含本分類 category_screening")
+        if (not isinstance(row.get("rule_reviews"), list)
+                or any(not isinstance(item, dict) or item.get("rule_id") not in allowed
+                       for item in row["rule_reviews"])):
+            raise ScopeError("file_reviews 含未選分類規則")
+        if any(not isinstance(item, dict) or item.get("rule_id") not in allowed
+               for item in row.get("candidate_exclusions", [])):
+            raise ScopeError("candidate_exclusions 含未選分類規則")
+        for item in screening.values():
+            if not isinstance(item, dict) or not isinstance(item.get("rule_ids"), list) or any(
+                    rid not in allowed for rid in item["rule_ids"]):
+                raise ScopeError("category_screening 含未選分類規則")
+    for finding in payload.get("findings", []):
+        refs = finding.get("check_ids")
+        if not isinstance(refs, list) or not refs or any(rid not in allowed for rid in refs):
+            raise ScopeError(f"Finding {finding['id']} 不可引用未選分類規則")
+
+
+def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
+    current = read_category(root, category, catalog)
+    payload = _load(input_path)
+    _validate_payload(payload, category, catalog)
+    directory = _category_dir(root, category)
+    pending = directory / STAGED_FILE
+    if pending.exists():
+        raise ScopeError(f"{category}: 已有未整合的 staged 交易；請先 --integrate")
+    # O_EXCL 阻擋兩個 Agent 同時啟動 staging（不允許失敗時覆寫）。
+    pending.parent.mkdir(parents=True, exist_ok=True)
+    body = {"category": category, "base_sha256": _digest(current),
+            "snapshot_sha256": current["source_snapshot_sha256"], "payload": payload}
+    with pending.open("x", encoding="utf-8") as handle:
+        json.dump(body, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return pending
+
+
+def integrate(root: Path, category: str, catalog: dict) -> dict:
+    current = read_category(root, category, catalog)
+    directory = _category_dir(root, category)
+    pending = directory / STAGED_FILE
+    if not pending.is_file():
+        raise ScopeError(f"{category}: 沒有待整合的 staged 交易")
+    staged = _load(pending)
+    if (staged.get("category") != category or staged.get("base_sha256") != _digest(current)
+            or staged.get("snapshot_sha256") != current["source_snapshot_sha256"]):
+        raise ScopeError("分類暫存版本與目前來源／assessment 不一致，拒絕整合")
+    payload = staged["payload"]
+    _validate_payload(payload, category, catalog)
+
+    merged = json.loads(json.dumps(current, ensure_ascii=False))
+    by_id = {r["id"]: r for r in merged["checks"]}
+    for check in payload.get("checks", []):
+        previous = by_id[check["id"]]
+        if (previous["execution"]["state"] == "completed"
+                and check != previous):
+            raise ScopeError(f"{check['id']}: 已完成判定不可靜默覆寫；需先人工複核")
+        by_id[check["id"]] = check
+    merged["checks"] = [by_id[r["id"]] for r in _category_rules(catalog, category)]
+    for key, identity in (("file_reviews", "path"), ("findings", "id")):
+        existing = {r[identity]: r for r in merged[key]}
+        for row in payload.get(key, []):
+            if row[identity] in existing and existing[row[identity]] != row:
+                raise ScopeError(f"{key}: {row[identity]} 已存在不同證據，拒絕覆寫")
+            existing[row[identity]] = row
+        merged[key] = list(existing.values())
+    _assert_assessment(merged, category, catalog)
+    # 未完成逐檔核驗的資料可以分批保存，但不可因此輸出任何完成報告。
+    _atomic(directory / "assessment.json", merged)
+    pending.unlink()
+    return {"category": category, "saved_checks": len(payload.get("checks", [])),
+            "saved_files": len(payload.get("file_reviews", [])),
+            "saved_findings": len(payload.get("findings", [])),
+            "ready_for_report": False}
+
+
+def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: int,
+          *, detail_id: str | None = None, compact: bool = False) -> dict:
+    from review_queue import (load_tacert_v2_checks, load_owasp_2025_categories,
+                              STANDARD_GUIDES)
+    from review_decision import load_decision_matrix
+    from control_effectiveness import guidance as control_guidance
+    from decision_adjudication import guidance as adjudication_guidance
+    from adversarial_recheck import guidance as adversarial_guidance
+    from system_baseline import source_review_hints
+    from web_guide import web_guide_review_hints
+    from web_appendix1 import appendix_review_hints
+    from web_headers import header_review_hints
+    rules = catalog["rules"]
+    maps = {} if compact else {
+        "tacert_v2_checks": load_tacert_v2_checks(rules),
+        "owasp_2025_categories": load_owasp_2025_categories(rules),
+        "system_baseline_v13_controls": source_review_hints(rules),
+        "web_guide_v32_checks": web_guide_review_hints(rules),
+        "web_guide_v32_appendix1": appendix_review_hints(rules),
+        "web_guide_v32_appendix3": header_review_hints(rules),
+    }
+    decision = load_decision_matrix() if not compact else {}
+    if detail_id and detail_id.split("-")[0] not in categories:
+        raise ScopeError(f"未選分類規則不可查詢：{detail_id}")
+    results = []
+    for category in categories:
+        if detail_id and not detail_id.startswith(category + "-"):
+            continue
+        assessment = read_category(root, category, catalog)
+        checks = assessment["checks"]
+        by_id = {c["id"]: c for c in checks}
+        selected_rules = _category_rules(catalog, category)
+        remaining = [r for r in selected_rules
+                     if (by_id[r["id"]].get("execution") or {}).get("state") != "completed"]
+        if detail_id and detail_id not in by_id:
+            raise ScopeError(f"未知規則 ID：{detail_id}")
+        next_rules = ([next(r for r in selected_rules if r["id"] == detail_id)]
+                      if detail_id else remaining[:batch_size])
+        coverage = build_source_coverage(assessment, root, selected_categories=(category,))
+        quality = []
+        if not remaining:
+            quality = completion_errors(checks) + decision_quality_errors(checks, source_root=root)
+        candidates = []
+        for path in coverage["missing_source_paths"][:30]:
+            try:
+                hits = [h["rule_id"] for h in candidate_hits(path, read_source_text(root / path)[0])
+                        if h["rule_id"] in by_id]
+            except (OSError, UnicodeError):
+                continue
+            if hits:
+                candidates.append({"path": path, "rule_ids": hits})
+        next_checks = []
+        for r in next_rules:
+            item = {"id": r["id"], "title": r["title"],
+                    "current_state": (by_id[r["id"]].get("execution") or {}).get("state", "pending"),
+                    "search_targets": r.get("inspection", {}).get("search_targets", [])}
+            if not compact:
+                item.update({
+                    "inspection_hints": r.get("inspection", {}).get("legacy_inspection_hints", []),
+                    "verification_method": r.get("inspection", {}).get("verification_method", ""),
+                    "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
+                    "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
+                    "decision_guidance": decision[r["id"]],
+                    "control_effectiveness_guidance": control_guidance(r["id"]),
+                    "decision_adjudication_guidance": adjudication_guidance(r["id"]),
+                    "adversarial_guidance": adversarial_guidance(r["id"]),
+                })
+                item.update({name: mapping[r["id"]] for name, mapping in maps.items()})
+                if detail_id:
+                    item["standard_documents"] = [
+                        path for name, path in STANDARD_GUIDES.items() if item.get(name)]
+            next_checks.append(item)
+        complete = len(remaining) == 0 and not coverage["missing_source_file_count"]
+        complete = complete and not coverage["review_integrity_errors"] and not quality
+        results.append({
+            "category": category, "total": len(checks),
+            "completed": sum((c.get("execution") or {}).get("state") == "completed" for c in checks),
+            "pending": sum((c.get("execution") or {}).get("state") == "pending" for c in checks),
+            "blocked": sum((c.get("execution") or {}).get("state") == "blocked" for c in checks),
+            "findings_saved": len(assessment["findings"]),
+            "remaining_ids": [r["id"] for r in remaining],
+            "next_checks": next_checks, "next_source_paths": coverage["missing_source_paths"][:30],
+            "next_source_candidates": candidates[:15],
+            "source_coverage": {k: coverage[k] for k in
+                                ("source_file_count", "reviewed_source_file_count",
+                                 "missing_source_file_count", "missing_by_type")},
+            "review_integrity_errors": coverage["review_integrity_errors"][:20],
+            "rule_integrity_errors": quality[:30],
+            "first_pass_evidence_ready": bool(complete),
+            "ready_for_report": False,
+            "assessment_path": (PARTIAL_ROOT / category / "assessment.json").as_posix(),
+        })
+    return {
+        "review_mode": "partial", "selected_categories": list(categories),
+        "selected_rule_count": sum(CATEGORY_COUNTS[cat] for cat in categories),
+        "category_queues": results,
+        "ready_for_report": False,
+        "notice": "P2 僅支援分類第一輪佇列及進度保存；P3/P4 安全結案、第二輪及部分報告尚未啟用。",
+    }
