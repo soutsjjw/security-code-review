@@ -151,7 +151,7 @@ def gate_errors(root: Path, category: str, *, require_seal: bool = False) -> lis
         pending = _artifact(root, category, PENDING)
         if manifest.exists() or pending.exists():
             return errors(root, category)
-        missing = f"{category}: 已有分類審查資料但缺少 integrity-manifest.json；禁止將未封存證據視為可信"
+        missing = f"{category}: 已有分類審查資料但缺少 Manifest（integrity-manifest.json）；禁止將未封存證據視為可信"
         if require_seal:
             return [missing]
         directory = _category_dir(root, category)
