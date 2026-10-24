@@ -23,6 +23,14 @@ from partial_review import _category_dir, _snapshot, initialize, queue, read_cat
 from partial_review_safety import prepare_index, validate, _shared_path
 from review_scope import ScopeError, load_catalog
 
+def run_build_command(command: list[str], *, cwd: Path,
+                      env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """將 dotnet 輸出明確以 UTF-8 容錯解碼，不受 Windows CP950 預設編碼影響。"""
+    return subprocess.run(command, cwd=cwd, env=env, capture_output=True,
+                          text=True, encoding="utf-8", errors="replace",
+                          timeout=120, check=False)
+
+
 SOURCES = {
     "Api/Orders.Api.csproj": """<Project Sdk="Microsoft.NET.Sdk.Web">
       <PropertyGroup><TargetFramework>net8.0</TargetFramework>
@@ -119,12 +127,25 @@ class DotNetCategoryIntegrationTests(unittest.TestCase):
         env = {**os.environ, "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
                "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1"}
         project = self.root / "Api/Orders.Api.csproj"
-        result = subprocess.run(
+        result = run_build_command(
             [dotnet, "build", str(project), "--nologo", "--verbosity", "quiet",
              "--ignore-failed-sources"], cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=120, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout[-1500:] + result.stderr[-1500:])
+        self.assert_formal_unchanged()
+
+    def test_build_output_decoding_ignores_windows_cp950_and_invalid_utf8(self):
+        # 不依賴本機是否安裝 .NET SDK；直接模擬外部程序輸出的原始 bytes。
+        result = run_build_command(
+            [sys.executable, "-c",
+             "import sys; "
+             "sys.stdout.buffer.write(bytes([0xe6, 0x97, 0xa5, 0xff])); "
+             "sys.stderr.buffer.write(bytes([0xff, 0xe6]))"],
+            cwd=self.root, env=os.environ.copy(),
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "日\ufffd")
+        self.assertEqual(result.stderr, "\ufffd\ufffd")
         self.assert_formal_unchanged()
 
     def test_index_discovers_cross_project_calls_and_auth_control_candidates(self):
