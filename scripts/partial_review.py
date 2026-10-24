@@ -252,6 +252,20 @@ def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
 
 
 def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
+    from partial_evidence_integrity import (MANIFEST, initialize as seal,
+                                            errors as integrity_errors, locked)
+    manifest = _artifact(root, category, MANIFEST)
+    if not manifest.is_file():
+        # 只允許初始乾淨進度自動封存；舊進度不得被默默採信。
+        seal(root, category)
+    with locked(root, category):
+        problems = integrity_errors(root, category)
+        if problems:
+            raise ScopeError("；".join(problems))
+        return _stage_locked(root, category, input_path, catalog)
+
+
+def _stage_locked(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     current = read_category(root, category, catalog)
     payload = _load(input_path)
     _validate_payload(payload, category, catalog)
@@ -364,7 +378,8 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
             existing[row[identity]] = row
         merged[key] = list(existing.values())
     _assert_assessment(merged, category, catalog)
-    # 未完成逐檔核驗的資料可以分批保存，但不可因此輸出任何完成報告。
+    # 尚未滿足安全守門的批次仍可持久保存，但不得藉此宣稱安全審查完成。
+    archive_update = None
     if revisions:
         from partial_review_safety import HISTORY
         archive = {
@@ -382,16 +397,22 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
             if _load(archive_path) != archive:
                 raise ScopeError("第二輪修訂歷史紀錄存在衝突")
         else:
-            _atomic(archive_path, archive)
-    for key in EVIDENCE_KEYS & set(payload):
-        _atomic(evidence_paths[key], merged_evidence[key])
-    _atomic(directory / "assessment.json", merged)
-    pending.unlink()
+            archive_update = ((HISTORY / digest_name).as_posix(), archive)
+    updates = {EVIDENCE_FILES[key].as_posix(): merged_evidence[key]
+               for key in EVIDENCE_KEYS & set(payload)}
+    if archive_update is not None:
+        updates[archive_update[0]] = archive_update[1]
+    updates["assessment.json"] = merged
+    from partial_evidence_integrity import _sha, commit
+    receipt = commit(root, category, updates,
+                     event="review-batch-with-correction" if revisions else "review-batch",
+                     staged_path=pending, staged_sha256=_sha(pending.read_bytes()))
     return {"category": category, "saved_checks": len(payload.get("checks", [])),
             "saved_files": len(payload.get("file_reviews", [])),
             "saved_findings": len(payload.get("findings", [])),
             "saved_safety_records": {key: len(payload[key]) for key in EVIDENCE_KEYS & set(payload)},
             "corrected_rule_ids": sorted(revisions),
+            "integrity_sequence": receipt["sequence"],
             "ready_for_report": False}
 
 
