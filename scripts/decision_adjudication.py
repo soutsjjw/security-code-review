@@ -172,15 +172,18 @@ def _read_json(path: Path, default: Any) -> Any:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 
 
-def adjudication_errors(target: Path, checks: list[dict]) -> list[str]:
+def adjudication_errors(target: Path, checks: list[dict], *,
+                        index_override: dict | None = None,
+                        snapshot_override: dict | None = None,
+                        audits_override: dict | None = None) -> list[str]:
     """只有 P3 新索引啟用；P2 舊索引不會因工具升級而悄悄重解判定。"""
-    index = _read_json(target / INDEX, {})
+    index = index_override if index_override is not None else _read_json(target / INDEX, {})
     if not isinstance(index, dict) or index.get("decision_adjudication_version") != CONTRACT_VERSION:
         return []
-    snapshot = _read_json(target / SNAPSHOT, {})
+    snapshot = snapshot_override if snapshot_override is not None else _read_json(target / SNAPSHOT, {})
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("source_hashes"), dict):
         return ["P3: 缺少審查來源快照"]
-    audits = _read_json(target / AUDITS, {})
+    audits = audits_override if audits_override is not None else _read_json(target / AUDITS, {})
     if not isinstance(audits, dict):
         return ["P3: decision-audits.json 應為規則 ID 對應的物件"]
     matrix = load_decision_matrix()
