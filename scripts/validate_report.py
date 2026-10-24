@@ -22,7 +22,26 @@ def main() -> int:
     p.add_argument('--strict-sources', action='store_true')
     p.add_argument('--source-encodings', default=','.join(DEFAULT_LEGACY_ENCODINGS))
     p.add_argument('--allow-demo', action='store_true')
+    p.add_argument('--categories', action='append', metavar='AC,AU', help='驗證獨立部分審查報告')
     args = p.parse_args()
+    if args.categories:
+        if (len(args.categories) != 1 or args.report is not None or args.html is not None
+                or args.allow_demo or args.source_root is None or not args.strict_sources):
+            p.error('分類驗證須使用 --categories AC,AU --source-root <專案> --strict-sources，且不得混用完整報告或 demo 參數')
+        from partial_report import validate_saved
+        from review_scope import parse_categories, load_catalog
+        try:
+            categories = parse_categories(args.categories[0])
+            problems = validate_saved(args.source_root.resolve(), categories, load_catalog())
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            print('ERROR:', exc, file=sys.stderr)
+            return 2
+        for issue in problems:
+            print('ERROR:', issue, file=sys.stderr)
+        if problems:
+            return 1
+        print('PASS: 所選分類 HTML、JSON、來源證據及第二輪品質驗證通過')
+        return 0
     if args.report is None and args.html is None:
         p.error('請提供 --report 或 --html')
     if not args.allow_demo and (args.source_root is None or not args.strict_sources):
