@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,33 @@ def verify_case_sources(case: dict[str, Any], directory: Path) -> list[str]:
     return problems
 
 
+def report_artifact_errors(directory: Path, data: dict) -> list[str]:
+    """重新驗證正式報告 Schema、來源行號及 HTML 一致性，拒絕空白／過期報告。"""
+    report = directory / REPORT_DIR / "report.json"
+    date = data.get("assessment_date")
+    if not isinstance(date, str) or len(date) != 10:
+        return ["審查日期無效，無法驗證正式報告"]
+    html = directory / REPORT_DIR / f"CodeReview_{date.replace('-', '')}.html"
+    missing = [str(p.name) for p in (report, html) if not p.is_file()]
+    if missing:
+        return ["尚未產生正式報告：" + "、".join(missing)]
+    try:
+        report_data = json.loads(report.read_text(encoding="utf-8"))
+        if not isinstance(report_data, dict) or report_data.get("assessment") != data:
+            return ["正式 report.json 的 assessment 與目前審查資料不一致"]
+        command = [sys.executable, str(Path(__file__).resolve().parent / "validate_report.py"),
+                   "--report", str(report), "--html", str(html),
+                   "--source-root", str(directory), "--strict-sources"]
+        result = subprocess.run(command, cwd=directory, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", check=False, timeout=120)
+        if result.returncode:
+            detail = ((result.stderr or "") + "\n" + (result.stdout or "")).strip()
+            return [f"正式報告 Schema／HTML／來源驗證未通過：{detail[-800:]}"]
+        return []
+    except (OSError, ValueError, TypeError, subprocess.TimeoutExpired) as exc:
+        return [f"無法核對正式報告：{exc}"]
+
+
 def verify_review(case: dict[str, Any], directory: Path, rules: list[dict]) -> tuple[dict | None, list[str]]:
     """僅接受來源未被修改、70 條與完整性守門通過的正式 assessment 工件。"""
     problems = verify_case_sources(case, directory)
@@ -76,14 +104,8 @@ def verify_review(case: dict[str, Any], directory: Path, rules: list[dict]) -> t
                     problems.extend(str(x) for x in (queue.get(key) or [])[:MAX_DIAGNOSTICS])
                 if queue.get("second_pass", {}).get("pending_count"):
                     problems.append("第二輪反向複核尚未完成")
-        # 審查工件不能用僅有一條規則的 JSON 冒充完整 Skill。
-        report = directory / REPORT_DIR / "report.json"
-        if not report.is_file():
-            problems.append("尚未產生正式 report.json")
-        date = data.get("assessment_date")
-        if not isinstance(date, str) or len(date) != 10 or not (
-                directory / REPORT_DIR / f"CodeReview_{date.replace('-', '')}.html").is_file():
-            problems.append("尚未產生與審查日期一致的 HTML 報告")
+        # 用正式驗證器檢查 report／HTML／原始碼且與目前 assessment 一致。
+        problems.extend(report_artifact_errors(directory, data))
         predictions = assessment_predictions(
             directory.parent, {"cases": [case]})["cases"]
         if len(predictions) != 1:
