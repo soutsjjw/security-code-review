@@ -510,6 +510,11 @@ def refresh_snapshot(target: Path) -> None:
     folder = report_dir(target) / STAGED
     if folder.is_dir() and any(folder.glob("*.json")):
         raise ValueError("尚有未整合暫存；禁止刷新來源快照")
+    from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors
+    if integrity_enabled(target):
+        problems = integrity_errors(target)
+        if problems:
+            raise ValueError("；".join(problems))
     old = _read(report_dir(target) / SNAPSHOT)
     if old is None:
         raise ValueError("尚未建立審查快照")
@@ -518,23 +523,34 @@ def refresh_snapshot(target: Path) -> None:
                        (assessment.get("scope_details") or {}).get("excluded_paths", [])
                        if isinstance(row, dict)})
     current = current_hashes(target, excludes)
-    _write(report_dir(target) / SNAPSHOT,
-           {"schema_version": 1, "git_revision": _revision(target),
-            "source_hashes": current, "excluded_paths": excludes})
-    # 原有結論、Findings 和 file_reviews 保留以供追溯，不自動宣稱符合。
-    # 失去可驗證依賴閉包時，保守要求所有 completed 規則重新查證。
-    assessment = _read(report_dir(target) / "assessment.json", {}) or {}
+    updated_snapshot = {"schema_version": 1, "git_revision": _revision(target),
+                        "source_hashes": current, "excluded_paths": excludes}
+    # 保留所有已存在 Finding；只解除過期結案並強制重新檢核完成規則。
     completed = [row["id"] for row in assessment.get("checks", [])
                  if (row.get("execution") or {}).get("state") == "completed"]
-    _write(report_dir(target) / RECHECK,
-           {"rule_ids": sorted(completed), "reason": "審查來源或 Git 版本已變更，需重新驗證影響閉包"})
-    (report_dir(target) / CLOSURES).unlink(missing_ok=True)
+    recheck = {"rule_ids": sorted(completed),
+               "reason": "審查來源或 Git 版本已變更，需重新驗證影響閉包"}
+    if integrity_enabled(target):
+        from evidence_integrity import commit as integrity_commit
+        integrity_commit(target, {
+            "analysis/review-snapshot.json": updated_snapshot,
+            "analysis/recheck-required.json": recheck,
+            "analysis/rule-closures.json": None
+        }, event="snapshot-refresh", new_snapshot=updated_snapshot)
+    else:
+        _write(report_dir(target) / SNAPSHOT, updated_snapshot)
+        _write(report_dir(target) / RECHECK, recheck)
+        (report_dir(target) / CLOSURES).unlink(missing_ok=True)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="單代理審查完整性守門；不修改受測原始碼")
     parser.add_argument("--target", type=Path, default=Path.cwd())
     parser.add_argument("--plan", action="store_true")
+    parser.add_argument("--seal-integrity", action="store_true",
+                        help="核對既有資料後，明確建立第一筆完整性封存")
+    parser.add_argument("--recover-integrity", action="store_true",
+                        help="核對 SHA256 後重播中斷的多檔整合交易")
     parser.add_argument("--validate", action="store_true")
     parser.add_argument("--stage", type=Path, help="暫存單檔或單批審查 JSON，不能直接寫正式結果")
     parser.add_argument("--integrate", action="store_true")
@@ -548,7 +564,13 @@ def main() -> int:
                         help="明確更新來源版本，清除過期結案；所有受影響規則須重審")
     args = parser.parse_args()
     try:
-        if args.begin_second_pass or args.restart_second_pass:
+        if args.recover_integrity:
+            from evidence_integrity import recover
+            print(json.dumps(recover(args.target), ensure_ascii=False))
+        elif args.seal_integrity:
+            from evidence_integrity import initialize as seal
+            print(json.dumps(seal(args.target, explicit=True), ensure_ascii=False))
+        elif args.begin_second_pass or args.restart_second_pass:
             from adversarial_recheck import begin_second_pass
             data = _read(report_dir(args.target) / "assessment.json", {}) or {}
             print(json.dumps(begin_second_pass(args.target, data, restart=args.restart_second_pass),
@@ -570,7 +592,7 @@ def main() -> int:
                 return 1
             print("PASS: review safeguards verified")
         else:
-            parser.error("請指定 --plan、--validate、--stage、--integrate、--begin-second-pass、--restart-second-pass 或 --snapshot-refresh")
+            parser.error("請指定 --plan、--validate、--stage、--integrate、--seal-integrity、--recover-integrity、--begin-second-pass、--restart-second-pass 或 --snapshot-refresh")
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
