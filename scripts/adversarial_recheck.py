@@ -174,9 +174,14 @@ def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
     return [f"{rid}: {label} 缺少有效 source / configuration / external_gap / external_artifact 證據"]
 
 
-def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
+def second_pass_errors(target: Path, assessment: dict[str, Any], *,
+                       index_override: dict | None = None,
+                       snapshot_override: dict | None = None,
+                       baseline_override: dict | None = None,
+                       reviews_override: dict | None = None,
+                       audits_override: dict | None = None) -> list[str]:
     """僅驗證工作紀錄及來源一致性；同一代理無法做到真正獨立的盲審。"""
-    if not _enabled(target):
+    if index_override is None and not _enabled(target):
         return []
     checks = assessment.get("checks", [])
     if not isinstance(checks, list):
@@ -184,10 +189,10 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
     if not checks or any((c.get("execution") or {}).get("state") != "completed"
                          for c in checks if isinstance(c, dict)):
         return []  # 第一輪尚未完成時，保持原有 pending/blocked 工作狀態。
-    baseline = _read(target / BASELINE)
+    baseline = baseline_override if baseline_override is not None else _read(target / BASELINE)
     if not isinstance(baseline, dict) or baseline.get("schema_version") != CONTRACT_VERSION:
         return ["第二輪：尚未執行 review_safety.py --begin-second-pass 固定第一輪結果"]
-    snapshot = _read(target / SNAPSHOT, {})
+    snapshot = snapshot_override if snapshot_override is not None else _read(target / SNAPSHOT, {})
     if not isinstance(snapshot, dict) or baseline.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
         return ["第二輪：第一輪快照與目前來源不同，禁止沿用舊複核結論"]
     original = baseline.get("checks")
@@ -196,13 +201,13 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
                    or not isinstance(v.get("digest"), str) or len(v["digest"]) != 64
                    for v in original.values())):
         return ["第二輪：第一輪結論 ID 或不可變指紋無效"]
-    stored = _read(target / REVIEWS, {})
+    stored = reviews_override if reviews_override is not None else _read(target / REVIEWS, {})
     if not isinstance(stored, dict):
         return ["第二輪：adversarial-reviews.json 應為規則 ID 對應的物件"]
     known = set((snapshot.get("source_hashes") or {}).keys())
     existing_findings = {f.get("id") for f in assessment.get("findings", [])
                          if isinstance(f, dict)}
-    decision_audits = _read(target / RELATIVE / "decision-audits.json", {})
+    decision_audits = audits_override if audits_override is not None else _read(target / RELATIVE / "decision-audits.json", {})
     if not isinstance(decision_audits, dict):
         decision_audits = {}
     errors: list[str] = []
@@ -297,11 +302,12 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
                                        f"矛盾[{i}]", inspected_set, known, status,
                                        decision_audits.get(rid), check.get("evidence") or [])
     # 新索引啟用 Q4，驗證真正重讀控制分支、反例可區分性及跨規則模板。
-    structure_index = _read(target / INDEX, {})
+    structure_index = index_override if index_override is not None else _read(target / INDEX, {})
     if (isinstance(structure_index, dict)
             and structure_index.get("adversarial_quality_version") == 1):
         from adversarial_quality import quality_errors
-        errors.extend(quality_errors(target, assessment, stored, baseline, decision_audits))
+        errors.extend(quality_errors(target, assessment, stored, baseline, decision_audits,
+                                     snapshot_override=snapshot_override))
     return errors
 
 
