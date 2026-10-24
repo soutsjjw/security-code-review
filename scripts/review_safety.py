@@ -155,20 +155,22 @@ def scope_tasks(target: Path) -> list[dict]:
     return tasks
 
 
-def closure_errors(target: Path, assessment: dict) -> list[str]:
+def closure_errors(target: Path, assessment: dict, *, index_override: dict | None = None,
+                   snapshot_override: dict | None = None,
+                   closures_override: dict | None = None) -> list[str]:
     """明確記錄人工查證的邊界及全專案責任；不以索引候選冒充結論。"""
-    if not (report_dir(target) / SNAPSHOT).exists():
+    if snapshot_override is None and not (report_dir(target) / SNAPSHOT).exists():
         return []
-    closures = _read(report_dir(target) / CLOSURES, {}) or {}
+    closures = closures_override if closures_override is not None else (_read(report_dir(target) / CLOSURES, {}) or {})
     scopes = rule_scopes()
-    index = _read(report_dir(target) / INDEX, {}) or {}
+    index = index_override if index_override is not None else (_read(report_dir(target) / INDEX, {}) or {})
     edges = index.get("typed_relationships", [])
     known_edges = {r["id"] for r in edges}
     candidates = index.get("rule_candidates") or {}
-    current = set((_read(report_dir(target) / SNAPSHOT, {}) or {}).get("source_hashes", {}))
+    snapshot = snapshot_override if snapshot_override is not None else (_read(report_dir(target) / SNAPSHOT, {}) or {})
+    current = set(snapshot.get("source_hashes", {}))
     errors = []
     from cross_file_evidence import trace_errors
-    snapshot = _read(report_dir(target) / SNAPSHOT, {}) or {}
     q2 = index.get("cross_file_evidence_version") == 1
     for check in assessment.get("checks", []):
         rid = check.get("id")
