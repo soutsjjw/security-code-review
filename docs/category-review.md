@@ -72,6 +72,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" -
 - 分類 `--stage`／`--integrate`／`--begin-second-pass` 每次限一個分類，須分別處理 AC、AU。單一批次 JSON 只包含該分類的 `checks`、`file_reviews`、`findings`、`closures`、`control_verifications`、`decision_audits` 或 `adversarial_reviews`。根據當次真實工作填寫，不得預填或偽造結論。
 - 第一輪與第二輪都須實際完成；`review_queue.py` 在分類模式下**始終**回傳 `ready_for_report=false`，這是保護正式報告的設計。**分類完成條件**為每一分類的 `safety_valid=true`、`safety_integrity_errors=[]`、`remaining_ids=[]`、`second_pass.pending_count=0`，且分類 `complete_review.py` 和 `validate_report.py` 均成功，不能以 `ready_for_report=true` 判斷部分模式。
 - 分類 `--validate` 尚有未解證據時會退出碼非 0；應讀取實際錯誤繼續查核，**不能因驗證失敗而填假資料**。某分類未完成時，不產生該分類的成功報告。
+- 若顯示 `integrity-pending.json` 未完成，先保留 staged、Finding 與 Journal，核對來源與證據後，對**該單一分類**執行 `review_queue.py --target "<TARGET_ROOT>" --categories AC --recover-integrity`。復原會先比對原始／目標 SHA256、Journal、staged 及來源版本；第三種內容或不明中斷一律拒絕，不得刪除 pending 強行續跑。詳細說明見 [分類證據交易完整性](category-integrity.md)。
 - 來源檔或 Git Revision 異動會拒絕重用先前快照／已完成規則；不得刪除 Finding 或強行重設以繞過。須核對變更與原有資料後採取明確的重新審查／重建策略，不能假稱已有自動修復或跨版本自動續用功能。
 - 分類報告的多檔案發布具備可捕獲寫入失敗時的回滾機制，但**不是作業系統級交易**；若強制終止、斷電、發布鎖或備份異常，應先核對資料，不可刪除可能仍須復原的檔案。
 - 同一類別重新執行須沿用其已保存進度與 Finding，來源版本有效時不重置。只有明確未指定 `--categories` 時，才採完整 70 項正式流程。
