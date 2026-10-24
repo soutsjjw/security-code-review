@@ -47,6 +47,8 @@ def validate_catalog(ruleset: Any) -> list[dict[str, Any]]:
     """分類選擇只能來自原有完整 70 項規則主檔，不得使用替代子集。"""
     if not isinstance(ruleset, dict) or not isinstance(ruleset.get("rules"), list):
         raise ScopeError("規則主檔缺少 rules 陣列")
+    if ruleset.get("ruleset_version") != "2.0.0":
+        raise ScopeError("規則主檔版本必須為正式版 2.0.0")
     rules = ruleset["rules"]
     if len(rules) != 70:
         raise ScopeError("規則主檔必須包含全部 70 項")
@@ -66,6 +68,10 @@ def validate_catalog(ruleset: Any) -> list[dict[str, Any]]:
         counts[cat] += 1
     if dict(counts) != CATEGORY_COUNTS:
         raise ScopeError(f"規則分類數量與正式 70 項不符：{dict(counts)}")
+    expected_ids = {f"{cat}-{i:02d}" for cat, count in CATEGORY_COUNTS.items()
+                    for i in range(1, count + 1)}
+    if ids != expected_ids:
+        raise ScopeError("規則 ID 與正式 70 項清單不一致")
     return rules
 
 
@@ -135,10 +141,13 @@ def build_scope_plan(target: Path, categories: tuple[str, ...] | None,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="預先驗證分類與輸出路徑（唯讀，不開始資安審查）")
     parser.add_argument("--target", type=Path, default=Path.cwd(), help="受測專案根目錄")
-    parser.add_argument("--categories", metavar="AC,AU", help="指定 1～10 個分類；不指定則為完整 70 項")
+    parser.add_argument("--categories", action="append", metavar="AC,AU",
+                        help="指定 1～10 個分類；不指定則為完整 70 項")
     args = parser.parse_args(argv)
+    if args.categories and len(args.categories) != 1:
+        parser.error("--categories 只能指定一次，請用逗號分隔多個分類")
     try:
-        categories = parse_categories(args.categories)
+        categories = parse_categories(args.categories[0] if args.categories else None)
         plan = build_scope_plan(args.target, categories, load_catalog())
     except ScopeError as exc:
         parser.error(str(exc))
