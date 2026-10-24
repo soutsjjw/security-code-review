@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from scope_inventory import _default_rule, relative_path
-from file_review_integrity import verified_file_rule_reviews
+from file_review_integrity import CATEGORIES, verified_file_rule_reviews
 
 # 只納入可閱讀的程式碼、程式設定及專案檔；不把圖片／DLL／文件當原始碼。
 # 尤其 .cs 必須全數涵蓋，不能只以抽樣或規則總數代替。
@@ -30,7 +30,9 @@ SOURCE_FILENAMES = frozenset({
 })
 
 
-def build_source_coverage(assessment: dict[str, Any], source_root: Path, *, ignored_artifacts: Iterable[Path | None] = ()) -> dict[str, Any]:
+def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
+                          ignored_artifacts: Iterable[Path | None] = (),
+                          selected_categories: tuple[str, ...] = CATEGORIES) -> dict[str, Any]:
     """以實際工作目錄計算應審查檔案，僅 completed 的真實路徑算已審查。
 
     此函式驗證紀錄的覆蓋性，但不能代替 Agent 真正閱讀程式碼。
@@ -69,7 +71,8 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *, igno
                 expected.add(rel)
 
     # 只計入已驗證逐檔 10 類規則篩選、SHA256 和行號佐證的來源。
-    verified, integrity_errors = verified_file_rule_reviews(assessment, root, expected)
+    verified, integrity_errors = verified_file_rule_reviews(
+        assessment, root, expected, selected_categories=selected_categories)
     inspected = set(verified)
 
     missing = sorted(expected - inspected)
