@@ -14,7 +14,7 @@
 
 ## Q1：全 70 項的外部缺口決定性驗證
 
-新版 `analysis_prepare.py --mode full` 產出的結構索引包含 `decision_quality_version=1`。在保留 P3 原有驗證之外，**每個完成的 Review** 都必須說明外部資料如何真正改變判定，不因 AC-01 等個別規則而特殊放行。
+新版 `analysis_prepare.py --mode full` 產出的結構索引包含 `decision_quality_version=1`。在保留既有判定驗證之外，**每個完成的 Review** 都必須說明外部資料如何真正改變判定，不因 AC-01 等個別規則而特殊放行。
 
 - `external_gap.artifact` 必須是具體工件；禁止 `AC-01-deployment-or-policy-evidence`、`相關文件`、`<policy>` 等佔位符。純粹欠缺動態測試仍不能構成 Review。
 - `external_gap.evidence_owner` 記錄可向何單位或平台取得證據，不得自行臆造已持有的文件。
@@ -52,7 +52,7 @@
 
 **特別注意 AC-01：** 規則的基本 `pass_condition` 是「有效期限由伺服端驗證且逾期不可使用」；不得把「缺少絕對期限／組織政策」當成自動 Fail 或 Review。要先區分伺服端基本期限、前端閒置倒數及正式政策要求，確認每條控制是否真的有效；若控制有明確弱點，優先 Fail。
 
-既有 `decision_quality_version` 缺席的結構索引保留原有 P3 契約，不會靜默重寫報告。**重新掃描以使用 Q1 時**，須執行 `analysis_prepare.py --mode full`、更新來源快照並依法重審已完成判定；新版守門可能拒絕尚未補齊 Q1 證據的舊 Review，但不會刪除 Finding 或自動改判。
+既有 `decision_quality_version` 缺席的結構索引保留原有判定裁決契約，不會靜默重寫報告。**重新掃描以使用 Q1 時**，須執行 `analysis_prepare.py --mode full`、更新來源快照並依法重審已完成判定；新版守門可能拒絕尚未補齊 Q1 證據的舊 Review，但不會刪除 Finding 或自動改判。
 
 ## 批次判定證據格式
 
