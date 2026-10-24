@@ -115,6 +115,28 @@ class PublicationAcceptanceTests(unittest.TestCase):
         self.assertEqual(self._saved(), old)
         self._formal_unchanged()
 
+    def test_source_changed_during_commit_rolls_back_both_categories(self):
+        self._publish()
+        before = self._saved()
+        from partial_report_publish import _replace as original_replace
+        replacements = 0
+
+        def replace_and_mutate(source, destination):
+            nonlocal replacements
+            original_replace(source, destination)
+            replacements += 1
+            if replacements == 2:
+                src = self.fixture.source
+                src.write_text(src.read_text("utf-8").replace("a + b", "a - b"),
+                               encoding="utf-8")
+
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety), \
+             patch("partial_report_publish._replace", side_effect=replace_and_mutate):
+            with self.assertRaises(PublicationError):
+                complete(self.root, self.categories, self.catalog)
+        self.assertEqual(self._saved(), before)
+        self._formal_unchanged()
+
     def test_stale_lock_refuses_overwriting_and_is_not_removed_by_other_process(self):
         self._publish()
         old = self._saved()
