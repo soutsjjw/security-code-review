@@ -278,7 +278,7 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     return pending
 
 
-def integrate(root: Path, category: str, catalog: dict) -> dict:
+def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool = False) -> dict:
     current = read_category(root, category, catalog)
     directory = _category_dir(root, category)
     pending = _artifact(root, category, STAGED_FILE)
@@ -300,11 +300,36 @@ def integrate(root: Path, category: str, catalog: dict) -> dict:
         expected_sha.get(key) != (_digest(actual_evidence[key]) if evidence_paths[key].is_file() else None)
         for key in EVIDENCE_FILES):
         raise ScopeError("分類安全證據已由其他工作異動，拒絕覆寫 staged 交易")
+    from partial_review_safety import BASELINE
+    from adversarial_recheck import digest as rule_digest
+    baseline_path = _artifact(root, category, BASELINE)
+    baseline = _load(baseline_path) if baseline_path.is_file() else None
+    revisions = {}
+    for check in payload.get("checks", []):
+        old = next(item for item in current["checks"] if item["id"] == check["id"])
+        if (old.get("execution") or {}).get("state") != "completed" or check == old:
+            continue
+        rid = check["id"]
+        first = (baseline or {}).get("checks", {}).get(rid)
+        reviewed = payload.get("adversarial_reviews", {}).get(rid)
+        if (not allow_revision or not isinstance(first, dict)
+                or not isinstance(reviewed, dict) or reviewed.get("outcome") != "corrected"
+                or reviewed.get("baseline_digest") != first.get("digest")
+                or reviewed.get("final_digest") != rule_digest(check)
+                or reviewed.get("final_status") != check.get("status")
+                or not reviewed.get("contradictions")
+                or (check.get("execution") or {}).get("state") != "completed"):
+            raise ScopeError(f"{rid}: 修正 completed 判定須 --allow-revision 與第二輪具體矛盾裁決")
+        if old.get("status") == "fail" and check.get("status") != "fail":
+            raise ScopeError(f"{rid}: 已確認 Fail 不得藉第二輪修訂降級")
+        revisions[rid] = old
+    if allow_revision and not revisions:
+        raise ScopeError("--allow-revision 必須包含實際改判及裁決，不得用於一般覆寫")
     merged_evidence = {key: dict(actual_evidence[key]) for key in EVIDENCE_FILES}
     for key in EVIDENCE_KEYS & set(payload):
         for rid, item in payload[key].items():
             previous = merged_evidence[key].get(rid)
-            if previous is not None and previous != item:
+            if previous is not None and previous != item and (not allow_revision or rid not in revisions):
                 raise ScopeError(f"{key}: {rid} 既有安全證據不得靜默覆寫")
             merged_evidence[key][rid] = item
 
@@ -313,7 +338,7 @@ def integrate(root: Path, category: str, catalog: dict) -> dict:
     for check in payload.get("checks", []):
         previous = by_id[check["id"]]
         if (previous["execution"]["state"] == "completed"
-                and check != previous):
+                and check != previous and check["id"] not in revisions):
             raise ScopeError(f"{check['id']}: 已完成判定不可靜默覆寫；需先人工複核")
         by_id[check["id"]] = check
     merged["checks"] = [by_id[r["id"]] for r in _category_rules(catalog, category)]
@@ -321,11 +346,35 @@ def integrate(root: Path, category: str, catalog: dict) -> dict:
         existing = {r[identity]: r for r in merged[key]}
         for row in payload.get(key, []):
             if row[identity] in existing and existing[row[identity]] != row:
-                raise ScopeError(f"{key}: {row[identity]} 已存在不同證據，拒絕覆寫")
+                old_row = existing[row[identity]]
+                old_rules = {i.get("rule_id") for i in old_row.get("rule_reviews", []) if isinstance(i, dict)}
+                new_rules = {i.get("rule_id") for i in row.get("rule_reviews", []) if isinstance(i, dict)}
+                if (key != "file_reviews" or not allow_revision or not revisions
+                        or not (old_rules | new_rules) <= set(revisions)
+                        or old_row.get("sha256") != row.get("sha256")):
+                    raise ScopeError(f"{key}: {row[identity]} 已存在不同證據，拒絕覆寫")
             existing[row[identity]] = row
         merged[key] = list(existing.values())
     _assert_assessment(merged, category, catalog)
     # 未完成逐檔核驗的資料可以分批保存，但不可因此輸出任何完成報告。
+    if revisions:
+        from partial_review_safety import HISTORY
+        archive = {
+            "category": category, "source_snapshot_sha256": current["source_snapshot_sha256"],
+            "previous_checks": revisions,
+            "previous_safety_records": {
+                key: {rid: existing[rid] for rid in revisions if rid in existing}
+                for key, existing in actual_evidence.items()
+            },
+            "previous_file_reviews": {r["path"]: r for r in current["file_reviews"]},
+        }
+        digest_name = _digest(archive)[:32] + ".json"
+        archive_path = _artifact(root, category, HISTORY / digest_name)
+        if archive_path.exists():
+            if _load(archive_path) != archive:
+                raise ScopeError("第二輪修訂歷史紀錄存在衝突")
+        else:
+            _atomic(archive_path, archive)
     for key in EVIDENCE_KEYS & set(payload):
         _atomic(evidence_paths[key], merged_evidence[key])
     _atomic(directory / "assessment.json", merged)
@@ -334,6 +383,7 @@ def integrate(root: Path, category: str, catalog: dict) -> dict:
             "saved_files": len(payload.get("file_reviews", [])),
             "saved_findings": len(payload.get("findings", [])),
             "saved_safety_records": {key: len(payload[key]) for key in EVIDENCE_KEYS & set(payload)},
+            "corrected_rule_ids": sorted(revisions),
             "ready_for_report": False}
 
 
