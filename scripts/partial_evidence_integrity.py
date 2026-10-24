@@ -139,6 +139,51 @@ def errors(root: Path, category: str) -> list[str]:
         return [f"{category}: 完整性驗證失敗：{exc}"]
 
 
+
+def gate_errors(root: Path, category: str, *, require_seal: bool = False) -> list[str]:
+    """分類審查完整性入口：全新待審查資料可未封存，既有證據不得無封存。
+
+    報告生成／驗證須 require_seal=True；一般佇列或安全檢驗允許原始
+    initialize() 產生的 pending 模板，待 stage() 才自動初始封存。
+    """
+    try:
+        manifest = _artifact(root, category, MANIFEST)
+        pending = _artifact(root, category, PENDING)
+        if manifest.exists() or pending.exists():
+            return errors(root, category)
+        missing = f"{category}: 已有分類審查資料但缺少 integrity-manifest.json；禁止將未封存證據視為可信"
+        if require_seal:
+            return [missing]
+        directory = _category_dir(root, category)
+        if not directory.exists():
+            return []
+        # 即使 Journal 只有空目錄，也代表可能有尚未完成的封存。
+        for path in (JOURNAL, STAGED, HISTORY, LOCK, *TRACKED[3:]):
+            if _artifact(root, category, path).exists():
+                return [missing]
+        if (_artifact(root, category, "report.json").exists()
+                or any(directory.glob("CodeReview_*.html"))):
+            return [missing]
+        assessment_path = _artifact(root, category, "assessment.json")
+        project_path = _artifact(root, category, "project.json")
+        snapshot_path = _artifact(root, category, "analysis/source-snapshot.json")
+        if not (assessment_path.exists() or project_path.exists() or snapshot_path.exists()):
+            return []
+        if not all(p.is_file() for p in (assessment_path, project_path, snapshot_path)):
+            return [f"{category}: 分類初始化資料不完整且缺少 Manifest；拒絕沿用"]
+        # 只能允許真正尚未審查的初始模板，不能只以 execution.state=pending
+        # 判斷：經改寫的 reason、evidence 或額外欄位同樣需要完整性封存。
+        from partial_review import _pending_check, _category_rules
+        catalog = load_catalog()
+        assessment = read_category(root, category, catalog)
+        pristine = [_pending_check(rule) for rule in _category_rules(catalog, category)]
+        if (assessment["checks"] != pristine or assessment["findings"]
+                or assessment["file_reviews"]):
+            return [missing]
+        return []
+    except (OSError, ValueError, TypeError, KeyError, ScopeError) as exc:
+        return [f"{category}: 未封存分類狀態無法安全驗證：{exc}"]
+
 def _errors(root: Path, category: str) -> list[str]:
     _category_dir(root, category)
     manifest_path = _artifact(root, category, MANIFEST)
