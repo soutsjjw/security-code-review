@@ -175,6 +175,7 @@ class CrossFileEvidenceTests(unittest.TestCase):
         self.index["typed_relationships"] = []
         self.index["cross_file_call_hints"] = {}
         self.closure["examined_paths"] = ["Service.cs"]
+        self.closure["single_file_justification"] = "已查詢入口、服務註冊及執行位置，並排除必須跨檔控制的情況"
         self.closure["examined_relationship_ids"] = []
         self.closure["callsite_reviews"] = {}
         self.closure["control_trace"] = {
