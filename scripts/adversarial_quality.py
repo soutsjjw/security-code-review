@@ -87,6 +87,8 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
     known = set(snapshot["source_hashes"])
     errors: list[str] = []
     repeated: dict[tuple[str, str], set[str]] = defaultdict(set)
+    reused_proofs: dict[tuple[str, int, int], set[str]] = defaultdict(set)
+    reuse_justifications: dict[str, str] = {}
 
     for check in checks:
         if not isinstance(check, dict):
@@ -125,6 +127,10 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
             proof = review.get("verification_evidence")
             errors.extend(_evidence_errors(target, proof, rid, "Q4 重查來源", inspected,
                                            known, status, audit, formal))
+            location = _location(proof)
+            if location is not None:
+                reused_proofs[location].add(rid)
+                reuse_justifications[rid] = record.get("cross_rule_proof_justification", "")
         hypotheses = record.get("hypotheses")
         if not isinstance(hypotheses, list):
             continue
@@ -168,8 +174,9 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
             # 一條反例應同時記錄「欲攻擊的地方」及「重新閱讀的控制／分支」。
             if (_location(evidence) is not None and _location(proof) is not None
                     and _location(evidence) == _location(proof)
-                    and not isinstance(item.get("same_line_explanation"), str)):
-                errors.append(f"{rid}: 第二輪 {label} 重查與攻擊證據同一行，須解釋該行如何同時證實兩者")
+                    and (not isinstance(item.get("same_line_explanation"), str)
+                         or len(item["same_line_explanation"].strip()) < 30)):
+                errors.append(f"{rid}: 第二輪 {label} 重查與攻擊證據同一行，須具體解釋該行如何同時證實兩者")
         if rid in HIGH_RISK_RULES and len(vectors) < 2:
             errors.append(f"{rid}: 第二輪 Q4 高風險規則須有至少兩種不同攻擊向量")
         if len(surfaces) < min(2, len(hypotheses)) and len(hypotheses) > 1:
@@ -200,6 +207,19 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                                                rid, f"矛盾[{pos}] 原先漏判成因", 30))
                     errors.extend(_text_issues(contradiction.get("corrective_action"),
                                                rid, f"矛盾[{pos}] 修訂理由", 30))
+    for location, rule_ids in reused_proofs.items():
+        if len(rule_ids) >= 8:
+            insufficient = [
+                rid for rid in rule_ids
+                if not isinstance(reuse_justifications.get(rid), str)
+                or len(reuse_justifications[rid].strip()) < 35
+            ]
+            if insufficient:
+                errors.append(
+                    f"第二輪 Q4: {len(rule_ids)} 項規則的重查證據都指向"
+                    f" {location[0]}:{location[1]}，需逐規則說明這個共用來源"
+                    "與控制要求的真實關聯"
+                )
     # 以規則編號、檔名、數字正規化後跨規則比對；避免 70 項套入同一個攻擊者模板。
     for (field, pattern), rule_ids in repeated.items():
         if len(rule_ids) >= 5 and len(pattern) >= 24:
