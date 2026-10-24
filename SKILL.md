@@ -69,11 +69,11 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 以 `review_queue.py --detail-id <RULE_ID>` 取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [待確認判定指引](docs/review-decision-adjudication.md)。
 
-## Q1 判定品質守門（全部 70 項）
+## 判定品質守門（全部 70 項）
 
 對任何 `completed + review`，先判定核心程式碼控制是否確實失效、成立或仍未追查。不得用 `RULE-ID-deployment-or-policy-evidence` 類佔位符代替外部資料；需記錄具體工件、責任單位及外部條件成立／不成立時的**不同判定**。若僅是假設可能存在未知組織政策，不得阻擋已能由程式碼判定的規則；確有政策邊界時，須記錄可核對的政策識別與本系統適用依據。安全控制缺陷優先 `fail`＋Finding，不因還缺政策或測試就保留 `review`。
 
-Q1 新增 `decision_quality_version=1` 與外部缺口的結構化判定分支；沿用既有 `assessment.json` 與來源快照、整合及第二輪流程，不會自動更改舊結果。完整格式與遷移方式見 [待確認判定指引](docs/review-decision-adjudication.md)。
+此功能新增 `decision_quality_version=1` 與外部缺口的結構化判定分支；沿用既有 `assessment.json` 與來源快照、整合及第二輪流程，不會自動更改舊結果。完整格式與遷移方式見 [待確認判定指引](docs/review-decision-adjudication.md)。
 
 ## 單代理第二輪反向複核與矛盾裁決（必須執行）
 
