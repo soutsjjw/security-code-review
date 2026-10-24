@@ -5,6 +5,7 @@ import contextlib
 import copy
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -29,6 +30,11 @@ class QualityAcceptanceTests(unittest.TestCase):
         self.catalog = load_catalog()
         materialize(self.root, self.catalog)
         self.cases = self.catalog["cases"]
+        # 測試只模擬正式報告驗證器成功，不能聲稱 Agent 真實通過。
+        validator = patch("quality_acceptance.subprocess.run",
+                          return_value=subprocess.CompletedProcess([], 0, "PASS", ""))
+        validator.start()
+        self.addCleanup(validator.stop)
 
     def _create_artifacts(self, case, *, completed=True):
         folder = self.root / case["id"] / REPORT
@@ -57,7 +63,8 @@ class QualityAcceptanceTests(unittest.TestCase):
                          if case["expected_finding"] else []),
         }
         (folder / "assessment.json").write_text(json.dumps(assessment), encoding="utf-8")
-        (folder / "report.json").write_text("{}\n", encoding="utf-8")
+        (folder / "report.json").write_text(json.dumps({"assessment": assessment}),
+                                                encoding="utf-8")
         (folder / "CodeReview_20261024.html").write_text("<!doctype html>", encoding="utf-8")
         return folder, check
 
@@ -109,7 +116,7 @@ class QualityAcceptanceTests(unittest.TestCase):
             (folder / "report.json").unlink()
             prediction, problems = verify_review(case, self.root / case["id"], [])
             self.assertIsNone(prediction)
-            self.assertIn("正式 report.json", str(problems))
+            self.assertIn("report.json", str(problems))
 
     def test_only_real_safety_queue_can_validate_complete_project(self):
         case = self.cases[0]
@@ -147,6 +154,8 @@ class QualityAcceptanceTests(unittest.TestCase):
             assessment["checks"][0]["finding_ids"] = ["F-001"]
             assessment["findings"] = [{"id": "F-001", "check_ids": [case["rule_id"]]}]
             (folder / "assessment.json").write_text(json.dumps(assessment), encoding="utf-8")
+            (folder / "report.json").write_text(json.dumps({"assessment": assessment}),
+                                                  encoding="utf-8")
             current = measure(self.root, previous=previous)
         self.assertFalse(current["quality_gate_passed"])
         self.assertEqual(current["score"]["false_positive_fail"], 1)
@@ -168,6 +177,23 @@ class QualityAcceptanceTests(unittest.TestCase):
                     previous["cases"] = previous["cases"][:1]
                 with self.assertRaises(ValueError):
                     compare_runs(current, previous)
+
+    def test_report_must_match_assessment_and_formal_validator_must_succeed(self):
+        case = self.cases[0]
+        folder, _ = self._create_artifacts(case)
+        with patch("quality_acceptance.build_queue", side_effect=self._mock_ready_queue):
+            (folder / "report.json").write_text("{}", encoding="utf-8")
+            prediction, errors = verify_review(case, self.root / case["id"], [])
+            self.assertIsNone(prediction)
+            self.assertIn("assessment 與目前審查資料不一致", str(errors))
+            original = json.loads((folder / "assessment.json").read_text("utf-8"))
+            (folder / "report.json").write_text(
+                json.dumps({"assessment": original}), encoding="utf-8")
+            with patch("quality_acceptance.subprocess.run",
+                       return_value=subprocess.CompletedProcess([], 1, "", "invalid HTML")):
+                prediction, errors = verify_review(case, self.root / case["id"], [])
+                self.assertIsNone(prediction)
+                self.assertIn("Schema／HTML／來源驗證未通過", str(errors))
 
     def test_never_estimate_tokens_without_actual_executor_records(self):
         ids = [case["id"] for case in self.cases]
