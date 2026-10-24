@@ -1,5 +1,6 @@
 """完整／分類審查選擇與輸出路徑的唯讀契約測試。"""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -82,7 +83,15 @@ class ReviewScopeTests(unittest.TestCase):
         for corrupt in [rules[:-1], rules[:-1] + [dict(rules[0])],
                         rules[:-1] + [dict(rules[-1], category="AC")]]:
             with self.subTest(corrupt=corrupt[-1].get("id")), self.assertRaises(ScopeError):
-                validate_catalog({"rules": corrupt})
+                validate_catalog({"ruleset_version": "2.0.0", "rules": corrupt})
+
+    def test_wrong_catalog_id_and_version_fail_closed(self):
+        rules = [dict(rule) for rule in self.catalog["rules"]]
+        rules[0]["id"] = "AC-99"
+        with self.assertRaises(ScopeError):
+            validate_catalog({"ruleset_version": "2.0.0", "rules": rules})
+        with self.assertRaises(ScopeError):
+            validate_catalog({**self.catalog, "ruleset_version": "invalid"})
 
     def test_no_output_directories_or_existing_artifacts_changed(self):
         original = self.target / "reports/security-code-review/assessment.json"
@@ -97,13 +106,19 @@ class ReviewScopeTests(unittest.TestCase):
     def test_cli_json_plan_and_invalid_input(self):
         script = ROOT / "scripts/review_scope.py"
         command = [sys.executable, str(script), "--target", str(self.target), "--categories", "AC,AU"]
-        valid = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=False)
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        valid = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
+                               env=env, check=False)
         self.assertEqual(valid.returncode, 0, valid.stderr)
         self.assertEqual(json.loads(valid.stdout)["selected_rule_count"], 18)
         invalid = subprocess.run([*command[:-1], "AC,INVALID"], capture_output=True,
-                                 text=True, encoding="utf-8", check=False)
+                                 text=True, encoding="utf-8", env=env, check=False)
         self.assertNotEqual(invalid.returncode, 0)
         self.assertIn("未知分類", invalid.stderr)
+        repeated = subprocess.run([*command, "--categories", "DP"], capture_output=True,
+                                  text=True, encoding="utf-8", env=env, check=False)
+        self.assertNotEqual(repeated.returncode, 0)
+        self.assertIn("只能指定一次", repeated.stderr)
         self.assertFalse((self.target / "reports").exists())
 
     def test_missing_target_rejected(self):
