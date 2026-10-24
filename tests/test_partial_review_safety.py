@@ -148,12 +148,14 @@ class PartialSafetyTests(unittest.TestCase):
         }})
         corrected = json.loads(json.dumps(first))
         corrected["status"] = "fail"
+        corrected["finding_ids"] = ["F-01"]
         corrected["decision_reason"] = "第二輪確認授權檢查可能被直接呼叫路徑繞過，已修訂原判定。"
         record = {"outcome": "corrected", "baseline_digest": digest(first),
                   "final_digest": digest(corrected), "final_status": "fail",
                   "contradictions": [{"resolution": "重新閱讀執行路徑後發現已證實的授權缺失"}]}
         path = _category_dir(self.root, "AC") / "payload.json"
         path.write_text(json.dumps({"checks": [corrected],
+                                    "findings": [{"id": "F-01", "check_ids": ["AC-01"]}],
                                     "adversarial_reviews": {"AC-01": record}}), encoding="utf-8")
         with patch("partial_review.completion_errors", return_value=[]), \
              patch("partial_review.decision_quality_errors", return_value=[]):
