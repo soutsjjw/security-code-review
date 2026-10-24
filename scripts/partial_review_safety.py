@@ -19,9 +19,10 @@ from control_effectiveness import verification_errors, snapshot_fingerprint
 from decision_adjudication import adjudication_errors
 from adversarial_recheck import second_pass_errors, digest
 from partial_review import (_artifact, _category_dir, _category_rules, _load, _atomic,
-                            _snapshot, read_category, STAGED_FILE)
+                            _digest, _snapshot, read_category, STAGED_FILE)
 
 STRUCTURE = PARTIAL_ROOT / "_shared/analysis/structure-index.json"
+INDEX_SEAL = PARTIAL_ROOT / "_shared/analysis/index-integrity.json"
 BASELINE = Path("analysis/first-pass-baseline.json")
 CLOSURES = Path("analysis/rule-closures.json")
 VERIFICATIONS = Path("analysis/control-verifications.json")
@@ -64,14 +65,21 @@ def prepare_index(root: Path, catalog: dict) -> dict:
     if not detection["supported"] or any(path.endswith(".vue") for path in files):
         raise ScopeError("分類結構索引僅支援 .NET Core／現代 .NET；不允許略過不支援框架")
     index_path = _shared_path(root)
+    seal = root / INDEX_SEAL
     if index_path.is_file():
         old = _load(index_path)
+        seal_obj = _load(seal) if seal.is_file() else None
         if (isinstance(old, dict) and old.get("source_hashes") == files
                 and old.get("git_revision") == snapshot["git_revision"]
-                and old.get("schema_version") == INDEX_VERSION):
+                and old.get("schema_version") == INDEX_VERSION
+                and isinstance(seal_obj, dict)
+                and seal_obj.get("index_sha256") == _digest(old)
+                and seal_obj.get("source_snapshot_sha256") == snapshot["fingerprint"]):
             return {"index_path": STRUCTURE.as_posix(), "reused": True,
                     "source_file_count": len(files), "complete_security_review": False}
         raise ScopeError("共享索引的來源版本已變更，拒絕隱性覆寫；請先核對並重新開始受影響審查")
+    if seal.exists():
+        raise ScopeError("共用索引驗證紀錄存在，但索引缺失；拒絕覆寫")
     codegraph, roslyn = probe_codegraph(root), probe_roslyn()
     csharp = sorted(p for p in files if p.endswith(".cs"))
     parsed, errors = _run_roslyn(root, csharp, roslyn)
@@ -99,6 +107,8 @@ def prepare_index(root: Path, catalog: dict) -> dict:
         "warning": "僅為來源結構候選；不得因此完成任何安全規則。",
     }
     _atomic(index_path, payload)
+    _atomic(seal, {"index_sha256": _digest(payload),
+                   "source_snapshot_sha256": snapshot["fingerprint"]})
     return {"index_path": STRUCTURE.as_posix(), "reused": False,
             "source_file_count": len(files), "roslyn_errors": errors[:10],
             "complete_security_review": False}
@@ -119,7 +129,12 @@ def _index(root: Path, assessment: dict) -> tuple[dict, list[str]]:
     if not path.is_file():
         return {}, ["尚未建立分類共用的來源結構索引；先執行 --prepare"]
     obj = _load(path)
+    seal_path = root / INDEX_SEAL
+    seal = _load(seal_path) if seal_path.is_file() else None
     snap = _snapshot(root)
+    if (not isinstance(seal, dict) or seal.get("index_sha256") != _digest(obj)
+            or seal.get("source_snapshot_sha256") != snap["fingerprint"]):
+        return {}, ["共用結構索引完整性校驗失敗，拒絕未經驗證的候選關聯資料"]
     if (not isinstance(obj, dict) or obj.get("source_hashes") != snap["source_hashes"]
             or obj.get("git_revision") != snap["git_revision"]):
         return {}, ["共用結構索引與 Git／來源快照不一致，拒絕以失效候選驗證安全結論"]
