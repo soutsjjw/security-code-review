@@ -157,12 +157,13 @@ class PartialSafetyTests(unittest.TestCase):
         path.write_text(json.dumps({"checks": [corrected],
                                     "findings": [{"id": "F-01", "check_ids": ["AC-01"]}],
                                     "adversarial_reviews": {"AC-01": record}}), encoding="utf-8")
+        # 僅隔離測試修訂授權守門；完整證據品質由獨立驗證器測試。
         with patch("partial_review.completion_errors", return_value=[]), \
              patch("partial_review.decision_quality_errors", return_value=[]):
             stage(self.root, "AC", path, self.catalog)
-        with self.assertRaises(ScopeError):
-            integrate(self.root, "AC", self.catalog)
-        result = integrate(self.root, "AC", self.catalog, allow_revision=True)
+            with self.assertRaises(ScopeError):
+                integrate(self.root, "AC", self.catalog)
+            result = integrate(self.root, "AC", self.catalog, allow_revision=True)
         self.assertEqual(result["corrected_rule_ids"], ["AC-01"])
         self.assertEqual(read_category(self.root, "AC", self.catalog)["checks"][0]["status"], "fail")
         history = list((_category_dir(self.root, "AC") /
@@ -195,8 +196,8 @@ class PartialSafetyTests(unittest.TestCase):
         with patch("partial_review.completion_errors", return_value=[]), \
              patch("partial_review.decision_quality_errors", return_value=[]):
             stage(self.root, "AC", path, self.catalog)
-        with self.assertRaises(ScopeError):
-            integrate(self.root, "AC", self.catalog, allow_revision=True)
+            with self.assertRaises(ScopeError):
+                integrate(self.root, "AC", self.catalog, allow_revision=True)
         self.assertEqual(read_category(self.root, "AC", self.catalog)["checks"][0]["status"], "fail")
 
     def test_cli_prepare_validate_do_not_enable_partial_report(self):
