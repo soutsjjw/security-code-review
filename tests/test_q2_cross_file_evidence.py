@@ -186,6 +186,21 @@ class CrossFileEvidenceTests(unittest.TestCase):
         }
         self.assertEqual(self.errors(), [])
 
+    def test_malformed_trace_inputs_return_errors_instead_of_crashing(self):
+        cases = [
+            ("node_role", lambda: self.closure["control_trace"]["nodes"][0].update(
+                role=["entry"])),
+            ("edge_id", lambda: self.closure["control_trace"]["relationships"][0].update(
+                relationship_id=["edge-1"])),
+            ("boundary", lambda: self.closure["control_trace"].update(boundary=["connected"])),
+        ]
+        for name, mutate in cases:
+            with self.subTest(case=name):
+                original = copy.deepcopy(self.closure)
+                mutate()
+                self.assertTrue(self.errors())
+                self.closure = original
+
     def test_old_index_does_not_reinterpret_existing_review(self):
         self.index.pop("cross_file_evidence_version")
         self.closure.pop("control_trace")
