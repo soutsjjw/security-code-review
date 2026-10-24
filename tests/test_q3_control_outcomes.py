@@ -77,16 +77,10 @@ class ControlOutcomeTests(unittest.TestCase):
         return check, record
 
     def setup_review(self):
-        safe = self.catalog["session-expiry-safe"]
-        (self.root / "SessionValidator.cs").write_text(
-            safe["files"]["SessionValidator.cs"], encoding="utf-8")
-        from review_safety import refresh_snapshot
-        refresh_snapshot(self.root)
-        with patch("analysis_prepare.probe_roslyn", return_value={"available": False}), \
-             patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
-            prepare(self.root, "full")
-        self.snapshot = json.loads((report_dir(self.root) / "analysis/review-snapshot.json")
-                                   .read_text(encoding="utf-8"))
+        self.root = self.root / "review-case"
+        self.root.mkdir()
+        self.prepare_case("session-expiry-safe")
+        safe = self.case
         entry = self.loc("SessionEndpoint.cs", "_validator.IsActive(session, now)")
         control = self.loc("SessionValidator.cs", "session.ExpiresAt > now")
         operation = self.loc("SessionEndpoint.cs", '"private-data"')
