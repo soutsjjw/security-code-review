@@ -62,7 +62,7 @@ class PartialReviewTests(unittest.TestCase):
         initialize(self.root, ("AC", "AU"), self.catalog)
         pending = read_category(self.root, "AC", self.catalog)["checks"][0]
         pending["execution"]["summary"] = "已盤點 AC-01 相關候選，但尚未完成來源取證。"
-        path = self.root / "payload.json"
+        path = self.root / "reports/security-code-review/partial/AC/payload.json"
         path.write_text(json.dumps({"checks": [pending]}), encoding="utf-8")
         staged = stage(self.root, "AC", path, self.catalog)
         with self.assertRaises(ScopeError):
@@ -78,7 +78,7 @@ class PartialReviewTests(unittest.TestCase):
 
     def test_payload_rejects_other_categories_and_findings(self):
         initialize(self.root, ("AC",), self.catalog)
-        path = self.root / "payload.json"
+        path = self.root / "reports/security-code-review/partial/AC/payload.json"
         for payload in (
             {"checks": [{"id": "AU-01", "status": "pass", "execution": {"state": "pending"}}]},
             {"findings": [{"id": "F-01", "check_ids": ["AU-01"]}]},
@@ -96,7 +96,7 @@ class PartialReviewTests(unittest.TestCase):
     def test_source_modified_before_resume_or_integrate_blocks(self):
         initialize(self.root, ("AC",), self.catalog)
         ac = read_category(self.root, "AC", self.catalog)
-        path = self.root / "payload.json"
+        path = self.root / "reports/security-code-review/partial/AC/payload.json"
         path.write_text(json.dumps({"checks": [ac["checks"][0]]}), encoding="utf-8")
         stage(self.root, "AC", path, self.catalog)
         (self.root / "Safe.cs").write_text("public class Altered { }\n", encoding="utf-8")
@@ -109,7 +109,7 @@ class PartialReviewTests(unittest.TestCase):
     def test_progress_conflict_blocks_changed_base(self):
         initialize(self.root, ("AC",), self.catalog)
         ac = read_category(self.root, "AC", self.catalog)
-        path = self.root / "payload.json"
+        path = self.root / "reports/security-code-review/partial/AC/payload.json"
         path.write_text(json.dumps({"checks": [ac["checks"][0]]}), encoding="utf-8")
         stage(self.root, "AC", path, self.catalog)
         assessment_path = _category_dir(self.root, "AC") / "assessment.json"
