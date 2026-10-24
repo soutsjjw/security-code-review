@@ -74,13 +74,14 @@ def _locations(items: Any) -> set[tuple[str, int, int]]:
 
 
 def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, Any],
-                   baseline: dict[str, Any], decision_audits: dict[str, Any]) -> list[str]:
+                   baseline: dict[str, Any], decision_audits: dict[str, Any], *,
+                   snapshot_override: dict | None = None) -> list[str]:
     """Q4 僅在新索引啟用；不修改任何 assessment、Finding 或第二輪資料。"""
     from adversarial_recheck import _evidence_errors, HIGH_RISK_RULES
     from control_effectiveness import snapshot_fingerprint
     from adversarial_recheck import SNAPSHOT, _read
 
-    snapshot = _read(target / SNAPSHOT, {})
+    snapshot = snapshot_override if snapshot_override is not None else _read(target / SNAPSHOT, {})
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("source_hashes"), dict):
         return ["第二輪 Q4: 無有效來源快照"]
     if baseline.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
