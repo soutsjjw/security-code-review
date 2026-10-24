@@ -81,7 +81,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             issues.append(f"{label} 必須為物件")
             continue
         role = node.get("role")
-        if role not in NODE_ROLES:
+        if not isinstance(role, str) or role not in NODE_ROLES:
             issues.append(f"{label} 缺少明確入口／控制／操作／設定角色")
         else:
             roles.add(role)
@@ -105,7 +105,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
         issues.append(f"{rid}: Q2 控制鏈與正式檢核來源證據無交集")
 
     boundary = trace.get("boundary")
-    if boundary not in BOUNDARIES:
+    if not isinstance(boundary, str) or boundary not in BOUNDARIES:
         issues.append(f"{rid}: Q2 控制鏈 boundary 須為 connected 或 single_file")
     if boundary == "single_file":
         reason = trace.get("boundary_reason")
@@ -127,7 +127,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             continue
         eid = rel.get("relationship_id")
         edge = edges_by_id.get(eid)
-        if edge is None or eid in confirmed:
+        if not isinstance(eid, str) or edge is None or eid in confirmed:
             issues.append(f"{label} ID 不存在或重複")
             continue
         confirmed.add(eid)
@@ -187,7 +187,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             if not isinstance(record, dict):
                 issues.append(f"{rid}: Q2 排除關聯 {eid} 必須附具體分類及來源證據")
                 continue
-            if record.get("basis") not in EDGE_DISMISS_BASES:
+            if not isinstance(record.get("basis"), str) or record["basis"] not in EDGE_DISMISS_BASES:
                 issues.append(f"{rid}: Q2 排除關聯 {eid} 缺少可核對的排除類型")
             if not isinstance(record.get("reason"), str) or len(record["reason"].strip()) < 24:
                 issues.append(f"{rid}: Q2 排除關聯 {eid} 缺少具體理由")
@@ -224,10 +224,10 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
                 or not proof["line_start"] <= line <= proof["line_end"]):
                 issues.append(f"{rid}: Q2 呼叫點 {cid} 缺少實際呼叫位置的來源證據")
             if row.get("status") == "excluded":
-                if row.get("exclusion_basis") not in CALL_EXCLUDE_BASES:
+                if not isinstance(row.get("exclusion_basis"), str) or row["exclusion_basis"] not in CALL_EXCLUDE_BASES:
                     issues.append(f"{rid}: Q2 呼叫點 {cid} 不得僅以制式文字排除")
                 excluded_reasons.append(str(row.get("reason", "")).strip())
-            elif row.get("status") == "verified" and row.get("binding") not in BINDINGS:
+            elif row.get("status") == "verified" and (not isinstance(row.get("binding"), str) or row["binding"] not in BINDINGS):
                 issues.append(f"{rid}: Q2 呼叫點 {cid} 未說明實際目標繫結方式")
         # 大量同一句排除敘述代表沒有逐呼叫點核對，不用任意結果比例限制。
         counts = Counter(r for r in excluded_reasons if r)
