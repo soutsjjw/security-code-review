@@ -181,6 +181,58 @@ class ControlOutcomeTests(unittest.TestCase):
         bad["external_gap_artifact"] = "AC-01-deployment-or-policy-evidence"
         self.assertIn("未連結", "；".join(self.evaluate(check, bad)))
 
+    def test_idor_and_sql_injection_fail_have_real_source_to_finding_trace(self):
+        cases = (
+            ("idor-missing-owner-check", "AC-08", "OrderController.cs",
+             "_handler.Handle(id, principal)", "OrderRepository.cs",
+             "FindById(int id)", "horizontal_access"),
+            ("sql-concatenated", "IN-01", "ProductController.cs",
+             "_handler.Handle(connection, productId)", "ProductRepository.cs",
+             "cmd.ExecuteReader()", "untrusted_sql_input"),
+        )
+        for idx, (case_id, rid, entry_path, entry_text, sink_path, sink_text,
+                  scenario) in enumerate(cases, 1):
+            with self.subTest(rule=rid):
+                self.root = self.root / f"case-{idx}"
+                self.root.mkdir()
+                self.prepare_case(case_id)
+                anchor = self.case["anchor"]
+                defect = self.loc(anchor["path"], anchor["text"])
+                entry = self.loc(entry_path, entry_text)
+                operation = self.loc(sink_path, sink_text)
+                record = {
+                    "status": "fail",
+                    "git_revision": self.snapshot["git_revision"],
+                    "snapshot_fingerprint": snapshot_fingerprint(self.snapshot),
+                    "source_hashes": self.snapshot["source_hashes"],
+                    "entry_points": [entry],
+                    "failure_points": [defect],
+                    "protected_operations": [operation],
+                    "failure_mode": "bypass_path",
+                    "failure_reason": "實際呼叫路徑未套用應有的資料限制，未授權輸入可導致不同使用者的資料外洩或未信任 SQL",
+                    "search_summary": "已查看入口、Handler、服務與最終 Repository，核對真正執行的條件與資料來源",
+                    "bypass_scenarios": [{
+                        "scenario": scenario,
+                        "outcome": "confirmed_vulnerability",
+                        "reason": "已追查不可信輸入沿跨檔服務呼叫抵達缺失位置，且該條攻擊路徑未受限制",
+                        "evidence": [entry, defect, operation],
+                    }],
+                    "open_issues": [],
+                }
+                check = {
+                    "id": rid, "status": "fail", "finding_ids": [f"F-{rid}"],
+                    "evidence": [{"kind": "source", **defect}],
+                    "execution": {"state": "completed",
+                                  "inspected_paths": self.case["required_paths"]},
+                }
+                finding = {"id": f"F-{rid}", "check_ids": [rid],
+                           "title": "程式碼可驗證的存取或注入弱點",
+                           "evidence": [defect]}
+                _write(report_dir(self.root) / "assessment.json",
+                       {"checks": [check], "findings": [finding]})
+                _write(self.root / VERIFICATIONS, {rid: record})
+                self.assertEqual(verification_errors(self.root, [check]), [])
+
     def test_external_only_and_old_index_not_forced_to_invent_source(self):
         check = {"id": "BC-03", "status": "review", "review_kind": "external_only",
                  "execution": {"state": "completed"}}
