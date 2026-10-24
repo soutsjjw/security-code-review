@@ -21,7 +21,7 @@ python "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<CASE_WORKSPACE
 ```
 
 嚴格要求每個案例：
-- 原始碼與固定題庫逐位元組一致，沒有額外 `.cs`／設定檔改變實際攻擊面。
+- 原始碼與固定題庫在跨平台換行正規化後內容一致，沒有額外 `.cs`／設定檔改變實際攻擊面。
 - 存在完整 70 項 `completed` 的 `assessment.json`，且使用正式佇列 `ready_for_report=true`：所有現有來源覆蓋、Finding、證據、工作中控制及第二輪完整性守門都通過。
 - 存在正式 `report.json` 與對應審查日期的 HTML。
 - 目標規則的狀態、Finding、跨檔 `inspected_paths`、真實來源行號及必要外部 `review` 工件均符合案例的人工預期。
