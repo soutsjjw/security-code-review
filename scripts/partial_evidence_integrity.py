@@ -433,6 +433,10 @@ def _pending_details(root: Path, category: str, pending: dict,
 
     committed = seq == manifest["sequence"]
     if committed:
+        prior = _read(_journal_path(root, category, seq - 1))
+        if (prior.get("entry_hash") != pending["previous"]
+                or prior.get("file_hashes") != before):
+            raise IntegrityError("待復原交易的原始證據與上一筆 Journal 不一致")
         if (tip.get("sequence") != seq
                 or tip.get("previous") != pending["previous"]
                 or tip.get("file_hashes") != after or tip.get("event") != pending["event"]
@@ -507,8 +511,13 @@ def recover(root: Path, category: str) -> dict[str, Any]:
 
         before, after = pending["before_hashes"], pending["after_hashes"]
         live = _hashes(root, category)
-        if set(live) != set(after):
+        if not set(live) <= set(after) or set(after) - set(live) - set(pending["updates"]):
             raise IntegrityError("復原前受控檔案清單遭新增或刪除（包含修訂歷史）")
+        for relative in set(after) - set(live):
+            # 只允許交易預期新增、且目前尚未落盤的修訂歷史檔案。
+            if relative in before or not relative.startswith(HISTORY.as_posix() + "/"):
+                raise IntegrityError("復原交易存在非預期的檔案清單變化")
+            live[relative] = None
         for relative, actual in live.items():
             permitted = {after[relative]} if committed else {before.get(relative), after[relative]}
             if actual not in permitted:
