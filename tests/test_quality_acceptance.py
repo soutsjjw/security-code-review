@@ -93,7 +93,7 @@ class QualityAcceptanceTests(unittest.TestCase):
         for name in ["Case.csproj", *case["files"]]:
             path = folder / name
             source = path.read_text(encoding="utf-8")
-            path.write_bytes(source.replace("\\n", "\\r\\n").encode("utf-8"))
+            path.write_bytes(source.replace("\n", "\r\n").encode("utf-8"))
         self.assertEqual(verify_case_sources(case, folder), [])
         source_file = folder / case["anchor"]["path"]
         source_file.write_bytes(source_file.read_bytes() + b"\r\n// unauthorized")
