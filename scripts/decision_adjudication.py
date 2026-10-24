@@ -102,7 +102,7 @@ def _quality_gap_errors(rule_id: str, rule: dict[str, Any],
                 errors.append(f"{rule_id}: Q1 decision_outcomes.{key} 必須為判定物件")
                 continue
             status, reason = branch.get("status"), branch.get("reason")
-            if status not in {"pass", "fail", "na"}:
+            if not isinstance(status, str) or status not in {"pass", "fail", "na"}:
                 errors.append(f"{rule_id}: Q1 decision_outcomes.{key}.status 應為 pass/fail/na")
             else:
                 statuses.append(status)
@@ -134,7 +134,8 @@ def _quality_gap_errors(rule_id: str, rule: dict[str, Any],
     searched = record.get("searched_paths")
     evidence = record.get("static_evidence")
     if isinstance(searched, list) and isinstance(evidence, list):
-        missing = {e.get("path") for e in evidence if isinstance(e, dict)} - set(
+        missing = {e["path"] for e in evidence if isinstance(e, dict)
+                   and isinstance(e.get("path"), str)} - set(
             x for x in searched if isinstance(x, str)
         )
         if missing:
