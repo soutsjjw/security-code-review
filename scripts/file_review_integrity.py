@@ -134,7 +134,8 @@ def verified_file_rule_reviews(
         screening = row.get("category_screening")
         selected: set[str] = set()
         if not isinstance(screening, dict) or set(screening) != set(selected_categories):
-            faults.append("category_screening 必須精確涵蓋本次指定分類")
+            faults.append("category_screening 必須逐一篩選全部 10 類規則" if selected_categories == CATEGORIES
+                          else "category_screening 必須精確涵蓋本次指定分類")
         else:
             per_category_reasons: dict[str, list[str]] = defaultdict(list)
             for cat in selected_categories:
