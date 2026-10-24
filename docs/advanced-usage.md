@@ -176,6 +176,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
+## 跨檔控制鏈的實際來源驗證
+
+新版結構索引要求跨檔規則在原有 `rule-closures.json` 內提供真實 `control_trace`（已閱讀節點、確認的關聯、實際來源行號），並逐一用證據驗證呼叫點與排除候選。單靠文件清單、全部候選 ID 或大量相同的 excluded 理由不能結案。須使用 `review_queue.py --detail-id <規則ID>` 取得控制責任，再由來源追查 Controller／Handler／Service／Repository、Middleware、DI、設定與可能旁路；外部控制不應虛構程式碼鏈。詳見 [完整性守門操作指引](review-integrity-guards.md)。
+
 ## Review 判定品質要求
 
 新增的審查索引要求每筆 `completed + review` 外部缺口具有真正可取得的工件、責任單位、互斥且會改變最終結果的兩種判定分支；組織政策類別需有已知政策識別及適用依據，不能使用制式的 `AC-01-deployment-or-policy-evidence`。無法完成靜態查核時保留 `pending/blocked`；已證實缺陷直接 `fail`＋Finding。詳見 [待確認判定指引](review-decision-adjudication.md)。
