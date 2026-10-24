@@ -167,6 +167,9 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
     candidates = index.get("rule_candidates") or {}
     current = set((_read(report_dir(target) / SNAPSHOT, {}) or {}).get("source_hashes", {}))
     errors = []
+    from cross_file_evidence import trace_errors
+    snapshot = _read(report_dir(target) / SNAPSHOT, {}) or {}
+    q2 = index.get("cross_file_evidence_version") == 1
     for check in assessment.get("checks", []):
         rid = check.get("id")
         if rid not in scopes or (check.get("execution") or {}).get("state") != "completed":
@@ -194,13 +197,23 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
             ids = []
         dismissed = closure.get("dismissed_relationships", {})
         if not isinstance(dismissed, dict) or any(
-                x not in known_edges or not isinstance(note, str) or len(note.strip()) < 20
+                x not in known_edges or (
+                    not isinstance(note, dict) if q2 else
+                    (not isinstance(note, str) or len(note.strip()) < 20)
+                )
                 for x, note in dismissed.items()):
             errors.append(f"{rid}: 被排除的關聯須使用有效 ID 與至少 20 字具體排除理由")
             dismissed = {}
         candidate_paths = {p for p, hits in candidates.items()
                            if any(hit.get("rule_id") == rid for hit in hits)}
-        relevant_paths = candidate_paths | (set(paths) if isinstance(paths, list) else set())
+        # 新版依據明確控制鏈錨點縮小關聯候選，不因 examined_paths
+        # 記錄了全專案清單而將所有呼叫點與關聯重複掛到每一條規則。
+        trace = closure.get("control_trace")
+        anchors = {n.get("path") for n in trace.get("nodes", [])
+                   if isinstance(n, dict) and isinstance(n.get("path"), str)} \
+            if q2 and isinstance(trace, dict) and isinstance(trace.get("nodes"), list) else set()
+        relevant_paths = candidate_paths | (anchors if q2 else
+                                             (set(paths) if isinstance(paths, list) else set()))
         related = {edge["id"] for edge in edges
                    if edge.get("source") in relevant_paths or edge.get("target") in relevant_paths}
         unresolved = sorted(related - set(ids) - set(dismissed))
@@ -256,6 +269,8 @@ def closure_errors(target: Path, assessment: dict) -> list[str]:
             errors.append(f"{rid}: open_issues 必須列出尚待補查任務（無則為空陣列）")
         elif closure["open_issues"]:
             errors.append(f"{rid}: 仍有未關閉的跨檔／全專案補查任務")
+        if q2:
+            errors.extend(trace_errors(target, index, snapshot, check, closure, scopes[rid]))
         if scopes[rid] == "cross_file" and isinstance(paths, list) and len(paths) == 1:
             # 合法的單檔實作仍可結案，但需說明如何排除其他呼叫端／設定。
             note = closure.get("single_file_justification")
