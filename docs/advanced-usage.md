@@ -76,6 +76,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 現有判定階梯保持不變，新增對 `completed+review` 的證據守門：Agent 必須**實際查完靜態控制及跨檔關聯**，證明仍存在會改變結果的外部工件缺口，才在正式 `decision_reason` 以「待確認：」列出工件。未完成的靜態調查保留 `pending/blocked`；已證實的程式碼缺陷 `fail`＋Finding；缺非必要測試不得當作外部缺口。由 `review_queue.py --detail-id` 的 `decision_adjudication_guidance` 讀取規則 `mode`、`manual_boundary` 與必查欄位，將來源證據和外部問題保存於 `decision_audits`，以原有 `review_safety.py --stage / --integrate` 整合。判定驗證機制不自動改寫任何既有結論，詳細流程見 [待確認判定與外部證據指引](review-decision-adjudication.md)。
 
+## 審查證據完整性與交易復原
+
+新版索引以 SHA256 交易鏈連結正式 assessment、來源快照與各階段工作證據。新審查使用 `review_queue.py --init` 建立起點；既有審查須先人工核對後明確執行 `review_safety.py --seal-integrity`。每批 `--stage` 綁定目前交易版本，`--integrate` 預寫可復原的多檔交易日誌；中斷後核對來源及 SHA256 再執行 `--recover-integrity`，不得任意重算雜湊或刪除 Finding。詳見 [證據完整性與安全復原](evidence-integrity.md)。
+
 ## 單代理第二輪反向複核
 
 第一輪須先完成 70 項與所有逐檔／跨檔／證據守門，再使用 `review_safety.py --begin-second-pass` 固定第一輪判定與來源快照。主代理之後重新閱讀實際程式碼，逐項從攻擊者觀點檢查反例，高風險規則至少兩個不同攻擊面。透過 `review_queue.py` 的 `second_pass.pending_ids` 續行，`--detail-id` 的 `adversarial_guidance` 提示反例要求；第二輪資料經 `adversarial_reviews` 暫存整合。任何矛盾先修訂原始判定／Finding 再記錄裁決，不得只重複第一輪理由。**同一代理的第二輪自我複核不等於真正獨立審查。** 詳見 [第二輪反向複核指引](adversarial-second-pass.md)。
@@ -96,6 +100,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 完成條件：
 
 0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
+   - 新審查由 --init 自動建立完整性封存；已有結果的專案則需先人工核對並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity。
    - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
 
 1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
