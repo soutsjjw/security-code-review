@@ -194,6 +194,32 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.assertEqual(result["findings"], [finding])
         self.assertFalse(list((self.root / ledger.ANALYSIS / "staged").glob("*.json")))
 
+    def test_new_review_auto_seals_but_existing_review_needs_explicit_seal(self):
+        from review_queue import load_rules, initialize as start_review
+        self.assertFalse((self.root / ledger.MANIFEST).exists())
+        ruleset, rules = load_rules()
+        start_review(self.root, self.report, ruleset, rules)
+        self.assertFalse((self.root / ledger.MANIFEST).exists())
+        (self.report / "assessment.json").unlink()
+        start_review(self.root, self.report, ruleset, rules)
+        self.assertTrue((self.root / ledger.MANIFEST).exists())
+        self.assertEqual(ledger.errors(self.root), [])
+
+    def test_source_refresh_is_an_audited_transaction_and_keeps_findings(self):
+        from review_safety import refresh_snapshot
+        self.seal()
+        with (patch("review_safety.current_hashes",
+                    return_value={"Program.cs": "updated-source-hash"}),
+              patch("review_safety._revision", return_value="updated-git-revision")):
+            refresh_snapshot(self.root)
+        self.assertEqual(ledger.errors(self.root), [])
+        manifest = json.loads((self.root / ledger.MANIFEST).read_text("utf-8"))
+        self.assertEqual(manifest["sequence"], 1)
+        journal = json.loads((self.root / ledger.JOURNAL / "00000001.json").read_text("utf-8"))
+        self.assertEqual(journal["event"], "snapshot-refresh")
+        self.assertEqual(json.loads((self.report / "assessment.json").read_text("utf-8")),
+                         self.assessment)
+
     def test_legacy_index_not_forced_into_unrequested_migration(self):
         _write(self.root / ledger.INDEX, {"schema_version": 6})
         self.assertFalse(ledger.enabled(self.root))
