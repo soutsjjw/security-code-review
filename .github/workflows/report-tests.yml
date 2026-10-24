@@ -63,6 +63,10 @@ jobs:
         env:
           PYTHONUTF8: "0"
         run: python -m unittest discover -s tests -p test_adversarial_recheck.py -v
+      - name: Test Windows adversarial quality safeguards
+        env:
+          PYTHONUTF8: '0'
+        run: python -m unittest discover -s tests -p test_q4_adversarial_quality.py -v
       - name: Test Windows evidence integrity and recovery
         env:
           PYTHONUTF8: '0'
