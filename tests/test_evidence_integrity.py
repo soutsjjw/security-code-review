@@ -154,6 +154,33 @@ class EvidenceIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "第三種內容修改"):
             ledger.recover(self.root)
 
+    def test_recovery_rejects_tampered_preceding_journal(self):
+        self.seal()
+        real_write = ledger._write
+        def fail_mid_commit(path, value):
+            if path.name == "assessment.json":
+                raise OSError("injected interruption")
+            return real_write(path, value)
+        with patch("evidence_integrity._write", side_effect=fail_mid_commit):
+            with self.assertRaises(OSError):
+                ledger.commit(self.root, {"assessment.json": {"changed": True}},
+                              event="integrate")
+        previous = self.root / ledger.JOURNAL / "00000000.json"
+        row = json.loads(previous.read_text("utf-8"))
+        row["event"] = "rewritten"
+        _write(previous, row)
+        with self.assertRaisesRegex(ValueError, "先前交易鏈"):
+            ledger.recover(self.root)
+
+    def test_unknown_staged_key_cannot_be_discarded_silently(self):
+        self.seal()
+        draft = self.report / "typo.json"
+        _write(draft, {"adversarial_review": {"AC-08": {}}})
+        with patch("review_safety.snapshot_errors", return_value=[]):
+            with self.assertRaisesRegex(ValueError, "未知欄位"):
+                stage(self.root, draft)
+        self.assertEqual(ledger.errors(self.root), [])
+
     def test_snapshot_refresh_can_reanchor_but_still_records_changes(self):
         self.seal()
         next_snapshot = copy.deepcopy(self.snapshot)
