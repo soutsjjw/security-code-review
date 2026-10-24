@@ -44,6 +44,9 @@ def guidance(rule_id: str) -> dict[str, Any]:
         "single_agent": True,
         "truly_independent": False,
         "required_hypotheses": 2 if rule_id in HIGH_RISK_RULES else 1,
+        "quality_fields": ["reassessment", "vector", "attacker_precondition",
+                           "expected_violation", "inspection_steps", "observed_behavior",
+                           "inspection_evidence"],
         "hypothesis_focus": (
             ["alternative_entry", "bypass_or_counterexample"] if rule_id in HIGH_RISK_RULES
             else ["counterexample_or_opposite_verdict"]
@@ -103,7 +106,8 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     checkpoint = {
         "schema_version": CONTRACT_VERSION,
         "snapshot_fingerprint": snapshot_fingerprint(snap),
-        "checks": {c["id"]: {"status": c["status"], "digest": digest(c)}
+        "checks": {c["id"]: {"status": c["status"], "digest": digest(c),
+                             "decision_reason": c.get("decision_reason", "")}
                    for c in sorted(checks, key=lambda x: x["id"])},
     }
     path = target / BASELINE
@@ -292,6 +296,12 @@ def second_pass_errors(target: Path, assessment: dict[str, Any]) -> list[str]:
             errors += _evidence_errors(target, contradiction.get("evidence"), rid,
                                        f"矛盾[{i}]", inspected_set, known, status,
                                        decision_audits.get(rid), check.get("evidence") or [])
+    # 新索引啟用 Q4，驗證真正重讀控制分支、反例可區分性及跨規則模板。
+    structure_index = _read(target / INDEX, {})
+    if (isinstance(structure_index, dict)
+            and structure_index.get("adversarial_quality_version") == 1):
+        from adversarial_quality import quality_errors
+        errors.extend(quality_errors(target, assessment, stored, baseline, decision_audits))
     return errors
 
 
