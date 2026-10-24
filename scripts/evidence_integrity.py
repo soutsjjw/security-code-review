@@ -49,10 +49,8 @@ def _read(path: Path, default: Any = None) -> Any:
 
 
 def _write(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_bytes(_json_bytes(value))
-    tmp.replace(path)
+    from atomic_json_io import atomic_write_json
+    atomic_write_json(path, value)
 
 
 def _hash_file(path: Path) -> str | None:
