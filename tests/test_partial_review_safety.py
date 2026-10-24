@@ -43,6 +43,38 @@ class PartialSafetyTests(unittest.TestCase):
              patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
             return prepare_index(self.root, self.catalog)
 
+    def test_multiple_cross_file_rules_keep_independent_candidate_maps(self):
+        from review_safety import closure_errors
+        index = {
+            "schema_version": 3, "cross_file_evidence_version": 0,
+            "typed_relationships": [],
+            "rule_candidates": {"Safe.cs": [
+                {"rule_id": "AC-01"}, {"rule_id": "AU-01"}]},
+            "cross_file_call_hints": {"Safe.cs": [{
+                "id": "call-1", "possible_targets": [{"path": "App.csproj"}]}]},
+        }
+        snapshot = {"source_hashes": {"Safe.cs": "hash", "App.csproj": "hash"}}
+        closures = {}
+        checks = []
+        for rid in ("AC-01", "AU-01"):
+            closures[rid] = {
+                "status": "pass",
+                "summary": "已追蹤所有實際呼叫路徑與安全控制責任，確認候選關聯。",
+                "examined_paths": ["Safe.cs", "App.csproj"],
+                "control_owner": "IdentityService",
+                "search_summary": "已核對所有必要的來源候選與跨檔呼叫端，無未決問題。",
+                "examined_relationship_ids": [], "dismissed_relationships": {},
+                "callsite_reviews": {"call-1": {
+                    "status": "excluded", "selected_targets": [],
+                    "reason": "經核對該呼叫與安全控制不相關，且查明排除理由與來源責任。"}},
+                "open_issues": [],
+            }
+            checks.append({"id": rid, "status": "pass",
+                           "execution": {"state": "completed"}})
+        self.assertEqual(closure_errors(
+            self.root, {"checks": checks}, index_override=index,
+            snapshot_override=snapshot, closures_override=closures), [])
+
     def test_shared_index_reused_and_full_review_unmodified(self):
         value = self.prepare()
         self.assertFalse(value["reused"])
