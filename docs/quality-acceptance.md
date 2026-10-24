@@ -26,7 +26,7 @@ python "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<CASE_WORKSPACE
 - 存在正式 `report.json` 與對應審查日期的 HTML。
 - 目標規則的狀態、Finding、跨檔 `inspected_paths`、真實來源行號及必要外部 `review` 工件均符合案例的人工預期。
 
-輸出 `measurement_source=review_artifacts`、固定題庫 SHA256、16 個案例的工件驗證結果與原始 P0 評分器各項度量。案例缺席、分析未完成或任何證據守門不合格都視為**未通過**，不是合格或可忽略。若全部驗證通過且已知弱點漏報／誤報皆為 0，則 `quality_gate_passed=true`。
+輸出 `measurement_source=review_artifacts`、固定題庫 SHA256、16 個案例的工件驗證結果與既有品質基準評分器各項度量。案例缺席、分析未完成或任何證據守門不合格都視為**未通過**，不是合格或可忽略。若全部驗證通過且已知弱點漏報／誤報皆為 0，則 `quality_gate_passed=true`。
 
 **CI 的合成測試只能驗證這個驗收工具是否正確阻擋錯誤資料，不代表模型的漏洞發現率、誤報率或效率已實測改善。**
 
