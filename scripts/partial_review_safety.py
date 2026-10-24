@@ -51,7 +51,7 @@ def prepare_index(root: Path, catalog: dict) -> dict:
     from analysis_prepare import (ADAPTERS, INDEX_VERSION, ROSLYN_VERSION,
                                   DOTNET_EXTENSIONS, CANDIDATE_VERSION, _run_roslyn,
                                   cross_file_call_hints, probe_codegraph, probe_roslyn)
-    from analysis_relationships import build_relationships
+    from review_relationships import build_relationships
     from analysis_candidates import candidate_hits
     from source_reader import read_source_text
     from review_scope import validate_catalog
@@ -211,7 +211,8 @@ def validate(root: Path, category: str, catalog: dict) -> dict:
     if index and not remaining:
         errors += second_pass_errors(
             root, assessment, index_override=index, snapshot_override=_snap(root),
-            baseline_override=baseline, reviews_override=reviews, audits_override=audits)
+            baseline_override=baseline if baseline is not None else {},
+            reviews_override=reviews, audits_override=audits)
     pending_second = []
     if not baseline:
         pending_second = [c["id"] for c in checks]
