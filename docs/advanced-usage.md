@@ -180,6 +180,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 新版結構索引要求跨檔規則在原有 `rule-closures.json` 內提供真實 `control_trace`（已閱讀節點、確認的關聯、實際來源行號），並逐一用證據驗證呼叫點與排除候選。單靠文件清單、全部候選 ID 或大量相同的 excluded 理由不能結案。須使用 `review_queue.py --detail-id <規則ID>` 取得控制責任，再由來源追查 Controller／Handler／Service／Repository、Middleware、DI、設定與可能旁路；外部控制不應虛構程式碼鏈。詳見 [完整性守門操作指引](review-integrity-guards.md)。
 
+## 完成 Fail／Review 前確認控制有效性
+
+新版索引除對 Pass 驗證控制及繞過路徑外，對程式碼型 Fail 要求具體失效來源、攻擊情境與正式 Finding 一致；對已完成靜態查核的 Review 要求完整必要情境與真實外部裁決工件連結。使用既有 `control_verifications` 工作紀錄與 `review_safety.py` 暫存／整合流程，不會直接改動 `assessment.json` 判定。詳見 [安全控制有效性指引](control-effectiveness-review.md)。
+
 ## Review 判定品質要求
 
 新增的審查索引要求每筆 `completed + review` 外部缺口具有真正可取得的工件、責任單位、互斥且會改變最終結果的兩種判定分支；組織政策類別需有已知政策識別及適用依據，不能使用制式的 `AC-01-deployment-or-policy-evidence`。無法完成靜態查核時保留 `pending/blocked`；已證實缺陷直接 `fail`＋Finding。詳見 [待確認判定指引](review-decision-adjudication.md)。
