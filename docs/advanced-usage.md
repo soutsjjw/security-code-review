@@ -176,6 +176,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
+## Q1 Review 判定品質要求
+
+新增的審查索引要求每筆 `completed + review` 外部缺口具有真正可取得的工件、責任單位、互斥且會改變最終結果的兩種判定分支；組織政策類別需有已知政策識別及適用依據，不能使用制式的 `AC-01-deployment-or-policy-evidence`。無法完成靜態查核時保留 `pending/blocked`；已證實缺陷直接 `fail`＋Finding。詳見 [待確認判定指引](review-decision-adjudication.md)。
+
 ## 70 項執行迴圈
 
 Agent 以安裝目錄中的 Python 腳本進行排程（下列為 Agent 內部指令，非一般使用者必須手動執行的步驟）：
