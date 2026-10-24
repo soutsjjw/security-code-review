@@ -72,6 +72,8 @@ def guidance(rule_id: str) -> dict[str, Any]:
     info = matrix[rule_id]
     return {
         "required_for_pass": info["mode"] != "external",
+        "required_for_fail": "具原始碼／組態來源的已確認缺陷",
+        "required_for_review": "靜態／混合控制已有靜態結論且確有外部阻斷",
         "pass_condition": info["pass_condition"],
         "manual_boundary": info["manual_boundary"],
         "required_scenarios": list(REQUIRED_SCENARIOS.get(rule_id, ("alternate_or_bypass_path",))),
@@ -227,6 +229,10 @@ def verification_errors(target: Path, checks: list[dict]) -> list[str]:
         open_issues = record.get("open_issues")
         if not isinstance(open_issues, list) or open_issues:
             errors.append(f"{rid}: P2 有未解決的繞過路徑或未提供 open_issues=[]，不可 pass")
+    # 新索引要求完成的程式碼型 Fail / Review 同樣有控制有效性證據。
+    # Pass 仍走既有 P2 契約，外部控制不用捏造來源執行點。
+    from control_outcome_evidence import outcome_errors
+    errors.extend(outcome_errors(target, index, snapshot, checks, records))
     return errors
 
 
