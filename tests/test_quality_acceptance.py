@@ -207,6 +207,27 @@ class QualityAcceptanceTests(unittest.TestCase):
                 self.assertIsNone(prediction)
                 self.assertIn("Schema／HTML／來源驗證未通過", str(errors))
 
+    def test_report_reviewer_normalization_is_allowed_but_verdict_change_is_not(self):
+        case = self.cases[0]
+        folder, _ = self._create_artifacts(case)
+        assessment = json.loads((folder / "assessment.json").read_text("utf-8"))
+        assessment["checks"][0]["reviewer"] = "security-code-review-agent"
+        (folder / "assessment.json").write_text(json.dumps(assessment), encoding="utf-8")
+        rendered = copy.deepcopy(assessment)
+        rendered["checks"][0]["reviewer"] = "Codex CLI"
+        (folder / "report.json").write_text(json.dumps({"assessment": rendered}),
+                                             encoding="utf-8")
+        with patch("quality_acceptance.build_queue", side_effect=self._mock_ready_queue):
+            prediction, errors = verify_review(case, self.root / case["id"], [])
+            self.assertEqual(errors, [])
+            self.assertIsNotNone(prediction)
+            rendered["checks"][0]["status"] = "fail"
+            (folder / "report.json").write_text(json.dumps({"assessment": rendered}),
+                                                 encoding="utf-8")
+            prediction, errors = verify_review(case, self.root / case["id"], [])
+            self.assertIsNone(prediction)
+            self.assertIn("不允許改變安全結論", str(errors))
+
     def test_never_estimate_tokens_without_actual_executor_records(self):
         ids = [case["id"] for case in self.cases]
         self.assertIsNone(token_usage(self.root, ids, None))
