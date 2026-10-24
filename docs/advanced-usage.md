@@ -96,6 +96,33 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、判定與反例品質、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
 
+## Codex App 指定分類審查（部分報告）
+
+在 Codex App 已開啟的受測專案對話中，選取／輸入 `$security-code-review` Skill，附上 `--categories` 即可。這是**交給 Agent 解析的 Prompt 參數**，不是要求使用者手動跑 Python 指令：
+
+```text
+$security-code-review --categories AC,AU
+```
+
+也可使用明確敘述：
+
+```text
+使用 $security-code-review Skill，對目前專案僅執行 AC、AU 分類。
+--categories AC,AU
+逐條查閱實際程式碼、跨檔控制鏈與安全繞過路徑，保留 Finding。
+同一主代理完成各分類獨立第二輪複核；各自生成並驗證部分 HTML／JSON，
+不得將部分報告視為正式 70 項完整審查。
+```
+
+此模式 **AC 8 項、AU 10 項分別存檔**，不更動正式全規則審查。沒有指定 `--categories` 時才執行下方的完整 70 項 `/goal`。分類模式 Agent 必須：
+
+1. 按 `SKILL.md` 的模式分流閱讀 [分類審查操作契約](category-review.md)，先驗證分類及正式規則主檔，再建立分類進度與共用索引，不得使用正式 `analysis_prepare.py` 或無分類參數的正式 `review_safety.py` 更新分類資料。
+2. 同批選多類可以共用原始碼索引，但每分類逐條真實審查、獨立 `--stage/--integrate`、完成第一輪及第二輪安全證據守門；逐檔適用性篩選只針對當前分類，必要的跨檔來源仍全部追查。
+3. 各分類 `safety_valid=true`、`remaining_ids=[]`、`second_pass.pending_count=0`、逐檔來源覆蓋率 100%，才用 `complete_review.py --categories AC,AU` 產生 AC、AU 各自 HTML／JSON，並以 `validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU` 驗證。分類 `ready_for_report` 保持 `false`，**不得**套用正式完整模式的 `ready_for_report=true` 守門。
+4. 若分類資料尚未完成、來源快照異動或發布／驗證出錯，保留原有 Finding、審查進度與可復原證據，說明原因，不得偽造 Pass 或自動將未選分類標為 N/A。
+
+完整 CLI 操作、Windows／Linux 啟動器與資料路徑請見 [分類審查操作契約](category-review.md)。指定全部十類仍然是十份部分報告；不能當作正式 70 項結果。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
