@@ -53,6 +53,12 @@ class P0ReviewSafetyTests(unittest.TestCase):
              "reviewer": "test", "execution": {"state": "pending", "methods": [], "summary": "未執行"}}
             for r in rules], "findings": [], "file_reviews": []}
         _write(self.report / "assessment.json", self.assessment)
+        # 保留對舊版審查閉包的回歸測試；新交易鏈另由
+        # test_evidence_integrity.py 驗證，避免直接寫檔繞過新版整合流程。
+        index_path = self.report / "analysis/structure-index.json"
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        index.pop("evidence_integrity_version", None)
+        _write(index_path, index)
 
     def test_typed_links_include_di_configuration_middleware_endpoint_and_projects(self):
         index = json.loads((self.report / "analysis/structure-index.json").read_text("utf-8"))
