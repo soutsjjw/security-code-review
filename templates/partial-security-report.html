@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>資安程式碼審查｜__CATEGORY__ 分類（部分審查）</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#18283a;background:#f3f6fa}
+    *{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:0 auto;padding:32px 20px 72px}
+    header{background:#142b43;color:#fff;padding:28px;border-radius:15px}
+    h1{font-size:1.75rem;margin:8px 0}h2{font-size:1.25rem;margin-top:0}
+    .eyebrow{letter-spacing:.08em;color:#bdd3ee;font-size:.85rem}
+    .warning{background:#fff7e7;border-left:4px solid #bb790c;padding:14px 18px;margin:20px 0;line-height:1.6}
+    .muted{color:#596a7d}.meta{font-size:.88rem;overflow-wrap:anywhere;line-height:1.8}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:12px;margin:22px 0}
+    .stat,.panel{background:#fff;border:1px solid #dee5ed;border-radius:12px;padding:18px}
+    .stat strong{display:block;font-size:1.6rem;margin-top:5px}
+    .panel{margin-bottom:18px}.panel p{line-height:1.65}
+    table{border-collapse:collapse;width:100%;font-size:.94rem}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e3e9ef;vertical-align:top}
+    th{color:#53657b;font-size:.83rem}a{color:#095a8d}
+    details{border:1px solid #e2e8ee;border-radius:9px;margin-bottom:12px;padding:12px 16px}
+    summary{cursor:pointer;font-weight:600}summary span{font-weight:400;margin-left:8px;color:#56677a}
+    .detail{line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+    .evidence{margin:8px 0;padding-left:18px}.evidence li{margin-bottom:8px;overflow-wrap:anywhere}
+    .finding{padding:16px 0;border-bottom:1px solid #e4ebf2}.finding:last-child{border:0}
+    .tag{display:inline-block;padding:3px 8px;border-radius:5px;background:#edf3f8;font-size:.79rem}
+    footer{font-size:.83rem;color:#607287;margin-top:25px}
+    @media print{body{background:#fff}main{padding:0}.panel,.stat{break-inside:avoid}details{display:block}header{background:#142b43!important;print-color-adjust:exact}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">SECURITY CODE REVIEW · PARTIAL ASSESSMENT</div>
+    <h1>__CATEGORY__ 分類資安程式碼審查報告</h1>
+    <div>僅涵蓋 __CATEGORY__ 分類，不能視為完整 70 項審查或任何標準的全面合規證明。</div>
+    <div class="meta">專案：__PROJECT__　｜　審查日期：__DATE__　｜　Git：__REVISION__</div>
+  </header>
+  <div class="warning" role="note">
+    <strong>部分審查</strong>：本報告只記載 __CATEGORY__ 的 __TOTAL__ 項規則。
+    其他分類未在本報告審查；「通過」僅表示本規則依記錄的證據完成判斷，不代表應用程式整體安全。
+  </div>
+  <section class="stats" aria-label="審查統計">
+    <div class="stat">規則數<strong>__TOTAL__</strong></div>
+    <div class="stat">已完成<strong>__COMPLETED__</strong></div>
+    <div class="stat">通過<strong>__PASS__</strong></div>
+    <div class="stat">不符合<strong>__FAIL__</strong></div>
+    <div class="stat">待確認<strong>__REVIEW__</strong></div>
+    <div class="stat">不適用<strong>__NA__</strong></div>
+    <div class="stat">弱點數<strong>__FINDINGS__</strong></div>
+  </section>
+  <section class="panel" id="scope">
+    <h2>審查範圍與證據</h2>
+    <p>來源覆蓋：<strong>__SOURCE_REVIEWED__ / __SOURCE_TOTAL__</strong> 個應審查檔案
+       （未覆蓋：__SOURCE_MISSING__）。</p>
+    <p class="meta">來源快照：__SNAPSHOT__</p>
+    <p class="muted">本次僅執行指定分類的規則判定，仍須追查必要的跨分類程式碼、設定及完整呼叫鏈。</p>
+  </section>
+  <section class="panel" id="checks">
+    <h2>逐條檢核結果</h2>
+    __CHECK_ITEMS__
+  </section>
+  <section class="panel" id="findings">
+    <h2>弱點與改善建議</h2>
+    __FINDING_ITEMS__
+  </section>
+  <section class="panel" id="limits">
+    <h2>報告限制</h2>
+    <ul>__LIMITATION_ITEMS__</ul>
+  </section>
+  <footer>此報告由分類審查證據產生；所有原始碼、Finding、逐條審查與第二輪資料需接受來源版本及一致性核對。</footer>
+</main>
+<script id="report-data" type="application/json">__REPORT_DATA_JSON__</script>
+</body>
+</html>
