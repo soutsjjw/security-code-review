@@ -184,6 +184,9 @@ def _first_pass(root: Path, category: str, assessment: dict, index: dict) -> lis
 
 
 def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
+    integrity = _integrity_issues(root, category)
+    if integrity:
+        raise ScopeError("；".join(integrity))
     assessment = read_category(root, category, catalog)
     index, problems = _index(root, assessment)
     if problems:
@@ -223,7 +226,22 @@ def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
             "rule_count": len(checks), "ready_for_report": False}
 
 
+def _integrity_issues(root: Path, category: str) -> list[str]:
+    from partial_evidence_integrity import MANIFEST, PENDING, errors as integrity_errors
+    if (_artifact(root, category, MANIFEST).exists()
+            or _artifact(root, category, PENDING).exists()):
+        return integrity_errors(root, category)
+    return []
+
+
 def validate(root: Path, category: str, catalog: dict) -> dict:
+    integrity = _integrity_issues(root, category)
+    if integrity:
+        return {"category": category, "first_pass_complete": False,
+                "remaining_ids": [],
+                "second_pass": {"baseline_ready": False, "pending_ids": [], "pending_count": 0},
+                "safety_integrity_errors": integrity,
+                "safety_valid": False, "ready_for_report": False}
     assessment = read_category(root, category, catalog)
     index, errors = _index(root, assessment)
     checks = assessment["checks"]
