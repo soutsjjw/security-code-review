@@ -268,7 +268,8 @@ def safety_errors(target: Path, assessment: dict) -> list[str]:
     from control_effectiveness import verification_errors
     from decision_adjudication import adjudication_errors
     from adversarial_recheck import second_pass_errors
-    errors = (snapshot_errors(target) + closure_errors(target, assessment)
+    from evidence_integrity import errors as evidence_integrity_errors
+    errors = (evidence_integrity_errors(target) + snapshot_errors(target) + closure_errors(target, assessment)
               + verification_errors(target, assessment.get("checks", []))
               + adjudication_errors(target, assessment.get("checks", []))
               + second_pass_errors(target, assessment))
@@ -295,6 +296,10 @@ def stage(target: Path, payload_path: Path) -> str:
         raise ValueError("；".join(failures))
     if not (report_dir(target) / SNAPSHOT).exists():
         raise ValueError("請先執行 analysis_prepare.py 建立來源快照")
+    from evidence_integrity import errors as evidence_integrity_errors
+    failures = evidence_integrity_errors(target)
+    if failures:
+        raise ValueError("；".join(failures))
     payload = _read(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
@@ -307,6 +312,12 @@ def stage(target: Path, payload_path: Path) -> str:
     staged = {"snapshot_git_revision": snapshot["git_revision"],
               "source_hashes": snapshot["source_hashes"],
               "payload": payload}
+    from evidence_integrity import enabled as integrity_enabled, MANIFEST as integrity_manifest, _read as integrity_read
+    if integrity_enabled(target):
+        manifest = integrity_read(target / integrity_manifest)
+        if not isinstance(manifest, dict):
+            raise ValueError("尚未執行 --seal-integrity 建立可信審查起點")
+        staged["integrity_head"] = manifest["head"]
     raw = json.dumps(staged, sort_keys=True, ensure_ascii=False)
     key = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
     path = report_dir(target) / STAGED / f"{key}.json"
@@ -316,6 +327,8 @@ def stage(target: Path, payload_path: Path) -> str:
 
 def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     failures = snapshot_errors(target)
+    from evidence_integrity import errors as evidence_integrity_errors
+    failures += evidence_integrity_errors(target)
     if failures:
         raise ValueError("；".join(failures))
     folder = report_dir(target) / STAGED
@@ -327,6 +340,9 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     if not isinstance(data, dict):
         raise ValueError("assessment.json 不存在或格式錯誤")
     snapshot = _read(report_dir(target) / SNAPSHOT)
+    from evidence_integrity import enabled as integrity_enabled, MANIFEST as integrity_manifest, _read as integrity_read
+    integrity_head = (integrity_read(target / integrity_manifest)["head"]
+                      if integrity_enabled(target) else None)
     files = {r["path"]: r for r in data.get("file_reviews", [])}
     checks = {r["id"]: r for r in data.get("checks", [])}
     findings = {r["id"]: r for r in data.get("findings", [])}
@@ -349,6 +365,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     # 先於記憶體完整調和、偵測衝突，絕不分批覆蓋正式檔。
     for path in paths:
         staged = _read(path)
+        if integrity_head is not None and staged.get("integrity_head") != integrity_head:
+            raise ValueError(f"{path.name}: 暫存基礎版本已被其他整合改變；請重新核對並暫存")
         if (staged.get("snapshot_git_revision") != snapshot["git_revision"]
                 or staged.get("source_hashes") != snapshot["source_hashes"]):
             raise ValueError(f"{path.name}: 暫存使用不同的來源快照")
@@ -456,17 +474,31 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     data["file_reviews"] = [files[p] for p in sorted(files)]
     data["checks"] = [checks[r["id"]] for r in data["checks"]]
     data["findings"] = [findings[p] for p in sorted(findings)]
-    # 正式驗證必須在完整審查完成後執行；partial 仍可保留 pending。
-    _write(report_dir(target) / CLOSURES, closures)
-    _write(report_dir(target) / CONTROL_VERIFICATIONS, control_verifications)
-    _write(report_dir(target) / DECISION_AUDITS, decision_audits)
-    _write(report_dir(target) / ADVERSARIAL_REVIEWS, adversarial_reviews)
-    _write(assessment_path, data)
-    if required_recheck:
-        recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
-        _write(report_dir(target) / RECHECK, recheck)
-    for path in paths:
-        path.unlink()
+    # 跨多檔交易預寫入可核對的 ahead-log；中斷後須人工呼叫復原。
+    if integrity_enabled(target):
+        from evidence_integrity import commit as integrity_commit
+        updates = {
+            "assessment.json": data,
+            "analysis/rule-closures.json": closures,
+            "analysis/control-verifications.json": control_verifications,
+            "analysis/decision-audits.json": decision_audits,
+            "analysis/adversarial-reviews.json": adversarial_reviews,
+        }
+        if required_recheck:
+            recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
+            updates["analysis/recheck-required.json"] = recheck
+        integrity_commit(target, updates, event="integrate", staged_paths=paths)
+    else:
+        _write(report_dir(target) / CLOSURES, closures)
+        _write(report_dir(target) / CONTROL_VERIFICATIONS, control_verifications)
+        _write(report_dir(target) / DECISION_AUDITS, decision_audits)
+        _write(report_dir(target) / ADVERSARIAL_REVIEWS, adversarial_reviews)
+        _write(assessment_path, data)
+        if required_recheck:
+            recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
+            _write(report_dir(target) / RECHECK, recheck)
+        for path in paths:
+            path.unlink()
     return {"applied": len(paths), "files": len(new_files),
             "checks": len(new_checks), "findings": len(findings), "closures": len(new_closures),
             "control_verifications": len(new_control_verifications),
