@@ -92,6 +92,12 @@ def _check_source_evidence(root: Path, report: dict[str, Any], snapshot: dict[st
 def build_report(root: Path, category: str, catalog: dict[str, Any]) -> dict[str, Any]:
     """生成內存物件之前先核對 P3 安全品質；不觸碰任何現有報告。"""
     rules = _expected(category, catalog)
+    from partial_evidence_integrity import MANIFEST, PENDING, errors as integrity_errors
+    if (_artifact(root, category, MANIFEST).exists()
+            or _artifact(root, category, PENDING).exists()):
+        problems = integrity_errors(root, category)
+        if problems:
+            raise ScopeError("；".join(problems))
     assessment = read_category(root, category, catalog)
     if _artifact(root, category, STAGED_FILE).exists():
         raise ScopeError(f"{category}: 尚有 staged 交易未整合，不能產生部分報告")
@@ -142,6 +148,12 @@ def validation_errors(report: Any, root: Path, category: str, catalog: dict[str,
                       *, require_safety: bool = True) -> list[str]:
     """Schema + 規則集合 + 真實來源 + P3 守門；不依賴報告自陳 ready 狀態。"""
     errors: list[str] = []
+    from partial_evidence_integrity import MANIFEST, PENDING, errors as integrity_errors
+    if (_artifact(root, category, MANIFEST).exists()
+            or _artifact(root, category, PENDING).exists()):
+        issues = integrity_errors(root, category)
+        if issues:
+            return issues
     try:
         validator = _schema_validator()
         schema_errors = sorted(validator.iter_errors(report),
