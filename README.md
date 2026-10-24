@@ -91,6 +91,10 @@ Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼
 
 Agent 會自動操作新增工具。詳細的恢復方式、結案格式及指令見 [完整性守門操作指引](docs/review-integrity-guards.md)。
 
+## 審查資料完整性與復原
+
+審查資料的跨檔整合使用 SHA256 交易日誌，偵測未經流程的 JSON／Finding 更新，中斷時可用 `review_safety.py --recover-integrity` 核對後復原。新審查自動封存起點；既有審查資料須人工核對後執行 `--seal-integrity`。此機制不是數位簽章。詳見 [審查證據完整性](docs/evidence-integrity.md)。
+
 ## 單代理第二輪反向複核
 
 第一輪完成 70 項、100% 來源檢閱與安全控制／外部證據查核後，先執行 `review_safety.py --begin-second-pass` 固定第一輪判定與快照，再由同一代理重新閱讀程式碼、尋找反例及紀錄矛盾裁決。第二輪須覆核全部 70 項，未完成不得交付正式報告；此程序不等於真正獨立代理審查。詳見 [單代理反向複核指引](docs/adversarial-second-pass.md)。
