@@ -163,6 +163,8 @@ class PartialSafetyTests(unittest.TestCase):
         for check in a["checks"]:
             check["execution"]["state"] = "completed"
         _atomic(path, a)
+        from partial_evidence_integrity import initialize as seal
+        seal(self.root, "AC", explicit=True)
         with patch("partial_review_safety._first_pass", return_value=[]):
             first = begin_second_pass(self.root, "AC", self.catalog)
             self.assertFalse(first["already_existed"])
@@ -211,6 +213,8 @@ class PartialSafetyTests(unittest.TestCase):
         _atomic(baseline_path, {"schema_version": 1, "checks": {
             "AC-01": {"status": "pass", "digest": digest(first), "decision_reason": "原先判定"}
         }})
+        from partial_evidence_integrity import initialize as seal
+        seal(self.root, "AC", explicit=True)
         corrected = json.loads(json.dumps(first))
         corrected["status"] = "fail"
         corrected["finding_ids"] = ["F-01"]
@@ -250,6 +254,8 @@ class PartialSafetyTests(unittest.TestCase):
             "schema_version": 1, "checks": {"AC-01": {
                 "status": "fail", "digest": digest(first), "decision_reason": "已確認弱點"}
             }})
+        from partial_evidence_integrity import initialize as seal
+        seal(self.root, "AC", explicit=True)
         corrected = json.loads(json.dumps(first))
         corrected["status"] = "pass"
         record = {"outcome": "corrected", "baseline_digest": digest(first),
