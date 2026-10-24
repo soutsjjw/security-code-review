@@ -15,6 +15,7 @@ USER_GUIDES = (
     "docs/control-effectiveness-review.md",
     "docs/review-decision-adjudication.md",
     "docs/adversarial-second-pass.md",
+    "docs/quality-acceptance.md",
     "docs/p0-review-guards.md",  # 舊路徑只保留相容連結
     "docs/p2-control-effectiveness.md",
     "docs/p3-review-adjudication.md",
