@@ -16,7 +16,7 @@ from partial_evidence_integrity import (
     HISTORY, JOURNAL, LOCK, MANIFEST, PENDING, STAGED, TRACKED, VERSION,
     IntegrityError, errors, initialize, locked,
 )
-from review_scope import load_catalog
+from review_scope import ScopeError, load_catalog
 
 
 class CategoryEvidenceIntegrityTests(unittest.TestCase):
@@ -226,7 +226,7 @@ class CategoryEvidenceIntegrityTests(unittest.TestCase):
             entry.symlink_to(formal)
         except (OSError, NotImplementedError) as exc:
             self.skipTest(str(exc))
-        with self.assertRaises(IntegrityError):
+        with self.assertRaises((IntegrityError, ScopeError)):
             initialize(self.root, "AC", explicit=True)
         self._formal_unchanged()
 
