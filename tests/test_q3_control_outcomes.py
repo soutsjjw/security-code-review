@@ -150,6 +150,9 @@ class ControlOutcomeTests(unittest.TestCase):
         bad["failure_points"] = bad["entry_points"]
         self.assertIn("未連結正式檢核", "；".join(self.evaluate(check, bad)))
         bad = copy.deepcopy(record)
+        bad["bypass_scenarios"][0]["evidence"] = bad["entry_points"]
+        self.assertIn("未與實際失效", "；".join(self.evaluate(check, bad)))
+        bad = copy.deepcopy(record)
         bad["source_hashes"]["SessionValidator.cs"] = "stale"
         self.assertIn("SHA256", "；".join(self.evaluate(check, bad)))
         bad = copy.deepcopy(record)
@@ -177,6 +180,9 @@ class ControlOutcomeTests(unittest.TestCase):
         for row in bad["bypass_scenarios"]:
             row["outcome"] = "blocked"
         self.assertIn("真正外部證據", "；".join(self.evaluate(check, bad)))
+        bad = copy.deepcopy(record)
+        bad["bypass_scenarios"][-1]["evidence"] = bad["entry_points"]
+        self.assertIn("未與實際失效", "；".join(self.evaluate(check, bad)))
         bad = copy.deepcopy(record)
         bad["external_gap_artifact"] = "AC-01-deployment-or-policy-evidence"
         self.assertIn("未連結", "；".join(self.evaluate(check, bad)))
