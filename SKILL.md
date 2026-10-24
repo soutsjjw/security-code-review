@@ -55,6 +55,12 @@ argument-hint: "[專案路徑或檢核範圍]"
 6. 先執行 `--begin-second-pass`，由同一代理完成全部 70 項實際反向複核；矛盾未裁決或證據缺漏均不得交付。
 7. 最後執行 `review_safety.py --target "<TARGET_ROOT>" --validate` 並確認 `review_queue.py` 的 `safety_integrity_errors=[]`、`ready_for_report=true`，才可執行 `complete_review.py`。既有 `file_reviews`、70 項完成證據及來源覆蓋驗證不放寬。
 
+## 跨檔控制鏈證據守門（必須執行）
+
+針對需跨檔確認控制責任的規則，必須以 `closures[rule_id].control_trace` 記錄真實的入口、控制執行、資料操作或設定節點，以及經來源查證的索引關聯；`examined_relationship_ids` 必須與附證據的 `control_trace.relationships` 相同。呼叫點 verified／excluded、候選關聯排除都要有來源行號、核對理由和具體繫結／排除分類；不可把所有索引候選標為 excluded 或把全案 `examined_paths` 當成已驗證呼叫鏈。若實際是單檔控制或完全外部責任，明確記錄邊界，不捏造跨檔證據。所有控制鏈來源需與正式檢核 `execution.inspected_paths` 及檢核證據一致。
+
+新索引會啟用此驗證；舊索引及既有 Findings 不自動改判。來源變更時保守重新審查，不得僅補填 JSON 以通過守門。操作格式見 [完整性守門操作指引](docs/review-integrity-guards.md)。
+
 ## 安全控制有效性與繞過路徑驗證（必須執行）
 
 每條適用規則除了確認安全機制存在，還須從真實程式碼核對 **入口 → 控制執行分支 → 受保護操作**、拒絕分支及可替代／繞過路徑。不能因 `[Authorize]`、`UseAuthorization()`、參數化 API 或雜湊 API 存在就直接 pass。對介面實作、DI、環境覆寫、匿名入口、直接 Repository 存取與重放路徑應以反向攻擊視角逐一追查。
