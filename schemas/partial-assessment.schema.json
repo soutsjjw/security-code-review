@@ -1,0 +1,648 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Security Code Review Partial Assessment v1",
+  "description": "保留正式 70 項單條 Check/Finding 契約，但每份 assessment 只能包含一個指定分類的逐檔結果。",
+  "type": "object",
+  "required": [
+    "ruleset_version",
+    "project_id",
+    "git_revision",
+    "assessment_date",
+    "scope",
+    "checks",
+    "findings",
+    "review_mode",
+    "category",
+    "source_snapshot_sha256",
+    "file_reviews"
+  ],
+  "properties": {
+    "ruleset_version": {
+      "const": "2.0.0"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_revision": {
+      "type": "string",
+      "minLength": 7
+    },
+    "assessment_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 3
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "severity",
+          "check_ids",
+          "impact",
+          "evidence",
+          "remediation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "info"
+            ]
+          },
+          "check_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 5
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "description",
+                "collected_on",
+                "source_version"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "source",
+                    "test",
+                    "configuration",
+                    "deployment",
+                    "operating_record",
+                    "policy",
+                    "scan",
+                    "interview",
+                    "other"
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 8
+                },
+                "collected_on": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "source_version": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "path": {
+                  "type": "string"
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line_end": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "artifact_id": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "redacted": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "remediation": {
+            "type": "string",
+            "minLength": 5
+          },
+          "confidence": {
+            "enum": [
+              "confirmed",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "impact_type": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "confidentiality",
+                "integrity",
+                "availability"
+              ]
+            },
+            "description": "影響面向；嚴重度須與其對應（僅影響可用性者不宜直接列為 high）。"
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "usage_traced": {
+                "type": "string",
+                "minLength": 10,
+                "description": "已追查引用的變數／方法確實被使用或傳出的說明；抑制死碼啟發式。"
+              },
+              "design_notes": {
+                "type": "string",
+                "minLength": 5,
+                "description": "引用片段附近的註解／文件是否說明刻意設計，以及如何納入判斷；抑制註解警示。"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "rule_id",
+          "approver",
+          "accepted_by",
+          "expires_on",
+          "compensating_controls",
+          "justification"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "approver": {
+            "type": "string"
+          },
+          "accepted_by": {
+            "type": "string"
+          },
+          "expires_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "compensating_controls": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "scope_details": {
+      "type": "object",
+      "description": "由審查 Agent 記錄範圍，統計數量由來源檔與檢核紀錄計算",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "path"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "excluded_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 3
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "review_mode": {
+      "const": "partial"
+    },
+    "category": {
+      "enum": [
+        "AC",
+        "AU",
+        "IN",
+        "CR",
+        "EH",
+        "LG",
+        "DP",
+        "PD",
+        "BC",
+        "SI"
+      ]
+    },
+    "source_snapshot_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "$ref": "assessment.schema.json#/properties/checks/items"
+      }
+    },
+    "file_reviews": {
+      "type": "array",
+      "description": "指定分類的逐檔適用性篩選；須通過安全驗證及 100% 應審查檔案覆蓋。",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "sha256",
+          "summary",
+          "methods",
+          "category_screening",
+          "rule_reviews"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 20
+          },
+          "methods": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 3
+            }
+          },
+          "category_screening": {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "AC": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "AU": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "IN": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "CR": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "EH": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "LG": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "DP": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "PD": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "BC": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              },
+              "SI": {
+                "type": "object",
+                "required": [
+                  "rule_ids",
+                  "reason"
+                ],
+                "properties": {
+                  "rule_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 15
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "minProperties": 1,
+            "maxProperties": 1,
+            "propertyNames": {
+              "enum": [
+                "AC",
+                "AU",
+                "IN",
+                "CR",
+                "EH",
+                "LG",
+                "DP",
+                "PD",
+                "BC",
+                "SI"
+              ]
+            }
+          },
+          "candidate_exclusions": {
+            "type": "array",
+            "description": "語意候選確實不適用時逐條記錄理由；不可由工具自動填寫",
+            "items": {
+              "type": "object",
+              "required": [
+                "rule_id",
+                "reason"
+              ],
+              "properties": {
+                "rule_id": {
+                  "type": "string",
+                  "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 40
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "rule_reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "rule_id",
+                "result",
+                "reason",
+                "line_start",
+                "line_end"
+              ],
+              "properties": {
+                "rule_id": {
+                  "type": "string",
+                  "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+                },
+                "result": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "review"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 20
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line_end": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
