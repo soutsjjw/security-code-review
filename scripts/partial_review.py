@@ -64,14 +64,25 @@ def _snapshot(root: Path) -> dict[str, Any]:
     coverage = build_source_coverage({"checks": [], "file_reviews": []}, root)
     files = {path: hashlib.sha256((root / path).read_bytes()).hexdigest()
              for path in coverage["source_paths"]}
-    return {"git_revision": _git_revision(root), "source_hashes": files,
-            "fingerprint": _digest({"git_revision": _git_revision(root), "source_hashes": files})}
+    revision = _git_revision(root)
+    return {"git_revision": revision, "source_hashes": files,
+            "fingerprint": _digest({"git_revision": revision, "source_hashes": files})}
 
 
 def _category_dir(root: Path, category: str) -> Path:
     if category not in CATEGORY_COUNTS:
         raise ScopeError(f"未支援分類：{category}")
-    return root / PARTIAL_ROOT / category
+    root = root.resolve()
+    directory = root / PARTIAL_ROOT / category
+    # 禁止 reports/、partial/ 或分類目錄的 symlink 導向受測專案外部。
+    current = directory
+    while current != root:
+        if current.is_symlink():
+            raise ScopeError(f"分類輸出路徑不允許 symbolic link：{current}")
+        current = current.parent
+    if not directory.resolve().is_relative_to(root):
+        raise ScopeError("分類輸出路徑超出受測專案")
+    return directory
 
 
 def _category_rules(catalog: dict, category: str) -> list[dict]:
@@ -362,7 +373,7 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
                                  "missing_source_file_count", "missing_by_type")},
             "review_integrity_errors": coverage["review_integrity_errors"][:20],
             "rule_integrity_errors": quality[:30],
-            "first_pass_evidence_ready": bool(complete),
+            "preliminary_coverage_ready": bool(complete),
             "ready_for_report": False,
             "assessment_path": (PARTIAL_ROOT / category / "assessment.json").as_posix(),
         })
