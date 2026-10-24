@@ -81,6 +81,10 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 此功能新增 `decision_quality_version=1` 與外部缺口的結構化判定分支；沿用既有 `assessment.json` 與來源快照、整合及第二輪流程，不會自動更改舊結果。完整格式與遷移方式見 [待確認判定指引](docs/review-decision-adjudication.md)。
 
+## 已完成 Fail／Review 的控制有效性證據（必須執行）
+
+新版來源索引的 `control_outcome_version=1` 會對適用的安全控制要求：`fail` 使用真正的缺失位置、至少一個已確認的繞過情境與正式 Finding 連結；`review` 必須完成程式碼控制與必要反向情境驗證，且指出與既有裁決紀錄一致、真正會改變判定的外部工件。原本 `pass` 的控制存在性與繞過守門不變，純外部控制不須捏造程式碼控制鏈；禁止以欠缺非必要測試遮蔽已證實的缺陷。所有結果皆由主代理閱讀程式碼後提出，不得由驗證器自動改判或生成 Finding。詳見 [安全控制有效性指引](docs/control-effectiveness-review.md)。
+
 ## 單代理第二輪反向複核與矛盾裁決（必須執行）
 
 第一輪完成全部 70 項規則、100% 來源檢閱及跨檔／控制有效性／外部判定證據後，**不得直接交付**。執行 `review_safety.py --target "<TARGET_ROOT>" --begin-second-pass`，固定第一輪全部判定指紋及 Git／來源快照到 `analysis/first-pass-baseline.json`。同一主代理必須**重新閱讀來源**，以攻擊者角度挑戰每項結論，對全部 70 項提出反例假設；高風險規則至少核對兩個不同攻擊面。這是分階段的自我複核，**不是獨立代理或盲審**，不得宣稱真正獨立性。
