@@ -1,8 +1,8 @@
 ---
 name: security-code-review
 version: 2.2.0-rc1
-description: 對目前專案或指定目錄執行公司共用的 70 項原始碼資安審查，驗證證據並自動產生通用離線 HTML 與 JSON 報告。
-argument-hint: "[專案路徑或檢核範圍]"
+description: 對目前專案執行完整 70 項或以 --categories 指定 AC～SI 分類的真實程式碼安全審查，完成證據驗證與離線 HTML／JSON 報告。
+argument-hint: "[專案路徑] [--categories AC,AU]"
 ---
 
 # Security Code Review
@@ -11,17 +11,33 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 ## 一句話使用
 
-- Codex：`$security-code-review` 或 `$security-code-review <專案路徑或範圍>`
-- Claude Code：`/security-code-review` 或 `/security-code-review <專案路徑或範圍>`
+- Codex：`$security-code-review`（完整 70 項）、`$security-code-review --categories AC`（僅 AC 8 項）、`$security-code-review --categories AC,AU`（分別審查 AC 8 與 AU 10 項）。可附加受測專案路徑。
+- Claude Code：`/security-code-review`；指定分類時明確輸入 `--categories AC,AU`。
+- **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。
 - 使用者**不需要**自行執行 Python 指令；Agent 負責呼叫必要的工具。
 
 ## 解析受測目標（優先處理）
 
 1. **不提供參數**：從目前工作目錄找到所在 Git 專案的根目錄；若不是 Git 專案，就以目前目錄為根目錄。
 2. **提供另一個現有專案目錄**：以該目錄為受測根目錄；不得因 Skill 安裝位置不同而改成掃描 Skill。
-3. **提供本專案內的子目錄、檔案或文字需求**：保持目前專案根目錄為 `TARGET_ROOT`，將參數解讀為檢核範圍／重點；仍須輸出 70 個檢核 ID，未審查的範圍標明限制及 Review，不可假裝全案已掃描。
+3. **提供本專案內的子目錄、檔案或文字需求**：保持目前專案根目錄為 `TARGET_ROOT`，將其解讀為審查重點，而不是略過其他必要來源檔。完整模式仍須輸出 70 個檢核 ID；分類模式只判定指定分類，但兩種模式都不得把未讀來源當作已審查。
 4. 未明確指定路徑時，**永遠不要把 `SKILL_ROOT` 當作受測目錄**。
 5. 設 `SKILL_ROOT` 為目前 `SKILL.md` 的實際所在目錄（或其絕對路徑）；從此載入 `rules/`、`schemas/`、`scripts/`、`templates/`。
+
+## 分類審查模式（有 `--categories` 時優先執行）
+
+**在執行任何正式審查初始化或正式索引腳本之前先判定模式**。若 Prompt 明確含 `--categories`：
+
+1. **必須閱讀並執行 [分類審查操作契約](docs/category-review.md)**；先用 `review_scope.py --target "<TARGET_ROOT>" --categories AC,AU` 驗證分類與全部 70 項規則主檔，未通過立即停止，不得初始化／覆寫資料。支援 AC、AU、IN、CR、EH、LG、DP、PD、BC、SI 的任意不重複組合。沒有分類參數時不可進入此分支。
+2. **使用分類專用初始化與共用索引**：`review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --init --compact`，再執行 `review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --prepare`。此模式**不得**呼叫正式 `analysis_prepare.py` 或不帶分類的 `review_queue.py --init`，以免寫入正式審查區。
+3. 從 `category_queues` 個別讀取 AC、AU 的 `next_checks`、`remaining_ids`、`next_source_paths`；每條規則以同分類 `--detail-id` 讀取完整指引和標準文件。實際閱讀所有相關程式碼與設定、完整呼叫鏈，對每個應審查來源檔完成所選分類的逐檔篩選，證據、判定及 Finding 都分別記錄；**不執行未選分類的規則判定**。
+4. 同一批可共用來源／結構候選，但每個分類以 `review_queue.py --categories AC --stage "<AC_BATCH>.json"` 與 `--integrate` **分開保存**；AU 需另行暫存整合。分批 JSON 可包含 `checks`、`file_reviews`、`findings`、`closures`、`control_verifications`、`decision_audits` 及第二輪 `adversarial_reviews`，不可混入其他分類 ID。原正式 `review_safety.py --stage/--integrate` **不可**用於此模式。不得以自動產生內容、制式排除或新增外部缺口來湊齊結果。
+5. **每分類第一輪必須真正完成**規則、所有相關跨檔／控制責任、Pass 有效性、Fail 與 Finding、Review 外部工件裁決及 100% 來源覆蓋，才對該分類執行 `review_queue.py --categories AC --begin-second-pass`。同一代理重新閱讀關鍵證據，完成該分類所有規則的真實反例搜尋與矛盾裁決，分批保存第二輪證據。若需要改正已完成判定，遵循分類專用的具體矛盾裁決、Finding 關聯及 `--allow-revision` 保護，不得降級已確認 Fail。
+6. 執行 `review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --validate`；每個分類都必須有 `safety_valid=true`、`safety_integrity_errors=[]`、`remaining_ids=[]` 及 `second_pass.pending_count=0`，沒有未整合交易，才能執行 `complete_review.py --target "<TARGET_ROOT>" --categories AC,AU`，再用 `validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU` 驗證。
+7. **分類的 `ready_for_report` 固定為 `false`，並非完成失敗或交付條件**。只有分類安全驗證、全部選定規則與逐檔覆蓋、第二輪，以及各分類 HTML／JSON 嚴格驗證皆完成，才能交付分別位於 `reports/security-code-review/partial/AC/`、`partial/AU/` 的**部分審查**報告。未選分類維持未審查，不生成其報告；即使選擇全部十類也仍是十份獨立部分報告，絕不宣稱正式完整 70 項審查。
+8. 已有分類進度必須保留；來源／Git Revision 異動、證據不一致或報告發布中斷時，先核對並保留 Finding 與可復原工件，不可重置或假設可自動修復。只在真正無法繼續時說明阻斷原因與未完成分類。
+
+**以下所有提及正式 `analysis_prepare.py`、`review_safety.py`、全部十類逐檔篩選、`ready_for_report=true`、`70/70` 及正式根目錄 `assessment.json/report.json` 的操作步驟，皆為**「未指定 `--categories`」的完整模式專用**。共同證據與判定階梯、標準文件按需載入、單代理限制、不可虛構證據與不得修改受測程式碼，兩種模式都適用。
 
 ## 技術支援及 Token 優化前置（必須執行）
 
@@ -43,7 +59,7 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 新審查在來源索引與 `--init` 後自動封存起點；**既有審查**不得被自動信任，必須先核對 assessment、Finding、所有工作中證據與來源快照，才可明確執行 `review_safety.py --seal-integrity`。封存後多檔 JSON 必須透過 `--stage / --integrate` 的 SHA256 交易鏈更新，禁止直接覆寫既有已驗證結果；發生交易中斷必須先核對，執行 `review_safety.py --recover-integrity`。若受控檔案出現原版本及預期新版本以外的第三種內容，一律停止復原。完整性鏈不等於數位簽章，不能抵禦可同時改寫全部日誌的人。詳見 [證據完整性與安全復原](docs/evidence-integrity.md)。
 
-## 單代理審查完整性守門（必須執行）
+## 單代理審查完整性守門（完整模式專用）
 
 **本 Skill 不使用子代理或並行審查。** 沿用既有逐檔檢閱、70 項規則、真實證據與正式報告契約。完整操作與例外見 [完整性守門操作指引](docs/review-integrity-guards.md)。
 
@@ -157,9 +173,9 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 若一條規則有多個非空對照，須載入全部相關文件；附件內容不能取代 V3.2 主文，必要時同時載入 [V3.2 主文](docs/web-guide-v3.2-review.md)。檔案讀取失敗時須記錄未完成的對照與原因，不能聲稱已完成該項查核。
 - 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
 
-## 自動審查流程
+## 自動審查流程（完整模式；未指定 `--categories`）
 
-**重要：本 Skill 的使用者交付物是 70 項完整資安審查報告，不是弱點速報、待辦清單或要求先修復的建議。**
+**完整模式（未指定 `--categories`）的交付物是 70 項正式資安審查報告；分類模式的交付物為各選定分類的部分審查報告，依上方分類流程另行驗證。**
 單次執行須主動持續查核直到 70 項完成且 HTML／JSON 驗證通過；僅有真正無法繼續的環境／工具錯誤才停止。
 不得因發現 1～3 項風險、完成少量來源查證、缺少外部部署資訊或看到仍有 pending 就結束並要求使用者再次呼叫 Skill。
 
@@ -265,6 +281,8 @@ argument-hint: "[專案路徑或檢核範圍]"
 - **整體風險**：由已記錄 Finding 的嚴重度、影響、證據信心與仍未驗證的利用條件自動產生靜態初判；不能按 Finding 數量簡單加總，亦不能因無 Finding 就判定低風險。未經證明的外部暴露、補償控制及業務衝擊，必須註明待驗證；不需使用者先核定才輸出初判，也不能當成正式風險接受。
 
 ## 報告輸出位置
+
+下方為**完整模式**正式報告路徑；分類模式獨立輸出於 `partial/<分類>/`，詳見 [分類審查操作契約](docs/category-review.md)。
 
 ```text
 <TARGET_ROOT>/
