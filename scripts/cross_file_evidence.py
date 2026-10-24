@@ -23,10 +23,10 @@ BOUNDARIES = frozenset({"connected", "single_file"})
 def _reason_template(reason: str) -> str:
     """忽略規則編號、位置和數字後偵測大量相同的跨檔排除理由。"""
     normalized = reason.casefold()
-    normalized = re.sub(r"\\b[a-z]{2}-\\d{2}\\b", "<rule>", normalized)
-    normalized = re.sub(r"\\b(?:[a-z0-9_./\\\\-]+\\.(?:cs|csproj|json|cshtml))\\b",
+    normalized = re.sub(r"\b[a-z]{2}-\d{2}\b", "<rule>", normalized)
+    normalized = re.sub(r"\b[a-z0-9_./\\-]+\.(?:cs|csproj|json|cshtml)\b",
                         "<path>", normalized)
-    normalized = re.sub(r"\\b\\d+\\b", "<number>", normalized)
+    normalized = re.sub(r"\b\d+\b", "<number>", normalized)
     return " ".join(normalized.split())
 
 
