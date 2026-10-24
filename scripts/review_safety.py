@@ -510,8 +510,13 @@ def refresh_snapshot(target: Path) -> None:
     folder = report_dir(target) / STAGED
     if folder.is_dir() and any(folder.glob("*.json")):
         raise ValueError("尚有未整合暫存；禁止刷新來源快照")
-    from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors
-    if integrity_enabled(target):
+    from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors, MANIFEST as integrity_manifest
+    # 尚未建立 assessment 的純分析器工作樹沒有審查資料需要封存；
+    # 可刷新技術索引，但一旦審查檔存在就不能繞過完整性起點。
+    active = integrity_enabled(target) and (
+        (target / integrity_manifest).exists()
+        or (report_dir(target) / "assessment.json").exists())
+    if active:
         problems = integrity_errors(target)
         if problems:
             raise ValueError("；".join(problems))
@@ -530,7 +535,7 @@ def refresh_snapshot(target: Path) -> None:
                  if (row.get("execution") or {}).get("state") == "completed"]
     recheck = {"rule_ids": sorted(completed),
                "reason": "審查來源或 Git 版本已變更，需重新驗證影響閉包"}
-    if integrity_enabled(target):
+    if active:
         from evidence_integrity import commit as integrity_commit
         integrity_commit(target, {
             "analysis/review-snapshot.json": updated_snapshot,
