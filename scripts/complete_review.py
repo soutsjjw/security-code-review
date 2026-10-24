@@ -22,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument('--target', type=Path, default=Path.cwd(), help='受測專案根目錄（預設：目前工作目錄）')
     p.add_argument('--output-dir', default='reports/security-code-review', help='受測專案內報告目錄，相對路徑')
     p.add_argument('--source-encodings', default='cp950,cp1252', help='舊式來源編碼回退順序')
+    p.add_argument('--categories', action='append', metavar='AC,AU', help='產生各分類獨立 HTML/JSON，僅部分審查')
     return p.parse_args()
 
 
@@ -31,6 +32,15 @@ def within(base: Path, child: Path) -> bool:
 
 def main() -> int:
     args = parse_args()
+    if args.categories:
+        if len(args.categories) != 1:
+            print('ERROR: --categories 僅能指定一次', file=sys.stderr)
+            return 2
+        if args.output_dir != 'reports/security-code-review':
+            print('ERROR: 分類報告固定儲存於 partial/<分類>，不得自訂 --output-dir', file=sys.stderr)
+            return 2
+        from partial_report import main as complete_partial
+        return complete_partial(['--target', str(args.target), '--categories', args.categories[0]])
     target = args.target.resolve()
     if not target.is_dir():
         print(f'ERROR: 受測目錄不存在：{target}', file=sys.stderr)
