@@ -198,6 +198,36 @@ class PartialReportTests(unittest.TestCase):
                               capture_output=True, env=env, check=False)
         self.assertNotEqual(proc.returncode, 0)
 
+    def test_category_cli_rejects_incomplete_without_touching_formal(self):
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        proc = subprocess.run([
+            sys.executable, str(ROOT / "scripts/complete_review.py"),
+            "--target", str(self.root), "--categories", "AC,AU",
+        ], text=True, encoding="utf-8", capture_output=True, env=env, check=False)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse((_category_dir(self.root, "AC") / "report.json").exists())
+        self._assert_formal_unmodified()
+
+    def test_validate_report_category_cli_rejects_missing_partial(self):
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        proc = subprocess.run([
+            sys.executable, str(ROOT / "scripts/validate_report.py"),
+            "--categories", "AC,AU", "--source-root", str(self.root), "--strict-sources",
+        ], text=True, encoding="utf-8", capture_output=True, env=env, check=False)
+        self.assertNotEqual(proc.returncode, 0)
+        self._assert_formal_unmodified()
+
+    def test_symlinked_partial_report_must_not_overwrite_formal(self):
+        link = _category_dir(self.root, "AC") / "report.json"
+        try:
+            link.symlink_to(self.formal["report.json"])
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"無法建立 symbolic link：{exc}")
+        with patch("partial_report.validate_safety", side_effect=approved_safety):
+            with self.assertRaises(ScopeError):
+                complete(self.root, ("AC",), self.catalog)
+        self._assert_formal_unmodified()
+
     def test_explicit_all_ten_categories_remains_partial_contract(self):
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             # 僅驗證分類契約，不寫入另外八份尚未初始化的工作資料。
