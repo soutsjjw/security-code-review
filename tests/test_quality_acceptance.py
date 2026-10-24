@@ -87,6 +87,18 @@ class QualityAcceptanceTests(unittest.TestCase):
         (location / "HiddenController.cs").write_text("class Bypass {}")
         self.assertIn("額外來源", str(verify_case_sources(case, location)))
 
+    def test_windows_crlf_and_unix_lf_both_preserve_case_content(self):
+        case = self.cases[0]
+        folder = self.root / case["id"]
+        for name in ["Case.csproj", *case["files"]]:
+            path = folder / name
+            source = path.read_text(encoding="utf-8")
+            path.write_bytes(source.replace("\\n", "\\r\\n").encode("utf-8"))
+        self.assertEqual(verify_case_sources(case, folder), [])
+        source_file = folder / case["anchor"]["path"]
+        source_file.write_bytes(source_file.read_bytes() + b"\r\n// unauthorized")
+        self.assertIn("與固定案例原始碼不同", str(verify_case_sources(case, folder)))
+
     def test_missing_assessments_are_not_counted_as_agent_passes(self):
         with patch("quality_acceptance.build_queue", side_effect=self._mock_ready_queue):
             result = measure(self.root)
