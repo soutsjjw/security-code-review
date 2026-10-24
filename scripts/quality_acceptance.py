@@ -30,7 +30,7 @@ def catalog_sha256() -> str:
 
 
 def verify_case_sources(case: dict[str, Any], directory: Path) -> list[str]:
-    """逐位元組核對原案例檔，不容許新增會改變攻擊面的來源檔。"""
+    """核對 UTF-8 案例內容（容許跨平台 CRLF/LF），禁止其他來源變動。"""
     if not directory.is_dir():
         return ["隔離案例目錄不存在"]
     expected = {"Case.csproj": PROJECT_FILE, **case["files"]}
@@ -38,9 +38,9 @@ def verify_case_sources(case: dict[str, Any], directory: Path) -> list[str]:
     for name, original in expected.items():
         path = directory / name
         try:
-            if not path.is_file() or path.read_bytes() != original.encode("utf-8"):
+            if not path.is_file() or path.read_text(encoding="utf-8") != original:
                 problems.append(f"{name}: 與固定案例原始碼不同")
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             problems.append(f"{name}: 無法驗證來源（{exc}）")
     for path in directory.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in SOURCE_EXTS:
