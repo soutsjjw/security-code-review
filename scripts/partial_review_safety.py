@@ -203,14 +203,23 @@ def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
                                      "decision_reason": c.get("decision_reason", "")}
                            for c in checks}}
     path = _artifact(root, category, BASELINE)
+    from partial_evidence_integrity import MANIFEST, commit, errors as integrity_errors
+    manifest = _artifact(root, category, MANIFEST)
+    if not manifest.is_file():
+        raise ScopeError("分類尚未建立完整性封存；既有第一輪證據須先核對後明確封存")
+    problems = integrity_errors(root, category)
+    if problems:
+        raise ScopeError("；".join(problems))
     if path.is_file():
         previous = _load(path)
         if previous != baseline:
             raise ScopeError("第一輪固定判定已有差異；不可覆寫。請查明版本及矛盾來源")
         return {"category": category, "already_existed": True,
                 "rule_count": len(checks), "ready_for_report": False}
-    _atomic(path, baseline)
+    receipt = commit(root, category, {BASELINE.as_posix(): baseline},
+                     event="first-pass-baseline")
     return {"category": category, "already_existed": False,
+            "integrity_sequence": receipt["sequence"],
             "rule_count": len(checks), "ready_for_report": False}
 
 
