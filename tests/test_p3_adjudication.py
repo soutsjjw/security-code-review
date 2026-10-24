@@ -320,6 +320,17 @@ class P3AdjudicationTests(unittest.TestCase):
         errors = self.check(audit=audit)
         self.assertIn("Q1 靜態證據未列入實際搜尋檔案", "；".join(errors))
 
+    def test_q1_malformed_nested_fields_return_errors_not_exceptions(self):
+        audit = copy.deepcopy(self.audit)
+        audit["external_gap"]["decision_outcomes"]["if_satisfied"]["status"] = ["pass"]
+        audit["static_evidence"] = [{
+            "path": ["SessionValidator.cs"], "line_start": self.loc["line_start"],
+            "line_end": self.loc["line_end"],
+        }]
+        errors = self.check(audit=audit)
+        self.assertIn("Q1 decision_outcomes.if_satisfied.status", "；".join(errors))
+        self.assertTrue(any("static_evidence" in item for item in errors), errors)
+
     def test_q1_old_snapshot_is_not_silently_migrated(self):
         index_path = report_dir(self.root) / "analysis/structure-index.json"
         original = json.loads(index_path.read_text(encoding="utf-8"))
