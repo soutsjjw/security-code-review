@@ -19,6 +19,10 @@ from test_partial_report import PartialReportTests, approved_safety
 
 
 class PublicationAcceptanceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        PartialReportTests.setUpClass()
+
     def setUp(self):
         self.fixture = PartialReportTests(methodName="test_two_categories_separate_reports_formal_untouched")
         self.fixture.setUp()
@@ -38,7 +42,8 @@ class PublicationAcceptanceTests(unittest.TestCase):
         for cat in self.categories:
             folder = _category_dir(self.root, cat)
             for path in [folder / "report.json", *folder.glob("CodeReview_*.html")]:
-                paths[str(path)] = path.read_bytes()
+                if path.is_file():
+                    paths[str(path)] = path.read_bytes()
         return paths
 
     def _formal_unchanged(self):
