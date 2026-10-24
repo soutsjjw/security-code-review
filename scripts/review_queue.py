@@ -311,6 +311,8 @@ def main() -> int:
                         help="指定分類並建立／查詢獨立審查進度；報告須另通過分類驗證")
     parser.add_argument("--stage", type=Path, help="暫存單一分類的批次 JSON")
     parser.add_argument("--integrate", action="store_true", help="整合單一分類的 staged JSON")
+    parser.add_argument("--recover-integrity", action="store_true",
+                        help="明確驗證並補完單一分類的中斷證據交易")
     parser.add_argument("--allow-revision", action="store_true", help="僅搭配 --integrate 修正第二輪確認的錯誤判定")
     parser.add_argument("--prepare", action="store_true", help="建立分類共用來源結構索引")
     parser.add_argument("--begin-second-pass", action="store_true", help="固定指定分類的第一輪判定")
@@ -321,10 +323,10 @@ def main() -> int:
     if (args.stage or args.integrate) and not args.categories:
         parser.error("--stage/--integrate 僅適用 --categories 的單一分類")
     operations = [bool(args.stage), args.integrate, args.prepare,
-                  args.begin_second_pass, args.validate]
+                  args.begin_second_pass, args.validate, args.recover_integrity]
     if sum(operations) > 1:
-        parser.error("--stage、--integrate、--prepare、--begin-second-pass、--validate 不可混用")
-    if (args.prepare or args.begin_second_pass or args.validate) and not args.categories:
+        parser.error("--stage、--integrate、--prepare、--begin-second-pass、--validate、--recover-integrity 不可混用")
+    if (args.prepare or args.begin_second_pass or args.validate or args.recover_integrity) and not args.categories:
         parser.error("分類安全操作必須指定 --categories")
     if args.allow_revision and not args.integrate:
         parser.error("--allow-revision 僅可搭配 --integrate")
@@ -345,7 +347,12 @@ def main() -> int:
         try:
             selected = parse_categories(args.categories[0])
             catalog = load_catalog()
-            if args.prepare:
+            if args.recover_integrity:
+                from partial_evidence_integrity import recover
+                if len(selected) != 1:
+                    raise ValueError("--recover-integrity 每次只能指定單一分類")
+                result = recover(target, selected[0])
+            elif args.prepare:
                 from partial_review_safety import prepare_index
                 result = prepare_index(target, catalog)
             elif args.begin_second_pass:
