@@ -399,7 +399,7 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
         else:
             archive_update = ((HISTORY / digest_name).as_posix(), archive)
     updates = {EVIDENCE_FILES[key].as_posix(): merged_evidence[key]
-               for key in EVIDENCE_KEYS & set(payload)}
+               for key in sorted(EVIDENCE_KEYS & set(payload))}
     if archive_update is not None:
         updates[archive_update[0]] = archive_update[1]
     updates["assessment.json"] = merged
