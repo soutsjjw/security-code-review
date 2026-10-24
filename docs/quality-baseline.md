@@ -98,3 +98,7 @@ python scripts/quality_baseline.py --evaluate predictions.json --output p0-resul
 **P0 交付界線**：建立並驗證案例與評分器，不執行耗用大量 Agent 工作階段的 16 次完整審查。正式測出當前單代理的召回／誤報基線後，才有可比較的 P1～P6 品質數據。未實際執行時不得寫成「基線 100% 正確」。
 
 **後續 P1～P6 驗收原則**：版本與案例相同，優先確保重大／高風險已知案例零漏報，且不能增加無依據誤報；規則結果與證據必須同時通過，不能以 Token 減少交換正確性。
+
+## 固定案例的正式版本驗收
+
+評分器的 `--evaluate` 只檢查資料結構與評分契約，**不是**真實審查成果。要驗收新版 Skill 的 Agent 品質，請依 [真實審查品質驗收](quality-acceptance.md) 先對全部 16 個隔離專案取得完整 70 項與正式報告，再執行 `quality_acceptance.py --workspace`；跨版本比較使用 `--compare`。未取得全部工件不得宣稱 16/16 或零漏報。
