@@ -186,6 +186,28 @@ class CrossFileEvidenceTests(unittest.TestCase):
         }
         self.assertEqual(self.errors(), [])
 
+    def test_many_id_only_variants_of_exclusion_reason_are_rejected(self):
+        for i in range(10, 19):
+            cid = f"call-{i}"
+            self.index["cross_file_call_hints"]["Controller.cs"].append({
+                "id": cid,
+                "called_method": "Handle",
+                "caller_line": 2,
+                "possible_targets": [{"path": "Unrelated.cs", "line": 2}],
+            })
+            self.closure["callsite_reviews"][cid] = {
+                "status": "excluded", "selected_targets": [],
+                "reason": f"AC-08 不需追查 Unrelated.cs 第 {i} 行，因其屬於不同的控制責任",
+                "exclusion_basis": "unrelated_rule",
+                "evidence": {"path": "Controller.cs", "line_start": 2,
+                             "line_end": 2},
+            }
+        self.assertIn("共用制式化的排除理由", "；".join(self.errors()))
+
+    def test_duplicate_verified_ids_are_rejected(self):
+        self.closure["examined_relationship_ids"].append("edge-1")
+        self.assertIn("必須與有證據的控制鏈關聯完全一致", "；".join(self.errors()))
+
     def test_malformed_trace_inputs_return_errors_instead_of_crashing(self):
         cases = [
             ("node_role", lambda: self.closure["control_trace"]["nodes"][0].update(
