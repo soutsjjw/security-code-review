@@ -476,6 +476,8 @@ def recover(root: Path, category: str) -> dict[str, Any]:
         if not manifest_path.is_file():
             raise IntegrityError("分類完整性 Manifest 不存在，不允許復原")
         if not pending_path.is_file():
+            if _artifact(root, category, STAGED).exists():
+                raise IntegrityError("沒有需要復原的完整性交易，但仍有尚未整合的 staged 批次")
             problems = errors(root, category)
             if problems:
                 raise IntegrityError("；".join(problems))
