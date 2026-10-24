@@ -2,7 +2,7 @@
 """分類審查獨立證據交易：預寫日誌、SHA256 鏈與排他鎖。
 
 每個分類擁有獨立封存與受控提交；交易中斷保持 pending 等待明確復原。
-不宣稱多檔案具備作業系統級原子性或目前已能自動復原。
+不宣稱多檔案具備作業系統級原子性；復原只允許明確的驗證後重播。
 
 無密鑰雜湊用於發現意外或未授權的工作流程外修改；
 若攻擊者能同時改寫檔案與整條日誌鏈，不能將其視為數位簽章。
@@ -349,3 +349,203 @@ def commit(root: Path, category: str, updates: dict[str, Any], *,
         pending_path.unlink()
         return {"category": category, "sequence": seq, "head": row["entry_hash"],
                 "event": event, "updated_paths": list(normalized)}
+
+
+def _verified_chain(root: Path, category: str, manifest: dict) -> dict:
+    """只核對已提交 Journal 鏈，不依賴中斷中的受控檔案內容。"""
+    seq = manifest.get("sequence")
+    if (manifest.get("schema_version") != VERSION or manifest.get("category") != category
+            or type(seq) is not int or seq < 0
+            or not isinstance(manifest.get("head"), str)
+            or not _HASH.fullmatch(manifest["head"])
+            or not isinstance(manifest.get("source_snapshot_sha256"), str)
+            or not _HASH.fullmatch(manifest["source_snapshot_sha256"])):
+        raise IntegrityError("完整性 Manifest 版本、身分、序號或 SHA256 無效")
+    history: dict | None = None
+    previous = None
+    for n in range(seq + 1):
+        path = _journal_path(root, category, n)
+        if not path.is_file():
+            raise IntegrityError(f"交易日誌缺少序號 {n}")
+        row = _read(path)
+        if not isinstance(row, dict):
+            raise IntegrityError(f"交易日誌序號 {n} 內容格式無效")
+        raw = {k: v for k, v in row.items() if k != "entry_hash"}
+        if (row.get("entry_hash") != _entry(raw)["entry_hash"]
+                or row.get("schema_version") != VERSION
+                or row.get("category") != category
+                or type(row.get("sequence")) is not int or row["sequence"] != n
+                or row.get("previous") != previous
+                or row.get("source_snapshot_sha256") != manifest["source_snapshot_sha256"]
+                or not _valid_hashes(row.get("file_hashes"))):
+            raise IntegrityError(f"交易日誌序號 {n} 的內容或鏈結驗證失敗")
+        history = row
+        previous = row["entry_hash"]
+    if history is None or manifest["head"] != previous:
+        raise IntegrityError("Manifest 與交易日誌鏈 head 不一致")
+    return history
+
+
+def _pending_details(root: Path, category: str, pending: dict,
+                     manifest: dict, tip: dict) -> tuple[dict, bool]:
+    if not isinstance(pending, dict):
+        raise IntegrityError("待復原交易不是 JSON 物件")
+    seq, updates = pending.get("sequence"), pending.get("updates")
+    before, after = pending.get("before_hashes"), pending.get("after_hashes")
+    stored = pending.get("staged_sha256")
+    if (pending.get("schema_version") != VERSION or pending.get("category") != category
+            or type(seq) is not int or seq < 1
+            or not isinstance(pending.get("event"), str) or not pending["event"]
+            or not isinstance(pending.get("previous"), str)
+            or not isinstance(pending.get("source_snapshot_sha256"), str)
+            or not _HASH.fullmatch(pending["source_snapshot_sha256"])
+            or not isinstance(updates, dict) or not updates
+            or not isinstance(stored, dict) or not _valid_hashes(before)
+            or not _valid_hashes(after)):
+        raise IntegrityError("待復原交易格式／分類身分或受控雜湊清單無效")
+
+    normalized: dict[str, str] = {}
+    for relative, value in updates.items():
+        if not isinstance(relative, str) or not isinstance(value, (dict, list)):
+            raise IntegrityError("交易更新須為受控 JSON 物件或陣列")
+        permitted = relative in TRACKED or (
+            relative.startswith(HISTORY.as_posix() + "/")
+            and _HISTORY_NAME.fullmatch(relative[len(HISTORY.as_posix()) + 1:]))
+        if not permitted:
+            raise IntegrityError(f"復原拒絕非分類受控路徑：{relative}")
+        _artifact(root, category, relative)  # 驗證 path traversal 與 symbolic link
+        normalized[relative] = _sha(_json_bytes(value))
+    if (not set(TRACKED) <= set(before)
+            or not set(before) <= set(after)
+            or set(after) != set(before) | set(updates)
+            or any(after[k] != normalized.get(k, before.get(k)) for k in after)
+            or any(k in before and before[k] is None and k not in updates and after[k] is not None
+                   for k in after)):
+        raise IntegrityError("待復原交易的前後 SHA256 與實際更新清單不一致")
+
+    if stored:
+        if (set(stored) != {STAGED.as_posix()}
+                or not isinstance(stored[STAGED.as_posix()], str)
+                or not _HASH.fullmatch(stored[STAGED.as_posix()])):
+            raise IntegrityError("復原 staged SHA256 格式或路徑不符")
+    if pending["source_snapshot_sha256"] != manifest["source_snapshot_sha256"]:
+        raise IntegrityError("待復原交易的來源指紋不同於已封存來源")
+
+    committed = seq == manifest["sequence"]
+    if committed:
+        if (tip.get("sequence") != seq
+                or tip.get("previous") != pending["previous"]
+                or tip.get("file_hashes") != after or tip.get("event") != pending["event"]
+                or tip.get("staged_sha256") != stored):
+            raise IntegrityError("已提交日誌內容與待復原交易不一致")
+    elif (seq != manifest["sequence"] + 1 or tip["entry_hash"] != pending["previous"]
+          or tip["file_hashes"] != before):
+        raise IntegrityError("待復原交易的上一版 SHA256 與已提交的 Journal 鏈不一致")
+
+    row = _entry({
+        "schema_version": VERSION, "category": category,
+        "sequence": seq, "previous": pending["previous"], "event": pending["event"],
+        "source_snapshot_sha256": pending["source_snapshot_sha256"],
+        "file_hashes": after, "staged_sha256": stored,
+    })
+    journal_path = _journal_path(root, category, seq)
+    journal_names = {f"{n:08d}.json" for n in range(manifest["sequence"] + 1)}
+    if not committed and journal_path.is_file():
+        if _read(journal_path) != row:
+            raise IntegrityError("待復原的 Journal 已存在不同內容")
+        journal_names.add(journal_path.name)
+    actual = {item.name for item in _artifact(root, category, JOURNAL).iterdir()}
+    if actual != journal_names:
+        raise IntegrityError("Journal 目錄有缺漏、額外或未授權檔案")
+    return row, committed
+
+
+def recover(root: Path, category: str) -> dict[str, Any]:
+    """明確復原分類交易；無 pending 時只驗證已完成狀態，具備冪等性。
+
+    交易成功前先驗證來源、所有受控檔案只符合 before/after、
+    staged SHA256 與既有 Journal。第三種內容一律拒絕，不修改任何資料。
+    """
+    with locked(root, category):
+        manifest_path = _artifact(root, category, MANIFEST)
+        pending_path = _artifact(root, category, PENDING)
+        if not manifest_path.is_file():
+            raise IntegrityError("分類完整性 Manifest 不存在，不允許復原")
+        if not pending_path.is_file():
+            problems = errors(root, category)
+            if problems:
+                raise IntegrityError("；".join(problems))
+            manifest = _read(manifest_path)
+            return {"category": category, "recovered": False,
+                    "already_completed": True, "sequence": manifest["sequence"],
+                    "head": manifest["head"]}
+        manifest = _read(manifest_path)
+        if not isinstance(manifest, dict):
+            raise IntegrityError("分類 Manifest 內容不合法")
+        tip = _verified_chain(root, category, manifest)
+        pending = _read(pending_path)
+        row, committed = _pending_details(root, category, pending, manifest, tip)
+
+        source = _snapshot(root)
+        if source["fingerprint"] != pending["source_snapshot_sha256"]:
+            raise IntegrityError("來源或 Git Revision 已異動，禁止自動復原")
+        expected_snapshot_path = _artifact(root, category, "analysis/source-snapshot.json")
+        stored_snapshot = _read(expected_snapshot_path) if expected_snapshot_path.is_file() else None
+        if (not isinstance(stored_snapshot, dict)
+                or stored_snapshot.get("fingerprint") != source["fingerprint"]
+                or stored_snapshot != source):
+            raise IntegrityError("分類來源快照遭修改，禁止自動復原")
+        staged = pending["staged_sha256"]
+        staged_path = _artifact(root, category, STAGED)
+        if staged:
+            expected_sha = staged[STAGED.as_posix()]
+            current_sha = _file_hash(staged_path)
+            if current_sha != expected_sha and not (committed and current_sha is None):
+                raise IntegrityError("分類 staged 批次已變更或在提交前消失，禁止復原")
+        elif staged_path.exists():
+            raise IntegrityError("非 staged 交易出現未授權 staged 暫存資料")
+
+        before, after = pending["before_hashes"], pending["after_hashes"]
+        live = _hashes(root, category)
+        if set(live) != set(after):
+            raise IntegrityError("復原前受控檔案清單遭新增或刪除（包含修訂歷史）")
+        for relative, actual in live.items():
+            permitted = {after[relative]} if committed else {before.get(relative), after[relative]}
+            if actual not in permitted:
+                raise IntegrityError(f"{relative}: 受控證據遭第三種內容修改，拒絕復原")
+            if relative not in pending["updates"] and actual != before[relative]:
+                raise IntegrityError(f"{relative}: 未列入交易的證據被變更，拒絕復原")
+        if committed:
+            if live != after:
+                raise IntegrityError("Manifest 已提交，但受控檔案不符合已封存 SHA256")
+        else:
+            # 所有檔案及 staged 指紋已完成預檢才允許補寫任何目標。
+            for relative, value in pending["updates"].items():
+                if live[relative] != after[relative]:
+                    _atomic(_artifact(root, category, relative), value)
+            if _snapshot(root) != source or _hashes(root, category) != after:
+                raise IntegrityError("復原寫入後來源或證據 SHA256 不一致；保留 pending")
+
+            journal = _journal_path(root, category, pending["sequence"])
+            if journal.is_file():
+                if _read(journal) != row:
+                    raise IntegrityError("Journal 中已有不同交易，禁止覆寫")
+            else:
+                _atomic(journal, row)
+            _atomic(manifest_path, {
+                "schema_version": VERSION, "category": category,
+                "sequence": pending["sequence"], "head": row["entry_hash"],
+                "source_snapshot_sha256": source["fingerprint"],
+            })
+
+        # 當 Manifest 已提交且檔案全部一致才清理 staged/pending。
+        if staged and staged_path.is_file():
+            staged_path.unlink()
+        pending_path.unlink()
+        problems = errors(root, category)
+        if problems:
+            raise IntegrityError("復原完成後完整性驗證失敗：" + "；".join(problems))
+        return {"category": category, "recovered": True,
+                "already_completed": False, "sequence": pending["sequence"],
+                "head": row["entry_hash"], "event": pending["event"],
+                "updated_paths": list(pending["updates"])}
