@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Security Code Review Partial Report v1",
+  "description": "每份報告僅代表一個 AC~SI 分類，不等於正式 70 項或獨立基準合規驗證。",
+  "type": "object",
+  "required": [
+    "report_schema_version",
+    "review_mode",
+    "category",
+    "ruleset_version",
+    "project",
+    "source_snapshot_sha256",
+    "rules",
+    "summary",
+    "source_coverage",
+    "assessment",
+    "limitations"
+  ],
+  "properties": {
+    "report_schema_version": {
+      "const": "partial-1.0"
+    },
+    "review_mode": {
+      "const": "partial"
+    },
+    "category": {
+      "enum": [
+        "AC",
+        "AU",
+        "IN",
+        "CR",
+        "EH",
+        "LG",
+        "DP",
+        "PD",
+        "BC",
+        "SI"
+      ]
+    },
+    "ruleset_version": {
+      "const": "2.0.0"
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "project_id",
+        "git_revision",
+        "assessment_date"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_revision": {
+          "type": "string",
+          "minLength": 7
+        },
+        "assessment_date": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_snapshot_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "category"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total",
+        "completed",
+        "pass",
+        "fail",
+        "review",
+        "na",
+        "findings"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "na": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "findings": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_coverage": {
+      "type": "object",
+      "required": [
+        "source_file_count",
+        "reviewed_source_file_count",
+        "missing_source_file_count"
+      ],
+      "properties": {
+        "source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed_source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "assessment": {
+      "$ref": "partial-assessment.schema.json"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    }
+  },
+  "additionalProperties": false
+}
