@@ -322,6 +322,14 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
             raise ScopeError(f"{rid}: 修正 completed 判定須 --allow-revision 與第二輪具體矛盾裁決")
         if old.get("status") == "fail" and check.get("status") != "fail":
             raise ScopeError(f"{rid}: 已確認 Fail 不得藉第二輪修訂降級")
+        if check.get("status") == "fail":
+            available = {f["id"]: f for f in [*current["findings"], *payload.get("findings", [])]
+                         if isinstance(f, dict) and isinstance(f.get("id"), str)}
+            refs = check.get("finding_ids")
+            if (not isinstance(refs, list) or not refs or any(
+                    not isinstance(fid, str) or fid not in available
+                    or rid not in (available[fid].get("check_ids") or []) for fid in refs)):
+                raise ScopeError(f"{rid}: 第二輪修訂為 Fail 必須同批或既有保存可追查 Finding")
         revisions[rid] = old
     if allow_revision and not revisions:
         raise ScopeError("--allow-revision 必須包含實際改判及裁決，不得用於一般覆寫")
