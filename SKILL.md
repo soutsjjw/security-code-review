@@ -37,9 +37,11 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 7. **分類的 `ready_for_report` 固定為 `false`，並非完成失敗或交付條件**。只有分類安全驗證、全部選定規則與逐檔覆蓋、第二輪，以及各分類 HTML／JSON 嚴格驗證皆完成，才能交付分別位於 `reports/security-code-review/partial/AC/`、`partial/AU/` 的**部分審查**報告。未選分類維持未審查，不生成其報告；即使選擇全部十類也仍是十份獨立部分報告，絕不宣稱正式完整 70 項審查。
 8. 已有分類進度必須保留；來源／Git Revision 異動、證據不一致或報告發布中斷時，先核對並保留 Finding 與可復原工件，不可重置或假設可自動修復。只在真正無法繼續時說明阻斷原因與未完成分類。
 
-**以下所有提及正式 `analysis_prepare.py`、`review_safety.py`、全部十類逐檔篩選、`ready_for_report=true`、`70/70` 及正式根目錄 `assessment.json/report.json` 的操作步驟，皆為**「未指定 `--categories`」的完整模式專用**。共同證據與判定階梯、標準文件按需載入、單代理限制、不可虛構證據與不得修改受測程式碼，兩種模式都適用。
+**範圍分流**：以下凡提及正式 `analysis_prepare.py`、`review_safety.py`、全部十類逐檔篩選、`ready_for_report=true`、`70/70` 及正式根目錄 `assessment.json/report.json` 的操作步驟，均為**未指定 `--categories` 的完整模式專用**。共同證據與判定階梯、標準文件按需載入、單代理限制、不可虛構證據與不得修改受測程式碼，兩種模式都適用。
 
 ## 技術支援及 Token 優化前置（必須執行）
+
+本節技術支援範圍、證據及 Token 原則適用兩種模式；其中 `analysis_prepare.py`、不帶分類參數的佇列和正式 `analysis/` 只適用完整模式。分類模式改用上方 `review_queue.py --categories ... --prepare`。
 
 - **本階段只接受 .NET Core／現代 .NET C# 專案**。先辨識全部 `.csproj` 的 TargetFramework(s)；遇到 .NET Framework、Vue／混合專案、無法辨識的框架，暫停並明確說明尚未支援，**不得縮小覆蓋率後宣稱完成**。後續透過 `scripts/analysis_adapters.py` 的統一分析器介面擴充 .NET Framework／Vue；70 項規則和報告 Schema 保持共用。
 - 在 Python 環境檢查成功後、開始審查佇列之前，由 Agent 在受測專案執行（首次 full；只有確實存在舊結構索引且要重新分析時才用 incremental）：
@@ -55,7 +57,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
-## 審查資料完整性與中斷交易復原（必須執行）
+## 審查資料完整性與中斷交易復原（完整模式專用）
 
 新審查在來源索引與 `--init` 後自動封存起點；**既有審查**不得被自動信任，必須先核對 assessment、Finding、所有工作中證據與來源快照，才可明確執行 `review_safety.py --seal-integrity`。封存後多檔 JSON 必須透過 `--stage / --integrate` 的 SHA256 交易鏈更新，禁止直接覆寫既有已驗證結果；發生交易中斷必須先核對，執行 `review_safety.py --recover-integrity`。若受控檔案出現原版本及預期新版本以外的第三種內容，一律停止復原。完整性鏈不等於數位簽章，不能抵禦可同時改寫全部日誌的人。詳見 [證據完整性與安全復原](docs/evidence-integrity.md)。
 
@@ -81,7 +83,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 每條適用規則除了確認安全機制存在，還須從真實程式碼核對 **入口 → 控制執行分支 → 受保護操作**、拒絕分支及可替代／繞過路徑。不能因 `[Authorize]`、`UseAuthorization()`、參數化 API 或雜湊 API 存在就直接 pass。對介面實作、DI、環境覆寫、匿名入口、直接 Repository 存取與重放路徑應以反向攻擊視角逐一追查。
 
-`review_queue.py --detail-id <RULE_ID>` 的 `control_effectiveness_guidance` 指定最低繞過情境；靜態／混合規則判 `completed + pass` 時，必須於 `review_safety.py --stage` 的批次 JSON 中提供 `control_verifications`，記錄 `entry_points`、`enforcement_points`、`protected_operations`、`control_condition`、`failure_behavior`、`search_summary`、`bypass_scenarios` 與 `open_issues=[]`，並經 `--integrate` 保存為 `analysis/control-verifications.json`。證據路徑、行號及雜湊均需核對當次來源快照；`enforcement_points` 至少一筆須對應正式規則來源證據。情境未查或有未解的繞過不得判 pass；不要填模板、虛構不存在的攻擊測試，也不得用 `review` 迴避尚未完成的靜態調查。外部規則維持原判定階梯與外部工件驗證要求，已確認缺陷仍是 `fail`＋Finding。
+`review_queue.py --detail-id <RULE_ID>`（分類模式同時指定 `--categories`）的 `control_effectiveness_guidance` 指定最低繞過情境；靜態／混合規則判 `completed + pass` 時，必須於 `review_safety.py --stage` 的批次 JSON 中提供 `control_verifications`，記錄 `entry_points`、`enforcement_points`、`protected_operations`、`control_condition`、`failure_behavior`、`search_summary`、`bypass_scenarios` 與 `open_issues=[]`，並經 `--integrate` 保存為 `analysis/control-verifications.json`（此為完整模式路徑；分類模式經 `review_queue.py --categories <分類> --stage/--integrate` 保存於各自 `partial/<分類>/analysis/`）。證據路徑、行號及雜湊均需核對當次來源快照；`enforcement_points` 至少一筆須對應正式規則來源證據。情境未查或有未解的繞過不得判 pass；不要填模板、虛構不存在的攻擊測試，也不得用 `review` 迴避尚未完成的靜態調查。外部規則維持原判定階梯與外部工件驗證要求，已確認缺陷仍是 `fail`＋Finding。
 
 跨檔呼叫鏈驗證與安全控制有效性驗證互為補充，兩者皆非自動安全判定。完整欄位及示例見 [安全控制有效性驗證指引](docs/control-effectiveness-review.md)。
 
@@ -89,9 +91,9 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 任何 `completed+review` 均須先證明：已完成儲存庫內應完成的程式碼與設定追查、目前沒有足以直接 `fail` 的靜態缺陷、缺少的外部資料**真正會影響本規則判定**，且已指名可核對的工件。不能因缺少非必要動態／邊界測試、未完成呼叫鏈分析或缺乏使用者提供的權限矩陣而 `review`。已證實弱點直接 `fail`＋Finding；查核未完成則保留 `pending/blocked`，不以 `review` 代替。
 
-以 `review_queue.py --detail-id <RULE_ID>` 取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [待確認判定指引](docs/review-decision-adjudication.md)。
+以 `review_queue.py --detail-id <RULE_ID>`（分類模式同時指定 `--categories`）取得 `decision_adjudication_guidance`（原有 `decision_guidance` 不變）。判定 `completed+review` 時，於 `review_safety.py --stage` 的批次 JSON 加入 `decision_audits`，由 `--integrate` 保存 `analysis/decision-audits.json`（分類模式經分類佇列的 `--stage/--integrate` 保存於各自 `partial/<分類>/analysis/`）；記錄已讀來源及行號、靜態已確認部分、實際外部工件、`blocking_question`、為何只有該工件能決定結論、完整來源快照與 `open_static_questions=[]`。外部控制可依矩陣使用 `external_only`；靜態／混合規則只可用 `static_done_external_pending`。批次／正式驗證均不會依審查紀錄文字自動改判，缺少必要證據不能結案。格式見 [待確認判定指引](docs/review-decision-adjudication.md)。
 
-## 判定品質守門（全部 70 項）
+## 判定品質守門（本次選定規則，完整模式為 70 項）
 
 對任何 `completed + review`，先判定核心程式碼控制是否確實失效、成立或仍未追查。不得用 `RULE-ID-deployment-or-policy-evidence` 類佔位符代替外部資料；需記錄具體工件、責任單位及外部條件成立／不成立時的**不同判定**。若僅是假設可能存在未知組織政策，不得阻擋已能由程式碼判定的規則；確有政策邊界時，須記錄可核對的政策識別與本系統適用依據。安全控制缺陷優先 `fail`＋Finding，不因還缺政策或測試就保留 `review`。
 
@@ -101,13 +103,13 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 新版來源索引的 `control_outcome_version=1` 會對適用的安全控制要求：`fail` 使用真正的缺失位置、至少一個已確認的繞過情境與正式 Finding 連結；`review` 必須完成程式碼控制與必要反向情境驗證，且指出與既有裁決紀錄一致、真正會改變判定的外部工件。原本 `pass` 的控制存在性與繞過守門不變，純外部控制不須捏造程式碼控制鏈；禁止以欠缺非必要測試遮蔽已證實的缺陷。所有結果皆由主代理閱讀程式碼後提出，不得由驗證器自動改判或生成 Finding。詳見 [安全控制有效性指引](docs/control-effectiveness-review.md)。
 
-## 單代理第二輪反向複核與矛盾裁決（必須執行）
+## 單代理第二輪反向複核與矛盾裁決（完整模式專用）
 
 第一輪完成全部 70 項規則、100% 來源檢閱及跨檔／控制有效性／外部判定證據後，**不得直接交付**。執行 `review_safety.py --target "<TARGET_ROOT>" --begin-second-pass`，固定第一輪全部判定指紋及 Git／來源快照到 `analysis/first-pass-baseline.json`。同一主代理必須**重新閱讀來源**，以攻擊者角度挑戰每項結論，對全部 70 項提出反例假設；高風險規則至少核對兩個不同攻擊面。這是分階段的自我複核，**不是獨立代理或盲審**，不得宣稱真正獨立性。
 
 以 `review_queue.py` 的 `second_pass.pending_ids` 繼續，`--detail-id` 取得 `adversarial_guidance`；將真實反向搜尋、攻擊假設、核對結果與來源證據寫入 `adversarial_reviews`，並以 `review_safety.py --stage/--integrate` 保存。若發現矛盾，必須先依法修訂原檢核與 Finding，再以 `contradictions` 說明來源、修訂原因及結果，不能只寫「已複核」。70 項第二輪證據齊備且 `review_safety.py --validate` 與 `ready_for_report=true` 後才可產生報告。詳見 [第二輪反向複核指引](docs/adversarial-second-pass.md)。
 
-## 第二輪實質反例與矛盾裁決守門（全部 70 項）
+## 第二輪實質反例與矛盾裁決守門（本次選定規則）
 
 對新版索引的每條完成規則，第二輪需先對照不可變的第一輪 `decision_reason`，重新閱讀關鍵入口、控制分支、拒絕行為或真正的外部工件，提出可反駁的攻擊假設。每個 `hypotheses[]` 須記錄攻擊向量、前提、預期破壞、重查方法、實際行為與重新閱讀證據；高風險規則至少兩種真正不同的向量。禁止以 `RULE-ID-adversarial-surface-1/2`、相同攻擊敘述、重複同一來源行而無說明來完成複核。第二輪發現漏報或誤判時，依法修訂判定與 Finding，記錄最初漏查原因及裁決；第一輪錨點不可覆寫，確認與修訂須區分。純外部控制不得虛構程式碼攻擊路徑，使用真實外部證據複核即可。完整格式見 [反向複核指引](docs/adversarial-second-pass.md)。
 
@@ -295,6 +297,8 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 ```
 
 ## 執行與交付準則
+
+以下為完整模式的交付準則；分類模式以 [分類審查操作契約](docs/category-review.md) 的各分類驗證與獨立報告為準。
 
 - 除非確有阻斷錯誤，**禁止回覆「70 項都是 pending／只有三項發現／請下次續跑」並直接結束**；那只是尚未開始佇列迴圈。必須立即啟動查核直到 `ready_for_report=true`。
 
