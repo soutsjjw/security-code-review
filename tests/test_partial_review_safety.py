@@ -132,6 +132,71 @@ class PartialSafetyTests(unittest.TestCase):
         self.assertFalse(result["safety_valid"])
         self.assertIn("不一致", "；".join(result["safety_integrity_errors"]))
 
+    def test_second_pass_correction_requires_explicit_revision_and_history(self):
+        from adversarial_recheck import digest
+        from partial_review import _atomic
+        assessment_path = _category_dir(self.root, "AC") / "assessment.json"
+        previous = read_category(self.root, "AC", self.catalog)
+        first = previous["checks"][0]
+        first["status"] = "pass"
+        first["execution"]["state"] = "completed"
+        previous["checks"][0] = first
+        _atomic(assessment_path, previous)
+        baseline_path = _category_dir(self.root, "AC") / BASELINE
+        _atomic(baseline_path, {"schema_version": 1, "checks": {
+            "AC-01": {"status": "pass", "digest": digest(first), "decision_reason": "原先判定"}
+        }})
+        corrected = json.loads(json.dumps(first))
+        corrected["status"] = "fail"
+        corrected["decision_reason"] = "第二輪確認授權檢查可能被直接呼叫路徑繞過，已修訂原判定。"
+        record = {"outcome": "corrected", "baseline_digest": digest(first),
+                  "final_digest": digest(corrected), "final_status": "fail",
+                  "contradictions": [{"resolution": "重新閱讀執行路徑後發現已證實的授權缺失"}]}
+        path = _category_dir(self.root, "AC") / "payload.json"
+        path.write_text(json.dumps({"checks": [corrected],
+                                    "adversarial_reviews": {"AC-01": record}}), encoding="utf-8")
+        with patch("partial_review.completion_errors", return_value=[]), \
+             patch("partial_review.decision_quality_errors", return_value=[]):
+            stage(self.root, "AC", path, self.catalog)
+        with self.assertRaises(ScopeError):
+            integrate(self.root, "AC", self.catalog)
+        result = integrate(self.root, "AC", self.catalog, allow_revision=True)
+        self.assertEqual(result["corrected_rule_ids"], ["AC-01"])
+        self.assertEqual(read_category(self.root, "AC", self.catalog)["checks"][0]["status"], "fail")
+        history = list((_category_dir(self.root, "AC") /
+                        "analysis/second-pass-history").glob("*.json"))
+        self.assertEqual(len(history), 1)
+        self.assertEqual(json.loads(history[0].read_text("utf-8"))["previous_checks"]["AC-01"]["status"], "pass")
+        self.assertEqual(self.official.read_text("utf-8"), '{"official":true}')
+
+    def test_second_pass_cannot_demote_existing_fail(self):
+        from adversarial_recheck import digest
+        from partial_review import _atomic
+        assessment_path = _category_dir(self.root, "AC") / "assessment.json"
+        previous = read_category(self.root, "AC", self.catalog)
+        first = previous["checks"][0]
+        first["status"] = "fail"
+        first["execution"]["state"] = "completed"
+        _atomic(assessment_path, previous)
+        _atomic(_category_dir(self.root, "AC") / BASELINE, {
+            "schema_version": 1, "checks": {"AC-01": {
+                "status": "fail", "digest": digest(first), "decision_reason": "已確認弱點"}
+            }})
+        corrected = json.loads(json.dumps(first))
+        corrected["status"] = "pass"
+        record = {"outcome": "corrected", "baseline_digest": digest(first),
+                  "final_digest": digest(corrected), "final_status": "pass",
+                  "contradictions": [{"resolution": "嘗試降級，應拒絕"}]}
+        path = _category_dir(self.root, "AC") / "payload.json"
+        path.write_text(json.dumps({"checks": [corrected],
+                                    "adversarial_reviews": {"AC-01": record}}), encoding="utf-8")
+        with patch("partial_review.completion_errors", return_value=[]), \
+             patch("partial_review.decision_quality_errors", return_value=[]):
+            stage(self.root, "AC", path, self.catalog)
+        with self.assertRaises(ScopeError):
+            integrate(self.root, "AC", self.catalog, allow_revision=True)
+        self.assertEqual(read_category(self.root, "AC", self.catalog)["checks"][0]["status"], "fail")
+
     def test_cli_prepare_validate_do_not_enable_partial_report(self):
         script = str(ROOT / "scripts/review_queue.py")
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
