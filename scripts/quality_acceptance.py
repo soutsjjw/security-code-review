@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import subprocess
@@ -65,8 +66,22 @@ def report_artifact_errors(directory: Path, data: dict) -> list[str]:
         return ["尚未產生正式報告：" + "、".join(missing)]
     try:
         report_data = json.loads(report.read_text(encoding="utf-8"))
-        if not isinstance(report_data, dict) or report_data.get("assessment") != data:
-            return ["正式 report.json 的 assessment 與目前審查資料不一致"]
+        reported = report_data.get("assessment") if isinstance(report_data, dict) else None
+        comparable = copy.deepcopy(data)
+        # 正式產生器只允許將預設執行者名稱正規化，不可修改安全結論。
+        if isinstance(reported, dict):
+            report_checks = reported.get("checks")
+            source_checks = comparable.get("checks")
+            if (isinstance(report_checks, list) and isinstance(source_checks, list)
+                    and len(report_checks) == len(source_checks)):
+                for original, rendered in zip(source_checks, report_checks):
+                    if (isinstance(original, dict) and isinstance(rendered, dict)
+                            and original.get("reviewer") == "security-code-review-agent"
+                            and isinstance(rendered.get("reviewer"), str)
+                            and rendered["reviewer"].strip()):
+                        original["reviewer"] = rendered["reviewer"]
+        if comparable != reported:
+            return ["正式 report.json 的 assessment 與目前審查資料不一致（不允許改變安全結論）"]
         command = [sys.executable, str(Path(__file__).resolve().parent / "validate_report.py"),
                    "--report", str(report), "--html", str(html),
                    "--source-root", str(directory), "--strict-sources"]
