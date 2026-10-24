@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import json
 import os
 from pathlib import Path
 import shutil
@@ -65,7 +64,8 @@ def _publish_lock(root: Path) -> Iterator[None]:
 
 
 def publish(root: Path, outputs: Sequence[tuple[Path, str]], *,
-            validate: Callable[[], list[str]]) -> None:
+            validate: Callable[[], list[str]],
+            verify_saved: Callable[[], list[str]]) -> None:
     """預備全部檔案並複製備份，驗證後提交；任何受控失敗都保留舊報告。
 
     只接受分類目錄的 JSON/HTML，不能把正式 70 項報告當成目標。
@@ -91,6 +91,7 @@ def publish(root: Path, outputs: Sequence[tuple[Path, str]], *,
             raise PublicationError(f"非獨立分類資料夾：{path}")
     prepared: list[tuple[Path, Path, Path | None]] = []
     committed: list[tuple[Path, Path | None]] = []
+    rollback_errors: list[str] = []
     with _publish_lock(root):
         try:
             for destination, content in outputs:
@@ -122,11 +123,10 @@ def publish(root: Path, outputs: Sequence[tuple[Path, str]], *,
                 committed.append((destination, backup))
             # 可能在提交期間發生來源／評估資料異動：提交後再次驗證，
             # 若不一致則回滾本次所有分類的報告。
-            issues = validate()
+            issues = [*validate(), *verify_saved()]
             if issues:
                 raise PublicationError("提交後驗證失敗，還原舊報告：" + "；".join(issues[:8]))
         except BaseException:
-            restore_errors = []
             for destination, backup in reversed(committed):
                 try:
                     if backup is not None and backup.exists():
@@ -134,25 +134,14 @@ def publish(root: Path, outputs: Sequence[tuple[Path, str]], *,
                     else:
                         destination.unlink(missing_ok=True)
                 except OSError as exc:
-                    restore_errors.append(f"{destination}: {exc}")
-            if restore_errors:
-                # 故意保留尚未還原的備份，供人工核對／復原。
-                raise PublicationError("發布失敗且部分舊報告未能還原；請保留備份："
-                                       + "；".join(restore_errors))
+                    # 不能拋棄尚未還原的舊版備份，交由人工復原。
+                    rollback_errors.append(f"{destination}: {exc}")
+            if rollback_errors:
+                raise PublicationError("發布失敗且舊報告未能全數復原；"
+                                       "請保留分類目錄中的 .backup 檔：" + "；".join(rollback_errors))
             raise
         finally:
-            # 無論成功或失敗，不刪除尚未還原且有價值的備份。
-            for destination, stage, backup in prepared:
+            for _, stage, backup in prepared:
                 stage.unlink(missing_ok=True)
-                if backup is not None and backup.exists():
-                    if destination.exists() and (destination.read_bytes() == backup.read_bytes()
-                                                  or (destination, backup) not in committed):
-                        backup.unlink(missing_ok=True)
-                    elif destination.exists() and (destination, backup) in committed:
-                        # 成功發布：備份僅在通過最後的 validate() 後才可以刪除。
-                        pass
-            # 成功提交的備份在此以 finally 無法獲知驗證結果；由下方清理。
-        # 正常返回代表提交後驗證完成，可以安全清除舊檔備份。
-        for _, _, backup in prepared:
-            if backup is not None:
-                backup.unlink(missing_ok=True)
+                if backup is not None and not rollback_errors:
+                    backup.unlink(missing_ok=True)
