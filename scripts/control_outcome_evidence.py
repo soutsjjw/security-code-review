@@ -7,7 +7,7 @@ from typing import Any
 
 from control_effectiveness import (_proofs, REQUIRED_SCENARIOS,
                                    snapshot_fingerprint)
-from review_decision import load_decision_matrix
+from review_decision import _is_weak_source_evidence, load_decision_matrix
 
 VERSION = 1
 FAILURE_MODES = frozenset({"control_absent", "ineffective_enforcement",
@@ -158,6 +158,10 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
                     else ("entry_points", "enforcement_points", "protected_operations"))
         issues, locations = _required_evidence(target, known, inspected, record, sections, rid)
         errors.extend(issues)
+        control_key = "failure_points" if status == "fail" else "enforcement_points"
+        for pos in record.get(control_key, []) if isinstance(record.get(control_key), list) else []:
+            if isinstance(pos, dict) and _is_weak_source_evidence(pos, target) is True:
+                errors.append(f"{rid}: Q3 {control_key} 只有型別或欄位宣告，不能證明實際控制效果")
         if status == "fail":
             if not isinstance(record.get("failure_mode"), str) or \
                     record["failure_mode"] not in FAILURE_MODES:
@@ -168,7 +172,8 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
                 errors.append(f"{rid}: Q3 Fail 缺陷位置未連結正式檢核來源證據")
             ids = check.get("finding_ids")
             if not isinstance(ids, list) or not ids or not all(
-                    isinstance(x, str) and x in findings for x in ids):
+                    isinstance(x, str) and x in findings and
+                    rid in (findings[x].get("check_ids") or []) for x in ids):
                 errors.append(f"{rid}: Q3 Fail 缺少已保存且能查核的 Finding")
             else:
                 evidence = set().union(*(
@@ -193,6 +198,19 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
             target, known, inspected, record, rid, status
         )
         errors.extend(scenario_errors)
+        if isinstance(record.get("bypass_scenarios"), list):
+            outcome_name = "confirmed_vulnerability" if status == "fail" else "external_boundary"
+            anchored = (locations["failure_points"] if status == "fail"
+                        else locations["enforcement_points"])
+            matched = any(
+                _overlap(proof, source)
+                for scenario in record["bypass_scenarios"]
+                if isinstance(scenario, dict) and scenario.get("outcome") == outcome_name
+                for proof in _formal_locations(scenario.get("evidence"))
+                for source in anchored
+            )
+            if not matched:
+                errors.append(f"{rid}: Q3 {outcome_name} 情境未與實際失效／控制執行點連結")
         cited = set().union(*locations.values()) | scenario_proofs
         hashes = record.get("source_hashes")
         if not isinstance(hashes, dict) or any(
