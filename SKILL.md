@@ -99,6 +99,10 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 對固定 16 個隔離案例實際執行完整 Skill 審查、保留來源與執行證據後，才可呼叫 `quality_acceptance.py --workspace "<CASE_WORKSPACE>" --output "<QUALITY_RESULT>.json"`，並以 `--compare "<PREVIOUS_QUALITY_RESULT>.json"` 檢查跨版本漏報、誤報、待確認、跨檔追查及來源證據是否退步。**工具本身不替代理執行 16 次審查，也不能用合成預測冒充模型品質。** 未執行完整案例審查時，應明確標示品質實測未完成；不能把單元測試通過寫成已達到實測品質門檻。完整操作見 [品質驗收指引](docs/quality-acceptance.md)。
 
+## 全規則品質契約與真實審查驗收
+
+發布前先執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only`，逐條驗證 70 項適用性、Pass／Fail／Review 判定契約及具體反向情境。對已完成的受測專案，執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --target "<TARGET_ROOT>" --output "<QUALITY_RESULT>.json"`，確認 Q1～Q4 完整性守門、100% 來源覆蓋、70/70、第二輪 70/70、正式 HTML／JSON 結果與來源快照一致。另用固定 16 案例真正完成全規則審查，交由 `quality_acceptance.py` 驗收；可依同一受測來源與題庫比較前後版本。這兩個工具都**不代替主代理實際審查，也不能把模擬測試標示為真實模型驗收**。缺少 Agent 真實工件時只能標示未完成品質驗收。操作說明見 [真實審查品質驗收](docs/quality-acceptance.md)。
+
 ## 共同證據與結果判定（所有規範均適用）
 
 **核心原則：結論由程式碼、設定與儲存庫內容決定；`review` 只用於「即使完整讀完儲存庫仍無法回答」的規則。** 不得推測已通過或虛構已執行的掃描；`na` 必須有已核對的不適用理由；70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
