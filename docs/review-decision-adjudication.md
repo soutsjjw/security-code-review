@@ -78,7 +78,22 @@
         "artifact": "正式 Session 絕對逾時政策核定文件",
         "blocking_question": "核定的 Session 逾時上限是否低於程式碼目前使用的期限",
         "why_decisive": "原始碼能證實逾期會被拒絕，但無法得知組織正式核定的時效標準",
-        "manual_boundary": "逾時長度是否符合組織政策"
+        "manual_boundary": "逾時長度是否符合組織政策",
+        "evidence_owner": "資訊安全管理單位",
+        "policy_binding": {
+          "reference": "示例-ISMS-SESSION-2026",
+          "applicability_reason": "此示例假設已確認受審系統須遵循指定的核定期限政策"
+        },
+        "decision_outcomes": {
+          "if_satisfied": {
+            "status": "pass",
+            "reason": "若核定期限允許目前服務端設置且有效拒絕逾期請求，則符合"
+          },
+          "if_unsatisfied": {
+            "status": "fail",
+            "reason": "若核定時效短於現行服務端可持續有效期限，則存在不符合情況"
+          }
+        }
       },
       "open_static_questions": []
     }
