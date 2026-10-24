@@ -212,18 +212,28 @@ def recover(target: Path) -> dict:
     if not isinstance(pending, dict):
         raise ValueError("沒有待復原交易")
     manifest = _read(target / MANIFEST)
-    if not isinstance(manifest, dict) or pending.get("previous") != manifest.get("head") or (
-            pending.get("sequence") != manifest.get("sequence", -1) + 1):
-        raise ValueError("待復原交易與已提交的完整性鏈不同，拒絕操作")
+    if not isinstance(manifest, dict):
+        raise ValueError("完整性 manifest 不存在")
     before, after = pending.get("before_hashes"), pending.get("after_hashes")
     updates = pending.get("updates")
     if (not isinstance(before, dict) or not isinstance(after, dict)
             or set(before) != set(TRACKED) or set(after) != set(TRACKED)
             or not isinstance(updates, dict) or not set(updates).issubset(TRACKED)):
         raise ValueError("待復原交易資料格式或受控範圍無效")
+    row = _entry({"schema_version": VERSION, "sequence": pending["sequence"],
+                  "previous": pending["previous"], "event": pending["event"],
+                  "snapshot_fingerprint": pending["snapshot_fingerprint"],
+                  "file_hashes": after, "staged_sha256": pending["staged_sha256"]})
+    committed = (manifest.get("sequence") == pending["sequence"]
+                 and manifest.get("head") == row["entry_hash"])
+    if not committed and (pending.get("previous") != manifest.get("head")
+                          or pending.get("sequence") != manifest.get("sequence", -1) + 1):
+        raise ValueError("待復原交易與已提交的完整性鏈不同，拒絕操作")
+    if committed and _read(_entry_path(target, pending["sequence"])) != row:
+        raise ValueError("已提交交易與日誌內容不同，不允許自動清理")
     for relative in TRACKED:
         now = _hash_file(_path(target, relative))
-        if now not in {before[relative], after[relative]}:
+        if (now != after[relative] if committed else now not in {before[relative], after[relative]}):
             raise ValueError(f"復原遭拒：{relative} 已被第三種內容修改，須人工核對")
         if relative in updates and _value_hash(updates[relative]) != after[relative]:
             raise ValueError(f"復原遭拒：{relative} 交易內容的 SHA256 無效")
@@ -232,18 +242,15 @@ def recover(target: Path) -> dict:
     folder = (target / ANALYSIS / "staged").resolve()
     for filename, sha in (pending.get("staged_sha256") or {}).items():
         if (not isinstance(filename, str) or Path(filename).name != filename
-                or _hash_file(folder / filename) != sha):
+                or (_hash_file(folder / filename) not in ({sha, None} if committed else {sha}))):
             raise ValueError(f"復原遭拒：暫存 {filename} 遭修改或消失")
-    for relative, value in updates.items():
-        p = _path(target, relative)
-        if value is None:
-            p.unlink(missing_ok=True)
-        else:
-            _write(p, value)
-    row = _entry({"schema_version": VERSION, "sequence": pending["sequence"],
-                  "previous": pending["previous"], "event": pending["event"],
-                  "snapshot_fingerprint": pending["snapshot_fingerprint"],
-                  "file_hashes": after, "staged_sha256": pending["staged_sha256"]})
+    if not committed:
+        for relative, value in updates.items():
+            p = _path(target, relative)
+            if value is None:
+                p.unlink(missing_ok=True)
+            else:
+                _write(p, value)
     journal = _entry_path(target, pending["sequence"])
     if journal.is_file() and _read(journal) != row:
         raise ValueError("復原遭拒：已存在不同內容的交易日誌")
