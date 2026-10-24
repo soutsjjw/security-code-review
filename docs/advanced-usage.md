@@ -94,7 +94,7 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 ## 全 70 項品質驗收與真實專案回歸
 
-執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、Q1～Q4、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
+執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、判定與反例品質、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
 
 ## Codex 可選 `/goal` 完整審查指令
 
