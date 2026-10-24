@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -35,7 +37,7 @@ SOURCES = {
 using Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
-builder.Services.AddAuthentication("Bearer").AddJwtBearer();
+builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<OrderService>();
@@ -109,6 +111,21 @@ class DotNetCategoryIntegrationTests(unittest.TestCase):
     def assert_formal_unchanged(self):
         self.assertEqual({name: path.read_bytes() for name, path in self.formal.items()},
                          self.formal_before)
+
+    def test_dotnet_fixture_compiles_without_external_nuget_packages(self):
+        dotnet = shutil.which("dotnet")
+        if not dotnet:
+            self.skipTest("沒有 .NET SDK，仍可執行來源索引與驗證負向測試")
+        env = {**os.environ, "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+               "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1"}
+        project = self.root / "Api/Orders.Api.csproj"
+        result = subprocess.run(
+            [dotnet, "build", str(project), "--nologo", "--verbosity", "quiet",
+             "--ignore-failed-sources"], cwd=self.root, env=env,
+            capture_output=True, text=True, timeout=120, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout[-1500:] + result.stderr[-1500:])
+        self.assert_formal_unchanged()
 
     def test_index_discovers_cross_project_calls_and_auth_control_candidates(self):
         stats = self.initialize_and_prepare()
