@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,16 @@ CALL_EXCLUDE_BASES = EDGE_DISMISS_BASES
 BINDINGS = frozenset({"direct", "interface_dispatch", "dependency_injection",
                       "configuration", "middleware", "other_verified"})
 BOUNDARIES = frozenset({"connected", "single_file"})
+
+
+def _reason_template(reason: str) -> str:
+    """忽略規則編號、位置和數字後偵測大量相同的跨檔排除理由。"""
+    normalized = reason.casefold()
+    normalized = re.sub(r"\\b[a-z]{2}-\\d{2}\\b", "<rule>", normalized)
+    normalized = re.sub(r"\\b(?:[a-z0-9_./\\\\-]+\\.(?:cs|csproj|json|cshtml))\\b",
+                        "<path>", normalized)
+    normalized = re.sub(r"\\b\\d+\\b", "<number>", normalized)
+    return " ".join(normalized.split())
 
 
 def _point_errors(root: Path, point: Any, known: set[str],
@@ -156,22 +167,23 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
                 issues.append(f"{label} Method 呼叫未有 verified 目標核對")
 
     examined_ids = closure.get("examined_relationship_ids")
-    if not isinstance(examined_ids, list) or any(not isinstance(x, str) for x in examined_ids) or set(x for x in examined_ids if isinstance(x, str)) != confirmed:
+    if not isinstance(examined_ids, list) or any(not isinstance(x, str) for x in examined_ids) or len(examined_ids) != len(confirmed) or set(x for x in examined_ids if isinstance(x, str)) != confirmed:
         issues.append(f"{rid}: Q2 examined_relationship_ids 必須與有證據的控制鏈關聯完全一致")
     if boundary == "connected":
         if len(paths) < 2 or not confirmed:
             issues.append(f"{rid}: Q2 跨檔控制鏈需要至少兩檔與一筆已證實關聯")
         elif connected:
+            core = {n.get("path") for n in nodes if isinstance(n, dict)
+                    and n.get("role") in {"entry", "enforcement", "operation"}
+                    and isinstance(n.get("path"), str)}
             reached: set[str] = set()
-            queue = [next(iter(paths))]
+            queue = [next(iter(core or paths))]
             while queue:
                 p = queue.pop()
                 if p in reached:
                     continue
                 reached.add(p)
                 queue.extend(connected.get(p, ()) - reached)
-            core = {n.get("path") for n in nodes if isinstance(n, dict)
-                    and n.get("role") in {"entry", "enforcement", "operation"}}
             if not core <= reached:
                 issues.append(f"{rid}: Q2 核心入口、控制與操作節點未形成可追溯的跨檔關聯")
     if boundary == "single_file" and confirmed:
@@ -230,7 +242,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             elif row.get("status") == "verified" and (not isinstance(row.get("binding"), str) or row["binding"] not in BINDINGS):
                 issues.append(f"{rid}: Q2 呼叫點 {cid} 未說明實際目標繫結方式")
         # 大量同一句排除敘述代表沒有逐呼叫點核對，不用任意結果比例限制。
-        counts = Counter(r for r in excluded_reasons if r)
+        counts = Counter(_reason_template(r) for r in excluded_reasons if r)
         if len(excluded_reasons) >= 8 and counts and counts.most_common(1)[0][1] >= 8:
-            issues.append(f"{rid}: Q2 多個呼叫點共用完全相同的排除理由，須逐一查證")
+            issues.append(f"{rid}: Q2 多個呼叫點共用制式化的排除理由，須逐一查證")
     return issues
