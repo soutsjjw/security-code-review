@@ -109,6 +109,11 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     path = target / BASELINE
     existing = _read(path)
     from review_safety import _write
+    from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors
+    if integrity_enabled(target):
+        trouble = integrity_errors(target)
+        if trouble:
+            raise ValueError("；".join(trouble))
     if existing is not None and existing != checkpoint:
         if not restart:
             raise ValueError("已存在不同的第一輪快照，禁止自動覆寫；"
@@ -119,8 +124,15 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
         if archive_file.is_file() and _read(archive_file) != archived:
             raise ValueError("歷次複核歸檔出現內容衝突，拒絕覆寫")
         _write(archive_file, archived)
-        _write(target / REVIEWS, {})
-    if existing != checkpoint:
+    if integrity_enabled(target) and existing != checkpoint:
+        from evidence_integrity import commit as integrity_commit
+        updates = {"analysis/first-pass-baseline.json": checkpoint}
+        if existing is not None and restart:
+            updates["analysis/adversarial-reviews.json"] = {}
+        integrity_commit(target, updates, event="second-pass-restart" if restart else "second-pass-begin")
+    elif existing != checkpoint:
+        if existing is not None and restart:
+            _write(target / REVIEWS, {})
         _write(path, checkpoint)
     return {"rule_count": 70, "snapshot_fingerprint": checkpoint["snapshot_fingerprint"],
             "already_existed": existing == checkpoint,
