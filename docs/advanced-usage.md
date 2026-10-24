@@ -84,6 +84,10 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 第一輪須先完成 70 項與所有逐檔／跨檔／證據守門，再使用 `review_safety.py --begin-second-pass` 固定第一輪判定與來源快照。主代理之後重新閱讀實際程式碼，逐項從攻擊者觀點檢查反例，高風險規則至少兩個不同攻擊面。透過 `review_queue.py` 的 `second_pass.pending_ids` 續行，`--detail-id` 的 `adversarial_guidance` 提示反例要求；第二輪資料經 `adversarial_reviews` 暫存整合。任何矛盾先修訂原始判定／Finding 再記錄裁決，不得只重複第一輪理由。**同一代理的第二輪自我複核不等於真正獨立審查。** 詳見 [第二輪反向複核指引](adversarial-second-pass.md)。
 
+## 真實審查品質驗收與回歸比較
+
+固定 16 個案例必須逐一由同一版 Skill 實際完成 70 項、安全證據、第二輪複核及正式 HTML／JSON 後，才可執行 `python "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<CASE_WORKSPACE>" --output "<QUALITY_RESULT>.json"`。正式驗收核對未修改的案例來源、`ready_for_report`、Finding、跨檔來源、控制證據及已知外部缺口；`--compare` 會阻擋先前已通過案例退步與新增漏報／誤報。未提供 16 份完整工件時，結果為 **blocked**，不得將合成 CI 測試稱為品質實測通過。Token 統計僅接受 `token_metrics.py` 保存的執行器真實紀錄。詳見 [品質驗收指引](quality-acceptance.md)。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
