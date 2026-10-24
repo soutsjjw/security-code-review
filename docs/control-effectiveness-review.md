@@ -1,6 +1,6 @@
 # 安全控制有效性與繞過路徑驗證
 
-此驗證機制不新增安全規則，也不讓 Python 自行找漏洞或給出 `pass`。沿用現有 70 項、判定階梯、來源快照、跨檔呼叫鏈結案與 HTML／JSON。只對**已啟用有效性驗證的索引**（`control_effectiveness_version=1`）的 `completed + pass` 靜態／混合規則要求額外人工證據。外部控制的通過條件由原先部署、制度與工件守門負責。
+此驗證機制不新增安全規則，也不讓 Python 自行找漏洞或自動變更 Pass／Fail／Review。沿用現有 70 項、判定階梯、來源快照、跨檔結案與 HTML／JSON。`control_effectiveness_version=1` 保留既有靜態／混合 `completed + pass` 守門；新索引另啟用 `control_outcome_version=1`，檢查具程式碼控制證據的 `completed + fail`，以及已完成靜態查核的 `completed + review`。純外部部署／政策結論仍由專用外部證據驗證處理，不捏造程式碼入口。
 
 ## Agent 的實際查核順序
 
@@ -66,6 +66,52 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 ```
 
 `control_verifications` 會儲存為 `reports/security-code-review/analysis/control-verifications.json`，不進入正式 `assessment.json`，也不會被算入來源覆蓋。重複提交相同內容是可重試的；內容不同須人工核對後明確使用 `--allow-revision`，不能覆寫 Finding。
+
+## 已完成 Fail／Review 的控制結果證據（全 70 項適用規則）
+
+在新版索引中，仍使用同一份 \`control_verifications\` 與既有 \`review_safety.py --stage\`／\`--integrate\` 工作流程。 `assessment.json` 不新增欄位。 **Fail／Review 的格式與 Pass 不同**，不能將 Pass 的 blocked 情境直接複製成 Fail。
+
+| 判定 | 必備來源證據 | 必備反向情境及關聯 |
+|---|---|---|
+| \`pass\` | 既有的入口、執行點、保護操作、拒絕分支 | 所有最低繞過情境必須已阻擋／真正不適用 |
+| \`fail\`（程式碼控制） | \`entry_points\`、\`failure_points\`、\`protected_operations\`；\`failure_mode\`、\`failure_reason\`、\`search_summary\` | 至少一個 \`confirmed_vulnerability\`，且失效來源須同時與正式規則證據及已保存 Finding 證據重疊 |
+| \`review\`（靜態部分已完成） | \`entry_points\`、\`enforcement_points\`、\`protected_operations\`；\`control_condition\`、\`failure_behavior\`、\`search_summary\` | 涵蓋規則最低反向情境，結果限 \`blocked\`／\`not_applicable\`／\`external_boundary\`，至少一個為決定性外部邊界；\`external_gap_artifact\` 須對應 \`decision-audits.json\` |
+
+Fail 的 \`failure_mode\` 可為 \`control_absent\`、\`ineffective_enforcement\`、\`bypass_path\`、\`unsafe_configuration\`；缺陷確認後不可因還沒測完所有其他情境而退回 Review，但若程式碼分析本身尚有未解問題，仍不得宣稱整體完成。
+
+所有情境須附真實來源 \`evidence\` 陣列、具體原因，與本次 \`execution.inspected_paths\` 和來源快照 SHA256 一致。\`open_issues=[]\` 必須代表目前必要的程式碼追查已完成，不得為了過守門填空。純外部 \`external_only\` Review 或僅有外部工件的部署 Fail 不要求上述程式碼證據，但原有外部判定及 Finding 守門仍須通過。
+
+以下示意 **只是資料欄位格式，不可抄用為真實證據**：
+
+\`\`\`json
+{
+  "control_verifications": {
+    "AC-01": {
+      "status": "fail",
+      "git_revision": "<目前快照 Git revision>",
+      "snapshot_fingerprint": "<目前完整來源快照指紋>",
+      "source_hashes": {"src/SessionValidator.cs": "<真實來源 SHA256>"},
+      "entry_points": [{"path": "src/SessionEndpoint.cs", "line_start": 20, "line_end": 20}],
+      "failure_points": [{"path": "src/SessionValidator.cs", "line_start": 42, "line_end": 42}],
+      "protected_operations": [{"path": "src/SessionEndpoint.cs", "line_start": 24, "line_end": 24}],
+      "failure_mode": "ineffective_enforcement",
+      "failure_reason": "描述為何真實驗證器會接受已過期的工作階段",
+      "search_summary": "描述完整調查的其他入口與驗證分支",
+      "bypass_scenarios": [{
+        "scenario": "expired_session",
+        "outcome": "confirmed_vulnerability",
+        "reason": "描述已確認的失效流程",
+        "evidence": [{"path": "src/SessionValidator.cs", "line_start": 42, "line_end": 42}]
+      }],
+      "open_issues": []
+    }
+  }
+}
+\`\`\`
+
+\`control_verifications\` 不會自行產生 Finding；必須先在正式 \`assessment.json\` 保存 Finding、證據與 \`checks[].finding_ids\`，才能為其完成關聯驗證。若判定或快照改變，舊的結果證據不得自動繼承。用 \`review_queue.py --detail-id AC-01\` 可取得規則的控制情境要求。
+
+這是結構完整性驗證，不是可執行漏洞利用證明；不自動補全來源呼叫鏈，也不以大量新增文字代替程式碼追查。
 
 ## 版本遷移與邊界
 
