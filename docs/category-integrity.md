@@ -48,8 +48,23 @@ with locked(target_root, "AC"):
 
 一般工作由 `review_queue.py --categories AC --stage`、`--integrate` 驅動，Agent 不必直接呼叫內部 commit API。
 
-## 中斷處理與限制
+## 中斷復原操作
 
-若寫入期間中斷，保留 `integrity-pending.json`、`staged/pending.json` 及已寫入的檔案，**不會自動重播或回滾**。再次執行 stage／integrate 會因未完成交易拒絕操作；不得直接刪除 Manifest、Journal、Pending 或 Finding 來解除阻擋。
+當分類整合寫入中斷時，`integrity-pending.json`、Journal、已更新的證據和 staged 檔案會留下。此時 stage、integrate、安全驗證與報告交付都會**拒絕成功**，不得藉刪除檔案繞過完整性守門。
 
-後續將提供明確的中斷復原入口，在核對所有受控檔案只能符合原 SHA256／目標 SHA256、沒有第三種內容、來源快照不變後，才能補完原交易。強制終止、斷電或作業系統尚未落盤的資料，仍須依檔案完整性與交易日誌調查，不宣稱多檔案 OS 級原子提交。
+復原必須**明確指定單一分類**，例如：
+
+```powershell
+python scripts/review_queue.py --target "C:\Projects\MyApp" --categories AC --recover-integrity
+```
+
+內部程式可透過 `partial_evidence_integrity.recover(target_root, "AC")` 呼叫相同守門。已成功提交且沒有 pending 時，會驗證 Journal／Manifest 並回報 `recovered=false`、`already_completed=true`；重複執行不重複新增 Journal、Finding 或歷史紀錄。
+
+復原前會完成下列核對：
+
+- 分類 Manifest、既有 Journal SHA256 鏈、連續交易序號、預寫交易的前一版指紋及 staged SHA256 全部一致；禁止跨分類、路徑跳脫及額外 Journal。
+- Git Revision、原始碼雜湊、分類來源快照未異動；原始／目標檔案 SHA256 必須逐一符合。只允許交易中列出的新增修訂歷史，所有其他非預期新增／刪除／第三種內容均拒絕。
+- 若 Journal 已寫入而 Manifest 尚未更新，核對新 Journal 的精確內容後補完提交；若 Manifest 已更新但 staged／pending 尚未清除，只能在所有受控檔案均為**已提交版本**時清理。
+- 上述核對全部通過後才補寫尚未完成的檔案，確認提交 Journal 與 Manifest，最後清理暫存。復原中再次中斷時仍保留 pending，稍後必須再次明確執行復原。
+
+**限制：** `--recover-integrity` 不進行語意重審或自動修復來源異動，不能推論第三種內容是否安全。無法確認時保留現場供人工核對，絕不強制重設 Finding。多檔案提交並非作業系統級原子交易；斷電或強制終止後的完整性仍需核對。
