@@ -174,7 +174,8 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             issues.append(f"{rid}: Q2 跨檔控制鏈需要至少兩檔與一筆已證實關聯")
         elif connected:
             core = {n.get("path") for n in nodes if isinstance(n, dict)
-                    and n.get("role") in {"entry", "enforcement", "operation"}
+                    and isinstance(n.get("role"), str)
+                    and n["role"] in {"entry", "enforcement", "operation"}
                     and isinstance(n.get("path"), str)}
             reached: set[str] = set()
             queue = [next(iter(core or paths))]
