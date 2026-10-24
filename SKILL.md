@@ -75,6 +75,10 @@ argument-hint: "[專案路徑或檢核範圍]"
 
 以 `review_queue.py` 的 `second_pass.pending_ids` 繼續，`--detail-id` 取得 `adversarial_guidance`；將真實反向搜尋、攻擊假設、核對結果與來源證據寫入 `adversarial_reviews`，並以 `review_safety.py --stage/--integrate` 保存。若發現矛盾，必須先依法修訂原檢核與 Finding，再以 `contradictions` 說明來源、修訂原因及結果，不能只寫「已複核」。70 項第二輪證據齊備且 `review_safety.py --validate` 與 `ready_for_report=true` 後才可產生報告。詳見 [第二輪反向複核指引](docs/adversarial-second-pass.md)。
 
+## 品質回歸驗收（新版本發佈前執行）
+
+對固定 16 個隔離案例實際執行完整 Skill 審查、保留來源與執行證據後，才可呼叫 `quality_acceptance.py --workspace "<CASE_WORKSPACE>" --output "<QUALITY_RESULT>.json"`，並以 `--compare "<PREVIOUS_QUALITY_RESULT>.json"` 檢查跨版本漏報、誤報、待確認、跨檔追查及來源證據是否退步。**工具本身不替代理執行 16 次審查，也不能用合成預測冒充模型品質。** 未執行完整案例審查時，應明確標示品質實測未完成；不能把單元測試通過寫成已達到實測品質門檻。完整操作見 [品質驗收指引](docs/quality-acceptance.md)。
+
 ## 共同證據與結果判定（所有規範均適用）
 
 **核心原則：結論由程式碼、設定與儲存庫內容決定；`review` 只用於「即使完整讀完儲存庫仍無法回答」的規則。** 不得推測已通過或虛構已執行的掃描；`na` 必須有已核對的不適用理由；70 項規則的狀態、標準對照、正式分級與附件獨立驗證不得彼此推論為符合性結論；既有 Finding 與有效證據不可刪除。
