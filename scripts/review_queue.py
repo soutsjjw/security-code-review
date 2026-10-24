@@ -82,6 +82,7 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
     """只建立不存在的檔案；絕不覆寫既有審查、Finding 或人工設定。"""
     assessment_path = report_dir / "assessment.json"
     project_path = report_dir / "project.json"
+    new_review = not assessment_path.exists()
     if assessment_path.is_file() and project_path.is_file():
         return
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -117,6 +118,12 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
     if not project_path.exists():
         project = {"name": target.name, "language_framework": detect_language_framework(target)}
         project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # 新建的第一輪審查從空白 pending 直接封存。既有資料不可自行信任，
+    # 必須由使用者核對後明確執行 --seal-integrity。
+    if new_review:
+        from evidence_integrity import enabled as integrity_enabled, initialize as seal
+        if integrity_enabled(target):
+            seal(target)
 
 
 # 與 SKILL.md「標準文件按需載入」一致；路徑一律相對 SKILL_ROOT。
