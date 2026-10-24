@@ -39,6 +39,10 @@ argument-hint: "[專案路徑或檢核範圍]"
 - 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
+## 審查資料完整性與中斷交易復原（必須執行）
+
+新審查在來源索引與 `--init` 後自動封存起點；**既有審查**不得被自動信任，必須先核對 assessment、Finding、所有工作中證據與來源快照，才可明確執行 `review_safety.py --seal-integrity`。封存後多檔 JSON 必須透過 `--stage / --integrate` 的 SHA256 交易鏈更新，禁止直接覆寫既有已驗證結果；發生交易中斷必須先核對，執行 `review_safety.py --recover-integrity`。若受控檔案出現原版本及預期新版本以外的第三種內容，一律停止復原。完整性鏈不等於數位簽章，不能抵禦可同時改寫全部日誌的人。詳見 [證據完整性與安全復原](docs/evidence-integrity.md)。
+
 ## 單代理審查完整性守門（必須執行）
 
 **本 Skill 不使用子代理或並行審查。** 沿用既有逐檔檢閱、70 項規則、真實證據與正式報告契約。完整操作與例外見 [完整性守門操作指引](docs/review-integrity-guards.md)。
