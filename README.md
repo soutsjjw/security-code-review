@@ -99,6 +99,10 @@ Agent 會自動操作新增工具。詳細的恢復方式、結案格式及指�
 
 第一輪完成 70 項、100% 來源檢閱與安全控制／外部證據查核後，先執行 `review_safety.py --begin-second-pass` 固定第一輪判定與快照，再由同一代理重新閱讀程式碼、尋找反例及紀錄矛盾裁決。第二輪須覆核全部 70 項，未完成不得交付正式報告；此程序不等於真正獨立代理審查。詳見 [單代理反向複核指引](docs/adversarial-second-pass.md)。
 
+## 真實審查品質驗收與跨版本比較
+
+固定 16 個隔離案例用於完整審查後的品質驗收；只有每個案例真正產生的 70 項 `assessment.json`、來源證據與 HTML／JSON 全部通過檢查，才能稱為品質驗收完成。使用 `python scripts/quality_acceptance.py --workspace "<CASE_WORKSPACE>" --output "<QUALITY_RESULT>.json"`；可用 `--compare` 比較相同題庫的前一版結果。CI 單元測試僅驗證工具，不代表執行了 16 次 Agent 安全審查或實測漏報率。詳見 [品質驗收與回歸比較](docs/quality-acceptance.md)。
+
 ## 檢核依據
 
 | 規範／檢核層 | 數量 | 用途 |
