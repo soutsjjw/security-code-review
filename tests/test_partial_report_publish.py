@@ -15,16 +15,16 @@ from partial_report import complete, validate_saved
 from partial_report_publish import PublicationError, publish
 from partial_review import _atomic, _category_dir
 from review_scope import ScopeError
-from test_partial_report import PartialReportTests, approved_safety
+import test_partial_report as report_fixture
 
 
 class PublicationAcceptanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        PartialReportTests.setUpClass()
+        report_fixture.PartialReportTests.setUpClass()
 
     def setUp(self):
-        self.fixture = PartialReportTests(methodName="test_two_categories_separate_reports_formal_untouched")
+        self.fixture = report_fixture.PartialReportTests(methodName="test_two_categories_separate_reports_formal_untouched")
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.root = self.fixture.root
@@ -34,7 +34,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
         self.categories = ("AC", "AU")
 
     def _publish(self):
-        with patch("partial_report.validate_safety", side_effect=approved_safety):
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety):
             return complete(self.root, self.categories, self.catalog)
 
     def _saved(self):
@@ -55,7 +55,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
         before = self._saved()
         self._publish()
         self.assertEqual(self._saved(), before)
-        with patch("partial_report.validate_safety", side_effect=approved_safety):
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety):
             self.assertEqual(validate_saved(self.root, self.categories, self.catalog), [])
         self.assertFalse(list((self.root / "reports/security-code-review/partial").rglob(".review-p5-*")))
         self.assertFalse((self.root / "reports/security-code-review/partial/.publish.lock").exists())
@@ -78,7 +78,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
                 raise OSError("simulated crash during AU publication")
             return original_replace(source, dest)
 
-        with patch("partial_report.validate_safety", side_effect=approved_safety), \
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety), \
              patch("partial_report_publish._replace", side_effect=interrupt):
             with self.assertRaises(OSError):
                 complete(self.root, self.categories, self.catalog)
@@ -97,7 +97,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
                 raise OSError("simulated HTML write failure")
             return original_replace(source, dest)
 
-        with patch("partial_report.validate_safety", side_effect=approved_safety), \
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety), \
              patch("partial_report_publish._replace", side_effect=interrupt):
             with self.assertRaises(OSError):
                 complete(self.root, self.categories, self.catalog)
@@ -120,7 +120,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
         old = self._saved()
         lock = self.root / "reports/security-code-review/partial/.publish.lock"
         lock.write_text("pid=unknown\n", encoding="utf-8")
-        with patch("partial_report.validate_safety", side_effect=approved_safety):
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety):
             with self.assertRaises(PublicationError):
                 complete(self.root, self.categories, self.catalog)
         self.assertTrue(lock.is_file())
@@ -146,7 +146,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
         payload = json.loads(ac.read_text("utf-8"))
         payload["checks"][0]["execution"]["state"] = "pending"
         _atomic(ac, payload)
-        with patch("partial_report.validate_safety", side_effect=approved_safety):
+        with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety):
             with self.assertRaises(ScopeError):
                 complete(self.root, self.categories, self.catalog)
         self.assertEqual(self._saved(), old)
