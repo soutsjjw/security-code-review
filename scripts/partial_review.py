@@ -26,7 +26,9 @@ from scope_inventory import detect_projects
 
 STAGED_FILE = Path("analysis/staged/pending.json")
 SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
-WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"})
+EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
+                           "adversarial_reviews"})
+WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"}) | EVIDENCE_KEYS
 
 
 def _digest(value: Any) -> str:
@@ -209,6 +211,13 @@ def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
         values = [row[id_key] for row in rows]
         if len(values) != len(set(values)):
             raise ScopeError(f"{key} 存在重複識別")
+    for key in EVIDENCE_KEYS & set(payload):
+        rows = payload[key]
+        if not isinstance(rows, dict) or not rows:
+            raise ScopeError(f"{key} 必須是非空的規則 ID 對應物件")
+        for rid, entry in rows.items():
+            if rid not in allowed or not isinstance(entry, dict):
+                raise ScopeError(f"{key}: 含有未選分類規則或無效證據：{rid}")
     for check in payload.get("checks", []):
         if check["id"] not in allowed:
             raise ScopeError(f"不可寫入未選分類規則：{check['id']}")
@@ -248,11 +257,20 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     _validate_payload(payload, category, catalog)
     directory = _category_dir(root, category)
     pending = _artifact(root, category, STAGED_FILE)
+    if "adversarial_reviews" in payload:
+        from partial_review_safety import BASELINE
+        if not _artifact(root, category, BASELINE).is_file():
+            raise ScopeError("第二輪證據須先固定第一輪結論：--begin-second-pass")
     if pending.exists():
         raise ScopeError(f"{category}: 已有未整合的 staged 交易；請先 --integrate")
     # O_EXCL 阻擋兩個 Agent 同時啟動 staging（不允許失敗時覆寫）。
     pending.parent.mkdir(parents=True, exist_ok=True)
+    from partial_review_safety import EVIDENCE_FILES
+    evidence_sha = {key: _digest(_load(_artifact(root, category, rel)))
+                    if _artifact(root, category, rel).is_file() else None
+                    for key, rel in EVIDENCE_FILES.items()}
     body = {"category": category, "base_sha256": _digest(current),
+            "evidence_sha256": evidence_sha,
             "snapshot_sha256": current["source_snapshot_sha256"], "payload": payload}
     with pending.open("x", encoding="utf-8") as handle:
         json.dump(body, handle, ensure_ascii=False, indent=2)
@@ -272,6 +290,23 @@ def integrate(root: Path, category: str, catalog: dict) -> dict:
         raise ScopeError("分類暫存版本與目前來源／assessment 不一致，拒絕整合")
     payload = staged["payload"]
     _validate_payload(payload, category, catalog)
+    from partial_review_safety import EVIDENCE_FILES
+    evidence_paths = {key: _artifact(root, category, rel)
+                      for key, rel in EVIDENCE_FILES.items()}
+    actual_evidence = {key: _load(path) if path.is_file() else {}
+                       for key, path in evidence_paths.items()}
+    expected_sha = staged.get("evidence_sha256")
+    if not isinstance(expected_sha, dict) or any(
+        expected_sha.get(key) != (_digest(actual_evidence[key]) if evidence_paths[key].is_file() else None)
+        for key in EVIDENCE_FILES):
+        raise ScopeError("分類安全證據已由其他工作異動，拒絕覆寫 staged 交易")
+    merged_evidence = {key: dict(actual_evidence[key]) for key in EVIDENCE_FILES}
+    for key in EVIDENCE_KEYS & set(payload):
+        for rid, item in payload[key].items():
+            previous = merged_evidence[key].get(rid)
+            if previous is not None and previous != item:
+                raise ScopeError(f"{key}: {rid} 既有安全證據不得靜默覆寫")
+            merged_evidence[key][rid] = item
 
     merged = json.loads(json.dumps(current, ensure_ascii=False))
     by_id = {r["id"]: r for r in merged["checks"]}
@@ -291,11 +326,14 @@ def integrate(root: Path, category: str, catalog: dict) -> dict:
         merged[key] = list(existing.values())
     _assert_assessment(merged, category, catalog)
     # 未完成逐檔核驗的資料可以分批保存，但不可因此輸出任何完成報告。
+    for key in EVIDENCE_KEYS & set(payload):
+        _atomic(evidence_paths[key], merged_evidence[key])
     _atomic(directory / "assessment.json", merged)
     pending.unlink()
     return {"category": category, "saved_checks": len(payload.get("checks", [])),
             "saved_files": len(payload.get("file_reviews", [])),
             "saved_findings": len(payload.get("findings", [])),
+            "saved_safety_records": {key: len(payload[key]) for key in EVIDENCE_KEYS & set(payload)},
             "ready_for_report": False}
 
 
@@ -373,6 +411,8 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
             next_checks.append(item)
         complete = len(remaining) == 0 and not coverage["missing_source_file_count"]
         complete = complete and not coverage["review_integrity_errors"] and not quality
+        from partial_review_safety import validate as validate_partial
+        safety = validate_partial(root, category, catalog)
         results.append({
             "category": category, "total": len(checks),
             "completed": sum((c.get("execution") or {}).get("state") == "completed" for c in checks),
@@ -387,6 +427,10 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
                                  "missing_source_file_count", "missing_by_type")},
             "review_integrity_errors": coverage["review_integrity_errors"][:20],
             "rule_integrity_errors": quality[:30],
+            "safety_integrity_errors": safety["safety_integrity_errors"][:30],
+            "second_pass": safety["second_pass"],
+            "first_pass_complete": safety["first_pass_complete"],
+            "safety_valid": safety["safety_valid"],
             "preliminary_coverage_ready": bool(complete),
             "ready_for_report": False,
             "assessment_path": (PARTIAL_ROOT / category / "assessment.json").as_posix(),
@@ -396,5 +440,5 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
         "selected_rule_count": sum(CATEGORY_COUNTS[cat] for cat in categories),
         "category_queues": results,
         "ready_for_report": False,
-        "notice": "P2 僅支援分類第一輪佇列及進度保存；P3/P4 安全結案、第二輪及部分報告尚未啟用。",
+        "notice": "P3 分類跨檔／控制／裁決與第二輪證據守門已啟用；P4 部分報告尚未啟用。",
     }
