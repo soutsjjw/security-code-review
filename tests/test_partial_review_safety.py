@@ -122,6 +122,39 @@ class PartialSafetyTests(unittest.TestCase):
         with self.assertRaises(ScopeError):
             begin_second_pass(self.root, "AC", self.catalog)
 
+    def test_fixed_first_pass_baseline_cannot_be_silently_replaced(self):
+        # 僅測不可變錨點；第一輪證據要求由各獨立守門器測試。
+        from partial_review import _atomic
+        self.prepare()
+        path = _category_dir(self.root, "AC") / "assessment.json"
+        a = read_category(self.root, "AC", self.catalog)
+        for check in a["checks"]:
+            check["execution"]["state"] = "completed"
+        _atomic(path, a)
+        with patch("partial_review_safety._first_pass", return_value=[]):
+            first = begin_second_pass(self.root, "AC", self.catalog)
+            self.assertFalse(first["already_existed"])
+            again = begin_second_pass(self.root, "AC", self.catalog)
+            self.assertTrue(again["already_existed"])
+            fixed = (_category_dir(self.root, "AC") / BASELINE).read_text("utf-8")
+            a["checks"][0]["decision_reason"] = "修訂後的不同判定，不得更換第一次固定的指紋"
+            _atomic(path, a)
+            with self.assertRaises(ScopeError):
+                begin_second_pass(self.root, "AC", self.catalog)
+            self.assertEqual((_category_dir(self.root, "AC") /
+                              BASELINE).read_text("utf-8"), fixed)
+
+    def test_index_relationship_tamper_blocked_by_seal(self):
+        self.prepare()
+        path = _shared_path(self.root)
+        index = json.loads(path.read_text("utf-8"))
+        index["typed_relationships"] = []
+        index["tampered"] = True
+        path.write_text(json.dumps(index), encoding="utf-8")
+        result = validate(self.root, "AC", self.catalog)
+        self.assertFalse(result["safety_valid"])
+        self.assertIn("完整性校驗失敗", "；".join(result["safety_integrity_errors"]))
+
     def test_index_is_invalid_after_tampering(self):
         self.prepare()
         index = _shared_path(self.root)
