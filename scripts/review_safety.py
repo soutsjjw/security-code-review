@@ -303,6 +303,11 @@ def stage(target: Path, payload_path: Path) -> str:
     payload = _read(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
+    known_sections = {"file_reviews", "checks", "findings", "closures",
+                      "control_verifications", "decision_audits", "adversarial_reviews"}
+    unexpected = set(payload) - known_sections
+    if unexpected:
+        raise ValueError("暫存資料包含未知欄位，禁止靜默丟棄：" + "、".join(sorted(unexpected)))
     for key in ("file_reviews", "checks", "findings", "closures", "control_verifications", "decision_audits", "adversarial_reviews"):
         is_map = key in {"closures", "control_verifications", "decision_audits", "adversarial_reviews"}
         value = payload.get(key, {} if is_map else [])
@@ -574,6 +579,10 @@ def main() -> int:
             print(json.dumps(recover(args.target), ensure_ascii=False))
         elif args.seal_integrity:
             from evidence_integrity import initialize as seal
+            # 明確遷移既有檢核結果前，必須先確定來源／Git 與分析索引一致。
+            problems = snapshot_errors(args.target)
+            if problems:
+                raise ValueError("；".join(problems))
             print(json.dumps(seal(args.target, explicit=True), ensure_ascii=False))
         elif args.begin_second_pass or args.restart_second_pass:
             from adversarial_recheck import begin_second_pass
