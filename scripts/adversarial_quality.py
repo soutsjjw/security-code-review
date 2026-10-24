@@ -60,9 +60,17 @@ def _overlap(left: tuple[str, int, int], right: tuple[str, int, int]) -> bool:
 
 
 def _locations(items: Any) -> set[tuple[str, int, int]]:
+    """Finding 來源證據可沒有 kind，但仍須有實際路徑與合法行號。"""
     if not isinstance(items, list):
         return set()
-    return {loc for item in items if (loc := _location(item)) is not None}
+    found: set[tuple[str, int, int]] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        loc = _location({**item, "kind": item.get("kind") or "source"})
+        if loc is not None and loc[1] > 0 and loc[2] >= loc[1]:
+            found.add(loc)
+    return found
 
 
 def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, Any],
@@ -189,7 +197,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                 and original.get("status") != "fail"):
             confirmed = [_location(h.get("evidence")) for h in hypotheses
                          if isinstance(h, dict) and h.get("result") == "confirmed_vulnerability"]
-            related = [f for fid in check.get("finding_ids", []) if isinstance(fid, str)
+            related = [f for fid in (check.get("finding_ids") or []) if isinstance(fid, str)
                        for f in [findings.get(fid)] if isinstance(f, dict)
                        and rid in (f.get("check_ids") or [])]
             if not any(_overlap(proof, evidence)
