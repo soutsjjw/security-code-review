@@ -69,28 +69,29 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 
 ## 已完成 Fail／Review 的控制結果證據（全 70 項適用規則）
 
-在新版索引中，仍使用同一份 \`control_verifications\` 與既有 \`review_safety.py --stage\`／\`--integrate\` 工作流程。 `assessment.json` 不新增欄位。 **Fail／Review 的格式與 Pass 不同**，不能將 Pass 的 blocked 情境直接複製成 Fail。
+在新版索引中，仍使用同一份 `control_verifications` 與既有 `review_safety.py --stage`／`--integrate` 工作流程。 `assessment.json` 不新增欄位。 **Fail／Review 的格式與 Pass 不同**，不能將 Pass 的 blocked 情境直接複製成 Fail。
 
 | 判定 | 必備來源證據 | 必備反向情境及關聯 |
 |---|---|---|
-| \`pass\` | 既有的入口、執行點、保護操作、拒絕分支 | 所有最低繞過情境必須已阻擋／真正不適用 |
-| \`fail\`（程式碼控制） | \`entry_points\`、\`failure_points\`、\`protected_operations\`；\`failure_mode\`、\`failure_reason\`、\`search_summary\` | 至少一個 \`confirmed_vulnerability\`，且失效來源須同時與正式規則證據及已保存 Finding 證據重疊 |
-| \`review\`（靜態部分已完成） | \`entry_points\`、\`enforcement_points\`、\`protected_operations\`；\`control_condition\`、\`failure_behavior\`、\`search_summary\` | 涵蓋規則最低反向情境，結果限 \`blocked\`／\`not_applicable\`／\`external_boundary\`，至少一個為決定性外部邊界；\`external_gap_artifact\` 須對應 \`decision-audits.json\` |
+| `pass` | 既有的入口、執行點、保護操作、拒絕分支 | 所有最低繞過情境必須已阻擋／真正不適用 |
+| `fail`（程式碼控制） | `entry_points`、`failure_points`、`protected_operations`；`failure_mode`、`failure_reason`、`search_summary` | 至少一個 `confirmed_vulnerability`，且失效來源須同時與正式規則證據及已保存 Finding 證據重疊 |
+| `review`（靜態部分已完成） | `entry_points`、`enforcement_points`、`protected_operations`；`control_condition`、`failure_behavior`、`search_summary` | 涵蓋規則最低反向情境，結果限 `blocked`／`not_applicable`／`external_boundary`，至少一個為決定性外部邊界；`external_gap_artifact` 須對應 `decision-audits.json` |
 
-Fail 的 \`failure_mode\` 可為 \`control_absent\`、\`ineffective_enforcement\`、\`bypass_path\`、\`unsafe_configuration\`；缺陷確認後不可因還沒測完所有其他情境而退回 Review，但若程式碼分析本身尚有未解問題，仍不得宣稱整體完成。
+Fail 的 `failure_mode` 可為 `control_absent`、`ineffective_enforcement`、`bypass_path`、`unsafe_configuration`；缺陷確認後不可因還沒測完所有其他情境而退回 Review，但若程式碼分析本身尚有未解問題，仍不得宣稱整體完成。
 
-所有情境須附真實來源 \`evidence\` 陣列、具體原因，與本次 \`execution.inspected_paths\` 和來源快照 SHA256 一致。\`open_issues=[]\` 必須代表目前必要的程式碼追查已完成，不得為了過守門填空。純外部 \`external_only\` Review 或僅有外部工件的部署 Fail 不要求上述程式碼證據，但原有外部判定及 Finding 守門仍須通過。
+所有情境須附真實來源 `evidence` 陣列、具體原因，與本次 `execution.inspected_paths` 和來源快照 SHA256 一致。`open_issues=[]` 必須代表目前必要的程式碼追查已完成，不得為了過守門填空。純外部 `external_only` Review 或僅有外部工件的部署 Fail 不要求上述程式碼證據，但原有外部判定及 Finding 守門仍須通過。
 
 以下示意 **只是資料欄位格式，不可抄用為真實證據**：
 
-\`\`\`json
+```json
 {
   "control_verifications": {
     "AC-01": {
       "status": "fail",
       "git_revision": "<目前快照 Git revision>",
       "snapshot_fingerprint": "<目前完整來源快照指紋>",
-      "source_hashes": {"src/SessionValidator.cs": "<真實來源 SHA256>"},
+      "source_hashes": {"src/SessionValidator.cs": "<Validator 真實 SHA256>",
+                        "src/SessionEndpoint.cs": "<Endpoint 真實 SHA256>"},
       "entry_points": [{"path": "src/SessionEndpoint.cs", "line_start": 20, "line_end": 20}],
       "failure_points": [{"path": "src/SessionValidator.cs", "line_start": 42, "line_end": 42}],
       "protected_operations": [{"path": "src/SessionEndpoint.cs", "line_start": 24, "line_end": 24}],
@@ -107,9 +108,9 @@ Fail 的 \`failure_mode\` 可為 \`control_absent\`、\`ineffective_enforcement\
     }
   }
 }
-\`\`\`
+```
 
-\`control_verifications\` 不會自行產生 Finding；必須先在正式 \`assessment.json\` 保存 Finding、證據與 \`checks[].finding_ids\`，才能為其完成關聯驗證。若判定或快照改變，舊的結果證據不得自動繼承。用 \`review_queue.py --detail-id AC-01\` 可取得規則的控制情境要求。
+`control_verifications` 不會自行產生 Finding；必須先在正式 `assessment.json` 保存 Finding、證據與 `checks[].finding_ids`，才能為其完成關聯驗證。若判定或快照改變，舊的結果證據不得自動繼承。用 `review_queue.py --detail-id AC-01` 可取得規則的控制情境要求。
 
 這是結構完整性驗證，不是可執行漏洞利用證明；不自動補全來源呼叫鏈，也不以大量新增文字代替程式碼追查。
 
