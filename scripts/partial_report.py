@@ -351,14 +351,27 @@ def complete(root: Path, categories: tuple[str, ...], catalog: dict[str, Any]) -
         issues = validation_errors(data, root, category, catalog)
         if issues:
             raise ScopeError(f"{category}: 寫入前重新驗證失敗：" + "；".join(issues[:8]))
-    output = []
+    from partial_report_publish import publish
+
+    outputs: list[tuple[Path, str]] = []
+    results = []
     for category, data, html, json_path, html_path in planned:
-        _atomic(json_path, data)
-        # HTML 也使用安全的原子替換；失敗的驗證不會寫入任何報告。
-        _atomic_html(html_path, html)
-        output.append({"category": category, "report_path": str(json_path),
-                       "html_path": str(html_path), "rule_count": len(data["rules"])})
-    return output
+        outputs.append((json_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n"))
+        outputs.append((html_path, html))
+        results.append({"category": category, "report_path": str(json_path),
+                        "html_path": str(html_path), "rule_count": len(data["rules"])})
+
+    def revalidate() -> list[str]:
+        problems = []
+        for category, data, html, _, _ in planned:
+            problems.extend(f"{category}: {issue}" for issue in
+                            validation_errors(data, root, category, catalog))
+            problems.extend(f"{category}: {issue}" for issue in html_errors(html, data))
+        return problems
+
+    publish(root, outputs, validate=revalidate,
+            verify_saved=lambda: validate_saved(root, categories, catalog))
+    return results
 
 
 def _atomic_html(path: Path, html: str) -> None:
