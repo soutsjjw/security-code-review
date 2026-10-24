@@ -46,11 +46,9 @@ def _read(path: Path, default: Any = None) -> Any:
 
 
 def _write(path: Path, value: Any) -> None:
-    """僅以同目錄 replace 原子替換單一檔案，避免中途留下截斷 JSON。"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temp.replace(path)
+    """同目錄原子替換，短暫 Windows 分享衝突有界重試。"""
+    from atomic_json_io import atomic_write_json
+    atomic_write_json(path, value)
 
 
 def _revision(target: Path) -> str:
