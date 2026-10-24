@@ -50,6 +50,11 @@ class PartialReportTests(unittest.TestCase):
         initialize(self.root, ("AC", "AU"), self.catalog)
         self._fill("AC")
         self._fill("AU")
+        # 既有報告格式單元測試直接植入合成已完成判定，因此需明確
+        # 封存測試資料；不將合成判定視為真正通過安全審查。
+        from partial_evidence_integrity import initialize as seal
+        seal(self.root, "AC", explicit=True)
+        seal(self.root, "AU", explicit=True)
 
     def _fill(self, category):
         original = read_category(self.root, category, self.catalog)
