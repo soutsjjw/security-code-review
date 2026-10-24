@@ -90,6 +90,57 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 
 對已存在的舊審查進度，保留原始 Finding 與證據；首次改用新版索引時應重新建立快照／依失效範圍查核，不得以新版候選覆寫舊有安全結論。
 
+## 可驗證的跨檔控制鏈
+
+新建的 `structure-index.json` 啟用 `cross_file_evidence_version=1`。對適用的跨檔規則，僅記錄 `examined_paths` 或勾選 `examined_relationship_ids` 已不足以結案：`closures[rule_id].control_trace` 必須以實際來源建立控制鏈。具有程式碼控制的全專案規則亦須提供控制鏈；完全屬部署／營運工件的控制不強制捏造 Controller 或 Repository。
+
+`control_trace` 使用以下欄位，這是**資料契約示意，不能當作已查證來源**：
+
+```json
+{
+  "boundary": "connected",
+  "nodes": [
+    {
+      "role": "entry",
+      "path": "src/Web/Controllers/OrdersController.cs",
+      "line_start": 35,
+      "line_end": 35,
+      "reason": "說明實際的 HTTP 入口及從此入口如何呼叫授權處理"
+    },
+    {
+      "role": "enforcement",
+      "path": "src/Application/Services/OrderService.cs",
+      "line_start": 81,
+      "line_end": 81,
+      "reason": "說明呼叫時採取的具體身分與資料歸屬控制條件"
+    }
+  ],
+  "relationships": [
+    {
+      "relationship_id": "<typed_relationships 內真實存在的 ID>",
+      "evidence": {
+        "path": "src/Web/Controllers/OrdersController.cs",
+        "line_start": 35,
+        "line_end": 35
+      },
+      "reason": "已閱讀來源呼叫與實際接收端，確認此關聯屬於本條規則"
+    }
+  ]
+}
+```
+
+- `nodes[].role` 支援 `entry`／`enforcement`／`operation`／`configuration`／`support`。來源路徑、行號必須存在於本次快照、`examined_paths` 及正式 `execution.inspected_paths`；至少一個節點需與本規則正式證據有交集。
+- `boundary=connected`：至少兩個不同來源檔及一條**確認**的結構關聯；入口、控制、操作等核心節點需可連通。不要求每條規則都有 Controller→Handler→Service→Repository 四層，但真實存在的鏈不得任意截斷。
+- `boundary=single_file`：控制實際只在一個來源檔時，節點只包含該檔，`relationships=[]`，並提供 `boundary_reason` 及原有 `single_file_justification`。禁止為了滿足結案條件虛構跨檔關聯。
+- `relationships` 中每一筆確認的 ID 必須屬於索引、連結已讀節點，其 `evidence` 必須涵蓋索引的原始呼叫／註冊位置，且與 `examined_relationship_ids` 完全一致；`method_call_hint` 另需 `callsite_reviews` 中有對應 verified 目標。
+- `callsite_reviews` 的每筆紀錄新增 `evidence` 指向**實際呼叫行**。verified 須有 `binding`（direct／interface_dispatch／dependency_injection／configuration／middleware／other_verified）；excluded 須有 `exclusion_basis`（unrelated_rule／different_entry／unrelated_symbol／not_invoked／alternative_implementation）及足以核對的來源與理由。
+- `dismissed_relationships[edge_id]` 由原先自由文字，改為含 `basis`、`reason`、`evidence`（來源路徑與行號）的物件；沒有逐條證據不得大量排除。排除理由重複過度時會阻止結案，必須重新調查。
+- 為避免掃描全案後每條規則都繼承無關候選，新版結案只使用本規則的搜尋候選路徑及 `control_trace.nodes` 作為候選錨點，**不再將整份 `examined_paths` 當作關聯擴散的依據**。來源覆蓋率的既有要求不因此放寬。
+
+Python 僅驗證來源可定位、控制鏈一致與候選排除紀錄具體；即使所有檢查通過，仍不等同證明呼叫路徑的語意正確或不存在攻擊繞過。Agent 必須重新閱讀相關檔案並驗證控制行為。
+
+**升級／重新審查：** 新結構索引採用新的版本，原有已完成判定及 Findings 不會自動刪除或轉換。對來源未變更但尚未補充控制鏈證據的既有完整審查，須依法核對資料完整性後修訂結案；發生 Git／來源異動則依 `--snapshot-refresh`、重建索引與重新檢核流程處理。舊結構索引不強制新欄位，亦不得聲稱具此功能。
+
 ## 來源變更及恢復
 
 `review-snapshot.json` 固定 Git Revision、完整來源檔清單、SHA256 與排除範圍。即使程式碼新增、刪除、修改，或 Git Revision 改變，也不能以原有 completed 當作新版本符合性證據。
