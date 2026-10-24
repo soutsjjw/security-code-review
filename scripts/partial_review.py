@@ -498,5 +498,5 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
         "selected_rule_count": sum(CATEGORY_COUNTS[cat] for cat in categories),
         "category_queues": results,
         "ready_for_report": False,
-        "notice": "P3 分類跨檔／控制／裁決與第二輪證據守門已啟用；P4 部分報告尚未啟用。",
+        "notice": "所有選定分類安全驗證通過後，使用 complete_review.py --categories 產生各分類 HTML／JSON；ready_for_report 固定為 false，不代表部分報告不可產生。",
     }
