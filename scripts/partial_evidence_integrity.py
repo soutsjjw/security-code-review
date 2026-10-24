@@ -219,7 +219,9 @@ def initialize(root: Path, category: str, *, explicit: bool = False) -> dict[str
             if not explicit:
                 raise IntegrityError(f"{category}: 既有審查紀錄須人工核對後明確封存")
         paths = _paths(root, category)
-        other_evidence = any(paths[k].is_file() for k in TRACKED[3:])
+        other_evidence = (any(paths[k].is_file() for k in TRACKED[3:])
+                          or any(name.startswith(HISTORY.as_posix() + "/")
+                                 for name in paths))
         if other_evidence and not explicit:
             raise IntegrityError(f"{category}: 已有安全／第二輪證據，須人工核對後明確封存")
         snap = _snapshot(root)
