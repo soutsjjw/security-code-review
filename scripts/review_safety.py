@@ -255,10 +255,10 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
                 if origin not in paths:
                     errors.append(f"{rid}: 呼叫點 {callsite_id} 來源未列入 examined_paths")
                 selected = review.get("selected_targets", [])
-                candidates = {item.get("path") for item in call.get("possible_targets", [])
-                              if isinstance(item, dict)}
+                candidate_targets = {item.get("path") for item in call.get("possible_targets", [])
+                                     if isinstance(item, dict)}
                 if not isinstance(selected, list) or any(
-                    not isinstance(p, str) or p not in candidates for p in selected
+                    not isinstance(p, str) or p not in candidate_targets for p in selected
                 ):
                     errors.append(f"{rid}: 呼叫點 {callsite_id} 目標必須來自已列出的候選來源")
                 elif status == "verified" and (
