@@ -156,7 +156,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
                 issues.append(f"{label} Method 呼叫未有 verified 目標核對")
 
     examined_ids = closure.get("examined_relationship_ids")
-    if not isinstance(examined_ids, list) or set(examined_ids) != confirmed:
+    if not isinstance(examined_ids, list) or any(not isinstance(x, str) for x in examined_ids) or set(x for x in examined_ids if isinstance(x, str)) != confirmed:
         issues.append(f"{rid}: Q2 examined_relationship_ids 必須與有證據的控制鏈關聯完全一致")
     if boundary == "connected":
         if len(paths) < 2 or not confirmed:
