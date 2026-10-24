@@ -67,7 +67,8 @@ class PublicationAcceptanceTests(unittest.TestCase):
         path = _category_dir(self.root, "AU") / "assessment.json"
         changed = json.loads(path.read_text("utf-8"))
         changed["checks"][0]["decision_reason"] += "補充重新閱讀及驗證本分類實作的結果。"
-        _atomic(path, changed)
+        from partial_evidence_integrity import commit
+        commit(self.root, "AU", {"assessment.json": changed}, event="test-assessment-update")
         from partial_report_publish import _replace as original_replace
         calls = 0
 
