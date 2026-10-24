@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,98 @@ GENERIC_MISSING_TEST = ("缺少動態測試", "缺乏動態測試", "未提供�
                         "缺少測試案例", "缺乏測試案例", "缺少測試結果", "缺乏測試結果")
 
 
+# Q1：只對新版結構索引啟用更嚴格的判定品質契約；舊紀錄保留原有驗證。
+QUALITY_VERSION = 1
+PLACEHOLDER_ARTIFACT = re.compile(
+    r"^(?:[a-z]{2}-\d{2}-)?(?:deployment|policy|external|platform|runtime)"
+    r"(?:-or-(?:deployment|policy|external|platform|runtime))?"
+    r"(?:-configuration)?-evidence(?:-\d+)?$", re.IGNORECASE,
+)
+VAGUE_ARTIFACTS = frozenset({
+    "待確認資料", "相關文件", "相關證據", "外部證據", "部署或政策證據",
+    "部署／政策證據", "待確認外部工件", "待補證據", "policy evidence",
+})
+CONFIRMED_DEFECT = re.compile(
+    r"(?:已確認|已證實|已發現).{0,24}(?:弱點|漏洞|缺陷|繞過)"
+    r"|(?:缺少|沒有|未實作)伺服端.{0,20}(?:控制|驗證|檢查)"
+    r"|(?:驗證|控制|授權).{0,12}(?:可繞過|已失效|存在漏洞)"
+)
+
+
+def _quality_gap_errors(rule_id: str, rule: dict[str, Any],
+                        check: dict[str, Any], record: dict[str, Any]) -> list[str]:
+    """限制虛構外部缺口；不讀部署文件、不由字串直接改變安全結論。"""
+    errors: list[str] = []
+    gap = record.get("external_gap")
+    if not isinstance(gap, dict):
+        return errors  # 舊有必要欄位驗證已回報。
+
+    artifact = gap.get("artifact")
+    if isinstance(artifact, str):
+        cleaned = artifact.strip()
+        if (PLACEHOLDER_ARTIFACT.fullmatch(cleaned)
+                or cleaned.lower() in VAGUE_ARTIFACTS
+                or re.search(r"<[^>]+>|\{[^}]+\}|\b(?:TODO|TBD|placeholder)\b",
+                             cleaned, re.IGNORECASE)):
+            errors.append(f"{rule_id}: Q1 外部工件是佔位／泛稱，必須指名可取得的實際工件")
+
+    owner = gap.get("evidence_owner")
+    if not isinstance(owner, str) or len(owner.strip()) < 4:
+        errors.append(f"{rule_id}: Q1 須說明外部證據的負責單位或來源平台")
+
+    # 必須描述兩種可驗證、會導致不同結果的情況，避免只寫「缺政策」。
+    outcomes = gap.get("decision_outcomes")
+    if not isinstance(outcomes, dict):
+        errors.append(f"{rule_id}: Q1 缺少外部證據成立／不成立時的判定結果")
+    else:
+        statuses = []
+        reasons = []
+        for key in ("if_satisfied", "if_unsatisfied"):
+            branch = outcomes.get(key)
+            if not isinstance(branch, dict):
+                errors.append(f"{rule_id}: Q1 decision_outcomes.{key} 必須為判定物件")
+                continue
+            status, reason = branch.get("status"), branch.get("reason")
+            if status not in {"pass", "fail", "na"}:
+                errors.append(f"{rule_id}: Q1 decision_outcomes.{key}.status 應為 pass/fail/na")
+            else:
+                statuses.append(status)
+            if not isinstance(reason, str) or len(reason.strip()) < 20:
+                errors.append(f"{rule_id}: Q1 decision_outcomes.{key}.reason 須具體描述判定依據")
+            else:
+                reasons.append(reason.strip())
+        if len(statuses) == 2 and statuses[0] == statuses[1]:
+            errors.append(f"{rule_id}: Q1 外部證據無法改變結果，不得以 review 阻擋靜態結論")
+        if len(reasons) == 2 and reasons[0] == reasons[1]:
+            errors.append(f"{rule_id}: Q1 外部證據兩種結果使用相同理由，缺少決定性解釋")
+
+    if gap.get("category") == "organization_policy":
+        binding = gap.get("policy_binding")
+        if not isinstance(binding, dict) or not isinstance(binding.get("reference"), str) \
+                or len(binding["reference"].strip()) < 6 \
+                or not isinstance(binding.get("applicability_reason"), str) \
+                or len(binding["applicability_reason"].strip()) < 20:
+            errors.append(
+                f"{rule_id}: Q1 組織政策缺口須提供已知政策識別及對受審系統的適用依據；"
+                "未知是否存在額外政策，不應自動造成 review"
+            )
+
+    # 自陳已發現缺陷卻標記 control_satisfied，是與正式安全判定的明顯矛盾。
+    narratives = "；".join(str(record.get(k, "")) for k in ("static_conclusion",))
+    narratives += "；" + str(check.get("decision_reason", ""))
+    if check.get("finding_ids") or CONFIRMED_DEFECT.search(narratives):
+        errors.append(f"{rule_id}: Q1 review 描述已確認弱點或關聯 Finding，須先依證據改判 fail")
+    searched = record.get("searched_paths")
+    evidence = record.get("static_evidence")
+    if isinstance(searched, list) and isinstance(evidence, list):
+        missing = {e.get("path") for e in evidence if isinstance(e, dict)} - set(
+            x for x in searched if isinstance(x, str)
+        )
+        if missing:
+            errors.append(f"{rule_id}: Q1 靜態證據未列入實際搜尋檔案：" + "、".join(sorted(str(x) for x in missing)))
+    return errors
+
+
 def guidance(rule_id: str) -> dict[str, Any]:
     matrix = load_decision_matrix()
     if rule_id not in matrix:
@@ -68,6 +161,8 @@ def guidance(rule_id: str) -> dict[str, Any]:
             "external_gap", "open_static_questions",
         ],
         "prohibited_review_reason": "僅缺非必要動態測試、未完成來源追查、已由程式碼證實的弱點",
+        "quality_gap_fields": ["evidence_owner", "decision_outcomes",
+                               "policy_binding（organization_policy 必填）"],
         "note": "審查紀錄不構成自動合格判定；靜態弱點須 fail + Finding",
     }
 
@@ -187,4 +282,6 @@ def adjudication_errors(target: Path, checks: list[dict]) -> list[str]:
         if isinstance(question, str) and any(word in question for word in GENERIC_MISSING_TEST):
             if category != "external_scan":
                 issues.append(f"{rid}: P3 請改查證真正的外部阻斷事項，而非泛稱缺少測試")
+        if index.get("decision_quality_version") == QUALITY_VERSION:
+            issues.extend(_quality_gap_errors(rid, matrix[rid], check, record))
     return issues
