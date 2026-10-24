@@ -263,7 +263,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     # 變更的呼叫端/組態可能影響未變動來源；沒有受驗證依賴閉包前採保守重審。
     recheck = sorted(source) if changed or removed or not compatible or mode == "full" else []
     payload = {
-        "schema_version": INDEX_VERSION, "control_effectiveness_version": 1, "decision_adjudication_version": 1, "adversarial_second_pass_version": 1, "evidence_integrity_version": 1,
+        "schema_version": INDEX_VERSION, "control_effectiveness_version": 1, "decision_adjudication_version": 1, "decision_quality_version": 1, "adversarial_second_pass_version": 1, "evidence_integrity_version": 1,
         "adapter": adapter.name, "mode": mode,
         "roslyn_version": ROSLYN_VERSION, "sdk_version": roslyn.get("sdk_version"),
         "candidate_version": CANDIDATE_VERSION, "rule_candidates": rule_candidates,
