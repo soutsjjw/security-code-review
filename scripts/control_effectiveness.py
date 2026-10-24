@@ -162,16 +162,21 @@ def _proofs(root: Path, known: set[str], inspected: set[str],
     return errs, located
 
 
-def verification_errors(target: Path, checks: list[dict]) -> list[str]:
+def verification_errors(target: Path, checks: list[dict], *,
+                        index_override: dict | None = None,
+                        snapshot_override: dict | None = None,
+                        records_override: dict | None = None,
+                        audits_override: dict | None = None,
+                        assessment_override: dict | None = None) -> list[str]:
     """只在 P2 版本的來源索引啟動，既有快照以 recheck 流程遷移。"""
-    index = _read_json(target / INDEX, {})
+    index = index_override if index_override is not None else _read_json(target / INDEX, {})
     if not isinstance(index, dict) or index.get("control_effectiveness_version") != CONTRACT_VERSION:
         return []
-    snapshot = _read_json(target / SNAPSHOT, {})
+    snapshot = snapshot_override if snapshot_override is not None else _read_json(target / SNAPSHOT, {})
     if not isinstance(snapshot, dict):
         return ["P2: 缺少來源快照，不得宣稱控制已驗證"]
     known = set(snapshot.get("source_hashes") or {})
-    records = _read_json(target / VERIFICATIONS, {})
+    records = records_override if records_override is not None else _read_json(target / VERIFICATIONS, {})
     if not isinstance(records, dict):
         return ["P2: control-verifications.json 必須是規則 ID 對應的 JSON 物件"]
     matrix = load_decision_matrix()
@@ -260,7 +265,9 @@ def verification_errors(target: Path, checks: list[dict]) -> list[str]:
     # 新索引要求完成的程式碼型 Fail / Review 同樣有控制有效性證據。
     # Pass 仍走既有 P2 契約，外部控制不用捏造來源執行點。
     from control_outcome_evidence import outcome_errors
-    errors.extend(outcome_errors(target, index, snapshot, checks, records))
+    errors.extend(outcome_errors(target, index, snapshot, checks, records,
+                                 audits_override=audits_override,
+                                 assessment_override=assessment_override))
     return errors
 
 
