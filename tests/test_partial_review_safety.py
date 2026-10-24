@@ -209,7 +209,7 @@ class PartialSafetyTests(unittest.TestCase):
             self.prepare()
         result = subprocess.run([*cmd, "--validate"], capture_output=True, text=True,
                                 encoding="utf-8", env=env, check=False)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1, result.stderr)
         payload = json.loads(result.stdout)
         self.assertFalse(payload["ready_for_report"])
         self.assertFalse(payload["safety_valid"])
