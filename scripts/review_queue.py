@@ -380,7 +380,7 @@ def main() -> int:
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
+        return 1 if args.validate and not result["safety_valid"] else 0
     try:
         ruleset, rules = load_rules()
         if args.init:
