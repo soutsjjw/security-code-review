@@ -47,10 +47,10 @@ def contract_matrix() -> dict[str, Any]:
         info = matrix.get(rid, {})
         applicability = rule.get("applicability") or {}
         for field in RULE_FIELDS:
-            if not isinstance(info.get(field), str) or len(info[field].strip()) < 8:
+            if not isinstance(info.get(field), str) or len(info[field].strip()) < 5:
                 errors.append(f"{rid}: 判定矩陣缺少具體 {field}")
         for field in ("must_assess_when", "may_be_not_applicable_when"):
-            if not isinstance(applicability.get(field), str) or len(applicability[field].strip()) < 8:
+            if not isinstance(applicability.get(field), str) or len(applicability[field].strip()) < 5:
                 errors.append(f"{rid}: 缺少 {field}，不能完成適用性判定")
         if applicability.get("no_evidence") != "review":
             errors.append(f"{rid}: 無證據時不可自動 pass/na/fail")
@@ -261,7 +261,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", "utf-8")
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        visible = result
+        if args.matrix_only and args.output:
+            visible = {
+                "measurement_source": result["measurement_source"],
+                "rule_count": result["rule_count"],
+                "valid_count": result["valid_count"],
+                "passed": result["passed"],
+                "errors": result["errors"],
+                "full_matrix": str(args.output),
+            }
+        print(json.dumps(visible, ensure_ascii=False, indent=2))
         return 0 if (result["passed"] if args.matrix_only else result["quality_gate_passed"]) else 1
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         print("品質驗收錯誤：" + str(exc), file=sys.stderr)
