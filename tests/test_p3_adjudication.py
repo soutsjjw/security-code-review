@@ -65,6 +65,21 @@ class P3AdjudicationTests(unittest.TestCase):
                 "blocking_question": "組織正式核定的逾時上限是否接受目前伺服器設定的期限",
                 "why_decisive": "程式碼能證明伺服器會拒絕過期憑證，但無法自行推定組織核定的時限長度",
                 "manual_boundary": guidance("AC-01")["manual_boundary"],
+                "evidence_owner": "組織資安政策管理單位",
+                "policy_binding": {
+                    "reference": "ISMS-SESSION-TIMEOUT-2026",
+                    "applicability_reason": "已確認本測試系統適用已公告之 Session 絕對逾時標準，需以核定條文確認門檻",
+                },
+                "decision_outcomes": {
+                    "if_satisfied": {
+                        "status": "pass",
+                        "reason": "若正式政策容許此服務端逾時上限，已確認的失效拒絕機制符合規則要求",
+                    },
+                    "if_unsatisfied": {
+                        "status": "fail",
+                        "reason": "若正式政策要求更短上限，現有服務端期限超過適用標準，須記錄不符合",
+                    },
+                },
             },
             "open_static_questions": [],
         }
@@ -204,6 +219,17 @@ class P3AdjudicationTests(unittest.TestCase):
                         "blocking_question": "實際環境是否已符合規則要求的外部營運或部署控制",
                         "why_decisive": "此規則要求的是正式環境或已實施的演練，單憑原始碼不足以確認真實狀態",
                         "manual_boundary": rule["manual_boundary"],
+                        "evidence_owner": "系統維運與演練管理單位",
+                        "decision_outcomes": {
+                            "if_satisfied": {
+                                "status": "pass",
+                                "reason": "如正式環境或演練工件證實控制已運作且達到要求，外部控制符合規範",
+                            },
+                            "if_unsatisfied": {
+                                "status": "fail",
+                                "reason": "如正式紀錄證明未部署必要控制或未完成要求的演練，應記錄缺失",
+                            },
+                        },
                     },
                     "open_static_questions": [],
                 }
@@ -247,6 +273,67 @@ class P3AdjudicationTests(unittest.TestCase):
         stage(self.root, staged)
         with self.assertRaisesRegex(ValueError, "P3 判定紀錄衝突"):
             integrate(self.root)
+
+    def test_q1_rejects_placeholder_artifact_that_used_to_pass_validation(self):
+        audit = copy.deepcopy(self.audit)
+        review = copy.deepcopy(self.review)
+        placeholder = "AC-01-deployment-or-policy-evidence"
+        audit["external_gap"]["artifact"] = placeholder
+        review["decision_reason"] = "已檢查期限相關設定與控制；待確認：" + placeholder
+        errors = self.check(row=review, audit=audit)
+        self.assertIn("Q1 外部工件是佔位", "；".join(errors))
+
+    def test_q1_requires_an_externally_decisive_outcome(self):
+        for mutation in ("missing", "same_status", "same_reason", "incomplete"):
+            with self.subTest(mutation=mutation):
+                audit = copy.deepcopy(self.audit)
+                outcomes = audit["external_gap"]["decision_outcomes"]
+                if mutation == "missing":
+                    audit["external_gap"].pop("decision_outcomes")
+                elif mutation == "same_status":
+                    outcomes["if_unsatisfied"]["status"] = "pass"
+                elif mutation == "same_reason":
+                    outcomes["if_unsatisfied"]["reason"] = outcomes["if_satisfied"]["reason"]
+                else:
+                    outcomes["if_satisfied"]["reason"] = "符合"
+                self.assertIn("Q1", "；".join(self.check(audit=audit)))
+
+    def test_q1_requires_policy_binding_instead_of_speculating(self):
+        audit = copy.deepcopy(self.audit)
+        audit["external_gap"].pop("policy_binding")
+        self.assertIn("政策缺口須提供已知政策識別", "；".join(self.check(audit=audit)))
+        self.assertEqual(self.check(audit=copy.deepcopy(self.audit)), [])
+
+    def test_q1_static_defect_must_not_be_laundered_as_review(self):
+        audit = copy.deepcopy(self.audit)
+        audit["static_conclusion"] = "已發現伺服端可被繞過的驗證缺陷，需重新確認安全控制"
+        self.assertIn("Q1 review 描述已確認弱點", "；".join(self.check(audit=audit)))
+        audit = copy.deepcopy(self.audit)
+        review = copy.deepcopy(self.review)
+        review["finding_ids"] = ["F-AC01"]
+        self.assertIn("Q1 review 描述已確認弱點",
+                      "；".join(self.check(row=review, audit=audit)))
+
+    def test_q1_static_evidence_must_have_been_searched(self):
+        audit = copy.deepcopy(self.audit)
+        audit["searched_paths"] = ["SessionRecord.cs"]
+        errors = self.check(audit=audit)
+        self.assertIn("Q1 靜態證據未列入實際搜尋檔案", "；".join(errors))
+
+    def test_q1_old_snapshot_is_not_silently_migrated(self):
+        index_path = report_dir(self.root) / "analysis/structure-index.json"
+        original = json.loads(index_path.read_text(encoding="utf-8"))
+        try:
+            legacy = copy.deepcopy(original)
+            legacy.pop("decision_quality_version", None)
+            _write(index_path, legacy)
+            audit = copy.deepcopy(self.audit)
+            audit["external_gap"].pop("decision_outcomes")
+            audit["external_gap"].pop("policy_binding")
+            audit["external_gap"].pop("evidence_owner")
+            self.assertEqual(self.check(audit=audit), [])
+        finally:
+            _write(index_path, original)
 
     def test_rule_queue_exposes_p3_guidance_without_replacing_rules(self):
         _, rules = load_rules()
