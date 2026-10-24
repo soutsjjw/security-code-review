@@ -25,7 +25,7 @@ def _master_rules() -> dict[str, str]:
     return {rule["id"]: rule["id"].split("-")[0] for rule in rules}
 
 
-def repeated_screening_reason_errors(rows: list[Any]) -> list[str]:
+def repeated_screening_reason_errors(rows: list[Any], *, categories: tuple[str, ...] = CATEGORIES) -> list[str]:
     """偵測零逐條規則檔案的大量跨檔制式篩選理由，避免十類勾選被誤認為實際檢核。"""
     zero_rule = [row for row in rows if isinstance(row, dict)
                  and isinstance(row.get("rule_reviews"), list) and not row["rule_reviews"]
@@ -37,7 +37,7 @@ def repeated_screening_reason_errors(rows: list[Any]) -> list[str]:
         screening = row.get("category_screening") or {}
         if not isinstance(screening, dict):
             continue
-        for category in CATEGORIES:
+        for category in categories:
             entry = screening.get(category)
             if not isinstance(entry, dict) or entry.get("rule_ids"):
                 continue
@@ -60,20 +60,28 @@ def repeated_screening_reason_errors(rows: list[Any]) -> list[str]:
 
 
 def verified_file_rule_reviews(
-    assessment: dict[str, Any], root: Path, expected: set[str],
+    assessment: dict[str, Any], root: Path, expected: set[str], *,
+    selected_categories: tuple[str, ...] = CATEGORIES,
 ) -> tuple[dict[str, set[str]], list[str]]:
     """只接受摘要、雜湊、10 類逐檔篩選、規則行號與 completed 紀錄均一致的檔案。
 
     自陳證據無法證明 Agent 確實閱讀；此檢查至少阻擋舊版只填 inspected_paths
     或依檔名批次掛上單一規則後即聲稱 100% 覆蓋的情形。
     """
+    if (not selected_categories or len(set(selected_categories)) != len(selected_categories)
+            or any(cat not in CATEGORIES for cat in selected_categories)):
+        raise ValueError("逐檔驗證的分類集合不合法")
+    allowed_rules = {rid for rid, cat in _master_rules().items() if cat in selected_categories}
     rows = assessment.get("file_reviews")
     if not isinstance(rows, list):
         if not expected and not any((c.get("execution") or {}).get("inspected_paths") for c in assessment.get("checks", [])):
             return {}, []  # 空的受測工作樹：沒有來源可逐檔記錄。
-        return {}, ["缺少 file_reviews：必須逐檔完成 10 類規則篩選與可追溯的規則審查，不可沿用 inspected_paths 宣稱完成"]
+        return {}, ["缺少 file_reviews：必須逐檔完成指定分類的規則篩選與可追溯的規則審查，不可沿用 inspected_paths 宣稱完成"]
     rules = _master_rules()
     completed: dict[str, set[str]] = {}
+    for check in assessment.get("checks", []):
+        if check.get("id") not in allowed_rules:
+            raise ValueError(f"逐檔驗證包含未選分類規則：{check.get('id')}")
     for check in assessment.get("checks", []):
         execution = check.get("execution") or {}
         if execution.get("state") == "completed":
@@ -125,11 +133,11 @@ def verified_file_rule_reviews(
             faults.append("缺少實際逐檔檢查方法")
         screening = row.get("category_screening")
         selected: set[str] = set()
-        if not isinstance(screening, dict) or set(screening) != set(CATEGORIES):
-            faults.append("category_screening 必須逐一篩選全部 10 類規則")
+        if not isinstance(screening, dict) or set(screening) != set(selected_categories):
+            faults.append("category_screening 必須精確涵蓋本次指定分類")
         else:
             per_category_reasons: dict[str, list[str]] = defaultdict(list)
-            for cat in CATEGORIES:
+            for cat in selected_categories:
                 entry = screening[cat]
                 if not isinstance(entry, dict):
                     faults.append(f"{cat}: 篩選紀錄格式錯誤")
@@ -168,8 +176,8 @@ def verified_file_rule_reviews(
                     faults.append("rule_reviews 含非物件紀錄")
                     continue
                 rid = rr.get("rule_id")
-                if not isinstance(rid, str) or rid not in rules:
-                    faults.append(f"rule_reviews 含未知規則：{rid!r}")
+                if not isinstance(rid, str) or rid not in allowed_rules:
+                    faults.append(f"rule_reviews 含未選分類或未知規則：{rid!r}")
                     continue
                 if rid in recorded:
                     faults.append(f"{rid}: 同檔案重複規則")
@@ -205,7 +213,8 @@ def verified_file_rule_reviews(
             faults.append("category_screening.rule_ids 與逐條 rule_reviews 不一致")
         # 語意候選僅用來發現「零規則」或遺漏關聯，不自動宣稱規則適用／符合。
         # 確認不適用者可附具體逐條排除理由；不得以十類共用敘述取代。
-        signals = {hit["rule_id"]: hit for hit in candidate_hits(path, source)}
+        signals = {hit["rule_id"]: hit for hit in candidate_hits(path, source)
+                   if hit["rule_id"] in allowed_rules}
         exclusions = row.get("candidate_exclusions", [])
         excluded_candidates: set[str] = set()
         recorded_exclusion_reasons: list[tuple[str, str]] = []
@@ -247,7 +256,7 @@ def verified_file_rule_reviews(
         else:
             verified[path] = recorded
 
-    errors.extend(repeated_screening_reason_errors(rows))
+    errors.extend(repeated_screening_reason_errors(rows, categories=selected_categories))
 
     # 批次模板只變換行數或 ID 不能代替真實的逐檔分析。
     # 這不是最低關聯規則數門檻：一個檔案可以只有零或一個適用規則。
