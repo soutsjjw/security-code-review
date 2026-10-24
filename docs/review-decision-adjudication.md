@@ -12,6 +12,48 @@
 
 規則 `manual_boundary` 只是可供查證的外部邊界，**不是每條規則自動列為 review 的理由**。例如 AC-01 的 Session 有效期限已實作且會過期，通常可由靜態來源判斷；僅當組織**實際存在的逾時長度正式政策**是否符合會改變該規則結論，才使用 `review`。IN-07 同理，只有真正無法由儲存庫取得且具決定性的主機符號連結／Volume／ACL 資料才可待確認。
 
+## Q1：全 70 項的外部缺口決定性驗證
+
+新版 `analysis_prepare.py --mode full` 產出的結構索引包含 `decision_quality_version=1`。在保留 P3 原有驗證之外，**每個完成的 Review** 都必須說明外部資料如何真正改變判定，不因 AC-01 等個別規則而特殊放行。
+
+- `external_gap.artifact` 必須是具體工件；禁止 `AC-01-deployment-or-policy-evidence`、`相關文件`、`<policy>` 等佔位符。純粹欠缺動態測試仍不能構成 Review。
+- `external_gap.evidence_owner` 記錄可向何單位或平台取得證據，不得自行臆造已持有的文件。
+- `external_gap.decision_outcomes` 必須具備 `if_satisfied` 與 `if_unsatisfied`，各自包含 `status`（pass／fail／na）及具體 `reason`。兩個分支若結果相同，該外部缺口並不阻斷判定，不能保留 Review。
+- 對 `organization_policy`，額外要求 `external_gap.policy_binding.reference` 與 `applicability_reason`，說明**已知**適用於受測系統的正式政策識別及依據。若只是推測「也許有更嚴格的內部政策」，不能用它阻擋已可由程式碼判定的基本控制。
+- 靜態證據必須列於實際搜尋路徑；Review 文字／Finding 已明示確認缺陷時，必須重新裁決為 Fail＋Finding，不能把缺少政策文件當成藉口。
+- 這些檢查是**輸入品質守門**，不能證明資料真偽，也不會自動把 Review 改成 Pass／Fail；必要時維持 `pending/blocked` 補查。
+
+合格的 `external_gap` 擴充範例（工件名稱、適用政策及推論皆是**示範**，不可直接複製作為真實專案證據）：
+
+```json
+{
+  "category": "organization_policy",
+  "artifact": "組織正式 Session 最長有效期限核定文件",
+  "evidence_owner": "資訊安全管理單位",
+  "blocking_question": "已核定的最大有效期限是否允許此系統實作值",
+  "why_decisive": "伺服端已核對有拒絕過期票據的控制，但政策若規定更短期限則不符合",
+  "manual_boundary": "逾時長度是否符合組織政策",
+  "policy_binding": {
+    "reference": "示例-ISMS-SESSION-2026",
+    "applicability_reason": "假設已有文件明確將本系統列入指定逾時期限的強制適用範圍"
+  },
+  "decision_outcomes": {
+    "if_satisfied": {
+      "status": "pass",
+      "reason": "如核定期限容許目前服務端設定，且已確認逾時會拒絕請求，則符合"
+    },
+    "if_unsatisfied": {
+      "status": "fail",
+      "reason": "如核定期限短於目前伺服端有效期限，則應建立不符合的 Finding"
+    }
+  }
+}
+```
+
+**特別注意 AC-01：** 規則的基本 `pass_condition` 是「有效期限由伺服端驗證且逾期不可使用」；不得把「缺少絕對期限／組織政策」當成自動 Fail 或 Review。要先區分伺服端基本期限、前端閒置倒數及正式政策要求，確認每條控制是否真的有效；若控制有明確弱點，優先 Fail。
+
+既有 `decision_quality_version` 缺席的結構索引保留原有 P3 契約，不會靜默重寫報告。**重新掃描以使用 Q1 時**，須執行 `analysis_prepare.py --mode full`、更新來源快照並依法重審已完成判定；新版守門可能拒絕尚未補齊 Q1 證據的舊 Review，但不會刪除 Finding 或自動改判。
+
 ## 批次判定證據格式
 
 已啟用判定裁決的新索引（`decision_adjudication_version=1`）要求所有 `completed+review` 附一份工作中 `decision_audits`。以下為**結構示意，非已完成證據**：
