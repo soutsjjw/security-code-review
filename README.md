@@ -20,11 +20,37 @@ $security-code-review
 $security-code-review /path/to/project
 ```
 
-也可指定子目錄，例如 `$security-code-review src/Api`。Claude Code 使用 `/security-code-review`。
+也可指定子目錄作為審查重點，例如 `$security-code-review src/Api`。Claude Code 使用 `/security-code-review`。
+
+### Codex App 指定分類審查
+
+在已開啟的**受測專案 Codex App 對話輸入**（不是 PowerShell 命令），可以選擇：
+
+```text
+$security-code-review --categories AC
+$security-code-review --categories AC,AU
+$security-code-review --categories DP,PD,BC,SI
+```
+
+若 Codex 插入 Skill 連結（例如 `[$security-code-review](C:\Users\<使用者>\.agents\skills\security-code-review\SKILL.md)`），直接在連結後面寫 `--categories AC,AU` 即可；`<使用者>` 只代表該機器的安裝路徑，並非需要輸入的參數。Agent 必須依 `--categories` 選擇分類工作流程，而不是啟動正式 70 項。
+
+| 分類 | 規則數 | 分類 | 規則數 | 分類 | 規則數 |
+|---|---:|---|---:|---|---:|
+| AC | 8 | AU | 10 | IN | 8 |
+| CR | 6 | EH | 6 | LG | 10 |
+| DP | 4 | PD | 8 | BC | 7 |
+| SI | 3 | | | | |
+
+- **未指定 `--categories`**：仍為完整 70 項、完整十類逐檔適用性查證與正式報告。
+- **指定一或多類**：只判定指定分類的規則（例如 AC＋AU 共 18 項），但仍盤點所有必要來源與跨檔呼叫鏈，並在每個來源檔針對選定分類完成適用性篩選。每個分類都必須完成第一輪、第二輪、真實證據與 100% 來源覆蓋，才各自產生部分 HTML／JSON。
+- **指定全部十類**：仍產生十份獨立部分報告，不等同於正式完整 70 項報告。
+- 分類參數用逗號分隔，不能重複、留空或填未知分類；不會覆寫原完整審查的進度與 Findings。
+
+操作、逐分類證據格式及結果驗證見 [分類審查完整流程](docs/category-review.md)。
 
 > 以上是 **Agent 對話指令**，不是 PowerShell／Bash 指令。請在受測專案工作目錄啟動 Agent；規則與工具位於 Skill 安裝目錄，審查結果則寫回受測專案。
 
-Agent 會盤點程式碼、逐條審查、保留既有進度與 Finding，直到 **70/70 項皆實際完成**，才驗證並交付正式報告。遇到缺乏部署、政策或動態證據時，須記錄已完成的靜態分析與待確認事項；不會因此清空既有結果、要求先修補弱點或提前交付部分報告。
+未指定分類時，Agent 會盤點程式碼、逐條審查、保留既有進度與 Finding，直到 **70/70 項皆實際完成**，才驗證並交付正式報告。遇到缺乏部署、政策或動態證據時，須記錄已完成的靜態分析與待確認事項；不會因此清空既有結果、要求先修補弱點或提前交付部分報告。
 
 ## 安裝
 
@@ -125,7 +151,7 @@ V3.2 主文件與附件保留 **ASP.NET／.NET、IIS 與通用 Web 安全要求�
 
 ## 報告與審查狀態
 
-正式結果保存在**受測專案**，不寫入 Skill 目錄：
+完整及分類結果都保存在**受測專案**，不寫入 Skill 目錄。下列為**完整模式**的正式報告：
 
 ```text
 <受測專案>/
@@ -140,6 +166,26 @@ V3.2 主文件與附件保留 **ASP.NET／.NET、IIS 與通用 Web 安全要求�
     └── web_appendix3_assessment.json # 選填：六項標頭實際回應查證
 ```
 
+分類審查另在同個受測專案產生如下**各類獨立資料**，例如 AC 與 AU：
+
+```text
+reports/security-code-review/
+└── partial/
+    ├── _shared/analysis/          # 全來源共用結構候選；非安全結論
+    ├── AC/
+    │   ├── assessment.json        # AC 8 項、Finding 與逐檔證據
+    │   ├── analysis/              # 跨檔、控制、判定及第二輪紀錄
+    │   ├── report.json
+    │   └── CodeReview_YYYYMMDD.html
+    └── AU/
+        ├── assessment.json        # AU 10 項
+        ├── analysis/
+        ├── report.json
+        └── CodeReview_YYYYMMDD.html
+```
+
+部分報告明確標示「部分審查」，即使通過各分類驗證，也**不代表其他分類、正式 70 項或系統整體合規**。分類模式的 `ready_for_report` 會持續為 `false`；應以每分類的 `safety_valid`、第二輪複核與 HTML／JSON 驗證作為完成條件。
+
 核心規則狀態有 `pass`、`fail`、`review`、`na`。正式審查的每項 `pass/fail/review` 必須提供可定位的來源行號或設定／測試／外部證據工件；批次模板、單純檔案路徑或空泛的 `other` 描述不能代表完整審查。其中 `review` 表示**已檢查可查證的部分，但仍缺外部證據**；與執行進度 `execution.state=pending/completed/blocked` 是不同欄位。只有全部 70 項 `completed`、**應審查來源檔案全數完成逐檔核對**，且 HTML／JSON 驗證通過，才算完成正式交付。
 
 佇列輸出的 `source_coverage` 會顯示應審查原始碼／設定檔總數、已審查數、未審查數及類型，並以 `next_source_paths` 指示下一批漏查來源；若僅審查 13／660 個 `.cs`，即使 70 項規則均標記完成，也**禁止交付正式報告**。**逐檔檢核需評估所有 70 條規則的適用性，不能只取第一個關鍵字命中結果；不可將稽核、個資、相依套件等錯誤對應至不相關的 `XX-01`。** 使用重複的不適用理由或大量制式摘要會被驗證器拒絕，但不會強制每檔至少對應兩條規則。\n\n完成來源檔案核對後，須記錄 `assessment.file_reviews` 的 SHA256、逐檔 10 類適用性判斷、檢核依據與來源行號，並與 `execution.inspected_paths` 對應；不能將搜尋命中或清單盤點當成完成審查。缺少逐檔紀錄、來源異動或規則關聯不一致時會拒絕正式報告（[資料格式](docs/file-review-contract.md)）。個別 `review` 必須具體列出已審查證據與未能確認原因，證據可支持 `fail` 時須記錄 Finding，不能將 `review` 當成尚未分析的預設結論。
@@ -151,6 +197,7 @@ V3.2 主文件與附件保留 **ASP.NET／.NET、IIS 與通用 Web 安全要求�
 ## 進階操作與維護
 
 - [完整審查指令（/goal）、批次續跑與報告流程](docs/advanced-usage.md)
+- [指定 AC～SI 分類的 Codex 工作流程與隔離報告](docs/category-review.md)
 - [分級、證據及例外管理原則](docs/standardization-policy.md)
 - [審查資料結構](docs/data-contract.md) · [HTML／JSON 報告結構](docs/report-schema-contract.md)
 - [Skill 執行指示](SKILL.md)
