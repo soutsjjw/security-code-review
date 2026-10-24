@@ -55,6 +55,53 @@
 
 反例狀態：`blocked`、`confirmed_vulnerability`、`external_boundary`、`not_applicable`。結果必須與正式判定一致：`pass` 不能附未解的漏洞；`fail` 必須有仍存在的 Finding；`review` 要引用現有裁決紀錄中的真正外部缺口（`evidence.kind=external_gap`）；`na` 必須查明不適用範圍。程式碼證據路徑必須在快照和 `inspected_paths`，行號必須真實有效。若第二輪發現需要追查原先未檢查的檔案，應先補充原規則的 `inspected_paths` 並重新整合正式結果，再建立新的第二輪紀錄。
 
+## 實質反向複核品質守門（全部 70 項）
+
+新版 `structure-index.json` 包含 `adversarial_quality_version=1`，並在原有不可變第一輪錨點中額外保留 `checks[rule_id].decision_reason`，讓第二輪能針對**第一輪真正主張**提出可反駁的質疑，而非只核對 Pass／Fail 狀態。這不代表啟用了另一個獨立代理。
+
+以下均屬現有 `adversarial_reviews[rule_id]` 工作中證據的新增欄位，**不修改正式 assessment Schema**：
+
+- `reassessment.first_pass_claim`：須逐字對應不可變第一輪判定理由；`challenge_question` 指出可能推翻判定的具體條件；`reinspection_summary` 記錄再次查閱的入口、分支、DI／設定；`conclusion_basis` 說明為何維持或修訂；`verification_evidence` 必須能重新定位至已查核來源或真正外部工件。
+- 每個 `hypotheses[]` 除原有攻擊面、追查方法、結果及來源外，新增 `vector`、`attacker_precondition`、`expected_violation`、`inspection_steps`、`observed_behavior`、`inspection_evidence`。分別回答**攻擊者需具備什麼、試圖破壞什麼、實際重讀哪一個分支、查核後看到什麼**。僅更換規則編號或序號、重複同一攻擊敘述，不算不同反例。
+- `vector` 應選具體攻擊類別，包括 `alternate_entry`、`authorization_bypass`、`identity_substitution`、`expired_or_reused_credential`、`configuration_override`、`direct_storage_access`、`untrusted_input`、`output_encoding`、`state_change`、`exception_path`、`dependency_injection`、`third_party_boundary`、`operational_override`、`scope_challenge`；`other_specific` 需另附 `vector_explanation`。高風險規則仍需至少兩個**不同 vector**。
+- `evidence` 指向攻擊入口或缺失，`inspection_evidence` 指向重新閱讀的控制或拒絕分支。若兩者恰好同一來源行，提供 `same_line_explanation`（具體說明同一行如何承擔兩種責任）；若兩個高風險反例都用完全相同證據組，補 `shared_evidence_justification` 說明不同攻擊如何匯入共同控制。
+- 不同規則如共用相同攻擊前提、預期破壞、查核結果或同一來源行，驗證器會偵測模板化紀錄。真正存在共享安全控制時，需逐規則說明控制關聯，例如 `cross_rule_proof_justification`；不可用「已檢查各項安全機制」之類制式理由。
+- `outcome=corrected` 另需在每個 `contradictions[]` 提供 `why_first_pass_missed` 與 `corrective_action`，說明最初漏查的路徑、重新裁決與處理方式。若第二輪由非 Fail 改為 Fail，具體 `confirmed_vulnerability` 的來源必須和**此規則的 Finding 證據**重疊，不允許只有狀態修改。
+
+以下是**欄位示例**，行號與內容不可直接套用成正式查核成果：
+
+```json
+{
+  "reassessment": {
+    "first_pass_claim": "<不可變第一輪 decision_reason 原文>",
+    "challenge_question": "若可透過另一入口直接存取資料，原本的物件擁有者授權是否仍能生效",
+    "reinspection_summary": "說明第二輪重新開啟 Controller、Service、Repository 的實際位置與分支",
+    "conclusion_basis": "說明在另一條入口下，控制如何實際拒絕或為何發現缺失",
+    "verification_evidence": {
+      "kind": "source", "path": "<真實服務檔案>", "line_start": 42, "line_end": 42
+    }
+  },
+  "hypotheses": [{
+    "attack_surface": "direct_order_lookup",
+    "vector": "direct_storage_access",
+    "attacker_precondition": "描述能指定他人訂單識別值並繞過正常 UI 呼叫的前提",
+    "expected_violation": "描述若未檢查主體擁有者資訊將如何取得他人訂單",
+    "inspection_steps": "描述重新閱讀的直接查詢、授權分支和 Repository 呼叫",
+    "observed_behavior": "描述真實程式碼中有無擁有者驗證及會執行的查詢條件",
+    "attempt": "描述此入口的反例重現方式",
+    "result": "blocked",
+    "evidence": {
+      "kind": "source", "path": "<真實入口檔案>", "line_start": 20, "line_end": 20
+    },
+    "inspection_evidence": {
+      "kind": "source", "path": "<真實服務檔案>", "line_start": 42, "line_end": 42
+    }
+  }]
+}
+```
+
+注意：這不是完整 `adversarial_reviews`，且 AC-08 高風險規則需兩個不同攻擊向量，不能以此片段結案。部署／制度型規則可沿用已有的 `external_gap`／`external_artifact` 真實工件做反向查證，**不得捏造程式碼鏈**。第一輪未儲存判定理由的舊錨點不會自動被補寫；必須人工確認後依原有 `--restart-second-pass` 歸檔及重建程序處理。驗證器無法憑文字、行號證明執行者真的重新閱讀程式碼，仍需在實際審查中驗收。
+
 ## 限制與相容性
 
 - 不新增並行代理，不宣稱具真正獨立性；同一模型重讀仍有系統性盲點。
