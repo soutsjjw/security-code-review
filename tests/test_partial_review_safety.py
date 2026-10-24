@@ -163,7 +163,7 @@ class PartialSafetyTests(unittest.TestCase):
         index.write_text(json.dumps(obj), encoding="utf-8")
         result = validate(self.root, "AC", self.catalog)
         self.assertFalse(result["safety_valid"])
-        self.assertIn("不一致", "；".join(result["safety_integrity_errors"]))
+        self.assertIn("完整性校驗失敗", "；".join(result["safety_integrity_errors"]))
 
     def test_second_pass_correction_requires_explicit_revision_and_history(self):
         from adversarial_recheck import digest
