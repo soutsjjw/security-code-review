@@ -310,16 +310,23 @@ def main() -> int:
     parser.add_argument("--categories", action="append", metavar="AC,AU",
                         help="P2：指定分類，建立／查詢隔離進度；不啟用正式報告")
     parser.add_argument("--stage", type=Path, help="P2：暫存單一分類的批次 JSON")
-    parser.add_argument("--integrate", action="store_true", help="P2：整合單一分類的 staged JSON")
+    parser.add_argument("--integrate", action="store_true", help="P3：整合單一分類的 staged JSON")
+    parser.add_argument("--prepare", action="store_true", help="P3：建立分類共用來源結構索引")
+    parser.add_argument("--begin-second-pass", action="store_true", help="P3：固定指定分類的第一輪判定")
+    parser.add_argument("--validate", action="store_true", help="P3：驗證指定分類的安全證據與第二輪複核")
     args = parser.parse_args()
     if args.categories and len(args.categories) != 1:
         parser.error("--categories 只能指定一次")
     if (args.stage or args.integrate) and not args.categories:
         parser.error("--stage/--integrate 僅適用 --categories 的單一分類")
-    if args.stage and args.integrate:
-        parser.error("--stage 與 --integrate 不可同時指定")
-    if args.categories and (args.stage or args.integrate) and (args.init or args.detail_id or args.compact):
-        parser.error("分類暫存／整合不可混用 --init、--detail-id 或 --compact")
+    operations = [bool(args.stage), args.integrate, args.prepare,
+                  args.begin_second_pass, args.validate]
+    if sum(operations) > 1:
+        parser.error("--stage、--integrate、--prepare、--begin-second-pass、--validate 不可混用")
+    if (args.prepare or args.begin_second_pass or args.validate) and not args.categories:
+        parser.error("P3 分類安全操作必須指定 --categories")
+    if args.categories and any(operations) and (args.init or args.detail_id or args.compact):
+        parser.error("分類安全操作不可混用 --init、--detail-id 或 --compact")
     if args.compact and args.detail_id:
         parser.error("--compact 與 --detail-id 不可同時指定")
     if not 1 <= args.batch_size <= 70:
@@ -335,7 +342,21 @@ def main() -> int:
         try:
             selected = parse_categories(args.categories[0])
             catalog = load_catalog()
-            if args.stage or args.integrate:
+            if args.prepare:
+                from partial_review_safety import prepare_index
+                result = prepare_index(target, catalog)
+            elif args.begin_second_pass:
+                from partial_review_safety import begin_second_pass
+                if len(selected) != 1:
+                    raise ValueError("--begin-second-pass 每次只能指定單一分類")
+                result = begin_second_pass(target, selected[0], catalog)
+            elif args.validate:
+                from partial_review_safety import validate
+                results = [validate(target, cat, catalog) for cat in selected]
+                result = {"review_mode": "partial", "category_validation": results,
+                          "safety_valid": all(r["safety_valid"] for r in results),
+                          "ready_for_report": False}
+            elif args.stage or args.integrate:
                 if len(selected) != 1:
                     raise ValueError("分類 --stage/--integrate 每次只能指定一個分類")
                 category = selected[0]
