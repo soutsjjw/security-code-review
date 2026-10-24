@@ -126,7 +126,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             issues.append(f"{label} 必須為物件")
             continue
         eid = rel.get("relationship_id")
-        edge = edges_by_id.get(eid)
+        edge = edges_by_id.get(eid) if isinstance(eid, str) else None
         if not isinstance(eid, str) or edge is None or eid in confirmed:
             issues.append(f"{label} ID 不存在或重複")
             continue
