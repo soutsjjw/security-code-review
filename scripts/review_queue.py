@@ -311,6 +311,7 @@ def main() -> int:
                         help="P2：指定分類，建立／查詢隔離進度；不啟用正式報告")
     parser.add_argument("--stage", type=Path, help="P2：暫存單一分類的批次 JSON")
     parser.add_argument("--integrate", action="store_true", help="P3：整合單一分類的 staged JSON")
+    parser.add_argument("--allow-revision", action="store_true", help="P3：僅搭配 --integrate 修正第二輪確認的錯誤判定")
     parser.add_argument("--prepare", action="store_true", help="P3：建立分類共用來源結構索引")
     parser.add_argument("--begin-second-pass", action="store_true", help="P3：固定指定分類的第一輪判定")
     parser.add_argument("--validate", action="store_true", help="P3：驗證指定分類的安全證據與第二輪複核")
@@ -325,6 +326,8 @@ def main() -> int:
         parser.error("--stage、--integrate、--prepare、--begin-second-pass、--validate 不可混用")
     if (args.prepare or args.begin_second_pass or args.validate) and not args.categories:
         parser.error("P3 分類安全操作必須指定 --categories")
+    if args.allow_revision and not args.integrate:
+        parser.error("--allow-revision 僅可搭配 --integrate")
     if args.categories and any(operations) and (args.init or args.detail_id or args.compact):
         parser.error("分類安全操作不可混用 --init、--detail-id 或 --compact")
     if args.compact and args.detail_id:
@@ -364,7 +367,8 @@ def main() -> int:
                     result = {"staged_path": str(stage_partial(target, category, args.stage, catalog)),
                               "ready_for_report": False}
                 else:
-                    result = integrate_partial(target, category, catalog)
+                    result = integrate_partial(target, category, catalog,
+                                               allow_revision=args.allow_revision)
             else:
                 if args.init:
                     init_partial(target, selected, catalog)
