@@ -227,11 +227,8 @@ def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
 
 
 def _integrity_issues(root: Path, category: str) -> list[str]:
-    from partial_evidence_integrity import MANIFEST, PENDING, errors as integrity_errors
-    if (_artifact(root, category, MANIFEST).exists()
-            or _artifact(root, category, PENDING).exists()):
-        return integrity_errors(root, category)
-    return []
+    from partial_evidence_integrity import gate_errors
+    return gate_errors(root, category)
 
 
 def validate(root: Path, category: str, catalog: dict) -> dict:
