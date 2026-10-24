@@ -121,6 +121,7 @@ class PartialReviewTests(unittest.TestCase):
 
     def test_symlinked_analysis_directory_is_rejected(self):
         initialize(self.root, ("AC",), self.catalog)
+        ac = read_category(self.root, "AC", self.catalog)
         analysis = _category_dir(self.root, "AC") / "analysis"
         # Windows 未開啟開發者模式時，建立 symlink 需要額外權限。
         original = analysis
@@ -131,7 +132,6 @@ class PartialReviewTests(unittest.TestCase):
                 original.symlink_to(renamed, target_is_directory=True)
             except (OSError, NotImplementedError) as exc:
                 self.skipTest(f"無法建立 symbolic link：{exc}")
-            ac = read_category(self.root, "AC", self.catalog)
             path = self.root / "reports/security-code-review/partial/AC/payload.json"
             path.write_text(json.dumps({"checks": [ac["checks"][0]]}), encoding="utf-8")
             with self.assertRaises(ScopeError):
