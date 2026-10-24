@@ -58,6 +58,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
         index_path = self.report / "analysis/structure-index.json"
         index = json.loads(index_path.read_text(encoding="utf-8"))
         index.pop("evidence_integrity_version", None)
+        index.pop("cross_file_evidence_version", None)  # 既有閉包格式回歸測試
         _write(index_path, index)
 
     def test_typed_links_include_di_configuration_middleware_endpoint_and_projects(self):
