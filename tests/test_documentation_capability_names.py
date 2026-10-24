@@ -39,6 +39,7 @@ class CapabilityDocumentationTests(unittest.TestCase):
             with self.subTest(path=relative):
                 text = (ROOT / relative).read_text(encoding="utf-8")
                 self.assertNotRegex(text, r"\bP[0-3]\b")
+                self.assertNotRegex(text, r"\bQ[1-5]\b")
                 self.assertNotRegex(text, r"\bp[0-3]-")
 
     def test_new_guides_exist_and_old_paths_link_to_them(self):
