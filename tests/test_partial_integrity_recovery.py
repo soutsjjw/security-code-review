@@ -221,6 +221,64 @@ class CategoryExplicitRecoveryTests(unittest.TestCase):
         with self.assertRaises(IntegrityError):
             recover(self.root, "AC")
 
+    def test_recovery_supports_new_adversarial_history_file(self):
+        from partial_evidence_integrity import commit
+        self.prepare()
+        relative = "analysis/second-pass-history/" + "a" * 32 + ".json"
+        history_value = {"category": "AC", "previous_checks": {"AC-01": {"status": "pass"}}}
+        staged_file = self.folder() / STAGED
+        from partial_evidence_integrity import _atomic as original
+        def fail_new_history(path, obj):
+            if path.name == "a" * 32 + ".json":
+                raise OSError("interrupt before creating new correction history")
+            return original(path, obj)
+        with patch("partial_evidence_integrity._atomic", side_effect=fail_new_history):
+            with self.assertRaises(OSError):
+                commit(self.root, "AC", {relative: history_value},
+                       event="review-batch-with-correction", staged_path=staged_file,
+                       staged_sha256=_sha(staged_file.read_bytes()))
+        self.assertFalse((self.folder() / relative).exists())
+        result = recover(self.root, "AC")
+        self.assertTrue(result["recovered"])
+        self.assertEqual(json.loads((self.folder() / relative).read_text("utf-8")), history_value)
+        self.assert_clean()
+
+    def test_recovery_of_first_pass_baseline_without_stage(self):
+        from partial_evidence_integrity import commit
+        from partial_evidence_integrity import _atomic as original
+        baseline = {"schema_version": 1, "checks": {"AC-01": {"digest": "verified"}}}
+        # Initialize a trusted clean classification first, with no pending staged batch.
+        from partial_evidence_integrity import initialize as seal
+        seal(self.root, "AC")
+        def fail_baseline(path, value):
+            if path.name == "first-pass-baseline.json":
+                raise OSError("interrupt baseline creation")
+            return original(path, value)
+        with patch("partial_evidence_integrity._atomic", side_effect=fail_baseline):
+            with self.assertRaises(OSError):
+                commit(self.root, "AC", {"analysis/first-pass-baseline.json": baseline},
+                       event="first-pass-baseline")
+        self.assertTrue((self.folder() / PENDING).exists())
+        self.assertFalse((self.folder() / STAGED).exists())
+        self.assertTrue(recover(self.root, "AC")["recovered"])
+        self.assertEqual(json.loads((self.folder() / "analysis/first-pass-baseline.json")
+                                    .read_text("utf-8")), baseline)
+        self.assert_clean()
+
+    def test_recovery_interrupted_twice_then_explicitly_completed(self):
+        self.interrupt("decision-audits.json")
+        from partial_evidence_integrity import _atomic as original
+        def fail_again(path, obj):
+            if path.name == "assessment.json":
+                raise OSError("second injected interruption")
+            return original(path, obj)
+        with patch("partial_evidence_integrity._atomic", side_effect=fail_again):
+            with self.assertRaises(OSError):
+                recover(self.root, "AC")
+        self.assertTrue((self.folder() / PENDING).exists())
+        self.assertTrue(recover(self.root, "AC")["recovered"])
+        self.assert_clean()
+
     def test_cross_category_pending_cannot_recover_other_category(self):
         self.interrupt("assessment.json")
         with self.assertRaises(IntegrityError):
