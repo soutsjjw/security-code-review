@@ -220,6 +220,13 @@ def recover(target: Path) -> dict:
             or set(before) != set(TRACKED) or set(after) != set(TRACKED)
             or not isinstance(updates, dict) or not set(updates).issubset(TRACKED)):
         raise ValueError("待復原交易資料格式或受控範圍無效")
+    previous = _read(_entry_path(target, pending.get("sequence", 0) - 1))
+    if (not isinstance(previous, dict)
+            or previous.get("entry_hash") != pending.get("previous")
+            or previous.get("file_hashes") != before
+            or _entry({k: v for k, v in previous.items()
+                       if k != "entry_hash"})["entry_hash"] != previous.get("entry_hash")):
+        raise ValueError("復原遭拒：先前交易鏈與 SHA256 不一致")
     row = _entry({"schema_version": VERSION, "sequence": pending["sequence"],
                   "previous": pending["previous"], "event": pending["event"],
                   "snapshot_fingerprint": pending["snapshot_fingerprint"],
