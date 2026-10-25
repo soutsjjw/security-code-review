@@ -414,10 +414,19 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
                 old_row = existing[row[identity]]
                 old_rules = {i.get("rule_id") for i in old_row.get("rule_reviews", []) if isinstance(i, dict)}
                 new_rules = {i.get("rule_id") for i in row.get("rule_reviews", []) if isinstance(i, dict)}
+                related_rules = old_rules | new_rules
+                for item in (old_row, row):
+                    screening = item.get("category_screening", {}).get(category, {})
+                    related_rules.update(screening.get("rule_ids", []))
+                    related_rules.update(
+                        x.get("rule_id") for x in item.get("candidate_exclusions", [])
+                        if isinstance(x, dict))
+                source_valid = (key == "file_reviews" and
+                                row.get("sha256") == _snapshot(root)["source_hashes"].get(row[identity]))
                 first_pass_file_ok = (key == "file_reviews" and amend_first_pass
-                                      and old_row.get("sha256") == row.get("sha256")
+                                      and source_valid
                                       and any(row[identity] in paths for paths in reviewed_paths.values())
-                                      and (old_rules | new_rules) <= set(reviewed_paths))
+                                      and related_rules <= set(reviewed_paths))
                 if first_pass_file_ok:
                     first_pass_changed.update(
                         rid for rid, paths in reviewed_paths.items() if row[identity] in paths)
