@@ -28,7 +28,7 @@ STAGED_FILE = Path("analysis/staged/pending.json")
 SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
 EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
                            "adversarial_reviews"})
-WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"}) | EVIDENCE_KEYS
+WRITE_KEYS = frozenset({"checks", "file_reviews", "findings", "first_pass_amendments"}) | EVIDENCE_KEYS
 
 
 def _digest(value: Any) -> str:
@@ -201,6 +201,12 @@ def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
     if not isinstance(payload, dict) or not payload or not set(payload) <= WRITE_KEYS:
         raise ScopeError("stage JSON 僅允許非空的 checks、file_reviews、findings")
     allowed = {r["id"] for r in _category_rules(catalog, category)}
+    if "first_pass_amendments" in payload:
+        amendments = payload["first_pass_amendments"]
+        if (not isinstance(amendments, dict) or not amendments
+                or any(rid not in allowed or not isinstance(entry, dict)
+                       for rid, entry in amendments.items())):
+            raise ScopeError("first_pass_amendments 須為本分類規則對應的非空補正紀錄")
     for key, id_key in (("checks", "id"), ("file_reviews", "path"), ("findings", "id")):
         rows = payload.get(key, [])
         if not isinstance(rows, list):
@@ -292,7 +298,8 @@ def _stage_locked(root: Path, category: str, input_path: Path, catalog: dict) ->
     return pending
 
 
-def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool = False) -> dict:
+def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool = False,
+              amend_first_pass: bool = False) -> dict:
     current = read_category(root, category, catalog)
     directory = _category_dir(root, category)
     pending = _artifact(root, category, STAGED_FILE)
@@ -304,6 +311,10 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
         raise ScopeError("分類暫存版本與目前來源／assessment 不一致，拒絕整合")
     payload = staged["payload"]
     _validate_payload(payload, category, catalog)
+    if allow_revision and amend_first_pass:
+        raise ScopeError("第一輪補正與第二輪矛盾修訂不得混用")
+    if bool(payload.get("first_pass_amendments")) != amend_first_pass:
+        raise ScopeError("第一輪補正須同時提供 --amend-first-pass 與 first_pass_amendments")
     from partial_review_safety import EVIDENCE_FILES
     evidence_paths = {key: _artifact(root, category, rel)
                       for key, rel in EVIDENCE_FILES.items()}
@@ -318,12 +329,38 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
     from adversarial_recheck import digest as rule_digest
     baseline_path = _artifact(root, category, BASELINE)
     baseline = _load(baseline_path) if baseline_path.is_file() else None
+    amendments = payload.get("first_pass_amendments", {})
+    if amend_first_pass and baseline is not None:
+        raise ScopeError("第一輪已固定 baseline；不得使用 --amend-first-pass")
+    reviewed_paths = {}
+    if amend_first_pass:
+        from partial_first_pass import verify_amendments
+        reviewed_paths = verify_amendments(
+            root, category, amendments, {r["id"] for r in _category_rules(catalog, category)})
+    first_pass_changed: set[str] = set()
     revisions = {}
     for check in payload.get("checks", []):
         old = next(item for item in current["checks"] if item["id"] == check["id"])
         if (old.get("execution") or {}).get("state") != "completed" or check == old:
             continue
         rid = check["id"]
+        if amend_first_pass:
+            if rid not in reviewed_paths:
+                raise ScopeError(f"{rid}: 修訂 completed 規則需要真實第一輪補正證據")
+            if old.get("status") == "fail" and check.get("status") != "fail":
+                raise ScopeError(f"{rid}: 已確認 Fail 不得藉第一輪補正降級")
+            if old.get("status") == "fail" and not set(old.get("finding_ids", [])) <= set(check.get("finding_ids", [])):
+                raise ScopeError(f"{rid}: 補正不得移除既有 Fail 的 Finding 關聯")
+            if check.get("status") == "fail":
+                findings = {f["id"]: f for f in [*current["findings"], *payload.get("findings", [])]
+                            if isinstance(f, dict) and isinstance(f.get("id"), str)}
+                refs = check.get("finding_ids")
+                if (not isinstance(refs, list) or not refs or any(
+                        fid not in findings or rid not in (findings[fid].get("check_ids") or [])
+                        for fid in refs)):
+                    raise ScopeError(f"{rid}: 第一輪修訂為 Fail 必須保留有效 Finding")
+            first_pass_changed.add(rid)
+            continue
         first = (baseline or {}).get("checks", {}).get(rid)
         reviewed = payload.get("adversarial_reviews", {}).get(rid)
         if (not allow_revision or not isinstance(first, dict)
@@ -351,8 +388,13 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
     for key in EVIDENCE_KEYS & set(payload):
         for rid, item in payload[key].items():
             previous = merged_evidence[key].get(rid)
-            if previous is not None and previous != item and (not allow_revision or rid not in revisions):
-                raise ScopeError(f"{key}: {rid} 既有安全證據不得靜默覆寫")
+            if previous is not None and previous != item:
+                if amend_first_pass and rid in reviewed_paths:
+                    first_pass_changed.add(rid)
+                elif not allow_revision or rid not in revisions:
+                    raise ScopeError(f"{key}: {rid} 既有安全證據不得靜默覆寫")
+            elif amend_first_pass and rid in reviewed_paths and previous != item:
+                first_pass_changed.add(rid)
             merged_evidence[key][rid] = item
 
     merged = json.loads(json.dumps(current, ensure_ascii=False))
@@ -360,7 +402,8 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
     for check in payload.get("checks", []):
         previous = by_id[check["id"]]
         if (previous["execution"]["state"] == "completed"
-                and check != previous and check["id"] not in revisions):
+                and check != previous and check["id"] not in revisions
+                and check["id"] not in first_pass_changed):
             raise ScopeError(f"{check['id']}: 已完成判定不可靜默覆寫；需先人工複核")
         by_id[check["id"]] = check
     merged["checks"] = [by_id[r["id"]] for r in _category_rules(catalog, category)]
@@ -371,15 +414,42 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
                 old_row = existing[row[identity]]
                 old_rules = {i.get("rule_id") for i in old_row.get("rule_reviews", []) if isinstance(i, dict)}
                 new_rules = {i.get("rule_id") for i in row.get("rule_reviews", []) if isinstance(i, dict)}
-                if (key != "file_reviews" or not allow_revision or not revisions
-                        or not (old_rules | new_rules) <= set(revisions)
-                        or old_row.get("sha256") != row.get("sha256")):
+                first_pass_file_ok = (key == "file_reviews" and amend_first_pass
+                                      and old_row.get("sha256") == row.get("sha256")
+                                      and any(row[identity] in paths for paths in reviewed_paths.values()))
+                if first_pass_file_ok:
+                    first_pass_changed.update(
+                        rid for rid, paths in reviewed_paths.items() if row[identity] in paths)
+                elif (key != "file_reviews" or not allow_revision or not revisions
+                      or not (old_rules | new_rules) <= set(revisions)
+                      or old_row.get("sha256") != row.get("sha256")):
                     raise ScopeError(f"{key}: {row[identity]} 已存在不同證據，拒絕覆寫")
             existing[row[identity]] = row
         merged[key] = list(existing.values())
     _assert_assessment(merged, category, catalog)
     # 尚未滿足安全守門的批次仍可持久保存，但不得藉此宣稱安全審查完成。
+    if amend_first_pass and (not first_pass_changed or set(amendments) != first_pass_changed):
+        raise ScopeError("第一輪補正紀錄必須精確對應實際修改的規則或既有證據")
     archive_update = None
+    if amend_first_pass:
+        from partial_evidence_integrity import FIRST_PASS_HISTORY
+        first_pass_archive = {
+            "category": category,
+            "source_snapshot_sha256": current["source_snapshot_sha256"],
+            "amendments": amendments,
+            "previous_checks": {r["id"]: r for r in current["checks"]
+                                if r["id"] in first_pass_changed},
+            "previous_safety_records": {
+                key: {rid: entries[rid] for rid in first_pass_changed if rid in entries}
+                for key, entries in actual_evidence.items()},
+            "previous_file_reviews": {
+                r["path"]: r for r in current["file_reviews"]
+                if any(r["path"] in paths for paths in reviewed_paths.values())},
+        }
+        historical = (FIRST_PASS_HISTORY / (_digest(first_pass_archive)[:32] + ".json")).as_posix()
+        if _artifact(root, category, historical).exists():
+            raise ScopeError("第一輪補正歷史已存在；不得重複提交")
+        archive_update = (historical, first_pass_archive)
     if revisions:
         from partial_review_safety import HISTORY
         archive = {
@@ -405,13 +475,15 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
     updates["assessment.json"] = merged
     from partial_evidence_integrity import _sha, commit
     receipt = commit(root, category, updates,
-                     event="review-batch-with-correction" if revisions else "review-batch",
+                     event=("first-pass-amendment" if amend_first_pass else
+                            "review-batch-with-correction" if revisions else "review-batch"),
                      staged_path=pending, staged_sha256=_sha(pending.read_bytes()))
     return {"category": category, "saved_checks": len(payload.get("checks", [])),
             "saved_files": len(payload.get("file_reviews", [])),
             "saved_findings": len(payload.get("findings", [])),
             "saved_safety_records": {key: len(payload[key]) for key in EVIDENCE_KEYS & set(payload)},
             "corrected_rule_ids": sorted(revisions),
+            "first_pass_amended_rule_ids": sorted(first_pass_changed),
             "integrity_sequence": receipt["sequence"],
             "ready_for_report": False}
 
