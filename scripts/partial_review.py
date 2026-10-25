@@ -564,6 +564,18 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
         complete = complete and not coverage["review_integrity_errors"] and not quality
         from partial_review_safety import validate as validate_partial
         safety = validate_partial(root, category, catalog)
+        import re
+        recheck = sorted({
+            rid for message in safety["safety_integrity_errors"]
+            for rid in re.findall(r"\\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}\\b", message)
+            if rid in by_id
+        })
+        if not remaining and not detail_id:
+            next_checks = [{
+                "id": rid, "title": by_id[rid].get("title", next(
+                    (rule["title"] for rule in selected_rules if rule["id"] == rid), "")),
+                "current_state": "completed", "requires_first_pass_recheck": True,
+            } for rid in recheck[:batch_size]]
         results.append({
             "category": category, "total": len(checks),
             "completed": sum((c.get("execution") or {}).get("state") == "completed" for c in checks),
@@ -571,6 +583,7 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
             "blocked": sum((c.get("execution") or {}).get("state") == "blocked" for c in checks),
             "findings_saved": len(assessment["findings"]),
             "remaining_ids": [r["id"] for r in remaining],
+            "recheck_rule_ids": recheck, "safety_error_count": len(safety["safety_integrity_errors"]),
             "next_checks": next_checks, "next_source_paths": coverage["missing_source_paths"][:30],
             "next_source_candidates": candidates[:15],
             "source_coverage": {k: coverage[k] for k in
