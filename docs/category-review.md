@@ -79,6 +79,46 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" -
 - 分類報告的多檔案發布具備可捕獲寫入失敗時的回滾機制，但**不是作業系統級交易**；若強制終止、斷電、發布鎖或備份異常，應先核對資料，不可刪除可能仍須復原的檔案。
 - 同一類別重新執行須沿用其已保存進度與 Finding，來源版本有效時不重置。只有明確未指定 `--categories` 時，才採完整 70 項正式流程。
 
+## 第一輪已完成紀錄的受控補正（不必 archive／重建）
+
+當 Manifest／Journal 鏈有效、沒有 pending 交易，但 `--validate` 顯示既有 `completed` 的安全證據、逐檔覆蓋或跨檔關聯不足時：
+
+1. 先執行 `review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --diagnose`。唯讀回傳 `error_types`、`errors_by_rule`、`source_coverage.missing_source_paths` 與第二輪狀態；診斷成功**不代表安全驗證通過**。若仍有未封存／損壞交易，先依完整性契約處理，不能用補正繞過。
+2. Agent 依缺漏重新閱讀實際來源、查完跨檔呼叫鏈、控制有效性與真實繞過情境，必要時補全 `file_reviews`、`checks.execution.inspected_paths`、`closures`、`control_verifications`、`decision_audits`。未修改既有證據的新增待辦仍使用一般 `--stage/--integrate`。
+3. **只有第一輪 baseline 尚未建立**、需要修訂既有 `completed` 判定或已保存的逐檔／安全證據時，將修訂資料與 `first_pass_amendments` 一併寫入**同一分類** batch JSON。每個受影響規則都須提供至少一筆真正核實的來源位置與具體補正理由。例如（hash、路徑與程式碼片段均須換成實際值）：
+
+```json
+{
+  "first_pass_amendments": {
+    "AC-01": {
+      "reason": "已重新檢查登入端點與授權控制流程，補正先前缺漏的跨檔控制鏈及逐檔證據。",
+      "source_evidence": [
+        {
+          "path": "src/Identity/IdentityService.cs",
+          "sha256": "<該檔案真實 SHA256>",
+          "line_start": 45,
+          "line_end": 45,
+          "excerpt": "<該行實際存在的至少八字元程式碼>"
+        }
+      ]
+    }
+  },
+  "checks": [
+    "<此處放完整且具真實證據的 AC-01 check 物件，不得填字串模板>"
+  ],
+  "closures": {
+    "AC-01": "<此處放完整的跨檔查證紀錄>"
+  }
+}
+```
+
+   實際 `checks`、`closures` 須為原契約要求的 JSON 物件，以上僅說明欄位結構，**不可直接送入 stage**。來源 `path` 必須在當次固定快照，`sha256` 與磁碟檔案相符，`line_start/line_end` 有效，`excerpt` 必須確實出現在指定行。
+4. 先呼叫 `review_queue.py --target "<TARGET_ROOT>" --categories AC --stage "<BATCH>.json"`；再明確呼叫 `review_queue.py --target "<TARGET_ROOT>" --categories AC --integrate --amend-first-pass`。AU 必須各自執行，**不可**搭配 `--allow-revision`。原版與補正說明以同一筆 Journal 交易封存到 `analysis/first-pass-corrections/<32hex>.json`。
+5. 只有實際修改的規則／舊證據才可出現在 `first_pass_amendments`；修訂同一檔既有 `file_reviews`，必須核實該檔內容並列出被修改的關聯規則。既有 Fail 不可變成非 Fail、既有 Finding 關聯不可移除；改為 Fail 必須有可追查 Finding。原 `assessment.json`、安全證據、Manifest、Journal 均不得直接編輯。
+6. 補正後重新 `--validate`。第一輪全部通過才可 `--begin-second-pass`，之後仍使用既有 `--allow-revision` 第二輪流程及原本的嚴格報告驗證。
+
+**非補正情境**：來源或 Git Revision 變動、交易 hash 異常、Manifest 消失、Journal 不一致、已有 baseline，均不得使用 `--amend-first-pass` 當成快速重封存。真實補正只解決審查證據不足，不能取消需要做的靜態分析與第二輪反例核對。
+
 ## 交付格式與目錄
 
 ```text
