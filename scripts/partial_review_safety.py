@@ -308,7 +308,7 @@ def diagnose(root: Path, category: str, catalog: dict) -> dict:
         group["count"] += 1
         if len(group["examples"]) < 5:
             group["examples"].append(msg)
-        ids = set(re.findall(r"\\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}\\b", msg))
+        ids = set(re.findall(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b", msg))
         for rid in sorted(r for r in ids if r.startswith(category + "-")):
             entry = per_rule.setdefault(rid, {"count": 0, "types": Counter(), "examples": []})
             entry["count"] += 1
@@ -335,8 +335,9 @@ def diagnose(root: Path, category: str, catalog: dict) -> dict:
         "integrity_error_count": len(messages),
         "error_types": per_type,
         "errors_by_rule": per_rule,
-        "unassigned_error_count": len(messages) - sum(v["count"] for v in per_type.values()) if False else
-                                  sum(not re.search(r"\\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}\\b", m) for m in messages),
+        "unassigned_error_count": sum(
+            not re.search(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b", m)
+            for m in messages),
         "source_coverage": coverage,
         "remaining_ids": result["remaining_ids"],
         "second_pass": result["second_pass"],
