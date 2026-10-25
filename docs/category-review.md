@@ -45,6 +45,8 @@
 | AC 第一輪完全結案後固定第二輪基準 | `review_queue.py --target "<TARGET_ROOT>" --categories AC --begin-second-pass` |
 | 整合第二輪真實證據 | `review_queue.py --target "<TARGET_ROOT>" --categories AC --stage "<AC_SECOND_PASS>.json"`，再執行 `--integrate` |
 | 檢查 AC 與 AU 的 分類安全守門 | `review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --validate` |
+| 唯讀彙總各類驗證缺漏與待補來源 | `review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --diagnose` |
+| 第一輪既有證據經審查後明確補正 | `review_queue.py --target "<TARGET_ROOT>" --categories AC --integrate --amend-first-pass` |
 | 各分類產生自己的 HTML／JSON | `complete_review.py --target "<TARGET_ROOT>" --categories AC,AU` |
 | 嚴格驗證已產生的兩份報告 | `validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU` |
 
