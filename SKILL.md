@@ -36,6 +36,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 6. 執行 `review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --validate`；每個分類都必須有 `safety_valid=true`、`safety_integrity_errors=[]`、`remaining_ids=[]` 及 `second_pass.pending_count=0`，沒有未整合交易，才能執行 `complete_review.py --target "<TARGET_ROOT>" --categories AC,AU`，再用 `validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU` 驗證。
 7. **分類的 `ready_for_report` 固定為 `false`，並非完成失敗或交付條件**。只有分類安全驗證、全部選定規則與逐檔覆蓋、第二輪，以及各分類 HTML／JSON 嚴格驗證皆完成，才能交付分別位於 `reports/security-code-review/partial/AC/`、`partial/AU/` 的**部分審查**報告。未選分類維持未審查，不生成其報告；即使選擇全部十類也仍是十份獨立部分報告，絕不宣稱正式完整 70 項審查。
 8. 已有分類進度必須保留；來源／Git Revision 異動、證據不一致或報告發布中斷時，先核對並保留 Finding 與可復原工件，不可重置或假設可自動修復。只在真正無法繼續時說明阻斷原因與未完成分類。
+9. 已封存的分類若交易完整但第一輪安全證據不足，先用 `review_queue.py --categories AC,AU --diagnose` 唯讀取得分組缺漏；真實讀碼後可在 **baseline 尚未建立**時使用單分類 `--stage` 提交含 `first_pass_amendments` 的證據，再以 `--integrate --amend-first-pass` 受控補正既有 completed、逐檔或安全證據。補正須有實際來源路徑、SHA256、行號、原文片段與具體理由，交易歷史保存於 `analysis/first-pass-corrections/`；不得降級已確認 Fail、刪除 Finding 或繞過第一輪／第二輪守門。詳見 [分類審查操作契約](docs/category-review.md)。
 
 **範圍分流**：以下凡提及正式 `analysis_prepare.py`、`review_safety.py`、全部十類逐檔篩選、`ready_for_report=true`、`70/70` 及正式根目錄 `assessment.json/report.json` 的操作步驟，均為**未指定 `--categories` 的完整模式專用**。共同證據與判定階梯、標準文件按需載入、單代理限制、不可虛構證據與不得修改受測程式碼，兩種模式都適用。
 
