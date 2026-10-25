@@ -416,7 +416,8 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
                 new_rules = {i.get("rule_id") for i in row.get("rule_reviews", []) if isinstance(i, dict)}
                 first_pass_file_ok = (key == "file_reviews" and amend_first_pass
                                       and old_row.get("sha256") == row.get("sha256")
-                                      and any(row[identity] in paths for paths in reviewed_paths.values()))
+                                      and any(row[identity] in paths for paths in reviewed_paths.values())
+                                      and (old_rules | new_rules) <= set(reviewed_paths))
                 if first_pass_file_ok:
                     first_pass_changed.update(
                         rid for rid, paths in reviewed_paths.items() if row[identity] in paths)
@@ -567,7 +568,7 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
         import re
         recheck = sorted({
             rid for message in safety["safety_integrity_errors"]
-            for rid in re.findall(r"\\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}\\b", message)
+            for rid in re.findall(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b", message)
             if rid in by_id
         })
         if not remaining and not detail_id:
