@@ -333,10 +333,12 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
     if amend_first_pass and baseline is not None:
         raise ScopeError("第一輪已固定 baseline；不得使用 --amend-first-pass")
     reviewed_paths = {}
+    source_hashes = {}
     if amend_first_pass:
         from partial_first_pass import verify_amendments
         reviewed_paths = verify_amendments(
             root, category, amendments, {r["id"] for r in _category_rules(catalog, category)})
+        source_hashes = _snapshot(root)["source_hashes"]
     first_pass_changed: set[str] = set()
     revisions = {}
     for check in payload.get("checks", []):
@@ -422,7 +424,7 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
                         x.get("rule_id") for x in item.get("candidate_exclusions", [])
                         if isinstance(x, dict))
                 source_valid = (key == "file_reviews" and
-                                row.get("sha256") == _snapshot(root)["source_hashes"].get(row[identity]))
+                                row.get("sha256") == source_hashes.get(row[identity]))
                 first_pass_file_ok = (key == "file_reviews" and amend_first_pass
                                       and source_valid
                                       and any(row[identity] in paths for paths in reviewed_paths.values())
