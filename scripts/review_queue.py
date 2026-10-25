@@ -314,6 +314,9 @@ def main() -> int:
     parser.add_argument("--recover-integrity", action="store_true",
                         help="明確驗證並補完單一分類的中斷證據交易")
     parser.add_argument("--allow-revision", action="store_true", help="僅搭配 --integrate 修正第二輪確認的錯誤判定")
+    parser.add_argument("--amend-first-pass", action="store_true",
+                        help="僅搭配 --integrate，以具體原始碼證據受控補正 baseline 前的第一輪 completed 紀錄")
+    parser.add_argument("--diagnose", action="store_true", help="唯讀分類診斷，按規則及錯誤類型彙整驗證缺漏")
     parser.add_argument("--prepare", action="store_true", help="建立分類共用來源結構索引")
     parser.add_argument("--begin-second-pass", action="store_true", help="固定指定分類的第一輪判定")
     parser.add_argument("--validate", action="store_true", help="驗證指定分類的安全證據與第二輪複核")
@@ -323,13 +326,17 @@ def main() -> int:
     if (args.stage or args.integrate) and not args.categories:
         parser.error("--stage/--integrate 僅適用 --categories 的單一分類")
     operations = [bool(args.stage), args.integrate, args.prepare,
-                  args.begin_second_pass, args.validate, args.recover_integrity]
+                  args.begin_second_pass, args.validate, args.recover_integrity, args.diagnose]
     if sum(operations) > 1:
-        parser.error("--stage、--integrate、--prepare、--begin-second-pass、--validate、--recover-integrity 不可混用")
-    if (args.prepare or args.begin_second_pass or args.validate or args.recover_integrity) and not args.categories:
+        parser.error("--stage、--integrate、--prepare、--begin-second-pass、--validate、--recover-integrity、--diagnose 不可混用")
+    if (args.prepare or args.begin_second_pass or args.validate or args.recover_integrity or args.diagnose) and not args.categories:
         parser.error("分類安全操作必須指定 --categories")
     if args.allow_revision and not args.integrate:
         parser.error("--allow-revision 僅可搭配 --integrate")
+    if args.amend_first_pass and not args.integrate:
+        parser.error("--amend-first-pass 僅可搭配 --integrate")
+    if args.amend_first_pass and args.allow_revision:
+        parser.error("--amend-first-pass 與 --allow-revision 不可混用")
     if args.categories and any(operations) and (args.init or args.detail_id or args.compact):
         parser.error("分類安全操作不可混用 --init、--detail-id 或 --compact")
     if args.compact and args.detail_id:
@@ -360,6 +367,12 @@ def main() -> int:
                 if len(selected) != 1:
                     raise ValueError("--begin-second-pass 每次只能指定單一分類")
                 result = begin_second_pass(target, selected[0], catalog)
+            elif args.diagnose:
+                from partial_review_safety import diagnose
+                result = {"review_mode": "partial",
+                          "category_diagnostics": [diagnose(target, cat, catalog)
+                                                   for cat in selected],
+                          "ready_for_report": False}
             elif args.validate:
                 from partial_review_safety import validate
                 results = [validate(target, cat, catalog) for cat in selected]
@@ -375,7 +388,8 @@ def main() -> int:
                               "ready_for_report": False}
                 else:
                     result = integrate_partial(target, category, catalog,
-                                               allow_revision=args.allow_revision)
+                                               allow_revision=args.allow_revision,
+                                               amend_first_pass=args.amend_first_pass)
             else:
                 if args.init:
                     init_partial(target, selected, catalog)
