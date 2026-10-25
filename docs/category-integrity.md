@@ -16,6 +16,7 @@ reports/security-code-review/partial/<CAT>/
     ├── adversarial-reviews.json
     ├── first-pass-baseline.json
     ├── second-pass-history/<32hex>.json
+    ├── first-pass-corrections/<32hex>.json
     ├── integrity-manifest.json
     ├── integrity-pending.json
     ├── integrity-journal/
