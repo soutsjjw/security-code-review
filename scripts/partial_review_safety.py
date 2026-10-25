@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -279,5 +281,68 @@ def validate(root: Path, category: str, catalog: dict) -> dict:
         "safety_integrity_errors": errors,
         "safety_valid": not errors and not remaining and not pending_second
                         and coverage["missing_source_file_count"] == 0,
+        "ready_for_report": False,
+    }
+
+
+def diagnose(root: Path, category: str, catalog: dict) -> dict:
+    """唯讀分類診斷；將安全驗證錯誤按規則／類型分組，不修改任何審查證據。"""
+    result = validate(root, category, catalog)
+    messages = result["safety_integrity_errors"]
+    types = {
+        "control_trace": ("control_trace", "控制鏈", "enforcement_points"),
+        "callsite": ("callsite", "呼叫點"),
+        "relationship_candidate": ("候選", "relationship", "examined_relationship"),
+        "source_coverage": ("inspected_paths", "file_reviews", "rule_reviews", "逐檔", "來源檔未經"),
+        "snapshot_or_integrity": ("SHA256", "快照", "Manifest", "Journal", "完整性"),
+        "control_effectiveness": ("繞過", "control_verifications", "bypass_scenarios"),
+        "external_decision": ("decision_audits", "外部工件", "待確認"),
+        "second_pass": ("第二輪", "adversarial", "baseline"),
+    }
+    per_type: dict[str, dict] = {}
+    per_rule: dict[str, dict] = {}
+    for msg in messages:
+        kind = next((k for k, needles in types.items()
+                     if any(needle.lower() in msg.lower() for needle in needles)), "other")
+        group = per_type.setdefault(kind, {"count": 0, "examples": []})
+        group["count"] += 1
+        if len(group["examples"]) < 5:
+            group["examples"].append(msg)
+        ids = set(re.findall(r"\\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}\\b", msg))
+        for rid in sorted(r for r in ids if r.startswith(category + "-")):
+            entry = per_rule.setdefault(rid, {"count": 0, "types": Counter(), "examples": []})
+            entry["count"] += 1
+            entry["types"][kind] += 1
+            if len(entry["examples"]) < 5:
+                entry["examples"].append(msg)
+    for entry in per_rule.values():
+        entry["types"] = dict(entry["types"])
+    coverage = None
+    try:
+        assessment = read_category(root, category, catalog)
+        c = build_source_coverage(assessment, root, selected_categories=(category,))
+        coverage = {
+            "source_file_count": c["source_file_count"],
+            "reviewed_source_file_count": c["reviewed_source_file_count"],
+            "missing_source_file_count": c["missing_source_file_count"],
+            "missing_source_paths": c["missing_source_paths"],
+        }
+    except (OSError, ValueError, KeyError, TypeError, ScopeError):
+        pass  # 完整性異常時只能診斷，不能假設既有 assessment 可信。
+    return {
+        "category": category,
+        "safety_valid": result["safety_valid"],
+        "integrity_error_count": len(messages),
+        "error_types": per_type,
+        "errors_by_rule": per_rule,
+        "unassigned_error_count": len(messages) - sum(v["count"] for v in per_type.values()) if False else
+                                  sum(not re.search(r"\\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}\\b", m) for m in messages),
+        "source_coverage": coverage,
+        "remaining_ids": result["remaining_ids"],
+        "second_pass": result["second_pass"],
+        "next_action": ("先補正真實第一輪證據並經 --stage/--integrate --amend-first-pass 保存；"
+                        "全部第一輪守門通過後才能 --begin-second-pass"
+                        if not result["first_pass_complete"] else
+                        "繼續各規則第二輪反向複核及嚴格安全驗證"),
         "ready_for_report": False,
     }
