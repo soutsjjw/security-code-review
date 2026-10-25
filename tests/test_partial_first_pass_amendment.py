@@ -66,14 +66,14 @@ class FirstPassAmendmentTests(unittest.TestCase):
     def write_stage(self, payload):
         path = self.acdir / "payload.json"
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        with patch("partial_review.completion_errors", return_value=[]), \\
+        with patch("partial_review.completion_errors", return_value=[]), \
              patch("partial_review.decision_quality_errors", return_value=[]):
             stage(self.root, "AC", path, self.catalog)
         return path
 
     def integrate_amendment(self, payload, amend=True):
         self.write_stage(payload)
-        with patch("partial_review.completion_errors", return_value=[]), \\
+        with patch("partial_review.completion_errors", return_value=[]), \
              patch("partial_review.decision_quality_errors", return_value=[]):
             return integrate(self.root, "AC", self.catalog, amend_first_pass=amend)
 
@@ -184,8 +184,8 @@ class FirstPassAmendmentTests(unittest.TestCase):
                 raise OSError("模擬歷史寫入中斷")
             return real_atomic(path, value)
         self.write_stage(self.correction())
-        with patch("partial_evidence_integrity._atomic", side_effect=interrupted), \\
-             patch("partial_review.completion_errors", return_value=[]), \\
+        with patch("partial_evidence_integrity._atomic", side_effect=interrupted), \
+             patch("partial_review.completion_errors", return_value=[]), \
              patch("partial_review.decision_quality_errors", return_value=[]):
             with self.assertRaises(OSError):
                 integrate(self.root, "AC", self.catalog, amend_first_pass=True)
