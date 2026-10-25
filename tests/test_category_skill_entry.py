@@ -58,6 +58,63 @@ class CategorySkillEntryTests(unittest.TestCase):
         self.assertIn("docs/category-review.md", readme)
         self.assertIn("category-review.md", advanced)
 
+    def test_ac_au_goal_keeps_all_original_review_quality_conditions(self):
+        """分類 /goal 必須完整保留 0～9 審查品質要求，不得被縮減為捷徑。"""
+        import re
+        advanced = self.docs["docs/advanced-usage.md"]
+        full_heading = "## Codex 可選 \`/goal\` 完整審查指令"
+        partial_heading = "## Codex 可選 \`/goal\` 指定分類審查指令（AC、AU）"
+        self.assertEqual(advanced.count(full_heading), 1)
+        self.assertEqual(advanced.count(partial_heading), 1)
+        full = advanced.split(full_heading, 1)[1].split(partial_heading, 1)[0]
+        partial = advanced.split(partial_heading, 1)[1].split(
+            "## 跨檔控制鏈的實際來源驗證", 1)[0]
+        for number in range(10):
+            with self.subTest(condition=number):
+                pattern = rf"(?m)^{number}\. "
+                self.assertRegex(full, pattern)
+                self.assertRegex(partial, pattern)
+        for evidence_requirement in (
+            "review 比例超過 40%",
+            "三題自檢",
+            "open_static_questions 必須為空",
+            "review_kind",
+            "不得僅因未執行動態測試",
+            "已知弱點未建立 Finding",
+            "大量複製的檢核理由",
+            "不得只修改 JSON 以通過驗證",
+        ):
+            with self.subTest(requirement=evidence_requirement):
+                self.assertIn(evidence_requirement, full)
+                self.assertIn(evidence_requirement, partial)
+        self.assertIn("對目前專案執行完整、具備真實程式碼證據的 70 項", full)
+        self.assertIn("ready_for_report=true", full)
+        self.assertIn("analysis_prepare.py", full)
+        for marker in (
+            "/goal 使用 $security-code-review --categories AC,AU",
+            "AC 8/8、AU 10/10",
+            "review_scope.py",
+            "--categories AC,AU --prepare",
+            "--categories AC --begin-second-pass",
+            "--categories AU --begin-second-pass",
+            "--allow-revision",
+            "--recover-integrity",
+            "ready_for_report **固定為 false**",
+            "safety_valid=true",
+            "remaining_ids=[]",
+            "second_pass.pending_count=0",
+            "--strict-sources --categories AC,AU",
+            "partial/AC/report.json",
+            "partial/AU/report.json",
+            "其他 52 項",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, partial)
+        self.assertNotIn("0. 先執行 analysis_prepare.py", partial)
+        self.assertNotIn("review_safety.py --plan", partial)
+        self.assertNotIn("review_safety.py --stage", partial)
+        self.assertNotIn("review_queue.py 回傳 ready_for_report=true", partial)
+
     def test_full_only_scripts_not_used_for_partial(self):
         skill = self.docs["SKILL.md"]
         operations = self.docs["docs/category-review.md"]
