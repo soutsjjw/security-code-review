@@ -32,6 +32,7 @@ reports/security-code-review/partial/<CAT>/
 - 每次分類 `stage` 取得分類鎖、檢查完整性，再保存待整合批次；全新且乾淨的分類進度可自動建立初始封存。已有完成結果、Finding、逐檔或第二輪證據的舊資料，需要人工核對後明確封存，**不能自動信任**。
 - `integrate` 驗證批次、版本與 Finding 限制後，於同一分類鎖內先落盤 `integrity-pending.json`（包含更新目標、舊／新 SHA256、來源快照及 staged SHA256），再依序原子更新證據與 `assessment.json`，核對各檔案並提交 Journal 與 Manifest，成功後才刪除 staged 與 pending。
 - 第一輪固定基準也透過受控交易提交；已完成的判定修訂歷史會在同筆交易中保存，不能靜默降低已證實的 Fail。
+- **第一輪補正**：Manifest／Journal 正常但未建立 baseline 時，允許使用明確 `--amend-first-pass` 對已保存的完成結果或安全／逐檔證據進行有來源行號及 SHA256 的受控修訂。原始紀錄封存於 `first-pass-corrections/`，與 `second-pass-history/` 一樣納入 Journal 的動態 SHA256 清單與中斷交易復原；完整性異常或 baseline 已固定時仍拒絕。
 - 使用排他 `integrity.lock` 拒絕同分類並行更新；不會自動刪除未知交易鎖，AC、AU 完全隔離，也不能改寫正式 70 項審查資料。
 - **分類驗證的 Manifest 門檻**：只有 `--init` 建立的原始 pending 模板、沒有任何 Finding／逐檔紀錄／安全證據／Journal／staged，才允許在首次 `--stage` 前尚未封存。只要已修改規則、留下交易／第二輪證據，或曾產生分類報告，刪除 `integrity-manifest.json` 都不得使安全驗證或 HTML／JSON 報告通過。報告建立與驗證**一律要求有效 Manifest**。
 - SHA256 可辨識意外及流程外修改，但無外部信任錨點時不是抵抗完全控制儲存空間攻擊者的數位簽章。
