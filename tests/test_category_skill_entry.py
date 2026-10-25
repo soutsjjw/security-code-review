@@ -60,10 +60,9 @@ class CategorySkillEntryTests(unittest.TestCase):
 
     def test_ac_au_goal_keeps_all_original_review_quality_conditions(self):
         """分類 /goal 必須完整保留 0～9 審查品質要求，不得被縮減為捷徑。"""
-        import re
         advanced = self.docs["docs/advanced-usage.md"]
-        full_heading = "## Codex 可選 \`/goal\` 完整審查指令"
-        partial_heading = "## Codex 可選 \`/goal\` 指定分類審查指令（AC、AU）"
+        full_heading = "## Codex 可選 `/goal` 完整審查指令"
+        partial_heading = "## Codex 可選 `/goal` 指定分類審查指令（AC、AU）"
         self.assertEqual(advanced.count(full_heading), 1)
         self.assertEqual(advanced.count(partial_heading), 1)
         full = advanced.split(full_heading, 1)[1].split(partial_heading, 1)[0]
