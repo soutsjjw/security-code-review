@@ -291,7 +291,7 @@ $security-code-review --categories AC,AU
    - 是否有全專案控制缺席、版本不一致、跨檔證據或 Finding 衝突仍未處理。
    發現上述問題時，必須重新執行相關檢核，不得只修改 JSON 以通過驗證。
 
-8. 兩類都通過 --validate 後，執行 complete_review.py --target "<TARGET_ROOT>" --categories AC,AU，分別產生 `reports/security-code-review/partial/AC/report.json`、`partial/AC/CodeReview_YYYYMMDD.html` 與 AU 對應的獨立 HTML／JSON；再執行 validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU 嚴格核對來源與輸出。報告必須能追溯檔案、適用規則、證據與結論，並維持相關規範及附件的獨立查證要求。不能更新正式 70 項 assessment.json、report.json 或 CodeReview_YYYYMMDD.html；未選分類不得產生審查結論或報告。
+8. 兩類都通過 --validate 後，執行 complete_review.py --target "<TARGET_ROOT>" --categories AC,AU，分別產生 `reports/security-code-review/partial/AC/report.json`、`reports/security-code-review/partial/AC/CodeReview_YYYYMMDD.html`、`reports/security-code-review/partial/AU/report.json`、`reports/security-code-review/partial/AU/CodeReview_YYYYMMDD.html`；再執行 validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU 嚴格核對來源與輸出。報告必須能追溯檔案、適用規則、證據與結論，並維持相關規範及附件的獨立查證要求。不能更新正式 70 項 assessment.json、report.json 或 CodeReview_YYYYMMDD.html；未選分類不得產生審查結論或報告。
 
 9. 只有真正無法繼續的執行錯誤或資源限制才能停止。停止時分別保留 AC、AU 的既有進度、Findings、Manifest、Journal 及待復原證據，明確列出未完成的分類、規則、來源或外部工件；不得宣稱兩類已完成或混充正式完整審查。
 
