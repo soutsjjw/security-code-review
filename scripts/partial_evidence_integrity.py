@@ -27,6 +27,8 @@ JOURNAL = Path("analysis/integrity-journal")
 LOCK = Path("analysis/integrity.lock")
 STAGED = Path("analysis/staged/pending.json")
 HISTORY = Path("analysis/second-pass-history")
+FIRST_PASS_HISTORY = Path("analysis/first-pass-corrections")
+HISTORY_ROOTS = (HISTORY, FIRST_PASS_HISTORY)
 
 # 本清單與分類 review/second-pass 寫入的所有固定證據相對路徑對應。
 # 尚未存在的檔案以 null SHA256 記錄，不得以空物件取代缺少資料。
@@ -76,16 +78,17 @@ def _paths(root: Path, category: str) -> dict[str, Path]:
     if category not in CATEGORY_COUNTS:
         raise IntegrityError(f"未知審查分類：{category}")
     paths = {name: _artifact(root, category, name) for name in TRACKED}
-    history = _artifact(root, category, HISTORY)
-    if history.exists():
-        if not history.is_dir():
-            raise IntegrityError("第二輪修訂歷史不是目錄")
-        for child in history.iterdir():
-            if (not child.is_file() or not _HISTORY_NAME.fullmatch(child.name)
-                    or child.is_symlink()):
-                raise IntegrityError("第二輪修訂歷史包含未知或不安全檔案")
-            name = (HISTORY / child.name).as_posix()
-            paths[name] = _artifact(root, category, name)
+    for folder in HISTORY_ROOTS:
+        history = _artifact(root, category, folder)
+        if history.exists():
+            if not history.is_dir():
+                raise IntegrityError(f"{folder}: 修訂歷史不是目錄")
+            for child in history.iterdir():
+                if (not child.is_file() or not _HISTORY_NAME.fullmatch(child.name)
+                        or child.is_symlink()):
+                    raise IntegrityError(f"{folder}: 修訂歷史包含未知或不安全檔案")
+                name = (folder / child.name).as_posix()
+                paths[name] = _artifact(root, category, name)
     return paths
 
 
@@ -96,8 +99,10 @@ def _hashes(root: Path, category: str) -> dict[str, str | None]:
 def _valid_hashes(value: Any) -> bool:
     return (isinstance(value, dict) and set(TRACKED) <= set(value)
             and all(isinstance(k, str) and (
-                k in TRACKED or k.startswith(HISTORY.as_posix() + "/")
-                and _HISTORY_NAME.fullmatch(k[len(HISTORY.as_posix()) + 1:]))
+                k in TRACKED or any(
+                    k.startswith(folder.as_posix() + "/")
+                    and _HISTORY_NAME.fullmatch(k[len(folder.as_posix()) + 1:])
+                    for folder in HISTORY_ROOTS))
                 for k in value)
             and all(v is None or isinstance(v, str) and _HASH.fullmatch(v)
                     for v in value.values()))
@@ -158,7 +163,7 @@ def gate_errors(root: Path, category: str, *, require_seal: bool = False) -> lis
         if not directory.exists():
             return []
         # 即使 Journal 只有空目錄，也代表可能有尚未完成的封存。
-        for path in (JOURNAL, STAGED, HISTORY, LOCK, *TRACKED[3:]):
+        for path in (JOURNAL, STAGED, *HISTORY_ROOTS, LOCK, *TRACKED[3:]):
             if _artifact(root, category, path).exists():
                 return [missing]
         if (_artifact(root, category, "report.json").exists()
@@ -265,8 +270,8 @@ def initialize(root: Path, category: str, *, explicit: bool = False) -> dict[str
                 raise IntegrityError(f"{category}: 既有審查紀錄須人工核對後明確封存")
         paths = _paths(root, category)
         other_evidence = (any(paths[k].is_file() for k in TRACKED[3:])
-                          or any(name.startswith(HISTORY.as_posix() + "/")
-                                 for name in paths))
+                          or any(name.startswith(folder.as_posix() + "/")
+                                 for name in paths for folder in HISTORY_ROOTS))
         if other_evidence and not explicit:
             raise IntegrityError(f"{category}: 已有安全／第二輪證據，須人工核對後明確封存")
         snap = _snapshot(root)
@@ -325,9 +330,10 @@ def commit(root: Path, category: str, updates: dict[str, Any], *,
         for relative, obj in updates.items():
             if not isinstance(relative, str) or not isinstance(obj, (dict, list)):
                 raise IntegrityError("交易僅接受合法 JSON 物件／陣列證據")
-            allowed = relative in TRACKED or (
-                relative.startswith(HISTORY.as_posix() + "/")
-                and _HISTORY_NAME.fullmatch(relative[len(HISTORY.as_posix()) + 1:]))
+            allowed = relative in TRACKED or any(
+                relative.startswith(folder.as_posix() + "/")
+                and _HISTORY_NAME.fullmatch(relative[len(folder.as_posix()) + 1:])
+                for folder in HISTORY_ROOTS)
             if not allowed:
                 raise IntegrityError(f"嘗試修改未受控分類工件：{relative}")
             guarded = _artifact(root, category, relative)
@@ -453,9 +459,10 @@ def _pending_details(root: Path, category: str, pending: dict,
     for relative, value in updates.items():
         if not isinstance(relative, str) or not isinstance(value, (dict, list)):
             raise IntegrityError("交易更新須為受控 JSON 物件或陣列")
-        permitted = relative in TRACKED or (
-            relative.startswith(HISTORY.as_posix() + "/")
-            and _HISTORY_NAME.fullmatch(relative[len(HISTORY.as_posix()) + 1:]))
+        permitted = relative in TRACKED or any(
+            relative.startswith(folder.as_posix() + "/")
+            and _HISTORY_NAME.fullmatch(relative[len(folder.as_posix()) + 1:])
+            for folder in HISTORY_ROOTS)
         if not permitted:
             raise IntegrityError(f"復原拒絕非分類受控路徑：{relative}")
         _artifact(root, category, relative)  # 驗證 path traversal 與 symbolic link
@@ -562,7 +569,9 @@ def recover(root: Path, category: str) -> dict[str, Any]:
             raise IntegrityError("復原前受控檔案清單遭新增或刪除（包含修訂歷史）")
         for relative in set(after) - set(live):
             # 只允許交易預期新增、且目前尚未落盤的修訂歷史檔案。
-            if relative in before or not relative.startswith(HISTORY.as_posix() + "/"):
+            if relative in before or not any(
+                    relative.startswith(folder.as_posix() + "/")
+                    for folder in HISTORY_ROOTS):
                 raise IntegrityError("復原交易存在非預期的檔案清單變化")
             live[relative] = None
         for relative, actual in live.items():
