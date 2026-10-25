@@ -211,6 +211,95 @@ $security-code-review --categories AC,AU
 
 若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
+## Codex 可選 `/goal` 指定分類審查指令（AC、AU）
+
+以下以**上方完整 70 項 `/goal` 的原文 0～9 項要求**為基礎，保留逐檔分析、判定階梯、Review 嚴格限制、Finding 保護、跨檔控制驗證、第二輪複核與交付前品質檢查，**僅替換分類範圍、執行工具及驗收條件**。在支援 `/goal` 的 Codex 對話中，可直接複製以下全文：
+
+```text
+/goal 使用 $security-code-review --categories AC,AU Skill，對目前專案僅執行 AC-01～AC-08（8 項）、AU-01～AU-10（10 項），共 18 項具備真實程式碼證據的資安檢核，分別產生 AC、AU 部分審查報告。
+
+前置：
+
+- 先依 SKILL.md 的 `--categories` 模式分流，必讀 docs/category-review.md 與 docs/category-integrity.md；只判定 AC、AU 的規則，但完整追查必要來源與跨檔呼叫鏈，不得以部分審查減少真實證據要求。
+- 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
+- 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
+- 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性、待確認判定驗證及第二輪反向複核。
+
+完成條件：
+
+0. 先執行 review_scope.py --target "<TARGET_ROOT>" --categories AC,AU，確認受測專案為支援的 .NET Core／現代 .NET，且正式規則主檔包含 AC 8 項、AU 10 項。使用 review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --init --compact 建立或載入各分類獨立進度，再執行同腳本 --categories AC,AU --prepare 建立／重用分類共用來源索引；**不得**執行正式模式的 analysis_prepare.py、review_safety.py 或不帶 --categories 的初始化來更新分類成果。
+   - 偵測並優先使用可用的 CodeGraph 與 Roslyn；利用既有結構快取減少重複讀取，不可用時降級為實際讀碼與人工查核，不得把索引當成資安判斷。利用 review_queue.py --categories AC,AU --compact 個別取得 AC／AU 待辦，每條規則用同分類 --detail-id 讀取完整要求及所有對應標準文件。增量只重用未變更的結構證據；來源／Git Revision 異動時，不得沿用未重新確認的安全結論。
+   - 全新、未修改的分類 pending 資料在第一次 --stage 前可尚未封存；首次 stage 將建立分類 Manifest／Journal。若既有規則、Finding 或安全證據卻缺少有效 Manifest，立即停止並核對，不得自動重封存或套用正式模式 --seal-integrity。分類交易中斷須核對來源與 SHA256，再針對 AC 或 AU **各自**明確執行 review_queue.py --categories <單一分類> --recover-integrity；不能刪除 pending 或 Finding 強迫續行。
+   - 對 AC／AU 共 18 項取得 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查，來源快照與分類索引不一致時先查明原因，不得混用版本。
+
+1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
+
+2. 逐檔實際閱讀程式碼，僅依 rules.json 的 AC-01～AC-08、AU-01～AU-10 共 18 條規則判斷適用性；**指定分類只縮小判定集合，不縮小必要來源盤點範圍**：
+   - 不得只依檔名、關鍵字或 Regex 判定完成。
+   - 不得只取第一個命中的檢核項目。
+   - 不得預設使用 AC-01 或 AU-01。
+   - 追蹤適用的程式碼、呼叫鏈、資料流及設定。
+   - 一個檔案可關聯多條適用規則，但不得為增加數量而建立無依據的關聯。
+   - 每個應審查來源檔都要分別完成 AC、AU 的適用性篩選；`file_reviews[].category_screening` 僅記錄當前分類，不能把 AU 的判定當成 AC 的完成證據（反之亦然）。無直接適用項目仍須說明已核對的控制責任與理由，不得制式填入「無直接適用」；未選 52 項不得判定或預設為 N/A。
+
+3. 對每項適用規則實際執行靜態安全分析：
+   - 驗證安全控制的實作及有效性。
+   - 檢查可能的攻擊路徑、繞過條件與弱點。
+   - 記錄具體來源路徑、行號、檢查內容、證據及判定理由。
+   - 搜尋或關鍵字命中只能作為分析線索，不能視為已完成檢核。
+   - 追查跨檔／全專案規則的必要控制鏈、組態覆寫及責任元件；補查任務未完成時，不得提前標記 completed。
+
+4. 依實際證據判定結果（遵循 SKILL.md「判定階梯」，先判斷可證實的缺陷）：
+   - pass：控制已由實際控制邏輯、設定與呼叫鏈證實有效，且符合該規則 pass_condition。
+   - fail：來源、設定或呼叫鏈已證實缺陷、規則間矛盾、不安全預設值，或儲存庫中應有的控制不存在（須記錄搜尋範圍及責任分析）；建立 Finding。
+   - review：僅限部署拓撲、營運與制度紀錄、儲存庫外平台設定、manual_boundary 確實阻斷結論的事項，或已嘗試執行但因環境失敗而無法取得的必要掃描結果。decision_reason 須先寫程式碼已判定的部分，再以「待確認：」指名具體工件與缺口，並依規定填寫 review_kind。
+   - na：有具體證據及理由確認不適用，且已核對控制責任歸屬。
+   - 下列情形不得標 review：缺測試（含重放、邊界、整合、授權測試）；缺角色或 ownership 矩陣（須自行讀碼建立）；自承尚未完成的資料流或 Handler 盤點；decision_reason 已寫出缺陷或矛盾。
+   - 靜態控制成立但缺測試／文件時，依控制實際情形判 pass 或 fail，於 decision_reason 說明缺口；不得因此 review。
+   - 標記 review 前須通過 SKILL.md 的三題自檢。review 比例超過 40% 須逐條重審，不能以比例機械改判。
+   - 對 completed+review 建立 decision_audits：須核對實際 static_evidence、searched_paths、manual_boundary、外部工件及 blocking_question；open_static_questions 必須為空。只有缺非必要動態測試不得 review，且不能將未完成的程式碼追查列為 static_done_external_pending。
+   - 不得預設所有檢核為 review，也不得僅因未執行動態測試就把靜態可判定項目設為 review。
+
+5. 保留 partial/AC/assessment.json 與 partial/AU/assessment.json 各自既有的 file_reviews、Findings 及所有證據；正式 70 項的 assessment.json／report.json 不得覆寫。
+   - 對缺乏實質分析的既有 completed 紀錄重新查核。
+   - 既有 status=review 的項目，一律依新版判定階梯重新判定；能改為 pass 或 fail 者須更新 status、decision_reason 與必要 Finding，保留原有證據，不得刪除。
+   - 不得使用固定模板、批次填入理由或製造檢核結果。
+   - 不得修改受測專案原始碼，也不要求先修復弱點。
+   - AC、AU 各自以 review_queue.py --target "<TARGET_ROOT>" --categories AC（或 AU）--stage "<BATCH>.json" 獨立暫存，再對**相同單一分類**使用 --integrate 受控整合。覆核既有 completed 須有真實重新審查證據；第二輪修正用 --allow-revision 並保留歷史，不得覆寫或降級已確認的 Fail。
+
+6. 每批保存真實審查結果，持續執行直到：
+   - AC 8/8、AU 10/10 均已逐條實際完成，共 18 項；其他 52 項不做判定，也不能被自動標為 completed、pass 或 na。
+   - AC、AU **各自**的 source_coverage.missing_source_file_count = 0，應審查來源覆蓋率均為 100%。
+   - 各分類的 file_reviews、rule_reviews 與 checks[].execution.inspected_paths 雙向一致，沒有未核對的來源或制式篩選理由。
+   - 逐類執行 review_queue.py --target "<TARGET_ROOT>" --categories AC,AU --validate，兩類各自的 safety_integrity_errors=[]、safety_valid=true、remaining_ids=[]。
+   - `partial/<分類>/analysis/decision-audits.json` 與該分類 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
+   - **各分類第一輪完成且通過安全守門後**，分別以 review_queue.py --categories AC --begin-second-pass 及 --categories AU --begin-second-pass 固定第一輪判定；兩類所有規則均完成真實第二輪反例搜尋、必要矛盾裁決及 `adversarial_reviews`，second_pass.pending_count=0。
+   - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
+   - 各分類 Git Revision、來源 SHA256、Manifest、Journal、staged 與分析索引一致，沒有未完成交易；來源異動後須重新核對受影響規則及來源，不得套用正式模式 snapshot-refresh 直接延用分類結論。
+   - 分類佇列的 ready_for_report **固定為 false**，不得以此視為失敗，也不得要求為 true；分類安全守門結果與第二輪完成狀態才是交付條件。
+   - 所有已完成判定均有足夠的真實檢核依據。
+
+7. AC、AU 部分審查交付前再次檢查（各分類分別核對）：
+   - 是否存在大量無差別 review。
+   - 是否存在大量複製的檢核理由或摘要。
+   - 是否存在只有關鍵字分類、沒有實質分析的紀錄。
+   - 是否有已知弱點未建立 Finding。
+   - 是否有已標記 completed 但沒有足夠查核證據的規則。
+   - 是否有 decision_reason 同時描述缺陷或矛盾卻標為 review。
+   - 是否有 review 理由只是「缺測試」或「缺矩陣」。
+   - 是否有 review 未以「待確認：」指名具體工件。
+   - 是否有全專案控制缺席、版本不一致、跨檔證據或 Finding 衝突仍未處理。
+   發現上述問題時，必須重新執行相關檢核，不得只修改 JSON 以通過驗證。
+
+8. 兩類都通過 --validate 後，執行 complete_review.py --target "<TARGET_ROOT>" --categories AC,AU，分別產生 `reports/security-code-review/partial/AC/report.json`、`partial/AC/CodeReview_YYYYMMDD.html` 與 AU 對應的獨立 HTML／JSON；再執行 validate_report.py --source-root "<TARGET_ROOT>" --strict-sources --categories AC,AU 嚴格核對來源與輸出。報告必須能追溯檔案、適用規則、證據與結論，並維持相關規範及附件的獨立查證要求。不能更新正式 70 項 assessment.json、report.json 或 CodeReview_YYYYMMDD.html；未選分類不得產生審查結論或報告。
+
+9. 只有真正無法繼續的執行錯誤或資源限制才能停止。停止時分別保留 AC、AU 的既有進度、Findings、Manifest、Journal 及待復原證據，明確列出未完成的分類、規則、來源或外部工件；不得宣稱兩類已完成或混充正式完整審查。
+
+在所有條件真正完成前，不得以 18/18 completed、100% 檔案覆蓋率或 JSON Schema 驗證通過，直接宣稱已完成實質資安審查；即使全部完成，也只能交付 AC、AU 各一份**部分審查**報告，不能宣稱正式 70 項完整審查。
+```
+
+若環境不支援 `/goal`，使用 `$security-code-review --categories AC,AU`；操作參數、批次 JSON 與 Windows／Linux 指令依 [分類審查操作契約](category-review.md)。此指令只執行 AC 8 項與 AU 10 項，**不減少必要來源盤點、控制驗證或第二輪證據要求**。執行能否於單次對話完成仍受實際工具與資源限制影響。
+
 ## 跨檔控制鏈的實際來源驗證
 
 新版結構索引要求跨檔規則在原有 `rule-closures.json` 內提供真實 `control_trace`（已閱讀節點、確認的關聯、實際來源行號），並逐一用證據驗證呼叫點與排除候選。單靠文件清單、全部候選 ID 或大量相同的 excluded 理由不能結案。須使用 `review_queue.py --detail-id <規則ID>` 取得控制責任，再由來源追查 Controller／Handler／Service／Repository、Middleware、DI、設定與可能旁路；外部控制不應虛構程式碼鏈。詳見 [完整性守門操作指引](review-integrity-guards.md)。
