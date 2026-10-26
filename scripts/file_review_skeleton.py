@@ -17,13 +17,15 @@ INDEX = Path("reports/security-code-review/analysis/structure-index.json")
 
 
 def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
-             worker_id: int = 0, include_existing: bool = False,
+             worker_id: int = 0, offset: int = 0, include_existing: bool = False,
              requested_paths: list[str] | None = None) -> dict:
     """工作分片純屬讀取分工。每個來源檔仍須由 Agent 真實閱讀。"""
     if not 1 <= batch_size <= 200:
         raise ValueError("batch_size 必須介於 1～200")
     if not 1 <= workers <= 32 or not 0 <= worker_id < workers:
         raise ValueError("workers 必須介於 1～32，worker_id 須小於 workers")
+    if offset < 0:
+        raise ValueError("offset 不可為負")
     root = target.resolve()
     report = root / REPORT_RELATIVE
     assessment = json.loads((report / "assessment.json").read_text(encoding="utf-8"))
@@ -53,7 +55,8 @@ def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
     shard = [path for path in paths
              if int(hashlib.sha256(path.encode("utf-8")).hexdigest(), 16) % workers == worker_id]
     rows = []
-    for relative in shard[:batch_size]:
+    page = shard[offset:offset + batch_size]
+    for relative in page:
         path = (root / relative).resolve()
         if not path.is_relative_to(root) or not path.is_file() or path.is_symlink():
             raise ValueError("來源路徑無效、符號連結或超出受測範圍")
@@ -78,8 +81,9 @@ def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
         })
     return {
         "mode": "read_only_work_hints", "source_snapshot_checked": True,
-        "worker_id": worker_id, "workers": workers,
-        "remaining_in_shard": max(0, len(shard) - len(rows)),
+        "worker_id": worker_id, "workers": workers, "offset": offset,
+        "next_offset": offset + len(rows) if offset + len(rows) < len(shard) else None,
+        "remaining_in_shard": max(0, len(shard) - offset - len(rows)),
         "files": rows, "ready_for_report": False,
         "required_agent_fields": ["summary", "methods", "category_screening",
                                   "rule_reviews", "candidate_exclusions"],
@@ -93,6 +97,8 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=30)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--worker-id", type=int, default=0)
+    parser.add_argument("--offset", type=int, default=0,
+                        help="此 worker 的唯讀批次位移，用於分頁，不依賴正式寫入進度")
     parser.add_argument("--include-existing", action="store_true")
     parser.add_argument("--path", action="append", dest="paths",
                         help="可重複指定需唯讀分析的來源相對路徑")
@@ -100,6 +106,7 @@ def main() -> int:
     try:
         result = skeleton(args.target, batch_size=args.batch_size,
                           workers=args.workers, worker_id=args.worker_id,
+                          offset=args.offset,
                           include_existing=args.include_existing,
                           requested_paths=args.paths)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
