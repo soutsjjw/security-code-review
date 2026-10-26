@@ -66,7 +66,7 @@ python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint 
 
 本節技術支援範圍、證據及 Token 原則適用兩種模式；其中 `analysis_prepare.py`、不帶分類參數的佇列和正式 `analysis/` 只適用完整模式。分類模式改用上方 `review_queue.py --categories ... --prepare`。
 
-- **本階段只接受 .NET Core／現代 .NET C# 專案**。先辨識全部 `.csproj` 的 TargetFramework(s)；遇到 .NET Framework、Vue／混合專案、無法辨識的框架，暫停並明確說明尚未支援，**不得縮小覆蓋率後宣稱完成**。後續透過 `scripts/analysis_adapters.py` 的統一分析器介面擴充 .NET Framework／Vue；70 項規則和報告 Schema 保持共用。
+- **本階段只接受 .NET Core／現代 .NET C# 專案（包含 `net10.0`）**。對直接且無條件的 `.csproj` TFM 採字面值；若使用父層 `Directory.Build.props`、`Directory.Build.targets`、明確 `<Import>` 或條件式屬性，必須以 `dotnet msbuild <csproj> -getProperty:TargetFramework,TargetFrameworks,TargetFrameworkVersion` 進行唯讀評估（不執行 Build／Restore），並核對全部專案。沒有可用的 MSBuild 17.8+、無法解析屬性、缺少相容 SDK 時仍須阻斷，不得猜測或修改受測專案。遇到 .NET Framework、Vue／混合專案、無法辨識的框架，暫停並明確說明尚未支援，**不得縮小覆蓋率後宣稱完成**。後續透過 `scripts/analysis_adapters.py` 的統一分析器介面擴充 .NET Framework／Vue；70 項規則和報告 Schema 保持共用。
 - 在 Python 環境檢查成功後、開始審查佇列之前，由 Agent 在受測專案執行（首次 full；只有確實存在舊結構索引且要重新分析時才用 incremental）：
 
   ```bash
