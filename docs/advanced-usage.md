@@ -25,7 +25,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 
 數字為範例，不得直接套用或估算。Agent 可另外記錄 `--verified-callsites` 與實測 `--input-tokens`／`--output-tokens`。結構索引、佇列、證據整合與正式報告 CLI 各自記錄耗時及退出碼；Log 不收集原始碼全文或金鑰。
 
-連續四次 checkpoint 無實際進展、且至少 15 分鐘沒有進展時回傳退出碼 3 並記錄 `stalled`。此時保留全部原始審查紀錄與 Finding，停止空轉並列出阻塞原因。重新啟動用 `start`；人工結束用 `finish --status interrupted`／`blocked`。**這是由 Agent 主動回報的檢查點，不是常駐背景監控。**
+連續四次 checkpoint 無實際進展、且至少 15 分鐘沒有進展時回傳退出碼 3 並記錄 `stalled`。此後完整審查 CLI 會直接拒絕執行，避免重試空轉；保留全部原始審查紀錄與 Finding，先診斷阻塞原因。重新啟動用 `start`；人工結束用 `finish --status interrupted`／`blocked`。**這是由 Agent 主動回報的檢查點，不是常駐背景監控。**
 
 `--compact`、`--detail-id` 查詢只提供未驗證的進度預覽，`ready_for_report` 永遠是 `false`；不能使用預覽來源覆蓋率交付。正式驗證必須執行 `review_queue.py`（不帶上述兩參數）、`review_safety.py --validate`、`complete_review.py` 與嚴格報告驗證。`--mode incremental` 只對來源 SHA256 與索引契約相符的結構快取生效，不沿用任何安全判定。
 
@@ -60,11 +60,12 @@ Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型�
 
 這一步偵測 CodeGraph 與 .NET SDK 8+ 的 Roslyn。CodeGraph 須先由使用者在受測專案執行 `codegraph init`；缺少 CodeGraph／SDK 時只退回既有搜尋與人工分析，**不得視為已執行 Roslyn 或完整 SAST**。Roslyn 只提供 C# syntax tree 的 types、methods 與 invocation 候選（非跨方法污點證明）；Agent 仍要核對程式碼及配置。增量快取只共用相同 SHA256 與相同分析器版本的結構資料，不沿用過期安全結論。
 
-Token 優化佇列：
+Token 優化佇列與來源批次：
 
 ```bash
 sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
 sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --compact --source-batch-size 60
 ```
 
 對應來源可額外查詢保守的 .NET 安全規則候選（僅線索，並非資安結論）：
@@ -85,7 +86,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/token_metrics.py" 
 
 數字必須是實際 API／執行器回傳資料，上述僅示範命令格式。統計位於 `reports/security-code-review/analysis/token-usage.jsonl`，不包含程式碼或推論出的 Token 值。
 
-## 單代理審查完整性檢查（不含子代理）
+## 審查完整性檢查與受控唯讀分工
 
 執行 `analysis_prepare.py` 後，先以 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的最小責任範圍及需追查的來源／關聯候選。每檔依序完整篩選全部規則；`cross_file` 和 `project` 類別須補足結案證據。透過 `--stage <JSON路徑>`、`--integrate` 進行工作中結果的獨立暫存與有衝突檢查的整合，並以 `--validate` 確認結案及工作樹版本；正式結果仍維持原有 assessment Schema。
 
@@ -107,7 +108,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/token_metrics.py" 
 
 新版索引以 SHA256 交易鏈連結正式 assessment、來源快照與各階段工作證據。新審查使用 `review_queue.py --init` 建立起點；既有審查須先人工核對後明確執行 `review_safety.py --seal-integrity`。每批 `--stage` 綁定目前交易版本，`--integrate` 預寫可復原的多檔交易日誌；中斷後核對來源及 SHA256 再執行 `--recover-integrity`，不得任意重算雜湊或刪除 Finding。詳見 [證據完整性與安全復原](evidence-integrity.md)。
 
-## 單代理第二輪反向複核
+## 主代理第二輪反向複核
 
 第一輪須先完成 70 項與所有逐檔／跨檔／證據守門，再使用 `review_safety.py --begin-second-pass` 固定第一輪判定與來源快照。主代理之後重新閱讀實際程式碼，逐項從攻擊者觀點檢查反例，高風險規則至少兩個不同攻擊面。透過 `review_queue.py` 的 `second_pass.pending_ids` 續行，`--detail-id` 的 `adversarial_guidance` 提示反例要求；第二輪資料經 `adversarial_reviews` 暫存整合。任何矛盾先修訂原始判定／Finding 再記錄裁決，不得只重複第一輪理由。**同一代理的第二輪自我複核不等於真正獨立審查。** 詳見 [第二輪反向複核指引](adversarial-second-pass.md)。
 
