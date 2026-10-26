@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -19,6 +20,7 @@ COUNTERS = ("completed_rules", "reviewed_files", "verified_callsites",
 PROGRESS = COUNTERS[:4]
 STALL_CHECKPOINTS = 4
 STALL_SECONDS = 900
+RUN_ID = re.compile(r"^\\d{8}-\\d{6}-[0-9a-f]{8}$")
 
 
 def _clock() -> float:
@@ -40,16 +42,23 @@ def _atomic(path: Path, obj: dict) -> None:
 
 
 def _load(path: Path) -> dict | None:
+    if path.is_symlink():
+        raise ValueError("Log metadata 不可為 symbolic link")
     if not path.is_file():
         return None
     obj = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(obj, dict):
         raise ValueError("Log metadata 格式錯誤")
+    if "run_id" in obj and (not isinstance(obj["run_id"], str)
+                             or not RUN_ID.fullmatch(obj["run_id"])):
+        raise ValueError("Log run_id 格式錯誤")
     return obj
 
 
 def _paths(target: Path) -> tuple[Path, Path]:
     folder = target.resolve() / REPORT / "logs"
+    if folder.parent.is_symlink() or folder.is_symlink():
+        raise ValueError("報告或 Log 目錄不可為 symbolic link")
     return folder, folder / "latest.json"
 
 
@@ -65,7 +74,10 @@ def _append(folder: Path, state: dict, event: str, phase: str,
     if metrics:
         row["metrics"] = metrics
     # 單代理、單行追加；不採集原始碼、憑證、Prompt 或例外訊息。
-    with (folder / (state["run_id"] + ".jsonl")).open("a", encoding="utf-8") as stream:
+    log_file = folder / (state["run_id"] + ".jsonl")
+    if log_file.is_symlink():
+        raise ValueError("Log 檔案不可為 symbolic link")
+    with log_file.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
@@ -92,7 +104,8 @@ def start(target: Path, *, new_review: bool = False) -> dict:
         "started_at": _iso(), "started_epoch": _clock(), "finished_at": None,
         "last_progress_epoch": _clock(), "no_progress_checkpoints": 0,
         "progress": {name: 0 for name in PROGRESS},
-        "commands": 0, "command_seconds": {}, "checkpoints": 0,
+        "commands": 0, "command_seconds": {}, "phase_wall_seconds": {},
+        "last_event_epoch": _clock(), "checkpoints": 0,
         "token_usage": {"input_tokens": 0, "output_tokens": 0},
         "note": "執行 Log 非審查證據；必須通過既有來源與安全完整性守門",
     }
@@ -109,11 +122,21 @@ def _active(target: Path) -> tuple[Path, dict]:
     return folder, state
 
 
+def _advance_phase(state: dict, phase: str) -> None:
+    now = _clock()
+    previous = state.get("phase", "initialization")
+    seconds = max(0.0, now - state.get("last_event_epoch", now))
+    wall = state.setdefault("phase_wall_seconds", {})
+    wall[previous] = round(wall.get(previous, 0.0) + seconds, 3)
+    state["last_event_epoch"] = now
+    state["phase"] = phase
+
+
 def command(target: Path, phase: str, operation: str, seconds: float, exit_code: int) -> None:
     if phase not in PHASES:
         raise ValueError("未知 Log 階段")
     folder, state = _active(target)
-    state["phase"] = phase
+    _advance_phase(state, phase)
     state["commands"] += 1
     durations = state["command_seconds"]
     durations[operation] = round(durations.get(operation, 0.0) + max(0.0, seconds), 3)
@@ -133,7 +156,7 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     if state["status"] == "stalled":
         # 必須另開一個 run 才能重試，防止永遠繞過停滯。
         return state
-    state["phase"] = phase
+    _advance_phase(state, phase)
     state["checkpoints"] += 1
     before = state["progress"]
     advance = any(metrics.get(k, before[k]) > before[k] for k in PROGRESS)
@@ -164,6 +187,7 @@ def finish(target: Path, status: str) -> dict:
     if status not in ("completed", "failed", "interrupted", "blocked"):
         raise ValueError("不支援的執行結束狀態")
     folder, state = _active(target)
+    _advance_phase(state, state["phase"])
     state["status"] = status
     state["finished_at"] = _iso()
     state["elapsed_seconds"] = round(max(0.0, _clock() - state["started_epoch"]), 3)
