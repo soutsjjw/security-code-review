@@ -2,6 +2,29 @@
 
 此頁收錄 README 省略的進階操作。一般使用者只需在受測專案的 Codex 對話中輸入 `$security-code-review`（Claude Code 為 `/security-code-review`）。
 
+## 完整審查執行 Log 與效能追蹤
+
+正式 70 項審查執行時，Agent 先呼叫：
+
+```bash
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
+```
+
+每次執行的 Log 追加保存於 `TARGET_ROOT/reports/security-code-review/logs/<run_id>.jsonl`；同目錄有 `<run_id>-summary.json` 與 `latest.json`。跨次續跑保留 `review_id`、更新 `run_id`；若確定要新審查，加 `start --new-review`。
+
+每次成功整合一批實際檢核證據後，Agent 依所處階段記錄真實進度。例如：
+
+```bash
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase first_pass --completed-rules 12 --reviewed-files 80
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase second_pass --second-pass-rules 6
+```
+
+數字為範例，不得直接套用或估算。Agent 可另外記錄 `--verified-callsites` 與實測 `--input-tokens`／`--output-tokens`。結構索引、佇列、證據整合與正式報告 CLI 各自記錄耗時及退出碼；Log 不收集原始碼全文或金鑰。
+
+連續四次 checkpoint 無實際進展、且至少 15 分鐘沒有進展時回傳退出碼 3 並記錄 `stalled`。此時保留全部原始審查紀錄與 Finding，停止空轉並列出阻塞原因。重新啟動用 `start`；人工結束用 `finish --status interrupted`／`blocked`。**這是由 Agent 主動回報的檢查點，不是常駐背景監控。**
+
+`--compact`、`--detail-id` 查詢只提供未驗證的進度預覽，`ready_for_report` 永遠是 `false`；不能使用預覽來源覆蓋率交付。正式驗證必須執行 `review_queue.py`（不帶上述兩參數）、`review_safety.py --validate`、`complete_review.py` 與嚴格報告驗證。`--mode incremental` 只對來源 SHA256 與索引契約相符的結構快取生效，不沿用任何安全判定。
+
 ## 受測路徑與執行位置
 
 - `SKILL_ROOT`：Skill 安裝目錄，保存 `SKILL.md`、規則、Schema、報告模板及 Python 腳本。
@@ -25,11 +48,11 @@ Windows PowerShell：
 & "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
 ```
 
-新增第二層審查證據閘門：`file_reviews[].rule_reviews` 與 `checks[].evidence` 每筆來源證據都必須引用實際相關的控制邏輯；不得以方法宣告、`using`、欄位、泛用設定，或跨檔共用的排除理由來湊數。當 70/70 completed 仍未通過，`review_queue.py --compact` 會顯示 `recheck_rule_ids` 和需重新驗證的 `next_checks`。這些是補查工作，不改寫 Findings。
+新增第二層審查證據閘門：`file_reviews[].rule_reviews` 與 `checks[].evidence` 每筆來源證據都必須引用實際相關的控制邏輯；不得以方法宣告、`using`、欄位、泛用設定，或跨檔共用的排除理由來湊數。當 70/70 completed 仍未通過，必須使用不帶 `--compact` 與 `--detail-id` 的 `review_queue.py` 進行正式查核，顯示 `recheck_rule_ids` 和需重新驗證的 `next_checks`。這些是補查工作，不改寫 Findings。
 
 Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型別及合成編譯得到的符號／介面實作候選；`cross_file_call_hints` 記錄不截斷的跨檔候選與呼叫點 ID。`semantic_*` 仍不等於真正專案建置／執行期目標，`receiver_type_candidate` 和 `name_only_ambiguous` 亦須人工核對。新索引下須依 [跨檔呼叫點結案要求](review-integrity-guards.md#跨檔呼叫點必須人工結案) 完成 `callsite_reviews`；未解歧義不得將跨檔規則標為 completed。與 CodeGraph 不可用時一樣回退為人工查核，不能假裝已追蹤資料流。
 
-這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的 `next_source_candidates` 顯示下一批缺少有效逐檔審查紀錄的檔案及其候選規則。
+這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的完整驗證模式可顯示 `next_source_candidates`；精簡查詢省略這項重新讀檔作業。
 
 這一步偵測 CodeGraph 與 .NET SDK 8+ 的 Roslyn。CodeGraph 須先由使用者在受測專案執行 `codegraph init`；缺少 CodeGraph／SDK 時只退回既有搜尋與人工分析，**不得視為已執行 Roslyn 或完整 SAST**。Roslyn 只提供 C# syntax tree 的 types、methods 與 invocation 候選（非跨方法污點證明）；Agent 仍要核對程式碼及配置。增量快取只共用相同 SHA256 與相同分析器版本的結構資料，不沿用過期安全結論。
 
@@ -48,7 +71,7 @@ python "<SKILL_ROOT>/scripts/analysis_candidates.py" --source-root "<TARGET_ROOT
 
 若出現 `AC-04`、`IN-03`、`AU-09` 等候選，必須核對實作、呼叫端和資料流，將所有真正適用的規則建立多對多 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths` 關聯；不適用時可使用 `candidate_exclusions` 按規則記錄至少 40 字的具體理由。不可讓候選工具自行完成檢核。只有 `using`、註解、方法宣告的來源不算完成證據。缺外部佐證的 `review` 應指定缺少的工件和查核範圍，不得套用部署／政策／動態測試通用清單。
 
-精簡佇列只列待辦及搜尋候選，逐條檢核前以 `--detail-id` 取得所有標準對照。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
+精簡佇列只列待辦及未驗證的來源進度，不進行全量安全守門；逐條檢核前以 `--detail-id` 取得所有標準對照，結案時不帶兩參數重新完整驗證。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
 
 執行器若提供實際 Token 數，可選擇寫入統計：
 
