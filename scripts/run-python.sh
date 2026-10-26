@@ -44,7 +44,7 @@ fi
 
 if [ -z "$SELECTED_BIN" ]; then
     if [ -n "$FIRST_BIN" ]; then
-        printf 'ERROR [python_dependencies_invalid]: Python 3.10+ exists but required packages are missing or incompatible.\n' >&2
+        printf 'ERROR [python_dependencies_invalid]: Python 3.10+ exists but requirements.txt packages are missing or incompatible.\n' >&2
         "$FIRST_BIN" "$CHECKER" >&2 || :
     elif [ -n "$FOUND_ENTRY" ]; then
         printf 'ERROR [python_not_executable]: Python was found but failed version or execution checks. Check sandbox permissions.\n' >&2
