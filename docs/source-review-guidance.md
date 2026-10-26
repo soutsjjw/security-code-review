@@ -58,6 +58,8 @@
 
 對新版索引的每條完成規則，第二輪需先對照不可變的第一輪 `decision_reason`，重新閱讀關鍵入口、控制分支、拒絕行為或真正的外部工件，提出可反駁的攻擊假設。每個 `hypotheses[]` 須記錄攻擊向量、前提、預期破壞、重查方法、實際行為與重新閱讀證據；高風險規則至少兩種真正不同的向量。禁止以 `RULE-ID-adversarial-surface-1/2`、相同攻擊敘述、重複同一來源行而無說明來完成複核。第二輪發現漏報或誤判時，依法修訂判定與 Finding，記錄最初漏查原因及裁決；第一輪錨點不可覆寫，確認與修訂須區分。純外部控制不得虛構程式碼攻擊路徑，使用真實外部證據複核即可。完整格式見 [反向複核指引](adversarial-second-pass.md)。
 
+## 逐檔與 70 項多規則審查細則
+
 1. 讀取 `standards/standards-register.yaml`、`policies/applicability-matrix.yaml`、`policies/review-decision-matrix.json` 與 `rules/{AC,AU,IN,CR,EH,LG,DP,PD,BC,SI}.yaml`，共 70 項；不得跳過、增加或重編 ID。
 2. 盤點 `TARGET_ROOT` 的語言、框架、認證授權、資料流、儲存、相依套件、部署與 CI/CD；根據 `profiles/project-profile.example.yaml` 辨識適用情境。排除 `.git/`、`reports/`、`.agents/skills/`、`.claude/skills/` 與生成物／相依套件目錄，避免把 Skill 本身當成受測程式碼；不要排除專案的 CI 設定。缺乏政策資料時不擅自決定法規適用級別。
 3. **必須按前述佇列迴圈逐項完成 70 項檢核，不能只填入 70 個 ID 或一律設為 review 就結束。** 逐檔／規則紀錄應先使用 `review_safety.py --stage`、`--integrate` 完成無衝突保存；跨檔及全專案結案檢查通過前不可交付。 依每條規則的 `inspection.search_targets`、`applicability` 與證據要求搜尋目標專案、追蹤程式碼呼叫鏈並核對組態；可分批掃描，但必須持續直到 70 項各自完成，才允許產製報告。一次呼叫應自動持續，不因找到高風險問題而暫停。每完成一組就將結果保存到受測專案的 `reports/security-code-review/assessment.json`，重新啟動時先載入已查核結果並僅補做尚未完成的 ID；不得憑空標記完成。
