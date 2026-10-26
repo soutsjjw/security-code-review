@@ -66,6 +66,11 @@ def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
             raise ValueError(f"{relative}: SHA256 與來源快照不同，拒絕使用過期候選")
         content, encoding = read_source_text(path, raw=raw)
         roslyn = (index.get("roslyn_files") or {}).get(relative, {})
+        # 只傳定位欄位；完整宣告／簽章保留在 structure-index.json 按需查詢。
+        methods = roslyn.get("methods", [])
+        symbols = [{key: item[key] for key in
+                    ("name", "line", "end_line", "containing_type") if key in item}
+                   for item in methods if isinstance(item, dict)]
         hits = (index.get("rule_candidates") or {}).get(relative)
         if hits is None:
             hits = candidate_hits(relative, content)
@@ -76,7 +81,8 @@ def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
             "encoding": encoding,
             "line_count": len(content.splitlines()),
             "rule_candidates": hits,
-            "roslyn_methods": roslyn.get("methods", []),
+            "roslyn_methods": symbols,
+            "roslyn_method_count": len(methods),
             "cross_file_callsite_ids": [call["id"] for call in calls if "id" in call],
             "must_read_source": True,
         })
