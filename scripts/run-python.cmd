@@ -48,7 +48,7 @@ if defined SECURITY_CODE_REVIEW_PYTHON_PINNED (
 )
 if not defined PY_BIN (
     if defined FIRST_BIN (
-        >&2 echo ERROR [python_dependencies_invalid]: Found Python 3.10+, but Skill dependencies are missing or incompatible.
+        >&2 echo ERROR [python_dependencies_invalid]: Found Python 3.10+, but requirements.txt dependencies are missing or incompatible.
         "%FIRST_BIN%" "%CHECKER%" 1>&2
     ) else (
         if defined FOUND_ENTRY (
