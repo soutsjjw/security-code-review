@@ -29,6 +29,8 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 
 `--compact`、`--detail-id` 查詢只提供未驗證的進度預覽，`ready_for_report` 永遠是 `false`；不能使用預覽來源覆蓋率交付。正式驗證必須執行 `review_queue.py`（不帶上述兩參數）、`review_safety.py --validate`、`complete_review.py` 與嚴格報告驗證。`--mode incremental` 只對來源 SHA256 與索引契約相符的結構快取生效，不沿用任何安全判定。
 
+完整效能診斷、批次 Skeleton、唯讀工作分片與 Roslyn 編譯快取的操作及保護條件見 [效能與受控分工指引](review-performance.md)。
+
 ## 受測路徑與執行位置
 
 - `SKILL_ROOT`：Skill 安裝目錄，保存 `SKILL.md`、規則、Schema、報告模板及 Python 腳本。
