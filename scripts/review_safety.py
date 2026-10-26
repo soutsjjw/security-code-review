@@ -631,4 +631,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from review_log import logged_main
+    phase = ("second_pass" if "--begin-second-pass" in sys.argv or "--restart-second-pass" in sys.argv
+             else "first_pass" if "--stage" in sys.argv or "--integrate" in sys.argv
+             else "validation")
+    raise SystemExit(logged_main(main, phase))
