@@ -441,6 +441,13 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    if not args.compact and args.detail_id is None and queue.get("source_coverage"):
+        try:
+            from review_log import observe_coverage
+            observe_coverage(target, recorded=len(payload.get("file_reviews") or []),
+                             verified=queue["source_coverage"]["reviewed_source_file_count"])
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"WARNING: 無法保存正式來源進度（{type(exc).__name__}）", file=sys.stderr)
     # Query 分段耗時僅作診斷，不改變安全判定。
     profile["query_total_before_output"] = time.perf_counter() - started
     try:
