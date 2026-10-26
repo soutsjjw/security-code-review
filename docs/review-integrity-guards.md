@@ -1,13 +1,13 @@
-# 單代理審查完整性守門
+# 審查完整性守門與唯讀平行分工
 
-此機制**不使用子代理、不平行執行**。70 項規則、逐檔 10 類篩選、來源覆蓋率、正式 assessment Schema 與 HTML／JSON 報告均維持原樣。Python 工具只準備工作與阻擋不一致資料，不自動判定 Pass／Fail。
+完整性寫入由**單一主代理**負責。可選擇讓子代理並行進行唯讀原始碼分析，子代理不得呼叫 `--stage`、`--integrate`、修改 assessment 或作正式結案。70 項規則、逐檔 10 類篩選、來源覆蓋率、正式 assessment Schema 與 HTML／JSON 報告均維持原樣。Python 工具只準備工作與阻擋不一致資料，不自動判定 Pass／Fail。
 
 ## 作業順序
 
 1. 原有環境檢查與 `analysis_prepare.py --target <TARGET_ROOT> --mode full` 執行一次，建立 `analysis/structure-index.json` 和 `analysis/review-snapshot.json`。
 2. 執行 `review_safety.py --target <TARGET_ROOT> --plan`，取得**全部 70 項**的查核範圍。即使沒有來源命中，`project` 項目仍須查核控制責任、完整檔案清單及外部工件；不能因為找不到程式碼就直接 `na`。
 3. 維持逐檔完整適用性篩選。 `typed_relationships` 額外提供 DI、設定引用、Endpoint 授權、Middleware 管線、跨專案引用及 Roslyn 方法候選。所有 `resolution=candidate_only`，即使 Roslyn 顯示語意符號匹配仍必須由 Agent 閱讀來源確認；反射、動態 DI、環境覆寫、外部 Proxy 等未被索引證實的路徑須主動追查。
-4. 審查中先產生獨立批次 JSON，透過 `--stage` 暫存、`--integrate` 整合。不能直接以暫存資料宣稱規則 completed，也不能以沒有衝突表示安全控制有效。單代理仍可每一檔／每批依序處理。
+4. 審查中先產生獨立批次 JSON，僅主代理透過 `--stage` 暫存、`--integrate` 整合。不能直接以暫存資料宣稱規則 completed，也不能以沒有衝突表示安全控制有效。子代理僅提供唯讀建議，由主代理親自核對來源、衝突與證據；預設亦可每檔／每批循序處理。
 5. 對每條 `cross_file`／`project` 規則建立人工核對的 `closures`，記錄責任歸屬、全域搜尋、實際追查的來源、關聯候選與尚未關閉的補查任務；待任務都完成才可結案。 `local` 規則仍須依既有控制及來源證據確認全案適用性。
 6. 執行 `review_safety.py --target <TARGET_ROOT> --validate`，然後由原有 `review_queue.py` 確認 `ready_for_report=true`，最後執行 `complete_review.py`。正式驗證器會拒絕來源版本不一致、缺少結案、以及來源異動後尚未重查的規則。
 
