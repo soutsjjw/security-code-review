@@ -15,7 +15,7 @@ from web_headers import header_review_hints
 from collections import Counter
 from datetime import date
 from pathlib import Path
-from source_coverage import build_source_coverage
+from source_coverage import build_source_coverage, provisional_source_coverage
 from review_completion import completion_errors
 from review_decision import decision_quality_errors, load_decision_matrix
 from control_effectiveness import guidance as control_effectiveness_guidance
@@ -150,24 +150,30 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     illegal = sorted(set(states) - {"pending", "completed", "blocked"})
     if illegal:
         raise ValueError("無效執行狀態：" + ", ".join(illegal))
-    tacert_by_rule = load_tacert_v2_checks(rules)
-    owasp_by_rule = load_owasp_2025_categories(rules)
-    system_baseline_by_rule = source_review_hints(rules)
-    web_guide_by_rule = web_guide_review_hints(rules)
-    web_appendix_by_rule = appendix_review_hints(rules)
-    web_headers_by_rule = header_review_hints(rules)
-    decision_matrix = load_decision_matrix()
+    # --compact 不載入龐大的規範對照；--detail-id 仍保留完整單條指引。
+    tacert_by_rule = {} if compact else load_tacert_v2_checks(rules)
+    owasp_by_rule = {} if compact else load_owasp_2025_categories(rules)
+    system_baseline_by_rule = {} if compact else source_review_hints(rules)
+    web_guide_by_rule = {} if compact else web_guide_review_hints(rules)
+    web_appendix_by_rule = {} if compact else appendix_review_hints(rules)
+    web_headers_by_rule = {} if compact else header_review_hints(rules)
+    decision_matrix = {} if compact else load_decision_matrix()
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     if detail_id is not None and detail_id not in master_ids:
         raise ValueError(f"未知規則 ID：{detail_id}")
     selected = ([next(r for r in rules if r["id"] == detail_id)]
                 if detail_id is not None else remaining[:batch_size])
-    coverage = build_source_coverage(data, source_root) if source_root is not None else None
+    # 查佇列、查單條規範不得每次重新掃描全部檔案與安全守門；
+    # 預覽數字絕不可令 ready_for_report=true。正式查核使用不帶這兩個參數的佇列。
+    fast_query = compact or detail_id is not None
+    coverage = ((provisional_source_coverage(data, source_root) if fast_query
+                 else build_source_coverage(data, source_root))
+                if source_root is not None else None)
     unreviewed = coverage["missing_source_file_count"] if coverage else 0
     integrity_errors = coverage["review_integrity_errors"] if coverage else []
     # 顯示下一批檔案的多條規則候選，協助 Agent 追查；候選不能自動算 completed。
     source_candidates = []
-    if coverage and source_root is not None:
+    if coverage and source_root is not None and not fast_query:
         for path in coverage["missing_source_paths"][:30]:
             try:
                 hits = candidate_hits(path, read_source_text(source_root / path)[0])
@@ -180,10 +186,12 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             if len(source_candidates) >= 15:
                 break
     rule_errors = (completion_errors(checks) + decision_quality_errors(checks, source_root=source_root)
-                   if not remaining else [])
-    safety_issues = (safety_errors(source_root, data) if source_root is not None else [])
+                   if not remaining and not fast_query else [])
+    safety_issues = (safety_errors(source_root, data)
+                     if source_root is not None and not fast_query else [])
     second_pass = (adversarial_progress(source_root, data, batch_size)
-                   if source_root is not None else {"enabled": False})
+                   if source_root is not None and not fast_query
+                   else {"enabled": False, "verification_deferred": fast_query})
     # 70/70 完成但證據品質不合格時，原佇列 next_checks 為空，Agent 容易停止。
     # 從來源完整性／規則完整性錯誤抽取須重新核對的真實規則，不變更原始狀態。
     ids_to_recheck: set[str] = set()
@@ -207,13 +215,16 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "pending": states.get("pending", 0),
         "blocked": states.get("blocked", 0),
         "findings_saved": len(data.get("findings", [])),
-        "ready_for_report": (source_root is not None and len(remaining) == 0 and unreviewed == 0
-                             and not integrity_errors and not rule_errors and not safety_issues),
+        "ready_for_report": (source_root is not None and not fast_query and len(remaining) == 0
+                             and unreviewed == 0 and not integrity_errors
+                             and not rule_errors and not safety_issues),
+        "validation_deferred": bool(fast_query and source_root is not None),
         "source_coverage": ({
             "source_file_count": coverage["source_file_count"],
             "reviewed_source_file_count": coverage["reviewed_source_file_count"],
             "missing_source_file_count": unreviewed,
             "missing_by_type": coverage["missing_by_type"],
+            "verified": not fast_query,
         } if coverage else None),
         "next_source_paths": coverage["missing_source_paths"][:30] if coverage else [],
         "next_source_candidates": source_candidates,
@@ -223,7 +234,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
         "second_pass": second_pass,
         "review_scope_tasks": ([{"rule_id": t["rule_id"], "scope": t["scope"]}
                                 for t in scope_tasks(source_root)]
-                               if source_root is not None else []),
+                               if source_root is not None and not fast_query else []),
         "remaining_ids": [r["id"] for r in remaining],
         "recheck_rule_ids": sorted(ids_to_recheck),
         "recheck_reason_count": len(integrity_errors) + len(rule_errors) + len(safety_issues),
@@ -246,7 +257,11 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "web_guide_v32_checks": web_guide_by_rule[r["id"]],
             "web_guide_v32_appendix1": web_appendix_by_rule[r["id"]],
             "web_guide_v32_appendix3": web_headers_by_rule[r["id"]]
-        } for r in selected],
+        } for r in selected] if not compact else [
+            {"id": r["id"], "title": r["title"],
+             "current_state": (indexed[r["id"]].get("execution") or {}).get("state", "pending"),
+             "search_targets": r.get("inspection", {}).get("search_targets", [])}
+            for r in selected],
         "instruction": ("70 項雖已標記 completed，但仍有規則證據或判定品質不足：" +
                         "；".join(rule_errors[:3]) +
                         "。須重新檢查規則與來源，不得僅補 JSON／模板字串。"
@@ -288,7 +303,11 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "current_state": (indexed[r["id"]].get("execution") or {}).get("state", "pending"),
             "search_targets": r.get("inspection", {}).get("search_targets", []),
         } for r in selected]
-        if remaining:
+        if not remaining and source_root is not None:
+            queue["instruction"] = ("僅為未驗證進度預覽，必須不帶 --compact/--detail-id "
+                                    "重新執行 review_queue.py 完整安全守門；"
+                                    "不可根據本查詢宣布完成或交付報告。")
+        elif remaining:
             queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
                                     "需要詳細規範時使用 --detail-id <規則ID>，並依 decision_guidance、control_effectiveness_guidance、decision_adjudication_guidance 與 standard_documents 查核。逐檔紀錄、控制繞過證據與 Finding 仍不可省略。")
         elif ids_to_recheck:
@@ -297,6 +316,9 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                 "請依 recheck_rule_ids、next_checks 與 next_source_paths 重新核實，"
                 "保留既有 Findings，不得只改寫判定理由或自動改成 Pass。"
             )
+    if detail_id is not None and source_root is not None:
+        queue["instruction"] = ("規範明細不執行全部安全守門；正式結案請重新執行不帶 --detail-id "
+                                "的 review_queue.py，再執行 review_safety.py --validate。")
     return queue
 
 
@@ -401,4 +423,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from review_log import logged_main
+    raise SystemExit(logged_main(main, "queue"))
