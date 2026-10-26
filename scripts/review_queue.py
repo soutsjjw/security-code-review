@@ -416,10 +416,24 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    # 重複查詢精簡待辦時自動記錄可觀測進度；數字屬預覽，仍不得當作完成證據。
+    stalled = False
+    if args.compact:
+        try:
+            from review_log import checkpoint
+            observed = {"completed_rules": queue["completed"]}
+            if queue["source_coverage"] is not None:
+                observed["reviewed_files"] = queue["source_coverage"]["reviewed_source_file_count"]
+            log_state = checkpoint(target, "queue", observed)
+            queue["review_run_id"] = log_state["run_id"]
+            queue["run_status"] = log_state["status"]
+            stalled = log_state["status"] == "stalled"
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"WARNING: 無法記錄佇列執行進度（{type(exc).__name__}）", file=sys.stderr)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(queue, ensure_ascii=False, indent=2))
-    return 0
+    return 3 if stalled else 0
 
 
 if __name__ == "__main__":
