@@ -39,6 +39,29 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 **範圍分流**：以下凡提及正式 `analysis_prepare.py`、`review_safety.py`、全部十類逐檔篩選、`ready_for_report=true`、`70/70` 及正式根目錄 `assessment.json/report.json` 的操作步驟，均為**未指定 `--categories` 的完整模式專用**。共同證據與判定階梯、標準文件按需載入、單代理限制、不可虛構證據與不得修改受測程式碼，兩種模式都適用。
 
+## 完整 70 項審查的執行 Log、效能量測與安全續跑
+
+**正式完整模式必須啟用。** Agent 決定 TARGET_ROOT 後，先執行：
+
+```bash
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
+```
+
+- 日誌固定保存於 `TARGET_ROOT/reports/security-code-review/logs/`：`<run_id>.jsonl`、`<run_id>-summary.json`、`latest.json`。每次啟動產生新 `run_id`，續跑保留 `review_id`；明確開始新的審查才加 `start --new-review`。
+- `analysis_prepare.py`、`review_queue.py`、`review_safety.py`、`complete_review.py` 自動記錄 CLI 指令耗時及退出狀態。Agent **每批實際證據成功保存後**另記一次 checkpoint：
+
+```bash
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase first_pass --completed-rules 12 --reviewed-files 80
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase cross_file_analysis --verified-callsites 25
+python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase second_pass --second-pass-rules 6
+```
+
+- 上述數字**只是示例**，必須用當次已儲存、可核對的真實累計值；Token 只在執行器提供實際數值時記錄。無執行器心跳時，checkpoint 只在 Agent 明確呼叫時更新，**不可聲稱背景自動監測**。
+- 連續至少 4 次無進展且距上次進展至少 15 分鐘，checkpoint 設為 `stalled`、退出碼 3。Agent 必須保存已核對證據、列出卡住的規則／跨檔候選與下一個實際調查動作；不可重複空跑，也不可把 STALLED 改為 Pass。查明後再次 `start` 續跑，必要時 `finish --status blocked` 或 `finish --status interrupted`。
+- `--compact` 與 `--detail-id` 是**未執行完整驗證的進度預覽**：`validation_deferred=true`、`ready_for_report=false`；`source_coverage.verified=false` 的檔案數僅供排序。規則及檔案全部完成後，必須執行**不帶 `--compact` / `--detail-id`** 的 `review_queue.py`、`review_safety.py --validate` 及正式報告驗證。不可用預覽值宣稱 100%。
+- 首次結構分析使用 `--mode full`；來源快照未變且索引版本一致的續跑使用 `--mode incremental`，才重用 Roslyn 與跨檔索引。來源、規則或分析器版本異動，一律回到完整重新核對與原先的快照守門；快取永遠不代替程式碼證據。
+- Log **不是安全證據或交易完整性紀錄**，不屬於 `assessment.json` 的受控交易；不記錄來源全文、密碼、Token、Prompt 或未過濾例外訊息。不可刪除舊 Finding、弱化 70 項／跨檔／第二輪／100% 來源驗證。完整報告成功驗證才自動記錄 `completed`。
+
 ## 技術支援及 Token 優化前置（必須執行）
 
 本節技術支援範圍、證據及 Token 原則適用兩種模式；其中 `analysis_prepare.py`、不帶分類參數的佇列和正式 `analysis/` 只適用完整模式。分類模式改用上方 `review_queue.py --categories ... --prepare`。
@@ -54,7 +77,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 此步驟唯讀盤點來源，將 Roslyn 產出的 C# 語法結構索引與 SHA256 保存到受測專案 `reports/security-code-review/analysis/structure-index.json`。Roslyn 由已安裝的 .NET SDK 8+ 提供（暫存目錄編譯，不變更受測專案、不自動安裝套件），不存在時降級為來源閱讀。**這只是符號／語法索引，不是 Roslyn 安全掃描或 SAST 結論**。
 - 自動偵測 CodeGraph CLI 與既有 `.codegraph/` 索引；可用時優先以 `codegraph_explore` MCP 或 `codegraph explore` 查詢結構、方法與跨檔案呼叫鏈。失敗、未安裝、未索引或索引過期時使用原有來源讀取／搜尋，不得自行執行 `codegraph init`。CodeGraph 索引**不能取代程式碼、組態、資料流及測試證據**，來源異動後須確認索引新鮮度。
 - 增量模式只重用**未改變的語法結構索引**，不是自動重用 `pass/completed`。當任何已盤點來源新增、修改、刪除時，未取得可驗證的完整跨檔案影響閉包前，保守重新檢核全部來源；保留原有 Findings，但須覆核受影響的既有判斷。
-- 執行佇列優先 `--compact` 以節省回傳 Token；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
+- 執行佇列優先 `--compact` 以節省回傳 Token；其結果只為未驗證進度預覽，不代表正式完整性守門通過；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
 ## 審查資料完整性與中斷交易復原（完整模式專用）
