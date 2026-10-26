@@ -34,7 +34,7 @@ python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint 
 
 ## .NET 專用分析器（未來擴充 .NET Framework／Vue）
 
-本階段 `scripts/analysis_adapters.py` 僅啟用 `dotnet-modern` Adapter。傳統 .NET Framework、Vue 及混合專案目前會拒絕完整審查，而非默默跳過；未來可增加 Adapter，而不改動共用的 70 條規則、逐檔證據契約或報告格式。
+本階段 `scripts/analysis_adapters.py` 僅啟用 `dotnet-modern` Adapter。此 Adapter 支援 `net10.0`，並使用 `dotnet msbuild <csproj> -getProperty:TargetFramework,TargetFrameworks,TargetFrameworkVersion` 評估從父層 `Directory.Build.props`／`Directory.Build.targets`、`<Import>`、條件式屬性實際繼承的 TFM；不執行建置／還原目標，不修改受測專案。僅限沒有動態屬性與匯入的直接 TFM 採 XML 字面值。需安裝支援此命令的 MSBuild 17.8+（dotnet SDK 8+）；若 SDK 無法評估目標或屬性未展開，明確 `blocked`、保留日誌與進度，不能用字串搜尋假設成功。傳統 .NET Framework、Vue 及混合專案目前會拒絕完整審查，而非默默跳過；未來可增加 Adapter，而不改動共用的 70 條規則、逐檔證據契約或報告格式。
 
 Agent 在開始佇列之前先執行下列**結構索引準備**（初次 full，重跑可改 incremental）：
 
