@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 import yaml
 from system_baseline import source_review_hints
 from web_guide import web_guide_review_hints
@@ -138,7 +139,9 @@ STANDARD_GUIDES = {
 
 
 def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: Path | None = None,
-                compact: bool = False, detail_id: str | None = None) -> dict:
+                compact: bool = False, detail_id: str | None = None,
+                source_batch_size: int = 30, profile: dict[str, float] | None = None) -> dict:
+    started = time.perf_counter()
     checks = data.get("checks")
     if not isinstance(checks, list):
         raise ValueError("assessment.json 缺少 checks 陣列")
@@ -166,15 +169,19 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     # 查佇列、查單條規範不得每次重新掃描全部檔案與安全守門；
     # 預覽數字絕不可令 ready_for_report=true。正式查核使用不帶這兩個參數的佇列。
     fast_query = compact or detail_id is not None
+    coverage_started = time.perf_counter()
     coverage = ((provisional_source_coverage(data, source_root) if fast_query
                  else build_source_coverage(data, source_root))
                 if source_root is not None else None)
+    if profile is not None:
+        profile["coverage"] = time.perf_counter() - coverage_started
     unreviewed = coverage["missing_source_file_count"] if coverage else 0
     integrity_errors = coverage["review_integrity_errors"] if coverage else []
     # 顯示下一批檔案的多條規則候選，協助 Agent 追查；候選不能自動算 completed。
     source_candidates = []
+    candidate_started = time.perf_counter()
     if coverage and source_root is not None:
-        for path in coverage["missing_source_paths"][:30]:
+        for path in coverage["missing_source_paths"][:source_batch_size]:
             try:
                 hits = candidate_hits(path, read_source_text(source_root / path)[0])
             except (OSError, UnicodeError):
@@ -185,19 +192,19 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                 })
             if len(source_candidates) >= 15:
                 break
-    # 70/70 之後仍需顯示已完成卻證據不足的規則，保留既有補查能力；
-    # 中途的高頻率待辦查詢一律略過此完整診斷。
-    if not remaining and fast_query and source_root is not None:
-        strict_coverage = build_source_coverage(data, source_root)
-        integrity_errors = strict_coverage["review_integrity_errors"]
-        unreviewed = strict_coverage["missing_source_file_count"]
+    if profile is not None:
+        profile["source_candidates"] = time.perf_counter() - candidate_started
+    # 預覽即使 70/70 也不得觸發正式覆蓋率／判定品質掃描。
+    diagnostic_started = time.perf_counter()
     rule_errors = (completion_errors(checks) + decision_quality_errors(checks, source_root=source_root)
-                   if not remaining else [])
+                   if not remaining and not fast_query else [])
     safety_issues = (safety_errors(source_root, data)
                      if source_root is not None and not fast_query else [])
     second_pass = (adversarial_progress(source_root, data, batch_size)
                    if source_root is not None and not fast_query
                    else {"enabled": False, "verification_deferred": fast_query})
+    if profile is not None:
+        profile["diagnostics"] = time.perf_counter() - diagnostic_started
     # 70/70 完成但證據品質不合格時，原佇列 next_checks 為空，Agent 容易停止。
     # 從來源完整性／規則完整性錯誤抽取須重新核對的真實規則，不變更原始狀態。
     ids_to_recheck: set[str] = set()
@@ -232,7 +239,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "missing_by_type": coverage["missing_by_type"],
             "verified": not fast_query,
         } if coverage else None),
-        "next_source_paths": coverage["missing_source_paths"][:30] if coverage else [],
+        "next_source_paths": coverage["missing_source_paths"][:source_batch_size] if coverage else [],
         "next_source_candidates": source_candidates,
         "review_integrity_errors": integrity_errors[:20],
         "rule_integrity_errors": rule_errors[:30],
@@ -325,6 +332,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     if detail_id is not None and source_root is not None:
         queue["instruction"] = ("規範明細不執行全部安全守門；正式結案請重新執行不帶 --detail-id "
                                 "的 review_queue.py，再執行 review_safety.py --validate。")
+    if profile is not None:
+        profile["queue_total"] = time.perf_counter() - started
     return queue
 
 
@@ -333,6 +342,8 @@ def main() -> int:
     parser.add_argument("--target", type=Path, default=Path.cwd())
     parser.add_argument("--init", action="store_true", help="僅建立不存在的審查檔；保留既有結果")
     parser.add_argument("--batch-size", type=int, default=10)
+    parser.add_argument("--source-batch-size", type=int, default=30,
+                        help="每批來源檔案路徑數（1～200），不影響審查覆蓋要求")
     parser.add_argument("--compact", action="store_true", help="僅回傳精簡檢核工作清單；詳細規範另查")
     parser.add_argument("--detail-id", help="僅查詢一條規則的詳細提示（包括已完成規則）")
     parser.add_argument("--categories", action="append", metavar="AC,AU",
@@ -362,6 +373,8 @@ def main() -> int:
         parser.error("--compact 與 --detail-id 不可同時指定")
     if not 1 <= args.batch_size <= 70:
         parser.error("--batch-size 必須介於 1 到 70")
+    if not 1 <= args.source_batch_size <= 200:
+        parser.error("--source-batch-size 必須介於 1 到 200")
     target = args.target.resolve()
     if not target.is_dir() or target == SKILL_ROOT or SKILL_ROOT in target.parents:
         parser.error("受測路徑不存在或指向 Skill 安裝目錄")
@@ -409,19 +422,32 @@ def main() -> int:
             sys.stdout.reconfigure(encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1 if args.validate and not result["safety_valid"] else 0
+    profile: dict[str, float] = {}
+    started = time.perf_counter()
     try:
         ruleset, rules = load_rules()
+        profile["load_rules"] = time.perf_counter() - started
         if args.init:
             initialize(target, out, ruleset, rules)
         path = out / "assessment.json"
         if not path.is_file():
             raise FileNotFoundError(f"尚未建立 {path}；請使用 --init")
+        read_started = time.perf_counter()
         payload = json.loads(path.read_text(encoding="utf-8"))
+        profile["read_assessment"] = time.perf_counter() - read_started
         queue = build_queue(payload, rules, args.batch_size, source_root=target,
-                            compact=args.compact, detail_id=args.detail_id)
+                            compact=args.compact, detail_id=args.detail_id,
+                            source_batch_size=args.source_batch_size, profile=profile)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    # Query 分段耗時僅作診斷，不改變安全判定。
+    profile["query_total_before_output"] = time.perf_counter() - started
+    try:
+        from review_log import record_profile
+        record_profile(target, "queue", "query", profile)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"WARNING: 無法記錄 Query 計時（{type(exc).__name__}）", file=sys.stderr)
     # 重複查詢精簡待辦時自動記錄可觀測進度；數字屬預覽，仍不得當作完成證據。
     stalled = False
     if args.compact:
@@ -438,7 +464,8 @@ def main() -> int:
             print(f"WARNING: 無法記錄佇列執行進度（{type(exc).__name__}）", file=sys.stderr)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    print(json.dumps(queue, ensure_ascii=False, indent=2))
+    print(json.dumps(queue, ensure_ascii=False, separators=(",", ":") if args.compact else None,
+                     indent=None if args.compact else 2))
     return 3 if stalled else 0
 
 
