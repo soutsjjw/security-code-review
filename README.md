@@ -1,11 +1,12 @@
 # Security Code Review
 
-以 **70 項資安規則**進行原始碼審查的 Codex／Claude Code Skill，支援分批續跑、弱點證據紀錄，以及可離線檢視的 HTML／JSON 報告。
+以 **70 項資安規則**進行原始碼審查的 Codex／Claude Code Skill，支援分批續跑、執行效能 Log、停滯偵測、弱點證據紀錄，以及可離線檢視的 HTML／JSON 報告。
 
 **規則集：v2.0.0（正式版）** · **Skill：v2.2.0-rc1** · **審查規則：70 項**
 
 規則集現可直接作為本專案正式版本使用，**不需要先取得公司資安核定**。這不代表任何受測系統已符合所有法規，也不取代特定系統的正式分級、政策核准或第三方測試。
 
+完整審查的執行紀錄位於受測專案 `reports/security-code-review/logs/`。每次執行分別記錄 JSONL、耗時摘要、進度及停滯狀態；詳細指令請見 [進階使用](docs/advanced-usage.md#完整審查執行-log-與效能追蹤)。
 ## 快速開始
 
 安裝 Skill 後，在**受測專案的 Codex 對話**中輸入：
