@@ -78,27 +78,22 @@ def project_placeholder_errors(project: dict[str, Any]) -> list[str]:
 
 
 def detect_language_framework(target: Path) -> str:
-    """從 .csproj／Directory.Build.props 唯讀推得框架；失敗回傳佔位值，由驗證擋下。"""
-    frameworks: set[str] = set()
-    is_web = False
-    scanned = 0
-    for root, dirs, files in os.walk(target):
-        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
-        for name in files:
-            if not (name.endswith(".csproj") or name == "Directory.Build.props"):
-                continue
-            scanned += 1
-            try:
-                text = (Path(root) / name).read_text(encoding="utf-8-sig", errors="replace")
-            except OSError:
-                continue
-            for m in re.finditer(r"<TargetFrameworks?>\s*([^<]+?)\s*</TargetFrameworks?>", text):
-                frameworks.update(x.strip() for x in m.group(1).split(";") if x.strip())
-            is_web = is_web or 'Sdk="Microsoft.NET.Sdk.Web"' in text
-        if scanned > 500:
-            break
-    if not frameworks:
+    """重用與結構索引相同的 MSBuild 屬性評估；失敗保留佔位，不猜測框架。"""
+    from analysis_adapters import ModernDotNetAdapter
+
+    detection = ModernDotNetAdapter().detect(target)
+    if not detection["supported"]:
         return PLACEHOLDER_VALUES[1] + "（Agent 須依實際盤點填寫）"
+    frameworks = {tfm for project in detection["projects"]
+                  for tfm in project["target_frameworks"]}
+    is_web = False
+    for project in detection["projects"]:
+        path = target / project["path"]
+        try:
+            content = path.read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            continue
+        is_web = is_web or 'Sdk="Microsoft.NET.Sdk.Web"' in content
     kind = "ASP.NET Core" if is_web else ".NET"
     return f"{kind}（C#，{'、'.join(sorted(frameworks))}）"
 
