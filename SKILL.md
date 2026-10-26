@@ -37,8 +37,9 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 Windows 範例（同一 PowerShell 工作階段）：
 
 ```powershell
-$env:SECURITY_CODE_REVIEW_PYTHON_PINNED = (& "<SKILL_ROOT>\\scripts\\run-python.cmd" --resolve).Trim()
-if ($LASTEXITCODE -ne 0 -or -not $env:SECURITY_CODE_REVIEW_PYTHON_PINNED) { throw "Python 環境檢查失敗" }
+$resolvedPython = & "<SKILL_ROOT>\\scripts\\run-python.cmd" --resolve
+if ($LASTEXITCODE -ne 0 -or -not $resolvedPython) { throw "Python 環境檢查失敗" }
+$env:SECURITY_CODE_REVIEW_PYTHON_PINNED = $resolvedPython.Trim()
 & "<SKILL_ROOT>\\scripts\\run-python.cmd" --check
 ```
 
