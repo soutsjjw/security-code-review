@@ -31,7 +31,7 @@
 
 ## 操作順序（Agent 執行，使用者只需一次 Prompt）
 
-以下範例中 `CATS=AC,AU` 代表本次指定類別；操作時 Agent 必須將 `<SKILL_ROOT>`、`<TARGET_ROOT>` 替換為真實路徑，並透過 Skill 提供的 Python 啟動器執行。先執行 `--check` 確認 Python 3.10+ 與相依套件。
+以下範例中 `CATS=AC,AU` 代表本次指定類別；操作時 Agent 必須將 `<SKILL_ROOT>`、`<TARGET_ROOT>` 替換為真實路徑，並透過 Skill 提供的 Python 啟動器執行。先依 [SKILL.md](../SKILL.md#python-執行環境確認與固定兩種模式共用) 執行 `--resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`，分批呼叫不得切換。
 
 | 動作 | 完整指令中的附加參數 |
 |---|---|
