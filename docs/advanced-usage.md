@@ -357,8 +357,9 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/source_reader.py" 
 Python 3.10+；在 Skill 根目錄安裝 `requirements.txt` 後：
 
 ```bash
-python scripts/validate_package.py
-python -m unittest discover -s tests -v
+sh scripts/run-python.sh scripts/validate_package.py
+PYTHON="$(sh scripts/run-python.sh --resolve)"
+"$PYTHON" -m unittest discover -s tests -v
 ```
 
 核心檔案包括 `rules.json`、`rules.yaml`、`rules/`、`schemas/`、`templates/security-report.html` 及 `scripts/`。規則集 v2.0.0 的正式發布**不需公司資安簽核**；個別專案的實際法規適用、風險接受與制度文件，仍須依其權責與證據確認。
