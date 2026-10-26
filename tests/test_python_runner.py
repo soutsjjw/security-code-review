@@ -51,6 +51,9 @@ class PosixPythonRunnerTests(unittest.TestCase):
     def run_runner(self, *args, env=None):
         environ = os.environ.copy()
         environ.pop("SECURITY_CODE_REVIEW_PYTHON", None)
+        environ.pop("SECURITY_CODE_REVIEW_PYTHON_PINNED", None)
+        environ.pop("VIRTUAL_ENV", None)
+        environ.pop("CONDA_PREFIX", None)
         if env:
             environ.update(env)
         return subprocess.run(["/bin/sh", str(self.runner), *args], text=True, capture_output=True, env=environ)
@@ -91,6 +94,46 @@ class PosixPythonRunnerTests(unittest.TestCase):
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
             self.assertEqual(assessment.read_text(encoding="utf-8"), original)
 
+    def test_invalid_preference_falls_back_to_python3(self):
+        proxy = self.bin / "python3"
+        proxy.write_text("#!/bin/sh\\nexec " + repr(sys.executable) + " \\"$@\\"\\n", encoding="utf-8")
+        proxy.chmod(0o755)
+        env = {"PATH": str(self.bin), "SECURITY_CODE_REVIEW_PYTHON": "/no/such/python"}
+        resolved = self.run_runner("--resolve", env=env)
+        self.assertEqual(resolved.returncode, 0, resolved.stderr)
+        self.assertEqual(Path(resolved.stdout.strip()).resolve(), Path(sys.executable).resolve())
+        self.assertIn("preferred_python_unavailable", resolved.stderr)
+
+    def test_resolve_then_pin_survives_path_changes(self):
+        resolved = self.run_runner("--resolve")
+        self.assertEqual(resolved.returncode, 0, resolved.stderr)
+        chosen = resolved.stdout.strip()
+        self.assertTrue(Path(chosen).is_absolute())
+        pinned = self.run_runner(str(self.script), "locked", env={
+            "PATH": str(self.bin), "SECURITY_CODE_REVIEW_PYTHON_PINNED": chosen,
+        })
+        self.assertEqual(pinned.returncode, 0, pinned.stderr)
+        self.assertIn("RUN:locked", pinned.stdout)
+
+    def test_broken_pin_fails_closed_without_fallback(self):
+        result = self.run_runner(str(self.script), env={
+            "SECURITY_CODE_REVIEW_PYTHON_PINNED": "/missing/python",
+        })
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("pinned_python_unavailable", result.stderr)
+        self.assertNotIn("RUN:", result.stdout)
+
+    def test_virtual_environment_candidate_is_detected(self):
+        venv_bin = Path(self.tmp.name) / "venv" / "bin"
+        venv_bin.mkdir(parents=True)
+        fake = venv_bin / "python"
+        fake.write_text("#!/bin/sh\\nexec " + repr(sys.executable) + " \\"$@\\"\\n", encoding="utf-8")
+        fake.chmod(0o755)
+        checked = self.run_runner("--check", env={
+            "PATH": str(self.bin), "VIRTUAL_ENV": str(venv_bin.parent),
+        })
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+
     def test_missing_packages_never_trigger_automatic_install(self):
         (self.runner.parent.parent / "requirements.txt").write_text(
             "this_missing_pkg>=1,<2\n", encoding="utf-8"
@@ -126,6 +169,39 @@ class WindowsPythonRunnerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("ARGS:hello world", result.stdout)
             self.assertIn("中文輸出正常", result.stdout)
+
+    def test_preferred_python_fallback_and_pinned_runtime(self):
+        runner = ROOT / "scripts" / "run-python.cmd"
+        env = os.environ.copy()
+        env.pop("SECURITY_CODE_REVIEW_PYTHON_PINNED", None)
+        env["SECURITY_CODE_REVIEW_PYTHON"] = r"C:\\missing-python\\python.exe"
+        resolved = subprocess.run(
+            ["cmd", "/c", str(runner), "--resolve"], capture_output=True,
+            text=True, encoding="utf-8", env=env,
+        )
+        self.assertEqual(resolved.returncode, 0, resolved.stderr)
+        chosen = resolved.stdout.strip()
+        self.assertTrue(Path(chosen).is_absolute())
+        self.assertTrue(Path(chosen).is_file())
+        self.assertIn("preferred_python_unavailable", resolved.stderr)
+        env.pop("SECURITY_CODE_REVIEW_PYTHON", None)
+        env["SECURITY_CODE_REVIEW_PYTHON_PINNED"] = chosen
+        pinned = subprocess.run(
+            ["cmd", "/c", str(runner), "--check"], capture_output=True,
+            text=True, encoding="utf-8", env=env,
+        )
+        self.assertEqual(pinned.returncode, 0, pinned.stderr)
+        self.assertIn(chosen.casefold(), pinned.stdout.casefold())
+
+    def test_broken_pin_never_falls_back(self):
+        env = os.environ.copy()
+        env["SECURITY_CODE_REVIEW_PYTHON_PINNED"] = r"C:\\missing-python\\python.exe"
+        result = subprocess.run(
+            ["cmd", "/c", str(ROOT / "scripts" / "run-python.cmd"), "--check"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("pinned_python_unavailable", result.stderr)
 
 
 if __name__ == "__main__":
