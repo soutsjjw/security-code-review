@@ -258,8 +258,19 @@ def prepare(root: Path, mode: str = "full") -> dict:
     pending = [p for p in csharp if p not in reused]
     parsed, errors = _run_roslyn(root, pending, roslyn)
     indexed = {**reused, **parsed}
-    call_hints = cross_file_call_hints(indexed)
-    typed_relationships = build_relationships(root, sorted(source), call_hints)
+    # 完整來源 SHA256、分析器契約與 SDK 版本全部相符時，跨檔索引可原樣重用。
+    # 任何來源增刪改或版本差異都回到保守重算，不沿用安全判定。
+    relationships_reused = (mode == "incremental" and compatible
+                            and not changed and not removed
+                            and len(reused) == len(csharp)
+                            and isinstance(previous.get("cross_file_call_hints"), dict)
+                            and isinstance(previous.get("typed_relationships"), list))
+    if relationships_reused:
+        call_hints = previous["cross_file_call_hints"]
+        typed_relationships = previous["typed_relationships"]
+    else:
+        call_hints = cross_file_call_hints(indexed)
+        typed_relationships = build_relationships(root, sorted(source), call_hints)
     # 變更的呼叫端/組態可能影響未變動來源；沒有受驗證依賴閉包前採保守重審。
     recheck = sorted(source) if changed or removed or not compatible or mode == "full" else []
     payload = {
@@ -293,6 +304,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
         "candidate_link_count": sum(len(hits) for hits in rule_candidates.values()),
         "candidate_reused_count": candidate_reused,
         "typed_relationship_count": len(typed_relationships),
+        "relationships_reused": relationships_reused,
         "typed_relationship_kinds": sorted({edge["kind"] for edge in typed_relationships}),
         "cross_file_caller_count": len(call_hints),
         "cross_file_callsite_count": sum(len(v) for v in call_hints.values()),
@@ -326,4 +338,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from review_log import logged_main
+    raise SystemExit(logged_main(main, "structure_index"))
