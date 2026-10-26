@@ -147,6 +147,25 @@ class SourceSkeletonTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SHA256"):
                 skeleton(root, requested_paths=["Service0.cs"])
 
+    def test_worker_pagination_covers_all_without_writes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.create_fixture(root)
+            rows = []
+            for worker_id in range(3):
+                offset = 0
+                while True:
+                    page = skeleton(root, workers=3, worker_id=worker_id,
+                                    batch_size=2, offset=offset)
+                    rows.extend(row["path"] for row in page["files"])
+                    if page["next_offset"] is None:
+                        break
+                    self.assertGreater(page["next_offset"], offset)
+                    offset = page["next_offset"]
+            self.assertEqual(len(rows), 8)
+            self.assertEqual(len(set(rows)), 8)
+            self.assertFalse((root / "reports/security-code-review/analysis/staged").exists())
+
     def test_invalid_requested_path_cannot_escape_source_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
