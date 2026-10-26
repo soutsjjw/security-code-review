@@ -60,10 +60,11 @@ def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
         path = (root / relative).resolve()
         if not path.is_relative_to(root) or not path.is_file() or path.is_symlink():
             raise ValueError("來源路徑無效、符號連結或超出受測範圍")
-        digest = source_digest(path.read_bytes())
+        raw = path.read_bytes()
+        digest = source_digest(raw)
         if digest != hashes[relative]:
             raise ValueError(f"{relative}: SHA256 與來源快照不同，拒絕使用過期候選")
-        content, encoding = read_source_text(path)
+        content, encoding = read_source_text(path, raw=raw)
         roslyn = (index.get("roslyn_files") or {}).get(relative, {})
         hits = (index.get("rule_candidates") or {}).get(relative)
         if hits is None:
