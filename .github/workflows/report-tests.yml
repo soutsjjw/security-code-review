@@ -45,6 +45,10 @@ jobs:
         env:
           PYTHONUTF8: '0'
         run: python -m unittest discover -s tests -p test_quality_baseline.py -v
+      - name: Test Windows .NET integration and UTF-8 build output (CP950 locale)
+        env:
+          PYTHONUTF8: '0'
+        run: python -m unittest discover -s tests -p test_partial_dotnet_integration.py -v
       - name: Test Windows P1 Roslyn cross-file candidates
         env:
           PYTHONUTF8: '0'
