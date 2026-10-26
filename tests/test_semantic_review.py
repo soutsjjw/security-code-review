@@ -163,9 +163,12 @@ class SemanticSecurityReviewTests(unittest.TestCase):
         checks[0]["execution"]["inspected_paths"] = ["Auth.cs"]
         row = make_file_review(self.root, "Auth.cs", ["AC-01"])
         data = {"checks": checks, "file_reviews": [row], "findings": [{"id": "F-1"}]}
-        queue = build_queue(data, rules, 10, source_root=self.root, compact=True)
-        self.assertEqual(queue["completed"], 70)
-        self.assertFalse(queue["ready_for_report"])
+        preview = build_queue(data, rules, 10, source_root=self.root, compact=True)
+        self.assertEqual(preview["completed"], 70)
+        self.assertFalse(preview["ready_for_report"])
+        self.assertTrue(preview["validation_deferred"])
+        # 已完成規則的弱證據仍須在正式查核時浮出；compact 不應重掃全案。
+        queue = build_queue(data, rules, 10, source_root=self.root)
         self.assertIn("AC-01", queue["recheck_rule_ids"])
         self.assertEqual(queue["next_checks"][0]["id"], "AC-01")
         self.assertEqual(queue["findings_saved"], 1)
