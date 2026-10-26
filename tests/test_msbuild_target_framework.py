@@ -132,9 +132,10 @@ class MSBuildTFMTests(unittest.TestCase):
             error = ModernDotNetAdapter().detect(self.root)
         self.assertFalse(error["supported"])
         self.assertIn("未展開", error["projects"][0]["reason"])
-        self.assertTrue(project_placeholder_errors({
-            "language_framework": detect_language_framework(self.root)
-        }) if not shutil.which("dotnet") else True)
+        with patch("analysis_adapters.shutil.which", return_value=None):
+            self.assertTrue(project_placeholder_errors({
+                "language_framework": detect_language_framework(self.root)
+            }))
 
     def test_literal_direct_tfm_works_without_sdk_and_net10_is_modern(self):
         self.project.write_text(
@@ -156,6 +157,17 @@ class MSBuildTFMTests(unittest.TestCase):
         detected = ModernDotNetAdapter().detect(self.root)
         self.assertTrue(detected["supported"], detected)
         self.assertEqual(detected["projects"][0]["target_frameworks"], ["net8.0"])
+        # 再檢查明確 <Import>，不依賴 Directory.Build.props 的搜尋慣例。
+        (self.root / "Directory.Build.props").unlink()
+        (self.root / "Shared.props").write_text(
+            '<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework>'
+            '</PropertyGroup></Project>', encoding="utf-8")
+        self.project.write_text(
+            '<Project Sdk="Microsoft.NET.Sdk"><Import Project="../../Shared.props"/>'
+            '</Project>', encoding="utf-8")
+        imported = ModernDotNetAdapter().detect(self.root)
+        self.assertTrue(imported["supported"], imported)
+        self.assertEqual(imported["projects"][0]["target_frameworks"], ["net8.0"])
 
 
 if __name__ == "__main__":
