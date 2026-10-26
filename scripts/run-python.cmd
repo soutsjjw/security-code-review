@@ -1,80 +1,113 @@
 @echo off
-setlocal EnableExtensions
-rem Windows may default to cp1252; keep Python output and errors in UTF-8.
+setlocal EnableExtensions DisableDelayedExpansion
+rem Python 3.10+ runner. Read-only discovery; never install packages or change review data.
 set "PYTHONIOENCODING=utf-8"
-rem 自動尋找可用 Python；只讀檢測，不安裝套件、不修改審查紀錄。
 set "SKILL_ROOT=%~dp0.."
 set "CHECKER=%~dp0check_python_env.py"
 set "PY_BIN="
-set "PY_LAUNCHER="
 set "FIRST_BIN="
-set "FIRST_LAUNCHER="
+set "FOUND_ENTRY="
 
-if defined SECURITY_CODE_REVIEW_PYTHON (
-    call :probe "%SECURITY_CODE_REVIEW_PYTHON%"
+rem A pinned interpreter is strict: never silently switch during a review.
+if defined SECURITY_CODE_REVIEW_PYTHON_PINNED (
+    call :probe "%SECURITY_CODE_REVIEW_PYTHON_PINNED%"
+    if not defined PY_BIN (
+        >&2 echo ERROR [pinned_python_unavailable]: Pinned Python cannot be executed or fails Python 3.10+ / requirements validation.
+        if defined FIRST_BIN "%FIRST_BIN%" "%CHECKER%" 1>&2
+        exit /b 2
+    )
 ) else (
-    call :probe "python"
-    if not defined PY_BIN call :probe "python3"
+    rem User preference is advisory. Fall back when it is stale or incomplete.
+    if defined SECURITY_CODE_REVIEW_PYTHON (
+        call :probe "%SECURITY_CODE_REVIEW_PYTHON%"
+        if not defined PY_BIN >&2 echo WARN [preferred_python_unavailable]: Trying other installed Python interpreters.
+    )
+    if not defined PY_BIN if defined VIRTUAL_ENV call :probe "%VIRTUAL_ENV%\Scripts\python.exe"
+    if not defined PY_BIN if defined CONDA_PREFIX call :probe "%CONDA_PREFIX%\python.exe"
+    if not defined PY_BIN call :probe "%CD%\.venv\Scripts\python.exe"
+    if not defined PY_BIN call :probe "%SKILL_ROOT%\.venv\Scripts\python.exe"
+    if not defined PY_BIN call :probe_by_name "python"
+    if not defined PY_BIN call :probe_by_name "python3"
     if not defined PY_BIN call :probe_launcher
+    rem Per-user and machine-wide installations may be missing from Codex's PATH.
+    if not defined PY_BIN if defined LOCALAPPDATA (
+        for /d %%D in ("%LOCALAPPDATA%\Programs\Python\Python3*") do (
+            if not defined PY_BIN if exist "%%~fD\python.exe" call :probe "%%~fD\python.exe"
+        )
+    )
+    if not defined PY_BIN if defined ProgramFiles (
+        for /d %%D in ("%ProgramFiles%\Python3*") do (
+            if not defined PY_BIN if exist "%%~fD\python.exe" call :probe "%%~fD\python.exe"
+        )
+    )
+    if not defined PY_BIN if defined USERPROFILE (
+        if exist "%USERPROFILE%\scoop\apps\python\current\python.exe" call :probe "%USERPROFILE%\scoop\apps\python\current\python.exe"
+        for /d %%D in ("%USERPROFILE%\.pyenv\pyenv-win\versions\*") do (
+            if not defined PY_BIN if exist "%%~fD\python.exe" call :probe "%%~fD\python.exe"
+        )
+    )
 )
-
 if not defined PY_BIN (
     if defined FIRST_BIN (
-        if defined FIRST_LAUNCHER (
-            "%FIRST_BIN%" -3 "%CHECKER%" 1>&2
-            >&2 echo 請先執行：py -3 -m pip install -r "%SKILL_ROOT%\requirements.txt"
-        ) else (
-            "%FIRST_BIN%" "%CHECKER%" 1>&2
-            >&2 echo 請先執行："%FIRST_BIN%" -m pip install -r "%SKILL_ROOT%\requirements.txt"
-        )
+        >&2 echo ERROR [python_dependencies_invalid]: Found Python 3.10+, but Skill dependencies are missing or incompatible.
+        "%FIRST_BIN%" "%CHECKER%" 1>&2
     ) else (
-        >&2 echo ERROR: 此執行環境找不到 Python 3.10+。請安裝 Python 並確認 python、python3 或 py -3 可用。
+        if defined FOUND_ENTRY (
+            >&2 echo ERROR [python_not_executable]: Python files were found but could not run Python 3.10+. Check versions and sandbox permissions.
+        ) else (
+            >&2 echo ERROR [python_not_visible]: No usable Python 3.10+ is visible from this CMD/Codex environment. Check PATH, WSL or sandbox isolation.
+        )
     )
     exit /b 2
 )
-
-if /I "%~1"=="--check" (
-    if defined PY_LAUNCHER (
-        "%PY_BIN%" -3 "%CHECKER%"
-    ) else (
-        "%PY_BIN%" "%CHECKER%"
-    )
-    if errorlevel 1 exit /b 2
+if /I "%~1"=="--resolve" (
+    echo(%PY_BIN%
     exit /b 0
 )
+if /I "%~1"=="--check" (
+    "%PY_BIN%" "%CHECKER%"
+    exit /b %errorlevel%
+)
 if "%~1"=="" (
-    >&2 echo ERROR: 需指定已存在的 Python 腳本，或使用 --check。
+    >&2 echo ERROR: Provide a Python script or --check/--resolve.
     exit /b 2
 )
 if not exist "%~1" (
-    >&2 echo ERROR: Python 腳本不存在：%~1
+    >&2 echo ERROR: Python script not found: %~1
     exit /b 2
 )
-if defined PY_LAUNCHER (
-    "%PY_BIN%" -3 %*
-) else (
-    "%PY_BIN%" %*
-)
+"%PY_BIN%" %*
 exit /b %errorlevel%
 
 :probe
+if defined PY_BIN exit /b 0
+if not exist "%~1" exit /b 1
+set "FOUND_ENTRY=1"
 "%~1" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-if errorlevel 1 exit /b 0
+if errorlevel 1 exit /b 1
 if not defined FIRST_BIN set "FIRST_BIN=%~1"
 "%~1" "%CHECKER%" --quiet >nul 2>&1
-if errorlevel 1 exit /b 0
-set "PY_BIN=%~1"
+if errorlevel 1 exit /b 1
+set "PY_BIN=%~f1"
+exit /b 0
+
+:probe_by_name
+if defined PY_BIN exit /b 0
+if not exist "%SystemRoot%\System32\where.exe" exit /b 1
+for /f "delims=" %%P in ('"%SystemRoot%\System32\where.exe" "%~1" 2^>nul') do (
+    if not defined PY_BIN call :probe "%%P"
+)
 exit /b 0
 
 :probe_launcher
-py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-if errorlevel 1 exit /b 0
-if not defined FIRST_BIN (
-    set "FIRST_BIN=py"
-    set "FIRST_LAUNCHER=1"
+if defined PY_BIN exit /b 0
+for %%V in (3 3.15 3.14 3.13 3.12 3.11 3.10) do (
+    if not defined PY_BIN call :launcher_version %%V
 )
-py -3 "%CHECKER%" --quiet >nul 2>&1
-if errorlevel 1 exit /b 0
-set "PY_BIN=py"
-set "PY_LAUNCHER=1"
+exit /b 0
+
+:launcher_version
+for /f "delims=" %%P in ('py -%~1 -c "import sys; print(sys.executable)" 2^>nul') do (
+    if not defined PY_BIN call :probe "%%P"
+)
 exit /b 0
