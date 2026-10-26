@@ -220,6 +220,24 @@ def record_profile(target: Path, phase: str, operation: str, durations: dict[str
     _save(folder, state)
 
 
+def observe_coverage(target: Path, *, recorded: int, verified: int) -> None:
+    """正式完整驗證之後保存可觀測覆蓋數，不推導任何安全判定。"""
+    if recorded < 0 or verified < 0:
+        raise ValueError("覆蓋數不能為負")
+    folder, state = _active(target)
+    if state["status"] == "stalled":
+        return
+    previous = state.get("coverage_observation", {})
+    counts = {"recorded_file_reviews": recorded, "verified_file_reviews": verified,
+              "unverified_file_reviews": max(0, recorded - verified)}
+    if verified < previous.get("verified_file_reviews", 0):
+        _append(folder, state, "verified_coverage_regression", "queue", outcome="review",
+                metrics={"previous": previous["verified_file_reviews"], "current": verified})
+    state["coverage_observation"] = counts
+    _append(folder, state, "formal_coverage_observed", "queue", metrics=counts)
+    _save(folder, state)
+
+
 def logged_main(main, phase: str) -> int:
     """為既有 CLI 包裝耗時計量；不改變原本的退出碼與安全檢核決策。"""
     args = sys.argv[1:]
