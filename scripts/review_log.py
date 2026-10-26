@@ -16,7 +16,8 @@ REPORT = Path("reports/security-code-review")
 PHASES = ("initialization", "structure_index", "queue", "first_pass",
           "cross_file_analysis", "second_pass", "validation", "report")
 COUNTERS = ("completed_rules", "reviewed_files", "verified_callsites",
-            "second_pass_rules", "remaining_rules", "input_tokens", "output_tokens")
+            "second_pass_rules", "remaining_rules", "input_tokens", "output_tokens",
+            "recorded_file_reviews", "verified_file_reviews", "invalid_file_reviews")
 PROGRESS = COUNTERS[:4]
 STALL_CHECKPOINTS = 4
 STALL_SECONDS = 900
@@ -159,7 +160,12 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     _advance_phase(state, phase)
     state["checkpoints"] += 1
     before = state["progress"]
+    regressions = {key: {"before": before[key], "after": metrics[key]}
+                   for key in PROGRESS if key in metrics and metrics[key] < before[key]}
     advance = any(metrics.get(k, before[k]) > before[k] for k in PROGRESS)
+    if regressions:
+        _append(folder, state, "progress_regression", phase, outcome="review",
+                metrics={"counters": regressions})
     if advance:
         state["last_progress_epoch"] = _clock()
         state["no_progress_checkpoints"] = 0
@@ -172,6 +178,9 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
         if key in metrics:
             # 只有 Agent/執行器明確提供時才統計；不得推估。
             state["token_usage"][key] = metrics[key]
+    for key in ("recorded_file_reviews", "verified_file_reviews", "invalid_file_reviews"):
+        if key in metrics:
+            state.setdefault("coverage_observation", {})[key] = metrics[key]
     stopped_for = max(0.0, _clock() - state["last_progress_epoch"])
     stalled = (state["no_progress_checkpoints"] >= STALL_CHECKPOINTS
                and stopped_for >= STALL_SECONDS)
@@ -197,6 +206,20 @@ def finish(target: Path, status: str) -> dict:
     return state
 
 
+def record_profile(target: Path, phase: str, operation: str, durations: dict[str, float]) -> None:
+    """僅記錄計時，不參與完成進度、檔案證據或 SHA256 完整性判定。"""
+    if phase not in PHASES or not durations:
+        return
+    folder, state = _active(target)
+    if state["status"] == "stalled":
+        return
+    safe = {name: round(max(0.0, seconds), 3)
+            for name, seconds in durations.items()
+            if re.fullmatch(r"[a-z][a-z0-9_]{0,47}", name) and isinstance(seconds, (int, float))}
+    _append(folder, state, operation + "_profile", phase, metrics={"seconds": safe})
+    _save(folder, state)
+
+
 def logged_main(main, phase: str) -> int:
     """為既有 CLI 包裝耗時計量；不改變原本的退出碼與安全檢核決策。"""
     args = sys.argv[1:]
@@ -208,10 +231,21 @@ def logged_main(main, phase: str) -> int:
     except (ValueError, IndexError):
         selected = next((s.split("=", 1)[1] for s in args if s.startswith("--target=")), None)
         target = Path(selected) if selected else Path.cwd()
+    # 停滯後任何完整審查 CLI 都不得再執行昂貴查詢或整合；
+    # 只有明確呼叫 review_log.py start 才能建立新的 run 繼續。
+    try:
+        prior = _load(_paths(target)[1])
+        if prior and prior.get("status") == "stalled":
+            print("ERROR: 審查已 stalled；先檢查阻塞原因，再明確執行 review_log.py start 恢復。", file=sys.stderr)
+            return 3
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"ERROR: 無法安全讀取審查執行狀態（{type(exc).__name__}）", file=sys.stderr)
+        return 2
     start_at = time.perf_counter()
     operation = next((part.removeprefix("--") for part in args if part.startswith("--")
                       and part not in ("--target", "--compact", "--batch-size", "--detail-id",
-                                       "--mode", "--output-dir", "--source-encodings")), "query")
+                                       "--mode", "--output-dir", "--source-encodings",
+                                       "--source-batch-size", "--workers", "--worker-id")), "query")
     try:
         exit_code = main()
     except Exception:
