@@ -262,7 +262,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     # 任何來源增刪改或版本差異都回到保守重算，不沿用安全判定。
     relationships_reused = (mode == "incremental" and compatible
                             and not changed and not removed
-                            and len(reused) == len(csharp)
+                            and indexed == previous.get("roslyn_files")
                             and isinstance(previous.get("cross_file_call_hints"), dict)
                             and isinstance(previous.get("typed_relationships"), list))
     if relationships_reused:
