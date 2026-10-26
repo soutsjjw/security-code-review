@@ -131,4 +131,5 @@ def main() -> int:
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    from review_log import logged_main
+    sys.exit(logged_main(main, "report"))
