@@ -23,6 +23,35 @@ OLD_SECTION_HEADINGS = (
     "## 附件 3：HTTP 安全標頭防護設定（六項 CR-05 技術子檢核）",
 )
 DOC_LINK = re.compile(r"\]\((docs/[^)#]+\.md)(?:#[^)]+)?\)")
+STAGED_GUIDES = (
+    "docs/python-runtime.md",
+    "docs/full-review-workflow.md",
+    "docs/source-review-guidance.md",
+    "docs/review-decision-contract.md",
+    "docs/report-handoff.md",
+    "docs/category-review.md",
+    "docs/file-review-contract.md",
+    "docs/review-integrity-guards.md",
+    "docs/evidence-integrity.md",
+    "docs/control-effectiveness-review.md",
+    "docs/review-decision-adjudication.md",
+    "docs/adversarial-second-pass.md",
+)
+# 保護必要階段與規則來源，不依賴 Token 數量推估審查品質。
+STAGED_REQUIREMENTS = (
+    "## Python 執行環境確認與固定（兩種模式共用）",
+    "## 模式分流（開始任何正式初始化之前）",
+    "## 按階段載入（必須依時機實際讀取）",
+    "## 審查安全底線（兩種模式均適用）",
+    "## 正式完整模式執行與交付",
+    "100%",
+    "--begin-second-pass",
+    "review_safety.py --validate",
+    "ready_for_report=true",
+    "--categories",
+    "Finding",
+)
+
 
 
 def documentation_errors(root: Path) -> list[str]:
@@ -38,6 +67,20 @@ def documentation_errors(root: Path) -> list[str]:
         errors.append("SKILL.md 缺少按規則讀取標準文件的指令")
     if any(heading in main for heading in OLD_SECTION_HEADINGS):
         errors.append("SKILL.md 仍包含應移至 docs 的長篇標準章節")
+    if len(main.encode("utf-8")) > 15 * 1024:
+        errors.append("SKILL.md 超過 15 KiB，應按階段載入詳細審查文件")
+    for phrase in STAGED_REQUIREMENTS:
+        if phrase not in main:
+            errors.append(f"SKILL.md 缺少必要流程或安全限制：{phrase}")
+    for relative in STAGED_GUIDES:
+        if relative not in DOC_LINK.findall(main):
+            errors.append(f"SKILL.md 缺少階段性載入連結：{relative}")
+        file = root / relative
+        if not file.is_file():
+            errors.append(f"缺少階段性載入文件：{relative}")
+        elif len(file.read_text(encoding="utf-8").strip()) < 350:
+            errors.append(f"階段性載入文件過短、疑似遺失契約：{relative}")
+
 
     links = set(DOC_LINK.findall(main))
     if set(STANDARD_GUIDES) != set(STANDARD_CATALOGS):
