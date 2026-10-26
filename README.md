@@ -9,6 +9,8 @@
 完整審查的執行紀錄位於受測專案 `reports/security-code-review/logs/`。每次執行分別記錄 JSONL、耗時摘要、進度及停滯狀態；詳細指令請見 [進階使用](docs/advanced-usage.md#完整審查執行-log-與效能追蹤)。
 ## 快速開始
 
+支援父層 `Directory.Build.props`／`.targets` 與明確 `Import` 中繼承的 TargetFramework（含 `net10.0`）。匯入或條件式 TFM 使用 MSBuild 17.8+ 唯讀屬性評估；缺少可用 SDK 時保守阻斷，不會修改受測專案。
+
 安裝 Skill 後，在**受測專案的 Codex 對話**中輸入：
 
 ```text
