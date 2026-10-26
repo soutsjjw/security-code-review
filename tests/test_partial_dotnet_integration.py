@@ -23,6 +23,12 @@ from partial_review import _category_dir, _snapshot, initialize, queue, read_cat
 from partial_review_safety import prepare_index, validate, _shared_path
 from review_scope import ScopeError, load_catalog
 
+def run_utf8_process(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+    """不依賴 Windows cp950 解碼 dotnet 診斷訊息；保留非零退出碼。"""
+    return subprocess.run(command, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", check=False, **kwargs)
+
+
 SOURCES = {
     "Api/Orders.Api.csproj": """<Project Sdk="Microsoft.NET.Sdk.Web">
       <PropertyGroup><TargetFramework>net8.0</TargetFramework>
@@ -119,13 +125,26 @@ class DotNetCategoryIntegrationTests(unittest.TestCase):
         env = {**os.environ, "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
                "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1"}
         project = self.root / "Api/Orders.Api.csproj"
-        result = subprocess.run(
+        result = run_utf8_process(
             [dotnet, "build", str(project), "--nologo", "--verbosity", "quiet",
-             "--ignore-failed-sources"], cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=120, check=False,
+             "--ignore-failed-sources"], cwd=self.root, env=env, timeout=120,
         )
-        self.assertEqual(result.returncode, 0, result.stdout[-1500:] + result.stderr[-1500:])
+        self.assertEqual(result.returncode, 0,
+                         (result.stdout or "")[-1500:] + (result.stderr or "")[-1500:])
         self.assert_formal_unchanged()
+
+    def test_dotnet_output_decode_does_not_depend_on_windows_cp950(self):
+        """UTF-8 與異常位元組必須可讀，不可讓 reader thread 丟失 stdout/stderr。"""
+        command = (
+            "import sys; "
+            "sys.stdout.buffer.write(bytes([0xe6]) + '中文'.encode('utf-8')); "
+            "sys.stderr.buffer.write(bytes([0xff])); "
+            "sys.exit(7)"
+        )
+        result = run_utf8_process([sys.executable, "-c", command])
+        self.assertEqual(result.returncode, 7)
+        self.assertEqual(result.stdout, "\ufffd中文")
+        self.assertEqual(result.stderr, "\ufffd")
 
     def test_index_discovers_cross_project_calls_and_auth_control_candidates(self):
         stats = self.initialize_and_prepare()
