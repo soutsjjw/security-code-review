@@ -2,6 +2,7 @@
 """技術分析器註冊與工具探測；探測結果不是安全審查證據。"""
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -20,21 +21,98 @@ class AnalysisAdapter(Protocol):
     def detect(self, root: Path) -> dict: ...
 
 
+def _framework_values(values: list[str]) -> list[str]:
+    """只接受已解析的 TFM 字串；不猜測尚未展開的 MSBuild 變數。"""
+    result: set[str] = set()
+    for value in values:
+        for part in value.split(";"):
+            token = part.strip()
+            if not token:
+                continue
+            if "$(" in token or "%(" in token or "@(" in token:
+                raise ValueError("TargetFramework 仍包含未展開的 MSBuild 表達式")
+            result.add(token)
+    return sorted(result)
+
+
+def _requires_msbuild(project: Path, tree: ET.ElementTree, literal: list[str]) -> bool:
+    """判定能否安全採用純字面值；匯入/條件屬性必須由 MSBuild 真正評估。"""
+    if not literal:
+        return True
+    for node in tree.iter():
+        local = node.tag.rsplit("}", 1)[-1]
+        if local in {"Import", "ImportGroup", "Choose", "When", "Otherwise"}:
+            return True
+        if any(key.rsplit("}", 1)[-1] == "Condition" for key in node.attrib):
+            return True
+        if local in {"TargetFramework", "TargetFrameworks", "TargetFrameworkVersion"}:
+            if node.text and any(expr in node.text for expr in ("$(", "@(", "%(")):
+                return True
+    # MSBuild 會從專案目錄一路向上找最近的 Directory.Build.props，
+    # 並可在 Directory.Build.targets 後期覆寫屬性；不採用錯誤的同目錄解析捷徑。
+    for directory in (project.parent, *project.parent.parents):
+        if (directory / "Directory.Build.props").is_file():
+            return True
+        if (directory / "Directory.Build.targets").is_file():
+            return True
+    return False
+
+
+def _evaluated_tfms(project: Path) -> list[str]:
+    """使用 MSBuild 17.8+ 僅評估匯入後的屬性，不呼叫 Build/Restore/Target。"""
+    executable = shutil.which("dotnet")
+    if not executable:
+        raise ValueError("專案採用匯入／條件式 TFM，但找不到 dotnet SDK 可執行 MSBuild 屬性評估")
+    command = [
+        executable, "msbuild", str(project), "-nologo", "-verbosity:quiet",
+        "-getProperty:TargetFramework,TargetFrameworks,TargetFrameworkVersion",
+    ]
+    env = dict(os.environ, DOTNET_CLI_TELEMETRY_OPTOUT="1", DOTNET_NOLOGO="1",
+               DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1",
+               DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE="1",
+               MSBUILDDISABLENODEREUSE="1")
+    try:
+        result = subprocess.run(
+            command, cwd=project.parent, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30, check=False, env=env
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ValueError(f"MSBuild 唯讀 TFM 評估無法執行（{type(exc).__name__}）") from exc
+    if result.returncode != 0:
+        raise ValueError(f"MSBuild TFM 評估失敗（exit {result.returncode}，可能缺少相容 SDK／匯入）")
+    try:
+        document = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError("MSBuild 未輸出可解析的屬性 JSON（需要 MSBuild 17.8+）") from exc
+    props = document.get("Properties") if isinstance(document, dict) else None
+    if not isinstance(props, dict):
+        raise ValueError("MSBuild 回應缺少 Properties")
+    values = []
+    for property_name in ("TargetFramework", "TargetFrameworks"):
+        value = props.get(property_name, "")
+        if not isinstance(value, str):
+            raise ValueError(f"MSBuild {property_name} 格式不正確")
+        if value.strip():
+            values.append(value)
+    if not values:
+        value = props.get("TargetFrameworkVersion", "")
+        if not isinstance(value, str):
+            raise ValueError("MSBuild TargetFrameworkVersion 格式不正確")
+        if value.strip():
+            values.append(value)
+    return _framework_values(values)
+
+
 def _tfms(project: Path) -> list[str]:
     tree = ET.parse(project)
-    root = tree.getroot()
-    found: list[str] = []
-    for element in root.iter():
+    literal: list[str] = []
+    for element in tree.getroot().iter():
         name = element.tag.rsplit("}", 1)[-1]
-        if name in ("TargetFramework", "TargetFrameworks") and element.text:
-            found.extend(t.strip() for t in element.text.split(";") if t.strip())
-        if name == "TargetFrameworkVersion" and element.text:
-            found.append(element.text.strip())
-    if not found:
-        props = project.parent / "Directory.Build.props"
-        if props.is_file():
-            found = _tfms(props)
-    return sorted(set(found))
+        if name in ("TargetFramework", "TargetFrameworks", "TargetFrameworkVersion") and element.text:
+            literal.append(element.text)
+    if _requires_msbuild(project, tree, literal):
+        return _evaluated_tfms(project)
+    return _framework_values(literal)
 
 
 @dataclass(frozen=True)
@@ -51,14 +129,16 @@ class ModernDotNetAdapter:
                 if not filename.lower().endswith(".csproj"):
                     continue
                 p = Path(current) / filename
+                if p.is_symlink():
+                    continue
                 try:
                     tfms = _tfms(p)
-                except (OSError, ET.ParseError) as exc:
+                except (OSError, ET.ParseError, ValueError) as exc:
                     tfms = []
                     error = str(exc)
                 else:
                     error = ""
-                is_modern = bool(tfms) and all(MODERN_TFMS.match(t) for t in tfms)
+                is_modern = bool(tfms) and all(MODERN_TFMS.fullmatch(t) for t in tfms)
                 projects.append({"path": p.relative_to(root).as_posix(), "target_frameworks": tfms,
                                  "supported": is_modern, "reason": error or ("" if is_modern else "未知、非現代 .NET 或混合傳統 TFM")})
         return {"adapter": self.name, "projects": sorted(projects, key=lambda p: p["path"]),
