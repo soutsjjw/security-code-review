@@ -96,7 +96,7 @@ class PosixPythonRunnerTests(unittest.TestCase):
 
     def test_invalid_preference_falls_back_to_python3(self):
         proxy = self.bin / "python3"
-        proxy.write_text("#!/bin/sh\\nexec " + repr(sys.executable) + " \\"$@\\"\\n", encoding="utf-8")
+        proxy.write_text("#!/bin/sh\nexec " + repr(sys.executable) + " \"$@\"\n", encoding="utf-8")
         proxy.chmod(0o755)
         env = {"PATH": str(self.bin), "SECURITY_CODE_REVIEW_PYTHON": "/no/such/python"}
         resolved = self.run_runner("--resolve", env=env)
@@ -127,7 +127,7 @@ class PosixPythonRunnerTests(unittest.TestCase):
         venv_bin = Path(self.tmp.name) / "venv" / "bin"
         venv_bin.mkdir(parents=True)
         fake = venv_bin / "python"
-        fake.write_text("#!/bin/sh\\nexec " + repr(sys.executable) + " \\"$@\\"\\n", encoding="utf-8")
+        fake.write_text("#!/bin/sh\nexec " + repr(sys.executable) + " \"$@\"\n", encoding="utf-8")
         fake.chmod(0o755)
         checked = self.run_runner("--check", env={
             "PATH": str(self.bin), "VIRTUAL_ENV": str(venv_bin.parent),
