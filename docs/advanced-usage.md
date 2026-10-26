@@ -2,12 +2,16 @@
 
 此頁收錄 README 省略的進階操作。一般使用者只需在受測專案的 Codex 對話中輸入 `$security-code-review`（Claude Code 為 `/security-code-review`）。
 
+## Python 執行環境
+
+啟動完整或分類審查前，**先依 [Skill 的 Python 固定程序](../SKILL.md#python-執行環境確認與固定兩種模式共用) 執行啟動器的 `--resolve`、`--check`**，並在同次審查全部命令維持 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。無法執行時依回傳診斷確認 PATH／WSL／沙箱／相依套件，不得以「使用者沒安裝」取代診斷。
+
 ## 完整審查執行 Log 與效能追蹤
 
 正式 70 項審查執行時，Agent 先呼叫：
 
 ```bash
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
 ```
 
 每次執行的 Log 追加保存於 `TARGET_ROOT/reports/security-code-review/logs/<run_id>.jsonl`；同目錄有 `<run_id>-summary.json` 與 `latest.json`。跨次續跑保留 `review_id`、更新 `run_id`；若確定要新審查，加 `start --new-review`。
@@ -15,8 +19,8 @@ python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
 每次成功整合一批實際檢核證據後，Agent 依所處階段記錄真實進度。例如：
 
 ```bash
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase first_pass --completed-rules 12 --reviewed-files 80
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase second_pass --second-pass-rules 6
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase first_pass --completed-rules 12 --reviewed-files 80
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase second_pass --second-pass-rules 6
 ```
 
 數字為範例，不得直接套用或估算。Agent 可另外記錄 `--verified-callsites` 與實測 `--input-tokens`／`--output-tokens`。結構索引、佇列、證據整合與正式報告 CLI 各自記錄耗時及退出碼；Log 不收集原始碼全文或金鑰。
@@ -59,14 +63,14 @@ Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型�
 Token 優化佇列：
 
 ```bash
-python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
-python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
 ```
 
 對應來源可額外查詢保守的 .NET 安全規則候選（僅線索，並非資安結論）：
 
 ```bash
-python "<SKILL_ROOT>/scripts/analysis_candidates.py" --source-root "<TARGET_ROOT>" --path "src/Web/Controllers/AccountController.cs"
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/analysis_candidates.py" --source-root "<TARGET_ROOT>" --path "src/Web/Controllers/AccountController.cs"
 ```
 
 若出現 `AC-04`、`IN-03`、`AU-09` 等候選，必須核對實作、呼叫端和資料流，將所有真正適用的規則建立多對多 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths` 關聯；不適用時可使用 `candidate_exclusions` 按規則記錄至少 40 字的具體理由。不可讓候選工具自行完成檢核。只有 `using`、註解、方法宣告的來源不算完成證據。缺外部佐證的 `review` 應指定缺少的工件和查核範圍，不得套用部署／政策／動態測試通用清單。
@@ -76,7 +80,7 @@ python "<SKILL_ROOT>/scripts/analysis_candidates.py" --source-root "<TARGET_ROOT
 執行器若提供實際 Token 數，可選擇寫入統計：
 
 ```bash
-python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --executor "Codex CLI" --run-id "review-001" --input-tokens 100 --output-tokens 50 --cached-input-tokens 10 --tool-calls 3
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --executor "Codex CLI" --run-id "review-001" --input-tokens 100 --output-tokens 50 --cached-input-tokens 10 --tool-calls 3
 ```
 
 數字必須是實際 API／執行器回傳資料，上述僅示範命令格式。統計位於 `reports/security-code-review/analysis/token-usage.jsonl`，不包含程式碼或推論出的 Token 值。
@@ -113,11 +117,11 @@ python "<SKILL_ROOT>/scripts/token_metrics.py" --target "<TARGET_ROOT>" --execut
 
 ## 真實審查品質驗收與回歸比較
 
-固定 16 個案例必須逐一由同一版 Skill 實際完成 70 項、安全證據、第二輪複核及正式 HTML／JSON 後，才可執行 `python "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<CASE_WORKSPACE>" --output "<QUALITY_RESULT>.json"`。正式驗收核對未修改的案例來源、`ready_for_report`、Finding、跨檔來源、控制證據及已知外部缺口；`--compare` 會阻擋先前已通過案例退步與新增漏報／誤報。未提供 16 份完整工件時，結果為 **blocked**，不得將合成 CI 測試稱為品質實測通過。Token 統計僅接受 `token_metrics.py` 保存的執行器真實紀錄。詳見 [品質驗收指引](quality-acceptance.md)。
+固定 16 個案例必須逐一由同一版 Skill 實際完成 70 項、安全證據、第二輪複核及正式 HTML／JSON 後，才可執行 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<CASE_WORKSPACE>" --output "<QUALITY_RESULT>.json"`。正式驗收核對未修改的案例來源、`ready_for_report`、Finding、跨檔來源、控制證據及已知外部缺口；`--compare` 會阻擋先前已通過案例退步與新增漏報／誤報。未提供 16 份完整工件時，結果為 **blocked**，不得將合成 CI 測試稱為品質實測通過。Token 統計僅接受 `token_metrics.py` 保存的執行器真實紀錄。詳見 [品質驗收指引](quality-acceptance.md)。
 
 ## 全 70 項品質驗收與真實專案回歸
 
-執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、判定與反例品質、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
+執行 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、判定與反例品質、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
 
 ## Codex App 指定分類審查（部分審查報告）
 
@@ -156,7 +160,7 @@ $security-code-review --categories AC,AU
 前置：
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
-- 於 Agent 實際執行環境先執行 python --version，確認 Python 3.10+（原測試環境曾回傳 3.13.14，不代表所有環境皆相同）。若 python 不可用，改試 python3、py -3，並使用 Skill 的 run-python.sh／run-python.cmd --check 驗證相依套件；仍失敗時依沙箱權限要求處理，不得擅自繞過執行限制，保留進度並回報真正阻斷原因。
+- 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
 - 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性、待確認判定驗證及第二輪反向複核。
 
 完成條件：
@@ -260,7 +264,7 @@ Windows PowerShell 對應指令：
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
 ```
 
-首次執行可先用 `sh "<SKILL_ROOT>/scripts/run-python.sh" --check`（Windows：`& "<SKILL_ROOT>\scripts\run-python.cmd" --check`）唯讀檢查 Python 3.10+ 和相依套件。啟動器會依序嘗試 `python`、`python3`、`py -3`；若不可用，保留既有進度並回報安裝指令，不自動安裝。
+首次執行可先用 `sh "<SKILL_ROOT>/scripts/run-python.sh" --check`（Windows：`& "<SKILL_ROOT>\scripts\run-python.cmd" --check`）唯讀檢查 Python 3.10+ 和相依套件。啟動器也檢查虛擬環境與常見 Windows 安裝位置；`--resolve` 取得已驗證的絕對路徑，設為 `SECURITY_CODE_REVIEW_PYTHON_PINNED` 固定當次審查。缺套件／不可呼叫時只診斷、不自動安裝。
 
 **按需載入標準文件（P5）**：`--compact` 只回傳精簡待辦；每條規則仍須呼叫 `review_queue.py --target "<TARGET_ROOT>" --detail-id <規則ID>`，依輸出 `next_checks[].standard_documents` 的路徑（相對 `SKILL_ROOT`）實際讀取對應的 `docs/*.md`。同一執行工作階段已讀且未變更的文件可重用；對照多項標準時須讀全數對應文件，並依 YAML 規則與真實來源執行查核。標準文件缺失時不可把該對照宣稱為已審查；共同結論限制以 [SKILL.md](../SKILL.md) 為準。
 
