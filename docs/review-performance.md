@@ -33,7 +33,7 @@ python "<SKILL_ROOT>/scripts/file_review_skeleton.py" --target "<TARGET_ROOT>" -
 python "<SKILL_ROOT>/scripts/file_review_skeleton.py" --target "<TARGET_ROOT>" --workers 4 --worker-id 3 --batch-size 30
 ```
 
-分片由來源相對路徑 SHA256 取模，對相同來源清單與 worker 數不重疊。若持續工作期間正式進度更新，應將初始分片工作清單固定於代理的任務內容，避免重複與漏審；每批開始前重新核實來源快照。
+分片由來源相對路徑 SHA256 取模，對相同來源清單與 worker 數不重疊。各 worker 使用 `--offset 0` 開始，依 `next_offset` 連續分頁直到 `null`，**所有 worker 交付暫存分析前不得先整合**，以固定初始工作清單，避免重複或漏審。每批都重新核實來源快照。
 
 **唯一主代理寫入：** 子代理不得執行 `review_queue.py --init`、`review_safety.py --stage/--integrate`、`--seal-integrity`、`--snapshot-refresh`，也不得修改正式 `assessment.json`、Manifest、Journal 或結案證據。主代理逐項複核子代理意見，處理重複與衝突後，統一依現有 `--stage`、`--integrate` 契約原子保存；第二輪攻擊者視角反向複核由主代理重新閱讀來源完成。沒有子代理的執行器使用單代理流程，安全要求相同。
 
