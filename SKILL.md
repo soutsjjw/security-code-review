@@ -24,6 +24,32 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 4. 未明確指定路徑時，**永遠不要把 `SKILL_ROOT` 當作受測目錄**。
 5. 設 `SKILL_ROOT` 為目前 `SKILL.md` 的實際所在目錄（或其絕對路徑）；從此載入 `rules/`、`schemas/`、`scripts/`、`templates/`。
 
+## Python 執行環境確認與固定（兩種模式共用）
+
+開始任何審查初始化或 Log 前，由 **Agent 實際執行的 shell** 呼叫啟動器。不要僅根據另一個終端的 `python --version`，便宣稱 Codex 的環境已有或沒有 Python：
+
+- Windows PowerShell：`& "<SKILL_ROOT>\\scripts\\run-python.cmd" --check`；`--resolve` 會在標準輸出回傳已驗證的 `python.exe` 絕對路徑。
+- macOS／Linux／WSL：`sh "<SKILL_ROOT>/scripts/run-python.sh" --check`；同樣以 `--resolve` 取得直譯器位置。WSL 與 Windows 是不同執行環境，不能假設共用安裝。
+- 同一次審查先執行 `--resolve` 並保存結果，將其設定為 `SECURITY_CODE_REVIEW_PYTHON_PINNED`，其後所有批次使用同一支直譯器。**不同工具呼叫若不保留環境變數，Agent 必須在每次呼叫前重新帶入既有絕對路徑**；不可重新自動選版冒充已固定。固定執行檔不存在、版本不足或相依驗證失敗時，必須阻斷並回報，不能切換版本。
+- `SECURITY_CODE_REVIEW_PYTHON` 只表示偏好路徑；若失效會警告並繼續尋找。Windows 會檢查 PATH、`py`、虛擬環境、LocalAppData、Program Files、Scoop／pyenv-win 常見安裝位置。沒有找到時回報 **目前 Codex 環境不可見**，而不是斷言使用者未安裝。
+- `--check` / `--resolve` 只讀；不安裝 Python 或套件，不建立／重置審查進度。若缺套件，只顯示具體缺失；若存取遭拒，檢查沙箱權限，不修改受測專案。
+
+Windows 範例（同一 PowerShell 工作階段）：
+
+```powershell
+$env:SECURITY_CODE_REVIEW_PYTHON_PINNED = (& "<SKILL_ROOT>\\scripts\\run-python.cmd" --resolve).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $env:SECURITY_CODE_REVIEW_PYTHON_PINNED) { throw "Python 環境檢查失敗" }
+& "<SKILL_ROOT>\\scripts\\run-python.cmd" --check
+```
+
+POSIX 範例（同一 shell 工作階段）：
+
+```bash
+export SECURITY_CODE_REVIEW_PYTHON_PINNED="$(sh "<SKILL_ROOT>/scripts/run-python.sh" --resolve)"
+test -n "$SECURITY_CODE_REVIEW_PYTHON_PINNED" || exit 2
+sh "<SKILL_ROOT>/scripts/run-python.sh" --check
+```
+
 ## 分類審查模式（有 `--categories` 時優先執行）
 
 **在執行任何正式審查初始化或正式索引腳本之前先判定模式**。若 Prompt 明確含 `--categories`：
@@ -44,16 +70,16 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 **正式完整模式必須啟用。** Agent 決定 TARGET_ROOT 後，先執行：
 
 ```bash
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
 ```
 
 - 日誌固定保存於 `TARGET_ROOT/reports/security-code-review/logs/`：`<run_id>.jsonl`、`<run_id>-summary.json`、`latest.json`。每次啟動產生新 `run_id`，續跑保留 `review_id`；明確開始新的審查才加 `start --new-review`。
 - `analysis_prepare.py`、`review_queue.py`、`review_safety.py`、`complete_review.py` 自動記錄 CLI 指令耗時及退出狀態。Agent **每批實際證據成功保存後**另記一次 checkpoint：
 
 ```bash
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase first_pass --completed-rules 12 --reviewed-files 80
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase cross_file_analysis --verified-callsites 25
-python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase second_pass --second-pass-rules 6
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase first_pass --completed-rules 12 --reviewed-files 80
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase cross_file_analysis --verified-callsites 25
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint --phase second_pass --second-pass-rules 6
 ```
 
 - 上述數字**只是示例**，必須用當次已儲存、可核對的真實累計值；Token 只在執行器提供實際數值時記錄。無執行器心跳時，checkpoint 只在 Agent 明確呼叫時更新，**不可聲稱背景自動監測**。
@@ -142,7 +168,7 @@ python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint 
 
 ## 全規則品質契約與真實審查驗收
 
-發布前先執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only`，逐條驗證 70 項適用性、Pass／Fail／Review 判定契約及具體反向情境。對已完成的受測專案，執行 `python "<SKILL_ROOT>/scripts/quality_gate.py" --target "<TARGET_ROOT>" --output "<QUALITY_RESULT>.json"`，確認判定、跨檔、控制有效性與反向複核品質守門、100% 來源覆蓋、70/70、第二輪 70/70、正式 HTML／JSON 結果與來源快照一致。另用固定 16 案例真正完成全規則審查，交由 `quality_acceptance.py` 驗收；可依同一受測來源與題庫比較前後版本。這兩個工具都**不代替主代理實際審查，也不能把模擬測試標示為真實模型驗收**。缺少 Agent 真實工件時只能標示未完成品質驗收。操作說明見 [真實審查品質驗收](docs/quality-acceptance.md)。
+發布前先執行 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only`，逐條驗證 70 項適用性、Pass／Fail／Review 判定契約及具體反向情境。對已完成的受測專案，執行 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/quality_gate.py" --target "<TARGET_ROOT>" --output "<QUALITY_RESULT>.json"`，確認判定、跨檔、控制有效性與反向複核品質守門、100% 來源覆蓋、70/70、第二輪 70/70、正式 HTML／JSON 結果與來源快照一致。另用固定 16 案例真正完成全規則審查，交由 `quality_acceptance.py` 驗收；可依同一受測來源與題庫比較前後版本。這兩個工具都**不代替主代理實際審查，也不能把模擬測試標示為真實模型驗收**。缺少 Agent 真實工件時只能標示未完成品質驗收。操作說明見 [真實審查品質驗收](docs/quality-acceptance.md)。
 
 ## 共同證據與結果判定（所有規範均適用）
 
@@ -206,7 +232,7 @@ python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint 
 
 ### 必須執行的佇列迴圈（Codex／Claude Code）
 
-1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**先檢查執行環境，再立即啟動佇列**。Agent 應判斷實際使用的 Shell：
+1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**先檢查執行環境，再立即啟動佇列**。Agent 應判斷實際使用的 Shell，並先按上方規定解析、固定 Python：
    - macOS／Linux（Bash／sh）：
      ```bash
      sh "<SKILL_ROOT>/scripts/run-python.sh" --check
@@ -217,7 +243,7 @@ python "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" checkpoint 
      & "<SKILL_ROOT>\scripts\run-python.cmd" --check
      & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
-   `--check` 僅需於開始時執行一次。啟動器依序偵測 `python`、`python3`、`py -3`，並確認 Python 3.10+ 與 `requirements.txt` 套件版本可用；其後每次呼叫均以同樣優先序選擇可用環境，不直接假設 `python` 存在。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
+   `--resolve` 與 `--check` 在開始時執行並固定同一支 Python。啟動器搜尋可用 Python 3.10+ 與 `requirements.txt` 套件；後續呼叫使用 `SECURITY_CODE_REVIEW_PYTHON_PINNED`，不得每次重新選版。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。
 2. 使用工具輸出的 `next_checks`、`search_targets`，並依 `--detail-id` 取得 `decision_guidance`、`control_effectiveness_guidance`、`decision_adjudication_guidance`、`inspection_hints` 和適用條件，在 `TARGET_ROOT` **逐條真正查核**該批規則：搜尋只用於定位候選，必須實際閱讀程式碼、確認呼叫鏈、追蹤資料流及安全控制實作，檢查可能的繞過／攻擊路徑，逐條記錄來源檔行號（或可識別的外部工件）、方法、證據及判定理由。找到疑似弱點就直接建立 `assessment.findings[]`，並正確關聯 `check_ids`／`finding_ids`；**不修改程式、不要求先修復、不停止迴圈**。已查核且本規則必要的部署、政策或動態證據確實無法取代時可記為 `status=review`、`execution.state=completed`，但需具體紀錄哪些部分已查核、哪些資訊缺少。
 3. **每完成一項／每批立即保存**：先將單檔／規則結果透過 `review_safety.py --stage` 獨立暫存，再用 `--integrate` 無衝突整合到 `TARGET_ROOT/reports/security-code-review/assessment.json`；已有 Finding 必須保留。跨檔／全專案規則未結案時保持 `pending`，不得提前填為 `completed`。然後再次執行佇列（不必重新初始化）。
 4. 如果 `ready_for_report=false`，**回到步驟 2，繼續執行剩餘規則**。不可將 `next_checks` 當作僅供建議、不可把「已保存進度／下次續跑」當成正常成功輸出。只有 `ready_for_report=true`（70/70）才進入報告產生。若遇到真正阻斷錯誤，先保存已完成的檢核、明確報告錯誤與不能繼續的原因；不可聲稱全部完成。
