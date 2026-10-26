@@ -173,7 +173,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     integrity_errors = coverage["review_integrity_errors"] if coverage else []
     # 顯示下一批檔案的多條規則候選，協助 Agent 追查；候選不能自動算 completed。
     source_candidates = []
-    if coverage and source_root is not None and not fast_query:
+    if coverage and source_root is not None:
         for path in coverage["missing_source_paths"][:30]:
             try:
                 hits = candidate_hits(path, read_source_text(source_root / path)[0])
@@ -185,8 +185,14 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                 })
             if len(source_candidates) >= 15:
                 break
+    # 70/70 之後仍需顯示已完成卻證據不足的規則，保留既有補查能力；
+    # 中途的高頻率待辦查詢一律略過此完整診斷。
+    if not remaining and fast_query and source_root is not None:
+        strict_coverage = build_source_coverage(data, source_root)
+        integrity_errors = strict_coverage["review_integrity_errors"]
+        unreviewed = strict_coverage["missing_source_file_count"]
     rule_errors = (completion_errors(checks) + decision_quality_errors(checks, source_root=source_root)
-                   if not remaining and not fast_query else [])
+                   if not remaining else [])
     safety_issues = (safety_errors(source_root, data)
                      if source_root is not None and not fast_query else [])
     second_pass = (adversarial_progress(source_root, data, batch_size)
