@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -50,39 +51,77 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
 
 
 def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list[str]]:
-    """在暫存目錄編譯 SDK 內建 Roslyn 工具，不修改受測專案或安裝 NuGet 套件。"""
+    """Roslyn 工具只按 Skill 原始碼與 SDK 指紋快取編譯產物；不快取安全結論。"""
     if not pending:
         return {}, []
     if not probe["available"]:
         return {}, ["Roslyn 無法使用；需由 Agent 繼續原始碼分析"]
+    source = SKILL_ROOT / "tools/roslyn-indexer"
+    project = (source / "roslyn-indexer.csproj").read_text(encoding="utf-8")
+    project = project.replace("net8.0", probe["target_framework"])
+    program = (source / "Program.cs").read_bytes()
+    fingerprint = hashlib.sha256(
+        project.encode("utf-8") + program
+        + str(probe.get("sdk_version")).encode("utf-8")
+        + str(probe["executable"]).encode("utf-8")
+    ).hexdigest()
+    use_cache = os.environ.get("SECURITY_CODE_REVIEW_ROSLYN_CACHE", "1") != "0"
+    if use_cache:
+        cache = Path.home() / ".cache" / "security-code-review" / "roslyn" / fingerprint
+        # 本機快取不得經 symlink 執行任意替換的 binary；由使用者可關閉快取。
+        if any(node.is_symlink() for node in (cache, cache.parent, cache.parent.parent)):
+            return {}, ["Roslyn 快取路徑包含 symbolic link，請關閉快取後重試"]
+    env = dict(os.environ, DOTNET_CLI_TELEMETRY_OPTOUT="1", DOTNET_NOLOGO="1",
+               DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1")
     with tempfile.TemporaryDirectory(prefix="security-review-roslyn-") as tmp:
-        work = Path(tmp)
-        source = SKILL_ROOT / "tools/roslyn-indexer"
-        project = (source / "roslyn-indexer.csproj").read_text(encoding="utf-8")
-        project = project.replace("net8.0", probe["target_framework"])
-        (work / "roslyn-indexer.csproj").write_text(project, encoding="utf-8")
-        shutil.copy2(source / "Program.cs", work / "Program.cs")
-        manifest = work / "manifest.json"
+        scratch = Path(tmp)
+        manifest = scratch / "manifest.json"
         manifest.write_text(json.dumps(pending, ensure_ascii=False), encoding="utf-8")
-        env = dict(os.environ, DOTNET_CLI_TELEMETRY_OPTOUT="1", DOTNET_NOLOGO="1",
-                   DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1")
+        work = cache if use_cache else scratch
+        work.mkdir(parents=True, exist_ok=True, mode=0o700)
+        proj_file = work / "roslyn-indexer.csproj"
+        program_file = work / "Program.cs"
+        dll = work / "bin" / "Release" / probe["target_framework"] / "roslyn-indexer.dll"
+        digest_file = work / ".compiled-sha256"
+        expected = None
+        if dll.is_file() and digest_file.is_file() and not dll.is_symlink():
+            expected = hashlib.sha256(dll.read_bytes()).hexdigest()
+        valid = (expected is not None and digest_file.read_text(encoding="utf-8") == expected
+                 and proj_file.is_file() and program_file.is_file()
+                 and not proj_file.is_symlink() and not program_file.is_symlink()
+                 and proj_file.read_text(encoding="utf-8") == project
+                 and program_file.read_bytes() == program)
+        if not valid:
+            proj_file.write_text(project, encoding="utf-8")
+            program_file.write_bytes(program)
+            try:
+                build = subprocess.run(
+                    [probe["executable"], "build", str(proj_file), "--configuration", "Release",
+                     "--nologo"], capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", cwd=work, env=env, timeout=180, check=False)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                return {}, [f"Roslyn 編譯失敗：{type(exc).__name__}"]
+            if build.returncode != 0 or not dll.is_file() or dll.is_symlink():
+                return {}, ["Roslyn 編譯失敗；請檢查 SDK 及本機工具相依"]
+            digest_file.write_text(hashlib.sha256(dll.read_bytes()).hexdigest(),
+                                   encoding="utf-8")
         try:
-            result = subprocess.run([probe["executable"], "run", "--project", str(work / "roslyn-indexer.csproj"),
-                                     "--configuration", "Release", "--", str(root), str(manifest)],
-                                    capture_output=True, text=True, encoding="utf-8",
-                                    errors="replace", cwd=work, env=env,
-                                    timeout=180, check=False)
+            result = subprocess.run(
+                [probe["executable"], str(dll), str(root), str(manifest)],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", cwd=work, env=env, timeout=180, check=False)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {}, [f"Roslyn 執行失敗：{type(exc).__name__}"]
         line = next((x.removeprefix("SCROSLYN_JSON:") for x in result.stdout.splitlines()
                      if x.startswith("SCROSLYN_JSON:")), None)
-        if not line:
+        if result.returncode != 0 or not line:
             return {}, ["Roslyn 無法輸出有效索引（SDK 或相依套件可能未就緒）"]
         try:
             payload = json.loads(line)
         except json.JSONDecodeError:
             return {}, ["Roslyn 索引 JSON 無法解析"]
-        data = {r["path"]: r for r in payload.get("files", []) if isinstance(r, dict) and "path" in r}
+        data = {r["path"]: r for r in payload.get("files", [])
+                if isinstance(r, dict) and "path" in r}
         return data, payload.get("errors", [])
 
 
