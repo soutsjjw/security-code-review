@@ -82,7 +82,7 @@ git clone --branch develop https://github.com/soutsjjw/security-code-review.git 
 
 安裝後重新開啟 Agent 工作階段。
 
-完成 HTML／JSON 報告產生與驗證，需要 **Python 3.10+**。Agent 會自動依序偵測 `python`、`python3`、`py -3`，並核對 `requirements.txt` 套件與版本。無需因 Windows 找不到 `python` 就直接中斷；若其他指令可用且環境完整，會自動繼續。
+完成 HTML／JSON 報告產生與驗證，需要 **Python 3.10+**。Agent 透過啟動器檢查 `python`／`python3`／`py`、虛擬環境和常見 Windows 安裝位置，並核對 `requirements.txt` 套件與版本；找到後固定同一次審查的 Python 路徑。Windows 找不到 `python` 命令不等於沒有安裝 Python。
 
 可在 Skill 安裝目錄先進行唯讀環境檢查：
 
@@ -96,7 +96,7 @@ Windows PowerShell：
 & ".\scripts\run-python.cmd" --check
 ```
 
-若提示缺少套件，使用可用的 Python 安裝一次，例如 `python3 -m pip install -r requirements.txt`，Windows 亦可使用 `py -3 -m pip install -r requirements.txt`。若完全沒有 Python，先於 **Agent 實際執行的環境**安裝 Python 3.10+。Skill **不會自行安裝套件或覆寫既有審查進度**；環境未就緒時會明確回報原因。
+可用 `--resolve` 顯示已驗證 Python 的絕對路徑；Agent 應依 [固定執行環境說明](SKILL.md#python-執行環境確認與固定兩種模式共用) 設定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`，重開終端時需重新傳遞該路徑。若提示缺少套件，使用可用的 Python 安裝一次，例如 `python3 -m pip install -r requirements.txt`，Windows 亦可使用 `py -3 -m pip install -r requirements.txt`。若完全沒有 Python，先於 **Agent 實際執行的環境**安裝 Python 3.10+。Skill **不會自行安裝套件或覆寫既有審查進度**；環境未就緒時會明確回報原因。
 
 Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼安全審查**；實質查核仍由 Agent 執行。環境設定完成後，一般使用者不必手動執行報告生成腳本。
 
@@ -208,8 +208,9 @@ reports/security-code-review/
 維護者可在 **Skill 根目錄**執行：
 
 ```bash
-python scripts/validate_package.py
-python -m unittest discover -s tests -v
+sh scripts/run-python.sh scripts/validate_package.py
+PYTHON="$(sh scripts/run-python.sh --resolve)"
+"$PYTHON" -m unittest discover -s tests -v
 ```
 
 這些測試驗證規則一致性與資料流程，不代表已對特定受測系統執行滲透測試或取得資安合規認證。
