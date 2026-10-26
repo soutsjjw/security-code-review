@@ -83,6 +83,11 @@ def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list
         program_file = work / "Program.cs"
         dll = work / "bin" / "Release" / probe["target_framework"] / "roslyn-indexer.dll"
         digest_file = work / ".compiled-sha256"
+        if use_cache and any(item.is_symlink() for item in
+                             (work, work / "bin", work / "bin/Release",
+                              work / "bin/Release" / probe["target_framework"],
+                              proj_file, program_file, dll, digest_file)):
+            return {}, ["Roslyn 快取內容含 symbolic link，拒絕執行；可將快取設為 0 後重試"]
         expected = None
         if dll.is_file() and digest_file.is_file() and not dll.is_symlink():
             expected = hashlib.sha256(dll.read_bytes()).hexdigest()
