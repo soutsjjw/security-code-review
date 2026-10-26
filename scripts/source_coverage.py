@@ -30,6 +30,87 @@ SOURCE_FILENAMES = frozenset({
 })
 
 
+def expected_paths(root: Path, excluded_paths: list[str],
+                   ignored: set[str] | None = None) -> set[str]:
+    """單次輕量目錄盤點；此清單不是已完成審查或有效證據。"""
+    ignored = ignored or set()
+    expected: set[str] = set()
+    for current, directories, files in os.walk(root, followlinks=False):
+        directories[:] = [
+            name for name in directories
+            if not (Path(current) / name).is_symlink()
+            and not _default_rule((Path(current) / name / "entry").relative_to(root).as_posix())
+            and not any(
+                (Path(current) / name).relative_to(root).as_posix() == path
+                or (Path(current) / name).relative_to(root).as_posix().startswith(path.rstrip("/") + "/")
+                for path in excluded_paths
+            )
+        ]
+        for name in files:
+            absolute = Path(current) / name
+            if not absolute.is_file() or absolute.is_symlink():
+                continue
+            rel = absolute.relative_to(root).as_posix()
+            if rel in ignored or _default_rule(rel) or any(
+                rel == path or rel.startswith(path.rstrip("/") + "/")
+                for path in excluded_paths
+            ):
+                continue
+            if absolute.suffix.lower() in SOURCE_SUFFIXES or name in SOURCE_FILENAMES:
+                expected.add(rel)
+    return expected
+
+
+def provisional_source_coverage(assessment: dict[str, Any], source_root: Path) -> dict[str, Any]:
+    """僅供 --compact 顯示下一批待查來源，不讀內容、不驗證 SHA 或安全結論。
+
+    預覽統計不得作為交付依據；正式 build_source_coverage 必須重新逐檔核對。
+    """
+    root = source_root.resolve()
+    if not root.is_dir():
+        raise ValueError("受測來源目錄不存在")
+    excluded = []
+    for item in (assessment.get("scope_details") or {}).get("excluded_paths", []):
+        path = relative_path(root, item["path"], root_allowed=True)
+        if path == ".":
+            raise ValueError("不可排除全部受測目錄")
+        excluded.append(path)
+    expected = expected_paths(root, excluded)
+    completed = {
+        row["id"]: set((row.get("execution") or {}).get("inspected_paths") or [])
+        for row in assessment.get("checks", [])
+        if (row.get("execution") or {}).get("state") == "completed"
+    }
+    # 不檢查來源內容，僅把具備基本形狀的紀錄列為「候選已審查」。
+    candidates: set[str] = set()
+    for row in assessment.get("file_reviews") or []:
+        if not isinstance(row, dict):
+            continue
+        path = row.get("path")
+        if path not in expected or not isinstance(row.get("sha256"), str):
+            continue
+        screening = row.get("category_screening")
+        reviews = row.get("rule_reviews")
+        if not isinstance(screening, dict) or set(screening) != set(CATEGORIES):
+            continue
+        if not isinstance(reviews, list):
+            continue
+        if all(isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)
+               and path in completed.get(rr["rule_id"], set()) for rr in reviews):
+            candidates.add(path)
+    missing = sorted(expected - candidates)
+    counts = Counter(Path(path).suffix.lower() or Path(path).name for path in missing)
+    return {
+        "source_file_count": len(expected),
+        "reviewed_source_file_count": len(candidates),
+        "missing_source_file_count": len(missing),
+        "missing_source_paths": missing,
+        "missing_by_type": dict(sorted(counts.items())),
+        "review_integrity_errors": [],
+        "verified": False,
+    }
+
+
 def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
                           ignored_artifacts: Iterable[Path | None] = (),
                           selected_categories: tuple[str, ...] = CATEGORIES) -> dict[str, Any]:
@@ -53,22 +134,7 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
         for resolved in (Path(p).resolve() for p in ignored_artifacts if p is not None)
         if resolved.is_relative_to(root)
     }
-    expected: set[str] = set()
-    for current, directories, files in os.walk(root, followlinks=False):
-        directories[:] = [name for name in directories
-                          if not (Path(current) / name).is_symlink()]
-        for name in files:
-            absolute = Path(current) / name
-            if not absolute.is_file() or absolute.is_symlink():
-                continue
-            rel = absolute.relative_to(root).as_posix()
-            if rel in ignored or _default_rule(rel) or any(
-                rel == path or rel.startswith(path.rstrip("/") + "/")
-                for path in excluded_paths
-            ):
-                continue
-            if absolute.suffix.lower() in SOURCE_SUFFIXES or name in SOURCE_FILENAMES:
-                expected.add(rel)
+    expected = expected_paths(root, excluded_paths, ignored)
 
     # 只計入已驗證逐檔 10 類規則篩選、SHA256 和行號佐證的來源。
     verified, integrity_errors = verified_file_rule_reviews(
