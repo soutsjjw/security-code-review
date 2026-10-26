@@ -37,8 +37,10 @@ def digest_matches(stored: object, raw: bytes) -> bool:
     return stored in candidates
 
 
-def read_source_text(path: Path, legacy_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS) -> tuple[str, str]:
-    raw = path.read_bytes()
+def read_source_text(path: Path, legacy_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS,
+                     *, raw: bytes | None = None) -> tuple[str, str]:
+    """允許分析工具沿用先前讀取的原始 bytes，避免 SHA 與解碼之間的 TOCTOU。"""
+    raw = path.read_bytes() if raw is None else raw
     if raw.startswith((codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE)):
         candidates = ("utf-32",)
     elif raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
