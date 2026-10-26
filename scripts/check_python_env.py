@@ -92,7 +92,7 @@ def main() -> int:
             for msg in errors:
                 print(f"ERROR: {msg}", file=sys.stderr)
         else:
-            print(f"PASS: Python {sys.version.split()[0]} 與 requirements.txt 相依套件均可用")
+            print(f"PASS: Python {sys.version.split()[0]} ({sys.executable}) 與 requirements.txt 相依套件均可用")
     return 2 if errors else 0
 
 
