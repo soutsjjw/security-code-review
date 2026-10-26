@@ -52,7 +52,7 @@ Windows PowerShell：
 
 Roslyn 索引保留型別、方法起訖行、呼叫所在方法、接收者型別及合成編譯得到的符號／介面實作候選；`cross_file_call_hints` 記錄不截斷的跨檔候選與呼叫點 ID。`semantic_*` 仍不等於真正專案建置／執行期目標，`receiver_type_candidate` 和 `name_only_ambiguous` 亦須人工核對。新索引下須依 [跨檔呼叫點結案要求](review-integrity-guards.md#跨檔呼叫點必須人工結案) 完成 `callsite_reviews`；未解歧義不得將跨檔規則標為 completed。與 CodeGraph 不可用時一樣回退為人工查核，不能假裝已追蹤資料流。
 
-這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的完整驗證模式可顯示 `next_source_candidates`；精簡查詢省略這項重新讀檔作業。
+這一步也會將每個來源檔的多條高辨識度規則候選存到 `analysis/structure-index.json` 的 `rule_candidates`，並回傳候選檔案與關聯數。增量模式只會在來源 SHA256 未變、候選分析器版本相同時重用候選；候選只供定位，不會寫入 pass/fail/completed。`review_queue.py` 的完整與精簡模式都保留下一批最多 30 個未審查檔案的候選規則提示；精簡模式不執行全量安全守門。
 
 這一步偵測 CodeGraph 與 .NET SDK 8+ 的 Roslyn。CodeGraph 須先由使用者在受測專案執行 `codegraph init`；缺少 CodeGraph／SDK 時只退回既有搜尋與人工分析，**不得視為已執行 Roslyn 或完整 SAST**。Roslyn 只提供 C# syntax tree 的 types、methods 與 invocation 候選（非跨方法污點證明）；Agent 仍要核對程式碼及配置。增量快取只共用相同 SHA256 與相同分析器版本的結構資料，不沿用過期安全結論。
 
@@ -71,7 +71,7 @@ python "<SKILL_ROOT>/scripts/analysis_candidates.py" --source-root "<TARGET_ROOT
 
 若出現 `AC-04`、`IN-03`、`AU-09` 等候選，必須核對實作、呼叫端和資料流，將所有真正適用的規則建立多對多 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths` 關聯；不適用時可使用 `candidate_exclusions` 按規則記錄至少 40 字的具體理由。不可讓候選工具自行完成檢核。只有 `using`、註解、方法宣告的來源不算完成證據。缺外部佐證的 `review` 應指定缺少的工件和查核範圍，不得套用部署／政策／動態測試通用清單。
 
-精簡佇列只列待辦及未驗證的來源進度，不進行全量安全守門；逐條檢核前以 `--detail-id` 取得所有標準對照，結案時不帶兩參數重新完整驗證。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
+精簡佇列列出待辦、有限的來源候選與未驗證進度；唯在 70/70 狀態下補查既有的規則／逐檔證據錯誤，不進行全量安全守門；逐條檢核前以 `--detail-id` 取得所有標準對照，結案時不帶兩參數重新完整驗證。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
 
 執行器若提供實際 Token 數，可選擇寫入統計：
 
