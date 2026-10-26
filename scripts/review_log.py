@@ -20,7 +20,7 @@ COUNTERS = ("completed_rules", "reviewed_files", "verified_callsites",
 PROGRESS = COUNTERS[:4]
 STALL_CHECKPOINTS = 4
 STALL_SECONDS = 900
-RUN_ID = re.compile(r"^\\d{8}-\\d{6}-[0-9a-f]{8}$")
+RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{8}$")
 
 
 def _clock() -> float:
