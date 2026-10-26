@@ -13,7 +13,7 @@ if defined SECURITY_CODE_REVIEW_PYTHON_PINNED (
     call :probe "%SECURITY_CODE_REVIEW_PYTHON_PINNED%"
     if not defined PY_BIN (
         >&2 echo ERROR [pinned_python_unavailable]: Pinned Python cannot be executed or fails Python 3.10+ / requirements validation.
-        if defined FIRST_BIN "%FIRST_BIN%" "%CHECKER%" 1>&2
+        if defined FIRST_BIN call :report_first
         exit /b 2
     )
 ) else (
@@ -24,7 +24,6 @@ if defined SECURITY_CODE_REVIEW_PYTHON_PINNED (
     )
     if not defined PY_BIN if defined VIRTUAL_ENV call :probe "%VIRTUAL_ENV%\Scripts\python.exe"
     if not defined PY_BIN if defined CONDA_PREFIX call :probe "%CONDA_PREFIX%\python.exe"
-    if not defined PY_BIN call :probe "%CD%\.venv\Scripts\python.exe"
     if not defined PY_BIN call :probe "%SKILL_ROOT%\.venv\Scripts\python.exe"
     if not defined PY_BIN call :probe_by_name "python"
     if not defined PY_BIN call :probe_by_name "python3"
@@ -66,7 +65,8 @@ if /I "%~1"=="--resolve" (
 )
 if /I "%~1"=="--check" (
     "%PY_BIN%" "%CHECKER%"
-    exit /b %errorlevel%
+    if errorlevel 1 exit /b 2
+    exit /b 0
 )
 if "%~1"=="" (
     >&2 echo ERROR: Provide a Python script or --check/--resolve.
@@ -95,7 +95,7 @@ exit /b 0
 if defined PY_BIN exit /b 0
 if not exist "%SystemRoot%\System32\where.exe" exit /b 1
 for /f "delims=" %%P in ('"%SystemRoot%\System32\where.exe" "%~1" 2^>nul') do (
-    if not defined PY_BIN call :probe "%%P"
+    if /I not "%%~dpP"=="%CD%\" if not defined PY_BIN call :probe "%%P"
 )
 exit /b 0
 
@@ -110,4 +110,8 @@ exit /b 0
 for /f "delims=" %%P in ('py -%~1 -c "import sys; print(sys.executable)" 2^>nul') do (
     if not defined PY_BIN call :probe "%%P"
 )
+exit /b 0
+
+:report_first
+"%FIRST_BIN%" "%CHECKER%" 1>&2
 exit /b 0
