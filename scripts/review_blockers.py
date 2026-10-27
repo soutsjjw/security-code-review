@@ -103,6 +103,8 @@ def summarize(
         ),
     }
     if links.get("total"):
+        ids.update(link_rules)
+        result["recheck_rule_ids"] = sorted(ids)
         result["inspected_paths_diagnostic"] = links
     return result
 
