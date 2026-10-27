@@ -104,6 +104,23 @@ class AdversarialQualityTests(unittest.TestCase):
     def test_two_real_different_high_risk_hypotheses_are_accepted(self):
         self.assertEqual(self.errors(), [])
 
+    def test_layered_challenge_uses_facts_before_first_pass_verdict(self):
+        candidate = copy.deepcopy(self.record)
+        candidate["reassessment"].pop("first_pass_claim")
+        candidate["blind_challenge"] = {
+            "factual_claim": "服務會從目前登入的使用者主體取得識別值，並將它交給資料查詢方法執行。",
+            "challenge_question": "如果繞過標準控制器並直接呼叫服務，是否仍會套用相同的擁有者限制。",
+            "initial_observation": "重新閱讀 Service 的實際分支，查詢執行位置明確帶入登入者識別值限制。",
+            "evidence": {"kind": "source", **self.guard},
+        }
+        records = {"AC-08": candidate, "__layered__": {"plan": {"version": 1}}}
+        self.assertEqual(quality_errors(self.root, self.assessment, records,
+                                        self.baseline, {}), [])
+        candidate["blind_challenge"].pop("initial_observation")
+        self.assertIn("blind_challenge.initial_observation",
+                      str(quality_errors(self.root, self.assessment, records,
+                                         self.baseline, {})))
+
     def test_generic_surface_or_duplicate_vector_is_rejected(self):
         candidate = copy.deepcopy(self.record)
         candidate["hypotheses"][0]["attack_surface"] = "AC-08-adversarial-surface-1"
