@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from scope_inventory import _default_rule, relative_path
-from file_review_integrity import CATEGORIES, verified_file_rule_reviews
+from file_review_integrity import (CATEGORIES, verified_file_rule_reviews,
+                                   verified_na_inspection_links)
 
 # 只納入可閱讀的程式碼、程式設定及專案檔；不把圖片／DLL／文件當原始碼。
 # 尤其 .cs 必須全數涵蓋，不能只以抽樣或規則總數代替。
@@ -115,12 +116,14 @@ def provisional_source_coverage(assessment: dict[str, Any], source_root: Path) -
 
 def unverified_inspected_paths(
     assessment: dict[str, Any], expected: set[str], verified: dict[str, set[str]],
+    *, verified_na: dict[str, set[str]] | None = None,
 ) -> dict[str, Any]:
     """Group rule/file links rejected by the authoritative file verifier.
 
     These are diagnostics only: an existing row does not prove that its SHA,
     rule applicability, line numbers, or control evidence is valid.
     """
+    verified_na = verified_na or {}
     reviews: dict[str, dict[str, Any]] = {}
     for row in assessment.get("file_reviews") or []:
         if isinstance(row, dict) and isinstance(row.get("path"), str):
@@ -141,7 +144,7 @@ def unverified_inspected_paths(
         if not isinstance(recorded, list):
             continue
         for path in sorted(set(p for p in recorded if isinstance(p, str)) & expected):
-            if rid in verified.get(path, set()):
+            if rid in verified.get(path, set()) or rid in verified_na.get(path, set()):
                 continue
             row = reviews.get(path)
             if row is None:
@@ -205,7 +208,9 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
     verified, integrity_errors = verified_file_rule_reviews(
         assessment, root, expected, selected_categories=selected_categories)
     inspected = set(verified)
-    link_gaps = unverified_inspected_paths(assessment, expected, verified)
+    na_links = verified_na_inspection_links(assessment, root, expected, verified)
+    link_gaps = unverified_inspected_paths(assessment, expected, verified,
+                                           verified_na=na_links)
 
     missing = sorted(expected - inspected)
     counts = Counter(Path(path).suffix.lower() or Path(path).name for path in missing)
@@ -218,5 +223,9 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
         "missing_by_type": dict(sorted(counts.items())),
         "review_integrity_errors": integrity_errors,
         "unverified_inspected_paths": link_gaps,
+        "verified_na_inspection_paths": {
+            rid: sorted(path for path, rule_ids in na_links.items() if rid in rule_ids)
+            for rid in sorted({r for rule_ids in na_links.values() for r in rule_ids})
+        },
         "reviewed_file_rule_ids": {p: sorted(ids) for p, ids in sorted(verified.items())},
     }
