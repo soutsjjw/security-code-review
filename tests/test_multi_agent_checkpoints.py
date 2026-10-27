@@ -147,7 +147,7 @@ class CheckpointTests(unittest.TestCase):
             "snapshot_fingerprint": follow["snapshot_fingerprint"],
             "resolved": [{"path": "src/AuthController.cs", "name": "ResolvePolicy",
                           "line_start": 1, "evidence": proof}]}
-        temp = self.root / "followup-result.json"
+        temp = self.root / ANALYSIS / "multi-agent/followup-result.json"
         temp.write_text(json.dumps(followup_document, ensure_ascii=False), encoding="utf-8")
         self.assertEqual(accept_followup(self.root, temp)["status"], "needs_main")
         begin_integration(self.root)
@@ -160,7 +160,7 @@ class CheckpointTests(unittest.TestCase):
                         "target_path": "src/InputService.cs", "target_line": 1,
                         "target_line_hash": proof_line_hash(self.root, "src/InputService.cs", 1),
                         "reason": "主代理已逐行確認跨分片候選符號並完成正式審查紀錄與交易日誌核對"}]}
-        doc_path = self.root / "main-resolution.json"
+        doc_path = self.root / ANALYSIS / "multi-agent/main-resolution.json"
         doc_path.write_text(json.dumps(resolved, ensure_ascii=False), encoding="utf-8")
         self.assertEqual(resolve_main(self.root, task_id, doc_path)["status"], "completed")
 
