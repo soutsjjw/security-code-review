@@ -357,6 +357,7 @@ def main() -> int:
     parser.add_argument("--compact", action="store_true", help="僅回傳精簡檢核工作清單；詳細規範另查")
     parser.add_argument("--detail-id", help="僅查詢一條規則的詳細提示（包括已完成規則）")
     parser.add_argument("--diagnose-first-pass", action="store_true", help="唯讀取得進入第二輪前的完整阻斷與定向補查建議")
+    parser.add_argument("--repair-plan", action="store_true", help="唯讀將第一輪阻斷整理為 P0～P3 的逐檔優先補查清單")
     parser.add_argument("--categories", action="append", metavar="AC,AU",
                         help="指定分類並建立／查詢獨立審查進度；報告須另通過分類驗證")
     parser.add_argument("--stage", type=Path, help="暫存單一分類的批次 JSON")
@@ -380,8 +381,12 @@ def main() -> int:
         parser.error("--allow-revision 僅可搭配 --integrate")
     if args.categories and any(operations) and (args.init or args.detail_id or args.compact):
         parser.error("分類安全操作不可混用 --init、--detail-id 或 --compact")
-    if args.diagnose_first_pass and (args.compact or args.detail_id or args.init or args.categories):
-        parser.error("--diagnose-first-pass 不能與初始化、分類或預覽模式混用")
+    if args.diagnose_first_pass and args.repair_plan:
+        parser.error("--diagnose-first-pass 與 --repair-plan 不可同時指定")
+    if (args.diagnose_first_pass or args.repair_plan) and (
+            args.compact or args.detail_id or args.init or args.categories
+            or any(operations)):
+        parser.error("第一輪診斷／修復計畫不可與初始化、分類或其他操作混用")
     if args.compact and args.detail_id:
         parser.error("--compact 與 --detail-id 不可同時指定")
     if not 1 <= args.batch_size <= 70:
@@ -435,11 +440,14 @@ def main() -> int:
             sys.stdout.reconfigure(encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1 if args.validate and not result["safety_valid"] else 0
-    if args.diagnose_first_pass:
+    if args.diagnose_first_pass or args.repair_plan:
         from review_blockers import diagnose
         try:
             assessment = json.loads((target / REPORT_RELATIVE / "assessment.json").read_text(encoding="utf-8"))
             diagnostics = diagnose(target, assessment)
+            if args.repair_plan:
+                from first_pass_repair import repair_plan
+                diagnostics = repair_plan(assessment, diagnostics, limit=args.source_batch_size)
         except (OSError, ValueError, KeyError, TypeError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 2
