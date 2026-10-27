@@ -595,7 +595,7 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
         if not any(
             isinstance(h, dict)
             and h.get("called_method") == item["name"]
-            and h.get("line") == item["line_start"]
+            and h.get("caller_line") == item["line_start"]
             and any(isinstance(x, dict) and x.get("path") == target
                     for x in h.get("possible_targets", []))
             for h in hints
