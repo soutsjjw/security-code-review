@@ -88,12 +88,15 @@ def first_pass_issues(
     if isinstance(recheck, dict) and recheck.get("rule_ids"):
         return ["第一輪：來源異動後仍有待重新查核規則：" +
                 "、".join(recheck["rule_ids"])]
+    cross_file_details: dict[str, dict] = {}
     issues = (snapshot_errors(target)
               + completion_errors(checks)
               + decision_quality_errors(checks, source_root=target)
-              + closure_errors(target, assessment)
+              + closure_errors(target, assessment, diagnostics=cross_file_details)
               + verification_errors(target, checks)
               + adjudication_errors(target, checks))
+    if diagnostics is not None:
+        diagnostics["cross_file_candidates"] = cross_file_details
     coverage = build_source_coverage(assessment, target)
     if diagnostics is not None:
         diagnostics["unverified_inspected_paths"] = coverage["unverified_inspected_paths"]
