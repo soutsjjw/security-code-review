@@ -150,6 +150,84 @@ class FileReviewIntegrityTests(unittest.TestCase):
         result = build_source_coverage(self.assessment, self.root)
         self.assertIn("標為 na", str(result["review_integrity_errors"]))
 
+    def _na_scope_check(self):
+        (self.root / "NoCommand.cs").write_text(
+            "public static class Startup { public static int Add(int a, int b) => a + b; }\\n",
+            encoding="utf-8",
+        )
+        self.assessment["file_reviews"].append(
+            make_file_review(self.root, "NoCommand.cs")
+        )
+        record = {
+            "id": "IN-04",
+            "status": "na",
+            "applicability_reason": (
+                "本專案未提供任何應用程式控制的作業系統命令執行入口，已確認所有責任來源。"
+            ),
+            "decision_reason": (
+                "已搜尋 Process.Start、ProcessStartInfo 與 ShellExecute，"
+                "實際閱讀入口與外部邊界，確認沒有從 HTTP 輸入流向作業系統命令的執行路徑。"
+            ),
+            "evidence": [{
+                "kind": "source", "path": "NoCommand.cs", "line_start": 1,
+                "line_end": 1, "description": "實際查核來源，只包含受控算術運算。",
+            }],
+            "execution": {
+                "state": "completed",
+                "inspected_paths": ["NoCommand.cs"],
+                "methods": ["閱讀實際程式碼及搜尋命令執行呼叫點"],
+                "summary": "已完成命令執行入口的靜態調查，未找到此類控制責任。",
+            },
+        }
+        self.checks.append(record)
+        return record
+
+    def test_na_inspection_link_keeps_rule_nonapplicable(self):
+        check = self._na_scope_check()
+        frozen = copy.deepcopy(self.assessment)
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertEqual(coverage["review_integrity_errors"], [])
+        self.assertEqual(coverage["unverified_inspected_paths"]["total"], 0)
+        self.assertEqual(coverage["verified_na_inspection_paths"], {"IN-04": ["NoCommand.cs"]})
+        self.assertEqual(coverage["reviewed_file_rule_ids"]["NoCommand.cs"], [])
+        self.assertEqual(self.assessment, frozen)
+        self.assertEqual(check["status"], "na")
+
+    def test_na_scope_without_located_evidence_must_remain_blocked(self):
+        check = self._na_scope_check()
+        check["evidence"] = []
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertEqual(coverage["unverified_inspected_paths"]["total"], 1)
+        self.assertEqual(coverage["verified_na_inspection_paths"], {})
+        self.assertIn("未經逐檔驗證", " ".join(coverage["review_integrity_errors"]))
+
+    def test_na_scope_with_invalid_file_hash_must_remain_blocked(self):
+        self._na_scope_check()
+        self.assessment["file_reviews"][-1]["sha256"] = "0" * 64
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertEqual(coverage["unverified_inspected_paths"]["total"], 1)
+        self.assertIn("NoCommand.cs", coverage["missing_source_paths"])
+
+    def test_na_scope_cannot_be_recast_as_applicable_rule_review(self):
+        self._na_scope_check()
+        row = self.assessment["file_reviews"][-1]
+        row["rule_reviews"].append({
+            "rule_id": "IN-04", "result": "review",
+            "reason": "模擬錯誤的 NA 規則轉為適用紀錄，這筆紀錄應當被正式驗證拒絕。",
+            "line_start": 1, "line_end": 1,
+        })
+        row["category_screening"]["IN"]["rule_ids"] = ["IN-04"]
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertIn("標為 na", " ".join(coverage["review_integrity_errors"]))
+
+    def test_na_inspected_path_must_have_valid_file_review(self):
+        check = self._na_scope_check()
+        check["execution"]["inspected_paths"].append("Missing.cs")
+        # Missing.cs is not an eligible source and cannot be used as evidence
+        # of completeness; source inventory and schema remain authoritative.
+        coverage = build_source_coverage(self.assessment, self.root)
+        self.assertNotIn("Missing.cs", coverage["verified_na_inspection_paths"]["IN-04"])
+
     def test_file_fail_conflicts_with_global_pass(self):
         self.assessment["file_reviews"][0]["rule_reviews"][0]["result"] = "fail"
         self.checks[0]["status"] = "pass"
