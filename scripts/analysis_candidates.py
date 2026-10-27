@@ -72,7 +72,7 @@ def candidate_hits(path: str, source: str) -> list[dict[str, object]]:
 # 只有明確控制語句／呼叫／配置才算合理候選；命中不等於安全。
 RULE_EVIDENCE_SIGNALS = {
     "AC-04": r"\b(?:context\.Succeed|context\.Fail|HandleRequirementAsync|RequireRole|RequireClaim|AuthorizeAsync|AddPolicy)\s*\(",
-    "AC-08": r"\b(?:GetMaxAllowedScope|AuthorizeAsync|CheckAccess|IsOwner|OwnerId\s*==|UserId\s*==)\b",
+    "AC-08": r"\b(?:GetMaxAllowedScope|AuthorizeAsync|CheckAccess|IsOwner)\b|\b(?:OwnerId|UserId)\s*==",
     "AU-01": r"\b(?:Password\.RequiredLength|Password\.RequireDigit|Password\.RequireUppercase|Password\.RequireLowercase|Password\.RequiredUniqueChars|RequiredLength\s*=|RequireNonAlphanumeric\s*=)\b",
     "AU-08": r"\b(?:PasswordHasher|HashPassword|VerifyHashedPassword|PasswordHasherOptions|PasswordHash\s*=|PasswordVerificationResult)\b",
     "AU-09": r"\b(?:ValidateTwoFactor|TwoFactorSignIn|VerifyTwoFactor|VerifyTotp|CheckTotp|TotpEnabled|AuthenticatorSignIn|GenerateTwoFactorToken)\b",
@@ -82,7 +82,7 @@ RULE_EVIDENCE_SIGNALS = {
     "SI-01": r"\b(?:permissions:|pull_request:|codeql|dependabot|security[-_]scan|sast|dependency[-_]review)\b",
 }
 AC08_RESOURCE_OPERATION_SIGNALS = re.compile(
-    r"\b(?:FindAsync|FirstOrDefaultAsync|SingleOrDefaultAsync|SaveChangesAsync|ExecuteDeleteAsync)\s*|"
+    r"\b(?:FindAsync|FirstOrDefaultAsync|SingleOrDefaultAsync|SaveChangesAsync|ExecuteDeleteAsync)\s*\(|"
     r"\.(?:Where|Any|Select)\s*\(|\b(?:context|_context)\.Orders\b",
     re.IGNORECASE,
 )
@@ -92,8 +92,9 @@ AC08_RESOURCE_TERMS = re.compile(
 )
 AC08_CONTROL_SIGNALS = re.compile(RULE_EVIDENCE_SIGNALS["AC-08"], re.IGNORECASE)
 AC08_WIRING_SIGNALS = re.compile(
-    r"\bAddScoped\s*<\s*IAuthorizationHandler\b|"
-    r"\bPermissionResourceAuthorizationHandler\b",
+    r"\b(?:AddScoped|AddTransient|AddSingleton)\s*<\s*IAuthorizationHandler\s*,\s*"
+    r"(?:[\w]+\.)*[\w]*(?:Resource|Owner|Ownership|Tenant|Scope)[\w]*AuthorizationHandler"
+    r"\s*>\s*\(",
     re.IGNORECASE,
 )
 SPECIAL_EXTERNAL_PROOF = frozenset({"DP-01", "DP-04"})
