@@ -12,10 +12,10 @@ from typing import Any
 from review_completion import _template
 
 REPORT = Path("reports/security-code-review/assessment.json")
-RULE_ID = r"(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}"
+RULE_ID = r"(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}"
 # Verifier emits both "path: RULE: details" and "RULE: path:line details".
-FILE_RULE = re.compile(rf"^(?P<path>[^:\\n]+): (?P<rule>{RULE_ID}):")
-RULE_FILE = re.compile(rf"^(?P<rule>{RULE_ID}): (?P<path>[^:\\n]+):")
+FILE_RULE = re.compile(rf"^(?P<path>[^:\n]+): (?P<rule>{RULE_ID}):")
+RULE_FILE = re.compile(rf"^(?P<rule>{RULE_ID}): (?P<path>[^:\n]+):")
 
 
 def blocker_source_path(message: str, known_paths: set[str]) -> str | None:
