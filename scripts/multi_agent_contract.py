@@ -19,7 +19,7 @@ SECRET = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
     r"\bAKIA[0-9A-Z]{16}\b|"
     r"(?i:password|pwd|client_secret|api[_-]?key|access_token|connectionstring)\s*[:=]\s*"
-    r"['\"]?[^\s;'\",}]{6,}|"
+    r"['\"]?[^\s;'\",}]{1,}|"
     r"(?i:(?:Server|Data Source)\s*=[^;\n]{1,120};\s*(?:Password|Pwd)\s*=[^;\s]+)|"
     r"\beyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{8,}\b|"
     r"\b(?:sk-(?:proj-)?|xoxb-|xoxp-|gh[pousr]_)[A-Za-z0-9_-]{12,}\b|"
