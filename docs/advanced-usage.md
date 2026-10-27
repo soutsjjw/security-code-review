@@ -164,7 +164,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 - **逐檔證據重讀**：先重新閱讀重複模板、證據無關及高度扇出的檔案；空白 `rule_reviews` 不代表尚未審核，須依實際檔案確認十類責任。
 - **規則關聯核對**：針對 `missing_rule_review_ids`、`inspected_paths_diagnostic` 的規則／檔案關聯逐一核實；不可將診斷列表自動轉換為補寫 payload，也不得擅自移除真實關聯。
-- **控制鏈補查**：補查 Q2/Q3、P2/P3 控制呼叫鏈、失效位置、外部責任與來源快照；不因某條控制缺少關鍵字就直接放寬 Verifier。
+- **控制鏈補查**：補查跨檔鏈、控制有效性、正式判定與反向攻擊情境、失效位置、外部責任與來源快照；不因某條控制缺少關鍵字就直接放寬 Verifier。
 - **合法修訂與正式驗證**：經本人核對真實來源及既有 Finding 後，以 `review_safety.py --stage` 暫存並使用 `--integrate --allow-revision` 合法修訂；每批整合前增量驗證變更檔的正式來源關聯，明顯無關行號與擴大的重複模板會拒絕寫入。最後重新執行 `--diagnose-first-pass`，只有 `ready_for_second_pass=true` 才能啟動第二輪；正式報告使用非 `--compact` 的完整佇列驗證。
 
 `--repair-plan` 是唯讀提示，不提供「一鍵清除 blocker」；僅靠上傳 `assessment.json` 缺少目標來源快照、完整性 Manifest 與 Journal 時，不能在別處產出合法覆寫 payload。對已有不合格的未動部分，整合時不直接改寫；正式驗證仍照常拒絕。
