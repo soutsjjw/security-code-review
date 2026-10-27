@@ -116,6 +116,7 @@ def diagnose(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
     result = summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"))
     if details.get("cross_file_candidates"):
         result["cross_file_candidates"] = details["cross_file_candidates"]
+    result["verified_na_inspection_paths"] = details.get("verified_na_inspection_paths", {})
     return result
 
 
