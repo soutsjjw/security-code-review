@@ -146,6 +146,14 @@ def record_errors(target: Path, path: str, record: Any, plan: dict,
         if not any(e.get("path") == path for e in finding.get("evidence", [])
                    if isinstance(e, dict)):
             return [f"第二輪抽樣：{path} Finding 沒有引用相同受測路徑"]
+        checks = assessment.get("checks")
+        if not isinstance(checks, list) or not any(
+            isinstance(c, dict) and c.get("status") == "fail"
+            and finding_id in (c.get("finding_ids") or [])
+            and c.get("id") in (finding.get("check_ids") or [])
+            for c in checks
+        ):
+            return [f"第二輪抽樣：{path} 缺少關聯的正式 Fail 規則，不能只有 Finding"]
     elif record.get("finding_id"):
         return [f"第二輪抽樣：{path} 未確認弱點卻填入 Finding"]
     return []
