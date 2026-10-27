@@ -131,6 +131,15 @@ class MultiAgentTests(unittest.TestCase):
             claim(self.root, task_id)
         self.assertFalse(summary(self.root)["work_results_accepted"])
 
+    def test_malformed_worker_path_is_fail_closed(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task = next(iter(state["tasks"].values()))["task"]
+        result = self.result(task)
+        result["files"][0]["path"] = ["unexpected", "array"]
+        self.assertIn("合法 path", str(validate_worker_result(
+            self.root, task, result, self.hashes)))
+
     def test_candidate_rule_cannot_be_silently_skipped(self):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
