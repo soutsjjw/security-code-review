@@ -40,14 +40,23 @@ class MultiAgentTests(unittest.TestCase):
             "rule_candidates": {name: [{"rule_id": "AC-01"}] for name in self.names}}), "utf-8")
         (analysis.parent / "assessment.json").write_text(
             json.dumps({"scope_details": {"excluded_paths": []}}), "utf-8")
+        trace = analysis / "multi-agent/probe-trace.txt"
+        trace.parent.mkdir(parents=True)
+        trace.write_text("Synthetic fixture, NOT a real Codex trace.", "utf-8")
+        self.trace = trace
         self.git = {"head": "a" * 40, "worktree_digest": "b" * 64}
+        for name in ("multi_agent.runtime_binding", "multi_agent_guard.runtime_binding"):
+            runtime = patch(name, return_value="codex-cli test-version")
+            runtime.start()
+            self.addCleanup(runtime.stop)
         patcher = patch("multi_agent._git_state", return_value=self.git)
         patcher.start()
         self.addCleanup(patcher.stop)
 
     def verified_probe(self):
         item = probe_template()
-        item["codex_version"] = "trial-run"
+        item["codex_version"] = "codex-cli test-version"
+        item["trace_path"] = str(self.trace)
         item["execution_id"] = "trial-1"
         item["checks"] = {k: True for k in item["checks"]}
         item["evidence_note"] = "兩個獨立子代理測試並保存執行器 trace，確認唯讀沙箱拒絕寫入與失敗處理。"
@@ -91,8 +100,13 @@ class MultiAgentTests(unittest.TestCase):
                                  "reason": "尚需由主代理追查跨檔授權及 Session 控制鏈",
                                  "evidence": []}],
                 "unresolved_symbols": [], "findings": [],
+                "line_challenges": [{"line": n,
+                                    "sha256": __import__("hashlib").sha256(
+                                        source.read_text("utf-8").splitlines()[n-1].encode("utf-8")
+                                    ).hexdigest()} for n in item.get("challenge_lines", [])],
             })
         return {"schema_version": 1, "task_id": task["task_id"],
+                "agent_instance_id": task.get("agent_instance_id", "codex-agent-test"),
                 "worker_id": task["worker_id"],
                 "snapshot_fingerprint": task["snapshot_fingerprint"],
                 "status": "completed", "files": files, "issues": [],
@@ -102,7 +116,7 @@ class MultiAgentTests(unittest.TestCase):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
         for task_id in list(state["tasks"]):
-            task = claim(self.root, task_id)
+            task = claim(self.root, task_id, agent_id="codex-agent-test")
             result = self.result(task)
             result_file = self.root / f"result-{task_id}.txt"
             result_file.write_text(json.dumps(result, ensure_ascii=False), "utf-8")
@@ -120,15 +134,15 @@ class MultiAgentTests(unittest.TestCase):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
         task_id = next(iter(state["tasks"]))
-        claim(self.root, task_id)
+        claim(self.root, task_id, agent_id="codex-agent-test")
         first = fail(self.root, task_id)
         self.assertEqual(first["remaining_attempts"], 1)
         self.assertFalse(first["fallback_required"])
-        claim(self.root, task_id)
+        claim(self.root, task_id, agent_id="codex-agent-test")
         second = fail(self.root, task_id)
         self.assertTrue(second["fallback_required"])
         with self.assertRaises(ValueError):
-            claim(self.root, task_id)
+            claim(self.root, task_id, agent_id="codex-agent-test")
         self.assertFalse(summary(self.root)["work_results_accepted"])
 
     def test_malformed_worker_path_is_fail_closed(self):
@@ -145,16 +159,16 @@ class MultiAgentTests(unittest.TestCase):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
         first_id, second_id = list(state["tasks"])
-        task = claim(self.root, first_id)
+        task = claim(self.root, first_id, agent_id="codex-agent-test")
         result = self.result(task)
         result["tokens_used"] = 80000
         result_file = self.root / "token-result.txt"
         result_file.write_text(json.dumps(result, ensure_ascii=False), "utf-8")
         self.assertTrue(accept(self.root, result_file)["accepted"])
         with self.assertRaisesRegex(ValueError, "80%"):
-            claim(self.root, second_id)
+            claim(self.root, second_id, agent_id="codex-agent-test")
         self.assertEqual(renew_budget(self.root)["budget_window"], 2)
-        self.assertEqual(claim(self.root, second_id)["task_id"], second_id)
+        self.assertEqual(claim(self.root, second_id, agent_id="codex-agent-test")["task_id"], second_id)
 
     def test_candidate_rule_cannot_be_silently_skipped(self):
         self.verified_probe()
@@ -201,7 +215,7 @@ class MultiAgentTests(unittest.TestCase):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
         task_id = next(iter(state["tasks"]))
-        task = claim(self.root, task_id)
+        task = claim(self.root, task_id, agent_id="codex-agent-test")
         result_file = self.root / "result.txt"
         result_file.write_text(json.dumps(self.result(task), ensure_ascii=False), "utf-8")
         (self.root / task["assigned_paths"][0]["path"]).write_text("changed", "utf-8")
