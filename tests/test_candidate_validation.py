@@ -86,12 +86,12 @@ class CandidateValidationTests(unittest.TestCase):
     def test_ac08_failed_handler_is_accepted_by_full_file_evidence_verifier(self):
         # 真實模式：既有 AC-08-F1 證據指向取得他人資源並修改的 Handler。
         source = (
-            "public async Task<Result> Handle(DeleteOrderCommand request, CancellationToken cancellationToken)\\n"
-            "{\\n"
-            "    var order = await context.Orders.FindAsync([request.Id], cancellationToken);\\n"
-            "    order.IsDelete = true;\\n"
-            "    await context.SaveChangesAsync(cancellationToken);\\n"
-            "}\\n"
+            "public async Task<Result> Handle(DeleteOrderCommand request, CancellationToken cancellationToken)\n"
+            "{\n"
+            "    var order = await context.Orders.FindAsync([request.Id], cancellationToken);\n"
+            "    order.IsDelete = true;\n"
+            "    await context.SaveChangesAsync(cancellationToken);\n"
+            "}\n"
         )
         (self.root / "Handler.cs").write_text(source, encoding="utf-8")
         data = self.assessment(("AC-08",))
