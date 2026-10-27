@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from analysis_candidates import candidate_hits, meaningful_source_excerpt
+from analysis_candidates import candidate_hits, meaningful_source_excerpt, source_relevant_to_rule
 from review_completion import completion_errors
 from source_coverage import build_source_coverage
 from review_fixture import make_file_review
@@ -49,6 +49,37 @@ class CandidateValidationTests(unittest.TestCase):
         self.assertEqual(hits["IN-03"]["line"], 5)
         self.assertEqual(candidate_hits("Ignored.vue", self.code), [])
         self.assertEqual(candidate_hits("Helper.cs", "// [ValidateAntiForgeryToken]\nusing Microsoft.AspNetCore.Authorization;"), [])
+
+    def test_ac08_accepts_positive_resource_authorization_control(self):
+        self.assertTrue(source_relevant_to_rule(
+            "PermissionResourceAuthorizationHandler.cs",
+            "src/Infrastructure/Authorization/PermissionResourceAuthorizationHandler.cs",
+            ["var allowed = GetMaxAllowedScope(context.User, module, operation);"]
+        ))
+
+    def test_ac08_accepts_resource_operation_as_missing_control_evidence(self):
+        self.assertTrue(source_relevant_to_rule(
+            "DeleteOrderCommandHandler.cs",
+            "src/Application/Features/Orders/Commands/DeleteOrder/DeleteOrderCommandHandler.cs",
+            ["var order = await context.Orders.FindAsync([request.Id], cancellationToken);",
+             "await context.SaveChangesAsync(cancellationToken);"]
+        ))
+        self.assertTrue(source_relevant_to_rule(
+            "GetOrdersQueryHandler.cs",
+            "src/Application/Features/Orders/Queries/GetOrders/GetOrdersQueryHandler.cs",
+            ["var ordersQuery = _context.Orders",
+             ".Where(order => !order.IsDelete);"]
+        ))
+
+    def test_ac08_does_not_treat_unrelated_authorization_or_data_access_as_evidence(self):
+        self.assertFalse(source_relevant_to_rule(
+            "AC-08", "src/Web/Controllers/OrdersController.cs",
+            ["[Authorize]"]
+        ))
+        self.assertFalse(source_relevant_to_rule(
+            "AC-08", "src/Application/Features/User/UserQuery.cs",
+            ["var user = await context.Users.FirstOrDefaultAsync(cancellationToken);"]
+        ))
 
     def test_omitted_authorization_and_csrf_candidates_block_completion(self):
         data = self.assessment()

@@ -81,6 +81,16 @@ RULE_EVIDENCE_SIGNALS = {
     "PD-07": r"\b(?:DeleteAsync|DeletePersonalData|RemoveRange|RemoveAsync|PurgeAsync|EraseAsync|ForgetUser|ExecuteDeleteAsync)\b",
     "SI-01": r"\b(?:permissions:|pull_request:|codeql|dependabot|security[-_]scan|sast|dependency[-_]review)\b",
 }
+AC08_RESOURCE_OPERATION_SIGNALS = re.compile(
+    r"\b(?:FindAsync|FirstOrDefaultAsync|SingleOrDefaultAsync|SaveChangesAsync|ExecuteDeleteAsync)\s*|"
+    r"\.(?:Where|Any|Select)\s*\(|\b(?:context|_context)\.Orders\b",
+    re.IGNORECASE,
+)
+AC08_RESOURCE_TERMS = re.compile(
+    r"\b(?:order|orders|OrderId|IOwnedResource|CreatedBy|OfficeId|DepartmentId|IsDelete)\b",
+    re.IGNORECASE,
+)
+AC08_CONTROL_SIGNALS = re.compile(RULE_EVIDENCE_SIGNALS["AC-08"], re.IGNORECASE)
 SPECIAL_EXTERNAL_PROOF = frozenset({"DP-01", "DP-04"})
 SPECIAL_PATH_RE = re.compile(r"(?:^|/)(?:\.github/workflows/|azure-pipelines[^/]*\.ya?ml$|\.gitlab-ci\.yml$)")
 _MEMBER_DECLARATION = re.compile(
@@ -142,6 +152,17 @@ def source_relevant_to_rule(rule_id: str, path: str, lines: list[str]) -> bool:
             "\n".join(substantive), flags=re.IGNORECASE))
     if rule_id == "SI-01" and not SPECIAL_PATH_RE.search(path):
         return False
+    if rule_id == "AC-08":
+        text = "\n".join(substantive)
+        # AC-08 has two legitimate evidence forms: a positive resource-
+        # authorization control, or a concrete resource operation where the
+        # absence of that control is the finding. The decision layer must
+        # determine effectiveness; relevance alone must not treat an
+        # authorization keyword as proof of safety.
+        return bool(AC08_CONTROL_SIGNALS.search(text) or (
+            AC08_RESOURCE_OPERATION_SIGNALS.search(text)
+            and AC08_RESOURCE_TERMS.search(text)
+        ))
     signal = RULE_EVIDENCE_SIGNALS.get(rule_id)
     return bool(re.search(signal, "\n".join(substantive), flags=re.IGNORECASE)) if signal else True
 
