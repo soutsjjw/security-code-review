@@ -176,10 +176,20 @@ def fail(root: Path, task_id: str) -> dict:
 
 @exclusive_ledger
 def accept(root: Path, path: Path) -> dict:
-    state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
         raise ValueError("第二輪結果檔案不存在或不安全")
-    raw = path.read_text("utf-8")
+    return _accept_payload(root, path.read_text("utf-8"))
+
+
+@exclusive_ledger
+def accept_stdin(root: Path, raw: str) -> dict:
+    if len(raw.encode("utf-8")) > MAX_BYTES:
+        raise ValueError("第二輪結果過大，尚未落地即拒絕")
+    return _accept_payload(root, raw)
+
+
+def _accept_payload(root: Path, raw: str) -> dict:
+    state, snap = _active(root)
     if SECRET.search(raw):
         raise ValueError("第二輪回報疑似洩漏憑證")
     data = json.loads(raw)
@@ -257,6 +267,19 @@ def accept(root: Path, path: Path) -> dict:
             "notice": "只接受了可定位的挑戰候選；仍須主代理反向閱讀、裁決並透過原有 Stage/Integrate 保存"}
 
 
+@exclusive_ledger
+def renew_budget(root: Path) -> dict:
+    state, _ = _active(root)
+    if any(x["status"] == "running" for x in state["tasks"].values()):
+        raise ValueError("第二輪尚有 running 工作，不得重置預算窗口")
+    if state["window_charged"] < int(state["budget_tokens"] * 0.8):
+        raise ValueError("第二輪尚未達預算門檻")
+    state["window_charged"] = 0
+    state["budget_window"] = state.get("budget_window", 1) + 1
+    _write(root / SECOND, state)
+    return {"budget_window": state["budget_window"], "measured_tokens": state["measured_tokens"]}
+
+
 def status(root: Path) -> dict:
     state, _ = _active(root)
     return {"tasks": {k: {"status": v["status"], "agent_id": v["agent_instance_id"],
@@ -269,7 +292,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     cmd = parser.add_mutually_exclusive_group(required=True)
-    for name in ("plan", "next", "claim", "fail", "accept", "status"):
+    for name in ("plan", "next", "claim", "fail", "accept", "accept-stdin", "renew-budget", "status"):
         cmd.add_argument("--" + name, action="store_true")
     parser.add_argument("--advance", action="store_true")
     parser.add_argument("--task-id")
@@ -295,6 +318,10 @@ def main() -> int:
             if not args.task_id:
                 raise ValueError("--fail 須指定 --task-id")
             output = fail(root, args.task_id)
+        elif args.accept_stdin:
+            output = accept_stdin(root, sys.stdin.read(MAX_BYTES + 1))
+        elif args.renew_budget:
+            output = renew_budget(root)
         elif args.accept:
             if args.result is None:
                 raise ValueError("必須指定 --result")
