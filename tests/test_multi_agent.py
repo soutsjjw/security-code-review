@@ -180,20 +180,44 @@ class MultiAgentTests(unittest.TestCase):
         self.assertIn("缺少候選規則", str(validate_worker_result(
             self.root, task, result, self.hashes)))
 
-    def test_unresolved_symbol_and_missing_lines_block(self):
+    def test_unresolved_symbol_is_accepted_for_followup_not_retry(self):
+        from multi_agent import followup, accept_followup
+        from multi_agent_guard import proof_line_hash
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
-        task = next(iter(state["tasks"].values()))["task"]
+        task_id = next(iter(state["tasks"]))
+        task = claim(self.root, task_id, agent_id="codex-agent-test")
         result = self.result(task)
         result["files"][0]["reviewed_ranges"] = [{"start": 1, "end": 3}]
-        errs = validate_worker_result(self.root, task, result, self.hashes)
+        errs = validate_worker_result(self.root, task, result, self.hashes,
+                                      challenges=__import__("multi_agent")._read(self.root / LEDGER)
+                                      ["tasks"][task_id]["challenges"])
         self.assertIn("未覆蓋來源所有行", str(errs))
         result["files"][0]["reviewed_ranges"] = [{"start": 1, "end": 300}]
         result["files"][0]["unresolved_symbols"] = [{
             "name": "ResolvePolicy", "path": result["files"][0]["path"],
             "line_start": 1, "reason": "呼叫目標位於其他分片，尚未追查到實際實作"}]
-        errs = validate_worker_result(self.root, task, result, self.hashes)
-        self.assertIn("未解跨分片", str(errs))
+        result_file = self.root / "unresolved.txt"
+        result_file.write_text(json.dumps(result, ensure_ascii=False), "utf-8")
+        accepted = accept(self.root, result_file)
+        self.assertTrue(accepted["accepted"])
+        self.assertTrue(accepted["needs_followup"])
+        self.assertEqual(summary(self.root)["task_counts"]["needs_followup"], 1)
+        job = followup(self.root, task_id, agent_id="codex-agent-followup")
+        target = self.names[1]
+        proof = {"path": target, "line_start": 1, "line_end": 1,
+                 "line_hash": proof_line_hash(self.root, target, 1),
+                 "summary": "重新定位到另一個分片的實際呼叫目標及其程式宣告，仍須由主代理核對語意控制鏈"}
+        resolved = {"task_id": task_id, "round": job["round"],
+                    "agent_instance_id": job["agent_instance_id"],
+                    "snapshot_fingerprint": job["snapshot_fingerprint"],
+                    "resolved": [{"name": "ResolvePolicy",
+                                  "path": result["files"][0]["path"],
+                                  "line_start": 1, "evidence": proof}]}
+        f = self.root / "resolution.txt"
+        f.write_text(json.dumps(resolved, ensure_ascii=False), "utf-8")
+        self.assertEqual(accept_followup(self.root, f)["status"], "completed")
+
 
     def test_secret_and_untrusted_instruction_cannot_modify_contract(self):
         self.verified_probe()
