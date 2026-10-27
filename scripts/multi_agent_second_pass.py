@@ -16,7 +16,7 @@ from multi_agent import (ANALYSIS, LEDGER, PROBE, SNAPSHOT, _read, _write,
                          _snapshot, _fingerprint, _git_state)
 from multi_agent_contract import VERSION, SECRET, digest
 from multi_agent_guard import (probe_errors, protected_report_digest,
-                               challenges_for, proof_line_hash)
+                               challenges_for, proof_line_hash, exclusive_ledger)
 
 SECOND = ANALYSIS / "multi-agent/second-pass-ledger.json"
 AGENT = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
@@ -34,6 +34,7 @@ def _source_targets(task: dict, hashes: dict) -> list[str]:
     return sorted(paths)
 
 
+@exclusive_ledger
 def plan(root: Path, *, advance: bool = False) -> dict:
     from second_pass_layers import worklist
     work = worklist(root)
@@ -125,6 +126,7 @@ def _active(root: Path) -> tuple[dict, dict]:
     return state, snap
 
 
+@exclusive_ledger
 def claim(root: Path, task_id: str, agent_id: str) -> dict:
     state, _ = _active(root)
     task = state["tasks"].get(task_id)
@@ -147,6 +149,7 @@ def claim(root: Path, task_id: str, agent_id: str) -> dict:
     return {**task["task"], "agent_instance_id": agent_id}
 
 
+@exclusive_ledger
 def fail(root: Path, task_id: str) -> dict:
     state, _ = _active(root)
     task = state["tasks"].get(task_id)
@@ -158,6 +161,7 @@ def fail(root: Path, task_id: str) -> dict:
             "fallback_required": task["status"] == "needs_main"}
 
 
+@exclusive_ledger
 def accept(root: Path, path: Path) -> dict:
     state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
