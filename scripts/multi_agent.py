@@ -362,10 +362,86 @@ def accept(root: Path, path: Path) -> dict:
             "notice": "僅代表 Worker 格式、範圍和來源定位可驗證；主代理仍須重讀所有 Finding 與正式 Stage/Integrate"}
 
 
+def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
+    state, snap = _active(root)
+    row = state["tasks"].get(task_id)
+    if row is None or row["status"] != "needs_followup":
+        raise ValueError("只有具未解跨檔符號的已接受分片才能補派")
+    if row["followup_round"] >= 2:
+        raise ValueError("跨分片最多補派兩輪，改由主代理親自追查")
+    if not isinstance(agent_id, str) or not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}", agent_id):
+        raise ValueError("補查須指定實際 agent_instance_id")
+    if sum(x["status"] in ("running", "followup_running") for x in state["tasks"].values()) >= state["workers"]:
+        raise ValueError("已達子代理併發上限")
+    round_number = row["followup_round"] + 1
+    row["status"] = "followup_running"
+    row["followup_round"] = round_number
+    row["followup_agent"] = agent_id
+    row["claimed_at"] = time.time()
+    _write(root / LEDGER, state)
+    return {"task_id": task_id, "round": round_number, "agent_instance_id": agent_id,
+            "snapshot_fingerprint": state["snapshot_fingerprint"],
+            "unresolved_symbols": row["unresolved_symbols"],
+            "instruction": "只回報可驗證的跨檔實際來源定位；完整證據交主代理核對，不得修改審查資料"}
+
+
+def accept_followup(root: Path, path: Path) -> dict:
+    state, snap = _active(root)
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
+        raise ValueError("補查結果路徑不安全")
+    data = _read(path)
+    row = state["tasks"].get(data.get("task_id"))
+    if (row is None or row["status"] != "followup_running"
+            or data.get("round") != row["followup_round"]
+            or data.get("agent_instance_id") != row["followup_agent"]
+            or data.get("snapshot_fingerprint") != state["snapshot_fingerprint"]):
+        raise ValueError("補查結果與執行中任務或快照不符")
+    if set(data) != {"task_id", "round", "agent_instance_id", "snapshot_fingerprint", "resolved"}:
+        raise ValueError("補查結果存在未授權欄位")
+    resolved = data["resolved"]
+    if not isinstance(resolved, list):
+        raise ValueError("補查結果必須是陣列")
+    from multi_agent_contract import SECRET
+    if SECRET.search(json.dumps(data, ensure_ascii=False)):
+        raise ValueError("補查結果包含疑似機敏資訊")
+    from multi_agent_guard import proof_line_hash
+    unresolved_ids = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
+    seen = set()
+    for item in resolved:
+        if not isinstance(item, dict) or set(item) != {"path", "name", "line_start", "evidence"}:
+            raise ValueError("補查紀錄欄位不完整")
+        ident = (item["path"], item["name"], item["line_start"])
+        if ident not in unresolved_ids or ident in seen:
+            raise ValueError("補查嘗試核銷未分配或重複符號")
+        seen.add(ident)
+        proof = item["evidence"]
+        if not isinstance(proof, dict) or set(proof) != {"path", "line_start", "line_end", "line_hash", "summary"}:
+            raise ValueError("補查控制鏈來源證據不完整")
+        target = proof.get("path")
+        if not isinstance(target, str) or target not in snap["source_hashes"]:
+            raise ValueError("補查控制鏈不在快照中")
+        if (type(proof.get("line_start")) is not int
+                or type(proof.get("line_end")) is not int
+                or proof["line_start"] < 1 or proof["line_end"] < proof["line_start"]
+                or proof.get("line_hash") != proof_line_hash(root, target, proof["line_start"])
+                or not isinstance(proof.get("summary"), str)
+                or len(proof["summary"].strip()) < 20):
+            raise ValueError("補查來源行 SHA256 或說明不可信")
+    row["unresolved_symbols"] = [x for x in row["unresolved_symbols"]
+                                  if (x["path"], x["name"], x["line_start"]) not in seen]
+    row["status"] = ("completed" if not row["unresolved_symbols"] else
+                     "needs_main" if row["followup_round"] >= 2 else "needs_followup")
+    row.setdefault("followup_result_digests", []).append(digest(data))
+    _write(root / LEDGER, state)
+    return {"task_id": data["task_id"], "status": row["status"],
+            "remaining_symbols": len(row["unresolved_symbols"]),
+            "main_agent_verification_required": True}
+
+
 def renew_budget(root: Path) -> dict:
     # Main agent must checkpoint and explicitly start the next budget window.
     state, _ = _active(root)
-    if any(row["status"] == "running" for row in state["tasks"].values()):
+    if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
         raise ValueError("仍有執行中分片，不能在批次中途重設預算")
     if state.get("window_tokens", 0) < int(state["config"]["budget_tokens"] * 0.8):
         raise ValueError("尚未達本輪預算門檻，不需續開")
@@ -390,12 +466,12 @@ def summary(root: Path) -> dict:
     return {"multi_agent_enabled": state["multi_agent_enabled"],
             "workers": state["workers"], "task_counts": {
                 value: sum(x["status"] == value for x in state["tasks"].values())
-                for value in ("pending", "running", "failed", "needs_followup", "completed")},
+                for value in ("pending", "running", "failed", "followup_running", "needs_followup", "needs_main", "completed")},
             "missing_source_paths": missing, "duplicate_primary_ownership": duplicate,
             "unresolved_tasks": unresolved,
             "running_tasks": {ident: {"claimed_at": row.get("claimed_at"),
                                       "agent_instance_id": row.get("agent_instance_id")}
-                              for ident, row in state["tasks"].items() if row["status"] == "running"},
+                              for ident, row in state["tasks"].items() if row["status"] in ("running", "followup_running")},
             "measured_tokens": state["measured_tokens"],
             "unresolved_symbol_count": sum(len(r.get("unresolved_symbols", []))
                                            for r in state["tasks"].values()),
@@ -429,7 +505,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "plan", "next", "claim", "fail", "renew-budget", "accept",
+    for name in ("probe-template", "record-probe", "plan", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -469,6 +545,14 @@ def main() -> int:
             if not args.task_id:
                 raise ValueError("--fail 必須指定 --task-id")
             answer = fail(root, args.task_id)
+        elif args.followup:
+            if not args.task_id or not args.agent_id:
+                raise ValueError("--followup 必須指定 --task-id 與 --agent-id")
+            answer = followup(root, args.task_id, agent_id=args.agent_id)
+        elif args.accept_followup:
+            if args.result is None:
+                raise ValueError("--accept-followup 必須指定 --result")
+            answer = accept_followup(root, args.result)
         elif args.renew_budget:
             answer = renew_budget(root)
         elif args.accept:
