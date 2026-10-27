@@ -185,13 +185,15 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
-- 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性、待確認判定驗證及第二輪反向複核。
+- 本次完整模式**優先真正啟動 Codex 原生主代理 + N 名唯讀子代理（建議 N=2～4）**，不是僅呼叫 `--workers N` 分片腳本；依 [原生子代理啟動契約](review-performance.md#codex-原生子代理啟動完整模式) 執行。主代理仍是唯一正式資料寫入者，負責跨檔／控制證據複核、判定、整合與第二輪反向複核。
+- **不以受測目錄是否為 Git repo 作為多代理門檻。** Git 不可用時使用原有來源 SHA256 快照，明確記錄不可得的 Git Revision；只有實際原生子代理工具缺失／拒絕／失敗或不足 2 名可用時才記錄原因並降級單代理。不得將 Git worktree 與唯讀子代理啟動混為一談。
 
 完成條件：
 
 0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
    - 新審查由 --init 自動建立完整性封存；已有結果的專案則需先人工核對並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity。
    - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
+   - 在此之後，若 Codex 有原生子代理能力，主代理立即依固定 N、相同 SHA256 來源快照及不同 `worker-id` 實際委派並等待子代理逐檔唯讀結果；由主代理獨立核對後才 `--stage/--integrate`。子代理不得修改原始碼、正式 assessment、Manifest 或 Journal；沒有 `.git` 不得直接降級。單代理降級須回報原生工具實際失敗理由與未完成分片。
 
 1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
 
