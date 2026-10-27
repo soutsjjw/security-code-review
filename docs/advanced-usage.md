@@ -397,3 +397,12 @@ PYTHON="$(sh scripts/run-python.sh --resolve)"
 ### 已存在 Finding 的證據更正
 
 已確認 Finding 的來源行號或敘述經重查不正確時，**不可**直接覆寫或刪除。取得明確授權後，依 [受控更正契約](review-integrity-guards.md#已確認-finding-的受控更正不可直接編輯-assessmentjson) 在暫存 JSON 放入完整同 ID Finding 與 `finding_revisions` 原因／覆核者，執行 `--integrate --allow-revision --allow-finding-revision`。既有 confirmed、規則關聯與嚴重度底線保持；修訂前全文及前後雜湊寫入 assessment.finding_amendments，由現有 Manifest／Journal 保護。
+
+
+### Block 後的合法續跑（不放寬守門）
+
+- 第一輪尚未 70/70：可唯讀執行 `review_queue.py --diagnose-first-pass` 與 `--repair-plan`，同時查看 `pending_rule_ids`、`missing_source_paths` 與已完成規則的 blocker；僅修正真實缺失的檔案或規則，已完成判定需要明確授權才能 `--allow-revision`。
+- `stalled`：允許唯讀 `--diagnose-first-pass`、`--repair-plan`、`--detail-id` 或 `review_safety.py --plan`；修改與整合仍維持退出碼 3。查明真正原因後使用 `review_log.py --target "<TARGET_ROOT>" start` 明確開新 run，續用舊審查證據，不重設 Finding。
+- 自訂方法名稱的真實控制被 Regex 拒絕：依 [逐檔語意證據](file-review-contract.md) 的 `semantic_review` 記錄已人工核實之呼叫鏈、控制效果與正式來源行號；禁止以空泛解釋免除真實程式碼與繞過查核。
+- Manifest／Journal 缺失或未提交、SHA256／Git 變動：先查 `evidence_integrity` 與 `snapshot_errors`，依法採用 `--recover-integrity` 或 `--snapshot-refresh` 並重新核對來源；未確定原證據完整性時不得刪除 Manifest、刷新可信鏈或直接寫 assessment。
+- 本輪規則均 completed 但不能第二輪：`--diagnose-first-pass` 必須先完全通過；第二輪本身尚未完成不能當作第一輪缺失。只有第二輪 70 項完成後才執行正式 `--validate` 與報告交付。

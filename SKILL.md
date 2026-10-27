@@ -53,6 +53,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 ## 審查安全底線（兩種模式均適用）
 
 - 完整模式**70 項、100% 應審查來源、全部十類逐檔適用性篩選**；分類模式只判定指定類別，但其必要來源覆蓋率仍須 100%。規則名稱、查核方法與適用條件以 `rules.json` 與 `review_queue.py --detail-id <RULE_ID>` 為準。索引、Roslyn、CodeGraph、關鍵字與來源檔名只是候選，不是審查證據，不可單一命中即停止追查。
+- 自訂命名的控制若遭固定 Regex 誤判，依 [逐檔資料契約](docs/file-review-contract.md) 記錄與正式來源行號交集的人工 `semantic_review`，不得略過安全效果及呼叫鏈核對。
 - Agent 逐檔實際讀取原始碼與組態，核對 Controller → Handler → Service → Repository、DI、設定覆寫、匿名入口、控制實際執行及可繞過路徑；所有確實適用規則須建立雙向 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths`，附來源真實行號與 SHA256。不得制式填寫十類理由、不用同一條規則填滿全部檔案；來源不可解碼時記錄原因並繼續其他可執行工作。
 - 已確認缺陷建立 `Finding`、關聯 `fail`，並**繼續**其他規則；不修改受測程式、不要求先修補。不能為通過驗證造假工件、補寫模板、消除已確認 Finding 或把 `pass`／`na` 當預設結果。
 - 只有已完成必要靜態查核且**真正有會改變結論的外部工件缺口**才可標 `completed+review`；查核尚未完成保持 `pending/blocked`。通過 Schema 或報告工具不等於真實安全控制有效。
