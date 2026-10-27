@@ -8,9 +8,11 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from multi_agent_contract import VERSION, digest, validate_worker_result, finding_key
+from multi_agent_guard import (runtime_binding, probe_errors, protected_report_digest, challenges_for)
 from source_reader import source_digest
 from source_coverage import expected_paths
 from scope_inventory import relative_path
@@ -102,7 +104,7 @@ def _fingerprint(snap: dict) -> str:
 def probe_template() -> dict:
     return {"schema_version": VERSION, "codex_version": "",
             "execution_id": "", "checks": {key: False for key in CHECKS},
-            "evidence_note": "必須填寫實際執行的獨立子代理試跑觀察，不得只以文件推定"}
+            "evidence_note": "必須填寫實際執行的獨立子代理試跑觀察，不得只以文件推定", "trace_path": ""}
 
 
 def record_probe(root: Path, submitted: dict) -> dict:
@@ -120,8 +122,26 @@ def record_probe(root: Path, submitted: dict) -> dict:
     # experiment outputs for review; this gate only refuses missing/failed checks.
     if all(checks.values()) and not submitted["codex_version"].strip():
         raise ValueError("全數核可的 P0 試跑必須填入實際 Codex 版本")
+    trace = submitted.get("trace_path")
+    current_runtime = runtime_binding()
+    if all(checks.values()) and (
+            not current_runtime or submitted["codex_version"] != current_runtime):
+        raise ValueError("Codex 實際執行器版本無法核實或與 probe 不符")
+    from multi_agent_guard import sha
+    try:
+        trace_file = Path(trace).resolve(strict=True) if isinstance(trace, str) else None
+        if (not trace_file or not trace_file.is_file() or trace_file.is_symlink()
+                or trace_file.stat().st_size == 0 or trace_file.stat().st_size > 2_000_000):
+            raise ValueError("缺少有效執行器試跑 trace")
+        trace_sha = sha(trace_file.read_bytes())
+    except (OSError, ValueError):
+        if all(checks.values()):
+            raise ValueError("已核可試跑必須保留實際執行器 trace")
+        trace_file, trace_sha = None, None
     safe = {key: submitted[key] for key in ("schema_version", "codex_version",
                                             "execution_id", "checks", "evidence_note")}
+    safe.update(trace_path=str(trace_file) if trace_sha else None,
+                trace_sha256=trace_sha, verified_at=time.time())
     raw = json.dumps(safe, ensure_ascii=False)
     from multi_agent_contract import SECRET
     if SECRET.search(raw):
@@ -204,20 +224,21 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
     except FileNotFoundError:
         probe = {}
     # Do not claim that an in-chat declaration enforces a sandbox.
-    enabled = (probe.get("verified") is True
-               and all((probe.get("checks") or {}).get(k) is True for k in CHECKS)
-               and _git_state(root)["head"] is not None)
+    enabled = (not probe_errors(root, probe) and _git_state(root)["head"] is not None)
     built = _build_tasks(root, snap, index, max_agents=max_agents,
                          budget_tokens=budget_tokens, task_tokens=task_tokens, probe_ok=enabled)
     current = root / LEDGER
     if current.exists():
         prior = _read(current)
         if (prior.get("snapshot_fingerprint") != _fingerprint(snap)
+                or prior.get("probe_digest") != digest(probe)
                 or prior.get("config") != {"max_agents": max_agents, "budget_tokens": budget_tokens,
                                          "task_tokens": task_tokens}):
             raise ValueError("已有不同快照或設定的多代理 Ledger，不得默默覆寫")
         return prior
     state = {"schema_version": VERSION, "snapshot_fingerprint": _fingerprint(snap),
+             "probe_digest": digest(probe),
+             "report_guard": protected_report_digest(root),
              "git_state": _git_state(root), "multi_agent_enabled": enabled,
              "workers": built["workers"],
              "fallback_reason": None if enabled else "P0 尚未實測核可，退回單代理",
@@ -226,7 +247,9 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
              "estimated_total_tokens": built["estimated_tokens"], "measured_tokens": 0,
              "window_tokens": 0, "budget_window": 1,
              "tasks": {key: {"task": task, "status": "pending", "attempts": 0,
-                             "result_digest": None, "finding_keys": []}
+                             "result_digest": None, "finding_keys": [],
+                             "claimed_at": None, "agent_instance_id": None,
+                             "challenges": {}, "unresolved_symbols": [], "followup_round": 0}
                        for key, task in built["tasks"].items()}}
     _write(current, state)
     return state
