@@ -56,6 +56,10 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 - `--integrate` 先檢查快照及資料衝突，再以原子替換保存 `assessment.json`，並保留所有既有 Findings。相同弱點的確切指紋去重；不同來源或不同描述不強行合併。
 - 已完成規則、相同檔案或結案結果不同時會阻擋，先人工核對；確實要更新舊證據，可明確加 `--allow-revision`，但不能藉此把原有 `fail` 改成非 `fail`。
 - 暫存的 `file_reviews` 在規則結案前可不符合正式 completed 雙向關聯；**正式交付時**仍必須完全通過既有 `file_review_integrity.py`，不可減少規則覆蓋或修改報告格式。
+- `--integrate` 現在對**本次變更且相關規則已 completed** 的 `file_reviews` 提前執行正式逐檔驗證；不相關行號、已有 `inspected_paths` 但缺 `rule_reviews`，或使跨檔制式結論超過門檻者必須拒絕整合（不會寫入 assessment／Journal）。仍 pending 的逐檔紀錄可跨批待查，但正式 completed 時一定要過守門。
+- 舊資料已存在的不合格紀錄不因其他檔案整合而自動修改或放行；修復時需在同批補齊受影響來源關聯，且不得以 `--allow-revision` 解除品質檢查。
+- 大量錯誤先用 `review_queue.py --repair-plan` 取得唯讀 P0～P3 優先順序；其中重複模板、缺少關聯與控制鏈缺口僅為待補查線索，**不是允許自動產生 JSON 佐證**。
+
 - `--integrate` 不代替 `validate_assessment.py`，不可憑整合成功宣稱 70/70。
 
 ## 跨檔呼叫點必須人工結案
