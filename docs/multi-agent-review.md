@@ -85,7 +85,7 @@ TASK_JSON：<由主代理貼入 --claim 回傳的實際 JSON>
 - 跨分片 `unresolved_symbols` 必須補派或由主代理驗證；最多兩輪補查，再由主代理實際追查，不能無限委派，也不能直接結案。新找到控制鏈時納入原有 `closures/control_trace` 與 callsite 既有驗證。
 - `--status` 的 `work_results_accepted=true` 只是 Worker 來源集合覆蓋，不是正式審查通過；正式覆蓋率仍由 `source_coverage`、`file_review_integrity` 驗證，70 項必須獨立完成。
 - 任何原始碼、Git revision、來源清單或非報告區 Git 工作樹狀態改變，立即拒絕後續作業；重新依現有 snapshot-refresh 規範審查受影響來源。Git 狀態與 SHA 無法證明修改後還原的行為，因此仍**必須靠執行器的強制唯讀隔離**。不得擅自修改受測程式。
-- 計量 Token 到預算時停止派新任務、保存已接受結果；沒有實際計量時須由主代理控管併發與批次，不能把 0 當成 0 成本。降級時記錄原因、單代理接手的分片與最後正式覆蓋率。
+- 當本輪實測 Token 達預算 80% 時停止派新任務、保存已接受結果；確認所有任務不在 running 後由主代理記錄 checkpoint，再明確呼叫 `multi_agent.py --renew-budget` 開啟下一輪預算窗，不會自動延長執行或抹去累計 Token。沒有實際計量時須由主代理控管併發與批次，不能把 0 當成 0 成本。降級時記錄原因、單代理接手的分片與最後正式覆蓋率。
 
 主代理逐項驗證候選 Finding 的實際來源行號、入口 → 控制 → Sink 與繞過條件。去重鍵由（規則 ID、檔案、行範圍、Sink、根因）生成，**僅供候選比對**；同一根因跨入口仍需人工語意合併，不能刪除既有 Finding。只由主代理用既有 `review_safety.py --stage/--integrate` 保存 **正式 Schema** 的證據，不能把 Worker JSON 直接送入正式整合器。
 
