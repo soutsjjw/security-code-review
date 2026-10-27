@@ -726,8 +726,17 @@ def renew_budget(root: Path) -> dict:
     state, _ = _active(root)
     if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
         raise ValueError("仍有執行中分片，不能在批次中途重設預算")
-    if state.get("window_charged", 0) < int(state["config"]["budget_tokens"] * 0.8):
-        raise ValueError("尚未達本輪預算門檻，不需續開")
+    limit = int(state["config"]["budget_tokens"] * 0.8)
+    charge = state.get("window_charged", 0)
+    pending = [row["task"]["estimated_tokens"] for row in state["tasks"].values()
+               if row["status"] in ("pending", "failed") and row["attempts"] < RETRY_LIMIT]
+    pending += [min(max(row["task"]["estimated_tokens"] // 4, 512), 5000)
+                for row in state["tasks"].values()
+                if row["status"] == "needs_followup" and row["followup_round"] < 2]
+    if charge < limit and (not pending or any(cost <= limit - charge for cost in pending)):
+        raise ValueError("目前仍有可執行的分片，無須續開 Token 窗口")
+    if pending and min(pending) > limit:
+        raise ValueError("單一分片超過窗口上限，須重新分片或由主代理處理")
     state["budget_window"] = state.get("budget_window", 1) + 1
     state["window_tokens"] = 0
     state["window_charged"] = 0
