@@ -62,6 +62,10 @@ def batch_quality_errors(target: Path, before: dict[str, Any], after: dict[str, 
             recorded = {rr.get("rule_id") for rr in candidate.get(path, {}).get("rule_reviews") or []
                         if isinstance(rr, dict)}
             if rid not in recorded:
+                # NA represents verified investigation scope, not applicability.
+                # The full file verifier below must validate this NA link.
+                if check.get("status") == "na" and path in candidate:
+                    continue
                 errors.append(f"{path}: {rid} 已列入 inspected_paths 但缺少 rule_reviews")
     if to_verify:
         _, failures = verified_file_rule_reviews(after, target, snapshot_paths)
