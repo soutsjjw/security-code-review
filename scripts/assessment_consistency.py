@@ -17,6 +17,7 @@ STATUS_CONTRADICTION = re.compile(r"(保留|維持|仍為|故為|列為|沿用|�
 PLACEHOLDER_VALUES = ("待實際盤點", "未能自動辨識")
 REVIEW_KIND_STATIC = "static_done_external_pending"
 REVIEW_KIND_EXTERNAL = "external_only"
+REVIEW_KIND_DELEGATED = "external_responsibility_pending"
 REVIEW_RATIO_WARN = 0.7
 _SKIP_DIRS = {".git", "bin", "obj", "node_modules", "reports", ".vs", ".codegraph",
               ".code-review-graph", ".understand-anything", ".security-review-venv"}
@@ -58,7 +59,8 @@ def review_breakdown(checks: list[dict[str, Any]]) -> dict[str, int]:
     return {
         "static": sum(c.get("review_kind") == REVIEW_KIND_STATIC for c in review),
         "external": sum(c.get("review_kind") == REVIEW_KIND_EXTERNAL for c in review),
-        "unclassified": sum(c.get("review_kind") not in (REVIEW_KIND_STATIC, REVIEW_KIND_EXTERNAL) for c in review),
+        "delegated": sum(c.get("review_kind") == REVIEW_KIND_DELEGATED for c in review),
+        "unclassified": sum(c.get("review_kind") not in (REVIEW_KIND_STATIC, REVIEW_KIND_EXTERNAL, REVIEW_KIND_DELEGATED) for c in review),
     }
 
 
