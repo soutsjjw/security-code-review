@@ -41,7 +41,13 @@ python "<SKILL_ROOT>/scripts/file_review_skeleton.py" --target "<TARGET_ROOT>" -
 
 ## Roslyn 編譯快取
 
-`analysis_prepare.py` 以 Skill 的 `Program.cs`、indexer project、SDK 版本及執行檔路徑建立快取指紋，編譯產物放在使用者目錄 `~/.cache/security-code-review/roslyn/`，每次仍重新分析指定來源。未快取安全結論或來源 SHA256。若需停用：`SECURITY_CODE_REVIEW_ROSLYN_CACHE=0`。
+### SDK／TFM 與快取權限
+
+`analysis_prepare.py` 在**獨立、可寫的工具暫存目錄**執行 `dotnet --version`，以該 SDK 主版本設定 indexer 編譯目標（例如 SDK 10 → `net10.0`）；建置亦在隔離工作目錄選用同一 SDK，避免受測專案 `global.json` 與快取工作目錄使用不同 SDK，造成 Roslyn 的 `System.Runtime`／`System.Collections.Immutable` 發生 `CS1705`。這僅編譯 Skill 的 Roslyn 工具，**不編譯也不修改受測專案**。若直接手動編譯 `tools/roslyn-indexer/roslyn-indexer.csproj`，SDK 10 請明確指定 `-p:RoslynIndexerTargetFramework=net10.0`；SDK 8 使用 `net8.0`。
+
+`analysis_prepare.py` 以 Skill 的 `Program.cs`、indexer project、SDK 版本、目標 TFM 與 dotnet 執行檔建立快取指紋，編譯產物放於 `~/.cache/security-code-review/roslyn/`；SDK／工具改變時自動重新編譯，仍須重新分析來源。不快取安全結論或來源 SHA256。若快取目錄因權限無法寫入，工具會改用隔離的系統暫存目錄建置，不要求調整受測原始碼或放寬權限。可用 `SECURITY_CODE_REVIEW_ROSLYN_CACHE=0` 主動關閉快取。
+
+`CS1705` 或暫存目錄本身無法建立時，`roslyn_errors` 必須明確回報 **Skill indexer 的執行失敗**，不能宣稱受測專案編譯錯誤；可繼續來源分析，但不得把缺失的 Roslyn 符號關聯視為已驗證。修復後對原目錄重新執行 `analysis_prepare.py --target "<TARGET_ROOT>" --mode incremental`，並重新核對因 Roslyn 結構分析缺席而未完成的跨檔控制鏈。
 
 ## 建議驗證
 
