@@ -242,6 +242,19 @@ def claim(root: Path, task_id: str) -> dict:
     return row["task"]
 
 
+def fail(root: Path, task_id: str) -> dict:
+    # Explicit main-agent acknowledgement of timeout or worker error.
+    state, _ = _active(root)
+    row = state["tasks"].get(task_id)
+    if row is None or row["status"] != "running":
+        raise ValueError("只有 running 任務可以記錄失敗")
+    row["status"] = "failed"
+    _write(root / LEDGER, state)
+    return {"task_id": task_id, "status": "failed",
+            "remaining_attempts": RETRY_LIMIT - row["attempts"],
+            "fallback_required": row["attempts"] >= RETRY_LIMIT}
+
+
 def accept(root: Path, path: Path) -> dict:
     state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
@@ -321,7 +334,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "plan", "next", "claim", "accept",
+    for name in ("probe-template", "record-probe", "plan", "next", "claim", "fail", "accept",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -349,12 +362,17 @@ def main() -> int:
         elif args.next:
             state, _ = _active(root)
             answer = {"tasks": [row["task"] for row in state["tasks"].values()
-                                if row["status"] == "pending"],
+                                if row["status"] in ("pending", "failed")
+                                and row["attempts"] < RETRY_LIMIT],
                       "formal_review_completed": False}
         elif args.claim:
             if not args.task_id:
                 raise ValueError("--claim 必須指定 --task-id")
             answer = claim(root, args.task_id)
+        elif args.fail:
+            if not args.task_id:
+                raise ValueError("--fail 必須指定 --task-id")
+            answer = fail(root, args.task_id)
         elif args.accept:
             if args.result is None:
                 raise ValueError("--accept 必須指定 --result")
