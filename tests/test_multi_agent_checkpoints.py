@@ -37,6 +37,21 @@ class CheckpointTests(unittest.TestCase):
         assessment["main_review_note"] = "main agent reviewed the control path"
         commit(self.root, {"assessment.json": assessment}, event="verified-main-review")
 
+    def test_atomic_claim_batch_enforces_n_and_no_partial_write(self):
+        from multi_agent import claim_batch
+        self.fixture.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        keys = list(state["tasks"])
+        assigned = [{"task_id": keys[0], "agent_id": "codex-batch-001"},
+                    {"task_id": keys[1], "agent_id": "codex-batch-002"}]
+        snapshot = _read(self.root / LEDGER)
+        with self.assertRaisesRegex(ValueError, "重複"):
+            claim_batch(self.root, [assigned[0], assigned[0]])
+        self.assertEqual(_read(self.root / LEDGER), snapshot)
+        result = claim_batch(self.root, assigned)
+        self.assertEqual(len(result["claimed"]), 2)
+        self.assertEqual(summary(self.root)["task_counts"]["running"], 2)
+
     def test_window_renews_when_no_remaining_shard_fits(self):
         from multi_agent import renew_budget
         self.fixture.verified_probe()
