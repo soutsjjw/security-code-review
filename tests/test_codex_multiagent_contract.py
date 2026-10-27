@@ -17,7 +17,7 @@ class CodexNativeSubagentContractTests(unittest.TestCase):
         self.assertIn("## Codex 完整模式的原生子代理啟動", skill)
         self.assertIn("原生子代理工具實際啟動", skill)
         self.assertIn("file_review_skeleton.py --workers N", skill)
-        self.assertIn("不能只呼叫", skill)
+        self.assertIn("只是分片，不是啟動代理", skill)
         self.assertIn("主代理", skill)
         self.assertIn("唯一", skill)
         self.assertIn("SHA256", skill)
