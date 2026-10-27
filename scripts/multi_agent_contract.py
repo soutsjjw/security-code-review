@@ -27,7 +27,7 @@ SECRET = re.compile(
 )
 
 ALLOWED_ROOT = {"schema_version", "task_id", "worker_id", "snapshot_fingerprint",
-                "status", "files", "issues", "tokens_used"}
+                "status", "files", "issues", "tokens_used", "agent_instance_id"}
 ALLOWED_FILE = {"path", "sha256", "reviewed_ranges", "category_screening",
                 "rule_states", "unresolved_symbols", "findings", "line_challenges"}
 ALLOWED_FINDING = {"rule_id", "path", "line_start", "line_end",
@@ -78,6 +78,7 @@ def validate_worker_result(root: Path, task: dict, result: Any,
     if (result.get("schema_version") != VERSION
             or result.get("task_id") != task.get("task_id")
             or result.get("worker_id") != task.get("worker_id")
+            or result.get("agent_instance_id") != task.get("agent_instance_id")
             or result.get("snapshot_fingerprint") != task.get("snapshot_fingerprint")):
         errors.append("worker 任務、版本或快照識別不一致")
     status = result.get("status")
