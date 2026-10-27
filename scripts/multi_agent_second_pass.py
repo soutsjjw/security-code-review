@@ -107,7 +107,7 @@ def plan(root: Path, *, advance: bool = False) -> dict:
         if archive.exists():
             raise ValueError("第二輪歷史記錄已存在，拒絕覆寫")
         import os
-        os.replace(destination, archive
+        os.replace(destination, archive)
     _write(destination, candidate)
     return candidate
 
