@@ -152,6 +152,25 @@ class P0ReviewSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "規則不同"):
             integrate(self.root)
 
+    def test_integrate_rejects_unrelated_new_file_review_without_writing(self):
+        from review_fixture import make_file_review
+        original = (self.report / "assessment.json").read_bytes()
+        file_row = make_file_review(self.root, "Program.cs", ["AC-04"])
+        file_row["rule_reviews"][0]["line_start"] = 1
+        file_row["rule_reviews"][0]["line_end"] = 1
+        # 第 1 行只是 DI 型別註冊，不能冒充 AC-04 的控制執行證據。
+        updated = dict(next(c for c in self.assessment["checks"] if c["id"] == "AC-04"))
+        updated["execution"] = {
+            "state": "completed", "methods": ["實際來源核對"],
+            "summary": "已核對逐檔安全控制", "inspected_paths": ["Program.cs"],
+        }
+        draft = self.report / "bad-batch.json"
+        _write(draft, {"checks": [updated], "file_reviews": [file_row]})
+        stage(self.root, draft)
+        with self.assertRaisesRegex(ValueError, "批次逐檔證據不合格"):
+            integrate(self.root)
+        self.assertEqual((self.report / "assessment.json").read_bytes(), original)
+
     def test_finding_duplicates_collapse_without_erasing_existing(self):
         evidence = [{"path": "Program.cs", "line_start": 3, "line_end": 4}]
         f1 = {"id": "F-1", "title": "不安全 Middleware 順序", "check_ids": ["AC-04"],
