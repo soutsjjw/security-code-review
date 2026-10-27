@@ -2,7 +2,7 @@
 
 此功能採 **1 位主代理＋最多 N 位唯讀子代理**。主代理不委派正式安全結論，子代理僅提供不可信的來源分析資料。**分類模式仍維持原單代理契約**。主代理是唯一可操作 `review_queue.py --init`、`review_safety.py --stage/--integrate`、Manifest／Journal、正式報告及第一輪／第二輪裁決的執行者。
 
-**工具不會自行呼叫或建立 Codex 子代理。** `multi_agent.py` 僅建立可重現的派工清單、管理主代理狀態及驗證回傳。子代理是否真正同時執行、能否強制唯讀，取決於實際 Codex 版本／執行器。未完成下述 執行器能力試跑 實測前，必須退回單代理。設定 prompt 不等於權限隔離。
+**工具不會自行呼叫或建立 Codex 子代理。** `multi_agent.py` 僅建立可重現的派工清單、管理主代理狀態及驗證回傳。子代理是否真正同時執行、能否強制唯讀，取決於實際 Codex 版本／執行器。未完成下述執行器能力試跑前，必須退回單代理。設定 prompt 不等於權限隔離。
 
 ## 平台能力試跑（實際執行，不可推定）
 
@@ -20,7 +20,7 @@
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent.py" --target "<TARGET_ROOT>" --record-probe --evidence "<PROBE_RESULT_JSON>"
 ```
 
-`verified=true` 僅表示**已登記人工核對的試跑結果**，不是腳本真的啟動過 Codex；不可偽造測試結果。六個條件有一個不成立，或非 Git 專案，即不啟用子代理。執行器版本、工具權限或沙箱策略異動時要重新執行 執行器能力試跑、重新記錄試跑；舊紀錄不可當成永遠有效的證明。執行器能力試跑 的測試報告不存機敏內容或完整 prompts。
+`verified=true` 僅表示**已登記人工核對的試跑結果**，不是腳本真的啟動過 Codex；不可偽造測試結果。六個條件有一個不成立，或非 Git 專案，即不啟用子代理。執行器版本、工具權限或沙箱策略異動時要重新執行能力試跑並重新記錄結果；舊紀錄不可當成永遠有效的證明。能力試跑報告不存機敏內容或完整 prompts。
 
 ## Worker 證據契約與信任邊界
 
@@ -76,8 +76,14 @@
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent.py" --target "<TARGET_ROOT>" --blind-tasks
 ```
 
-僅將不含第一輪 Pass／Fail 與 `decision_reason` 的事實性來源錨點分派給**未審查過該規則**的子代理。要求攻擊者前提、可反駁假設、預期破壞、安全控制分支與重新定位的來源證據。原有 `second_pass_layers.py` 的高風險獨立抽樣繼續執行；相反結論不得靠投票裁決，必須由主代理追查具體可達分支、拒絕條件及 Finding／Baseline 差異，並透過現有 `adversarial_reviews` 受控整合。未解矛盾保持未完成，絕不變更固定樣本或放寬報告閘門。
+僅將不含第一輪 Pass／Fail 與 `decision_reason` 的事實性來源錨點分派給**未審查過該規則**的子代理。若子代理仍能任意讀取同一工作樹下的 `assessment.json`，這只是降低錨定的資料包，**不能宣稱真正的盲審**；只有環境能隔離第一輪結論時才能稱為盲審。要求攻擊者前提、可反駁假設、預期破壞、安全控制分支與重新定位的來源證據。原有 `second_pass_layers.py` 的高風險獨立抽樣繼續執行；相反結論不得靠投票裁決，必須由主代理追查具體可達分支、拒絕條件及 Finding／Baseline 差異，並透過現有 `adversarial_reviews` 受控整合。未解矛盾保持未完成，絕不變更固定樣本或放寬報告閘門。
 
-使用相同 Git SHA 與模型／沙箱條件，對照單代理及多代理的實測耗時、真實 Token、Block／重試、全部 70 項、100% 來源、控制鏈完整性、Finding 精確率及已知漏洞召回率。測試樣本同時包含確定有弱點與確定安全的控制；**沒有端對端試跑不得宣稱多代理較快、較省或品質提升**。
+使用相同 Git SHA 與模型／沙箱條件，對照單代理及多代理的實測耗時、真實 Token、Block／重試、全部 70 項、100% 來源、控制鏈完整性、Finding 精確率及已知漏洞召回率。測試樣本同時包含確定有弱點與確定安全的控制；可使用 `tests/fixtures/multi_agent_cases/` 下的 .NET 範例與 `tests/fixtures/multi_agent_security_cases.json` 固定標記後進行單代理／多代理實測，再執行：
+
+```powershell
+& "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent_benchmark.py" --labels "<SKILL_ROOT>\tests\fixtures\multi_agent_security_cases.json" --single "<SINGLE_RUN_JSON>" --multi "<MULTI_RUN_JSON>"
+```
+
+**沒有端對端試跑不得宣稱多代理較快、較省或品質提升**。
 
 此多代理 Ledger／Worker schema／探測結果都是**非權威、可丟棄的協調工件**，不是 assessment、Manifest、Journal、正式 Finding 或第二輪證據。即使本工具全通過，也必須照原 `SKILL.md` 正式完整審查流程產出並驗證 HTML／JSON。
