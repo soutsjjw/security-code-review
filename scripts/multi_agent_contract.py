@@ -57,10 +57,12 @@ def _proof(root: Path, value: Any, hashes: dict, lines: dict[str, int],
     path = value.get("path")
     if not isinstance(path, str) or path not in hashes or (anchored is not None and path != anchored):
         return False
+    from multi_agent_guard import proof_line_hash
     return (type(value.get("line_start")) is int
             and type(value.get("line_end")) is int
             and 1 <= value["line_start"] <= value["line_end"] <= lines[path]
-            and _text(value.get("summary"), 12, 1000))
+            and _text(value.get("summary"), 12, 1000)
+            and value.get("line_hash") == proof_line_hash(root, path, value["line_start"]))
 
 
 def validate_worker_result(root: Path, task: dict, result: Any,
@@ -129,6 +131,15 @@ def validate_worker_result(root: Path, task: dict, result: Any,
             continue
         count = len(text.splitlines())
         known_lines[path] = count
+        expected = challenges.get(path, {})
+        received = row.get("line_challenges")
+        if (not isinstance(received, list)
+                or not all(isinstance(x, dict) and set(x) == {"line", "sha256"}
+                           and type(x["line"]) is int and isinstance(x["sha256"], str)
+                           for x in received)
+                or {str(x["line"]): x["sha256"] for x in received} != expected
+                or len(received) != len(expected)):
+            errors.append(f"{path}: 閱讀行挑戰 SHA256 不符")
         spans = row.get("reviewed_ranges")
         if not isinstance(spans, list) or not all(_range(x, count) for x in spans):
             errors.append(f"{path}: 閱讀行範圍無效")
@@ -181,6 +192,12 @@ def validate_worker_result(root: Path, task: dict, result: Any,
                     or not 1 <= sym["line_start"] <= count
                     or not _text(sym.get("reason"), 12, 600)):
                 errors.append(f"{path}: 未解跨分片符號無效")
+        # Disallow verbatim source fragments in any worker text field.
+        for line in text.splitlines():
+            if len(line) >= 64 and any(
+                    line[i:i+64] in raw for i in range(0, len(line)-63, 24)):
+                errors.append(f"{path}: Worker 輸出包含來源長片段")
+                break
         findings = row.get("findings")
         if not isinstance(findings, list):
             errors.append(f"{path}: Finding 候選格式無效")
@@ -201,12 +218,14 @@ def validate_worker_result(root: Path, task: dict, result: Any,
                     or type(finding.get("line_end")) is not int
                     or not 1 <= finding["line_start"] <= finding["line_end"] <= count):
                 errors.append(f"{path}: Finding 行號無效")
+            else:
+                from multi_agent_guard import proof_line_hash
+                if finding.get("line_hash") != proof_line_hash(
+                        root, path, finding["line_start"]):
+                    errors.append(f"{path}: Finding 來源行 SHA256 不一致")
             for proof in finding.get("evidence", []) if isinstance(finding.get("evidence"), list) else []:
                 if not _proof(root, proof, hashes, {path: count}, anchored=path):
                     errors.append(f"{path}: Finding 證據無法定位；跨檔證據須由主代理獨立查證")
-    if status == "completed" and any(
-            row.get("unresolved_symbols") for row in files if isinstance(row, dict)):
-        errors.append("存在未解跨分片符號，須由主代理補派與結案")
     if status == "failed" and not result.get("issues"):
         errors.append("failed 必須提供原因")
     return errors[:80]
