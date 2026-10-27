@@ -91,6 +91,11 @@ AC08_RESOURCE_TERMS = re.compile(
     re.IGNORECASE,
 )
 AC08_CONTROL_SIGNALS = re.compile(RULE_EVIDENCE_SIGNALS["AC-08"], re.IGNORECASE)
+AC08_WIRING_SIGNALS = re.compile(
+    r"\bAddScoped\s*<\s*IAuthorizationHandler\b|"
+    r"\bPermissionResourceAuthorizationHandler\b",
+    re.IGNORECASE,
+)
 SPECIAL_EXTERNAL_PROOF = frozenset({"DP-01", "DP-04"})
 SPECIAL_PATH_RE = re.compile(r"(?:^|/)(?:\.github/workflows/|azure-pipelines[^/]*\.ya?ml$|\.gitlab-ci\.yml$)")
 _MEMBER_DECLARATION = re.compile(
@@ -159,7 +164,7 @@ def source_relevant_to_rule(rule_id: str, path: str, lines: list[str]) -> bool:
         # absence of that control is the finding. The decision layer must
         # determine effectiveness; relevance alone must not treat an
         # authorization keyword as proof of safety.
-        return bool(AC08_CONTROL_SIGNALS.search(text) or (
+        return bool(AC08_CONTROL_SIGNALS.search(text) or AC08_WIRING_SIGNALS.search(text) or (
             AC08_RESOURCE_OPERATION_SIGNALS.search(text)
             and AC08_RESOURCE_TERMS.search(text)
         ))

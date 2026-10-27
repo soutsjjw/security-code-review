@@ -71,6 +71,12 @@ class CandidateValidationTests(unittest.TestCase):
              ".Where(order => !order.IsDelete);"]
         ))
 
+    def test_ac08_accepts_resource_authorization_wiring_as_chain_evidence(self):
+        self.assertTrue(source_relevant_to_rule(
+            "AC-08", "src/Infrastructure/DependencyInjection.cs",
+            ["builder.Services.AddScoped<IAuthorizationHandler, PermissionResourceAuthorizationHandler>();"]
+        ))
+
     def test_ac08_does_not_treat_unrelated_authorization_or_data_access_as_evidence(self):
         self.assertFalse(source_relevant_to_rule(
             "AC-08", "src/Web/Controllers/OrdersController.cs",
