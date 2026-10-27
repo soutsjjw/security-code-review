@@ -178,7 +178,7 @@ def measure(target: Path, *, previous: dict | None = None,
         for field in QUALITY_VERSIONS if index.get(field) != 1
     ]
     try:
-        queue = build_queue(assessment, rules, 10, source_root=target, compact=True)
+        queue = build_queue(assessment, rules, 10, source_root=target)
     except (ValueError, TypeError, KeyError, OSError) as exc:
         raise ValueError(f"真實來源與審查守門無法驗證：{exc}") from exc
     for key in ("review_integrity_errors", "rule_integrity_errors", "safety_integrity_errors"):
