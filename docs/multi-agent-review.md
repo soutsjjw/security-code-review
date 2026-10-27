@@ -30,6 +30,7 @@
 
 - 任務資訊：`schema_version`、`task_id`、`worker_id`、`snapshot_fingerprint`、`status`、`tokens_used`（無實測值填 0）。
 - 逐檔：`path`、`sha256`、`reviewed_ranges`（必須聲明讀過完整檔案）、十類 `category_screening`、`rule_states`（相關規則 `hit/not_applicable/unassessed` 與具體理由）、`unresolved_symbols`、`findings` 候選。
+- 每個分片 `assigned_paths[].candidate_rule_ids` 均須在同檔 `rule_states` 逐條標明命中、具體不適用或未評估，避免候選悄然跳過；沒有候選也不代表該檔不存在安全控制，主代理仍須核對完整 70 項責任。
 - Finding 僅包含規則、入口／Sink、根因、簡述及可定位來源行號，不包含密碼、Token、金鑰、原始碼片段或私人資料。機敏證據只能保留路徑、行號與遮罩後的敘述。
 - `issues` 明確列出無法解析的來源、未完成或外部依賴。不得將缺乏證據等同 `na/pass`。
 
