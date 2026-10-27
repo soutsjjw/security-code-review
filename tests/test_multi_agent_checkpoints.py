@@ -159,7 +159,7 @@ class CheckpointTests(unittest.TestCase):
                         "path": "src/AuthController.cs", "name": "ResolvePolicy", "line_start": 1,
                         "target_path": "src/InputService.cs", "target_line": 1,
                         "target_line_hash": proof_line_hash(self.root, "src/InputService.cs", 1),
-                        "reason": "主代理已逐行確認跨分片候選符號並完成正式審查紀錄與交易日誌核對"}]}
+                        "reason": "主代理已逐行核對跨分片呼叫鏈、實際候選目標及安全控制的分支條件，並完成正式審查紀錄與交易日誌完整性核對"}]}
         doc_path = self.root / ANALYSIS / "multi-agent/main-resolution.json"
         doc_path.write_text(json.dumps(resolved, ensure_ascii=False), encoding="utf-8")
         self.assertEqual(resolve_main(self.root, task_id, doc_path)["status"], "completed")
