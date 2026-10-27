@@ -216,7 +216,7 @@ def _external_pass_errors(
     return issues
 
 
-def verification_errors(target: Path, checks: list[dict], *
+def verification_errors(target: Path, checks: list[dict], *,
                         index_override: dict | None = None,
                         snapshot_override: dict | None = None,
                         records_override: dict | None = None,
