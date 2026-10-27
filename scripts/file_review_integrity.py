@@ -59,6 +59,61 @@ def repeated_screening_reason_errors(rows: list[Any], *, categories: tuple[str, 
     return errors
 
 
+def verified_na_inspection_links(
+    assessment: dict[str, Any], root: Path, expected: set[str],
+    verified: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    """Separate verified NA inspection scope from applicable rule_reviews.
+
+    A completed NA check can cite inspected source paths without claiming that
+    the rule applies to each file. Every such file must still pass the ordinary
+    full-file verifier, and the NA check must have specific, located evidence of
+    its negative investigation; bare inspected_paths do not count.
+    """
+    links: dict[str, set[str]] = defaultdict(set)
+    for check in assessment.get("checks") or []:
+        if not isinstance(check, dict) or check.get("status") != "na":
+            continue
+        execution = check.get("execution") or {}
+        if execution.get("state") != "completed" or not isinstance(check.get("id"), str):
+            continue
+        inspected = execution.get("inspected_paths")
+        if not isinstance(inspected, list):
+            continue
+        paths = {p for p in inspected if isinstance(p, str) and p in expected}
+        methods = execution.get("methods")
+        if (len(str(check.get("decision_reason") or "").strip()) < 40
+                or len(str(check.get("applicability_reason") or "").strip()) < 20
+                or len(str(execution.get("summary") or "").strip()) < 15
+                or not isinstance(methods, list)
+                or not any(isinstance(m, str) and m.strip() for m in methods)):
+            continue
+        # For absence-based verdicts a relevant search boundary is checked
+        # at check level; no per-file applicability record is fabricated.
+        supported = False
+        for evidence in check.get("evidence") or []:
+            if not isinstance(evidence, dict) or evidence.get("kind") != "source":
+                continue
+            path = evidence.get("path")
+            start, end = evidence.get("line_start"), evidence.get("line_end")
+            if (path not in paths or path not in verified
+                    or not isinstance(start, int) or isinstance(start, bool)
+                    or not isinstance(end, int) or isinstance(end, bool)
+                    or start < 1 or end < start):
+                continue
+            try:
+                lines = read_source_text(root / path)[0].splitlines()
+            except (OSError, UnicodeError):
+                continue
+            if end <= len(lines) and meaningful_source_excerpt(path, lines[start - 1:end]):
+                supported = True
+                break
+        if supported:
+            for path in paths & verified.keys():
+                links[path].add(check["id"])
+    return dict(links)
+
+
 def verified_file_rule_reviews(
     assessment: dict[str, Any], root: Path, expected: set[str], *,
     selected_categories: tuple[str, ...] = CATEGORIES,
@@ -335,10 +390,11 @@ def verified_file_rule_reviews(
             )
 
     # 禁止舊版批次掛路徑：每筆 inspected_paths 都須有逐檔實證與對應規則。
+    na_inspections = verified_na_inspection_links(assessment, root, expected, verified)
     orphaned = []
     for rid, paths in completed.items():
         for path in paths & expected:
-            if rid not in verified.get(path, set()):
+            if rid not in verified.get(path, set()) and rid not in na_inspections.get(path, set()):
                 orphaned.append(f"{rid} → {path}")
     if orphaned:
         errors.append(f"存在 {len(orphaned)} 筆未經逐檔驗證的 inspected_paths（前 10 筆）：{'; '.join(sorted(orphaned)[:10])}")
