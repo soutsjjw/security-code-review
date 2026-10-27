@@ -164,8 +164,13 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 - **逐檔證據重讀**：先重新閱讀重複模板、證據無關及高度扇出的檔案；空白 `rule_reviews` 不代表尚未審核，須依實際檔案確認十類責任。
 - **規則關聯核對**：針對 `missing_rule_review_ids`、`inspected_paths_diagnostic` 的規則／檔案關聯逐一核實；不可將診斷列表自動轉換為補寫 payload，也不得擅自移除真實關聯。
+  - `missing_rule_review_ids` **只表示真正適用規則的逐檔紀錄缺口**；`na_inspection_rule_ids` 是為判定不適用而閱讀的來源，**不得**為這類路徑新增假 `rule_reviews`。
+  - `verified_na_inspection_rule_ids` 已由正式逐檔驗證器承認；`unverified_na_inspection_rule_ids` 仍須針對整個檔案的 SHA256、十類篩選、來源行號及規則本身的搜尋證據補查。即使 `na` 已確認適用性，來源證據不合格仍是 blocker。
+  - `observed_source_issue_details` 限列每檔前 12 筆權威錯誤（包含規則 ID 及原始診斷文字）。使用 `--diagnose-first-pass` 核對未列出的錯誤，優先分析來源錯誤與實際控制呼叫；不得依錯誤字串自動改判。
 - **控制鏈補查**：補查跨檔鏈、控制有效性、正式判定與反向攻擊情境、失效位置、外部責任與來源快照；不因某條控制缺少關鍵字就直接放寬 Verifier。
 - **合法修訂與正式驗證**：經本人核對真實來源及既有 Finding 後，以 `review_safety.py --stage` 暫存並使用 `--integrate --allow-revision` 合法修訂；每批整合前增量驗證變更檔的正式來源關聯，明顯無關行號與擴大的重複模板會拒絕寫入。最後重新執行 `--diagnose-first-pass`，只有 `ready_for_second_pass=true` 才能啟動第二輪；正式報告使用非 `--compact` 的完整佇列驗證。
+
+正式證據修復每次最多先選取 5 個高阻擋檔案：對每個檔案閱讀實際程式碼，逐一核對 `observed_source_issue_details`、十類 `category_screening`、適用規則、控制鏈與 Finding；保留未更動的真實證據。逐批整合成功後重新診斷，如 `blocker_signature` 未變則必須先找出新證據缺口，不能盲目重試。
 
 `--repair-plan` 是唯讀提示，不提供「一鍵清除 blocker」；僅靠上傳 `assessment.json` 缺少目標來源快照、完整性 Manifest 與 Journal 時，不能在別處產出合法覆寫 payload。對已有不合格的未動部分，整合時不直接改寫；正式驗證仍照常拒絕。
 
