@@ -74,11 +74,11 @@ class BlockerDiagnosticsTests(unittest.TestCase):
             "unverified_inspected_paths": {"total": 0, "by_rule": {}},
             "verified_na_inspection_paths": {},
         }
-        with patch("adversarial_recheck.snapshot_errors", return_value=[]), \
-             patch("adversarial_recheck.build_source_coverage", return_value=coverage), \
-             patch("adversarial_recheck.closure_errors", return_value=[]), \
-             patch("adversarial_recheck.verification_errors", return_value=[]), \
-             patch("adversarial_recheck.adjudication_errors", return_value=[]):
+        with patch("review_safety.snapshot_errors", return_value=[]), \
+             patch("source_coverage.build_source_coverage", return_value=coverage), \
+             patch("review_safety.closure_errors", return_value=[]), \
+             patch("control_effectiveness.verification_errors", return_value=[]), \
+             patch("decision_adjudication.adjudication_errors", return_value=[]):
             result = diagnose(Path("."), data)
         self.assertEqual(result["pending_rule_count"], 69)
         self.assertEqual(result["missing_source_paths"], ["NotYetReviewed.cs"])
