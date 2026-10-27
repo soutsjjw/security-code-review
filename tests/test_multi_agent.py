@@ -62,6 +62,115 @@ class MultiAgentTests(unittest.TestCase):
         item["evidence_note"] = "兩個獨立子代理測試並保存執行器 trace，確認唯讀沙箱拒絕寫入與失敗處理。"
         return record_probe(self.root, item)
 
+    def test_claim_denied_without_verified_probe(self):
+        from multi_agent import _read
+        state = plan(self.root, task_tokens=2000)
+        task_id = next(iter(state["tasks"]))
+        with self.assertRaisesRegex(ValueError, "禁止使用多代理 claim"):
+            claim(self.root, task_id, agent_id="codex-denied-001")
+
+    def test_probe_changes_invalidate_old_ledger_and_require_replan(self):
+        self.verified_probe()
+        old = plan(self.root, task_tokens=2000)
+        self.trace.write_text("A different trace file on disk", "utf-8")
+        with self.assertRaisesRegex(ValueError, "trace|試跑"):
+            claim(self.root, next(iter(old["tasks"])), agent_id="codex-test-001")
+        self.verified_probe()
+        with self.assertRaisesRegex(ValueError, "replan"):
+            plan(self.root, task_tokens=2000)
+        fresh = plan(self.root, task_tokens=2000, replan=True)
+        self.assertTrue(fresh["multi_agent_enabled"])
+
+    def test_probe_expiry_blocks_claim(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        from multi_agent import _read, _write
+        probe_path = self.root / PROBE
+        probe = _read(probe_path)
+        probe["verified_at"] -= 48 * 3600
+        _write(probe_path, probe)
+        with self.assertRaisesRegex(ValueError, "probe|試跑"):
+            claim(self.root, next(iter(state["tasks"])), agent_id="codex-test-001")
+
+    def test_worker_concurrency_cannot_exceed_n(self):
+        from multi_agent import _write
+        # Keep each file large enough to create separate tasks.
+        for i in range(6):
+            name = f"src/Extra{i}.cs"
+            f = self.root / name
+            f.write_text("public sealed class Extra {}\n" * 300, "utf-8")
+            self.hashes[name] = source_digest(f.read_bytes())
+        report = self.root / ANALYSIS
+        snapshot = json.loads((report / "review-snapshot.json").read_text("utf-8"))
+        snapshot["source_hashes"] = self.hashes
+        _write(report / "review-snapshot.json", snapshot)
+        index = json.loads((report / "structure-index.json").read_text("utf-8"))
+        index["source_hashes"] = self.hashes
+        _write(report / "structure-index.json", index)
+        self.verified_probe()
+        state = plan(self.root, max_agents=3, task_tokens=2000)
+        self.assertEqual(state["workers"], 3)
+        ids = list(state["tasks"])
+        self.assertGreaterEqual(len(ids), 4)
+        for i in range(3):
+            claim(self.root, ids[i], agent_id=f"codex-executor-{i}")
+        with self.assertRaisesRegex(ValueError, "workers"):
+            claim(self.root, ids[3], agent_id="codex-executor-3")
+        self.assertEqual(summary(self.root)["task_counts"]["running"], 3)
+        self.assertEqual(len(summary(self.root)["running_tasks"]), 3)
+
+    def test_authoritative_report_mutation_blocks_accept(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task_id = next(iter(state["tasks"]))
+        task = claim(self.root, task_id, agent_id="codex-test-001")
+        f = self.root / "report-write-attempt.txt"
+        f.write_text(json.dumps(self.result(task)), "utf-8")
+        report = self.root / ANALYSIS
+        (report.parent / "assessment.json").write_text('{"checks":[]}', "utf-8")
+        with self.assertRaisesRegex(ValueError, "正式"):
+            accept(self.root, f)
+
+    def test_manifest_journal_and_new_report_file_guard(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task_id = next(iter(state["tasks"]))
+        claim(self.root, task_id, agent_id="codex-test-001")
+        new_file = self.root / ANALYSIS / "integrity-manifest.json"
+        new_file.write_text('{"fake":true}', "utf-8")
+        with self.assertRaisesRegex(ValueError, "正式"):
+            summary(self.root)
+
+    def test_extended_secret_patterns_and_no_verbatim_source(self):
+        from multi_agent_contract import SECRET
+        for item in ("Server=db;Password=xxx;", "api_key=unsafeValue",
+                     "sk-" + "a" * 30, "xoxb-" + "A" * 30,
+                     "eyJ" + "a" * 18 + ".eyJ" + "b" * 18 + "." + "c" * 20):
+            self.assertIsNotNone(SECRET.search(item), item)
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task = claim(self.root, next(iter(state["tasks"])), agent_id="codex-test-001")
+        result = self.result(task)
+        path = task["assigned_paths"][0]["path"]
+        line = (self.root / path).read_text("utf-8").splitlines()[0]
+        result["issues"] = ["提示：這是來源原文 " + line + line]
+        self.assertIn("來源長片段", str(validate_worker_result(
+            self.root, task, result, self.hashes,
+            challenges=__import__("multi_agent")._read(self.root / LEDGER)
+            ["tasks"][task["task_id"]]["challenges"])))
+
+    def test_wrong_random_challenge_is_rejected(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task = claim(self.root, next(iter(state["tasks"])), agent_id="codex-test-001")
+        result = self.result(task)
+        result["files"][0]["line_challenges"][0]["sha256"] = "0" * 64
+        f = self.root / "incorrect-proof.txt"
+        f.write_text(json.dumps(result, ensure_ascii=False), "utf-8")
+        answer = accept(self.root, f)
+        self.assertFalse(answer["accepted"])
+        self.assertIn("閱讀行挑戰", str(answer["errors"]))
+
     def test_probe_fails_closed_and_single_agent_fallback(self):
         item = probe_template()
         item["execution_id"] = "trial-1"
