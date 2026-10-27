@@ -298,7 +298,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     }
     first_pass_blocked = bool(
         rule_errors or integrity_errors or unreviewed or
-        [e for e in safety_issues if not (e.startswith("第二輪：") or ": 第二輪" in e)]
+        [e for e in safety_issues if not (e.startswith(("第二輪：", "第二輪抽樣：", "第二輪 Q4:"))
+                                          or ": 第二輪" in e)]
     )
     if not remaining and first_pass_blocked:
         queue["instruction"] = (
@@ -306,12 +307,14 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "只補查 recheck_rule_ids 與對應原始證據。若 blocker_signature 未變，不得反覆重跑"
             " --begin-second-pass；未取得外部控制責任時不能假造 static_evidence。"
         )
-    elif not remaining and second_pass.get("enabled") and second_pass.get("pending_count", 0):
+    elif not remaining and second_pass.get("enabled") and (second_pass.get("pending_count", 0)
+                                                            or second_pass.get("sampling_pending_count", 0)):
         queue["instruction"] = (
             "先執行 review_safety.py --begin-second-pass 固定第一輪結論。"
             if not second_pass.get("baseline_ready") else
-            "依 second_pass.pending_ids 重新閱讀來源、提出反例並以 adversarial_reviews "
-            "紀錄；未處理矛盾與未解問題禁止正式結案。"
+            "執行 second_pass_layers.py 取得分層工作批次；依 pending_ids 逐條反向複核，"
+            "並完成固定的 sampling_pending_paths。以既有 stage/integrate 保存證據；"
+            "未處理矛盾或樣本禁止正式結案。"
         )
     # 完整 --detail-id 回傳實際非空對照所需的文件，供 Agent 按需讀取。
     if detail_id is not None:
