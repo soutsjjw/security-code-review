@@ -80,7 +80,8 @@ def plan(root: Path, *, advance: bool = False) -> dict:
                          "kind": category, "factual_anchors": sanitized,
                          "source_paths": targets, "challenge_lines": public,
                          "instruction": "只可提出反例與可重讀事實，絕不可接受第一輪 verdict"},
-                "challenge_expected": expected, "excluded_agent_ids": sorted(owners.get(key, set())),
+                "excluded_agent_ids": sorted(owners.get(key, set())),
+                "estimated_tokens": max(512, sum((root / target).stat().st_size for target in targets) // 3),
                 "status": "pending", "agent_instance_id": None, "claimed_at": None,
                 "digest": None, "attempts": 0}
     if not jobs:
@@ -89,7 +90,10 @@ def plan(root: Path, *, advance: bool = False) -> dict:
                  "baseline_digest": digest(baseline), "probe_digest": digest(probe),
                  "git_state": _git_state(root),
                  "report_guard": protected_report_digest(root),
-                 "workers": first["workers"], "tasks": jobs}
+                 "workers": first["workers"], "tasks": jobs,
+                 "budget_tokens": first["config"]["budget_tokens"],
+                 "window_charged": first.get("window_charged", 0),
+                 "measured_tokens": 0}
     destination = root / SECOND
     if destination.exists():
         old = _read(destination)
@@ -123,6 +127,11 @@ def _active(root: Path) -> tuple[dict, dict]:
             or state["git_state"] != _git_state(root)
             or state["report_guard"] != protected_report_digest(root)):
         raise ValueError("第二輪 probe／來源／正式工件已異動，停止沿用回報")
+    for task_id, item in state["tasks"].items():
+        if item.get("digest"):
+            result_file = root / ANALYSIS / "multi-agent/second-pass-results" / (task_id + ".json")
+            if not result_file.is_file() or result_file.is_symlink() or digest(_read(result_file)) != item["digest"]:
+                raise ValueError("第二輪候選結果檔遭更動或遺失")
     return state, snap
 
 
@@ -136,8 +145,12 @@ def claim(root: Path, task_id: str, agent_id: str) -> dict:
         raise ValueError("必須提供可追溯的 executor instance ID")
     if agent_id in task["excluded_agent_ids"]:
         raise ValueError("同一子代理曾參與第一輪相同規則或樣本，禁止當作獨立複核")
-    if sum(x["status"] == "running" for x in state["tasks"].values()) >= state["workers"]:
+    active = [x for x in state["tasks"].values() if x["status"] == "running"]
+    if len(active) >= state["workers"]:
         raise ValueError("超過第二輪併發上限")
+    reserved = sum(x["estimated_tokens"] for x in active)
+    if state["window_charged"] + reserved + task["estimated_tokens"] > int(state["budget_tokens"] * 0.8):
+        raise ValueError("第二輪預估 Token 達本批 80% 上限，停止派工")
     if any(x["agent_instance_id"] == agent_id and x["status"] == "running"
            for x in state["tasks"].values()):
         raise ValueError("相同子代理不可同時執行兩項工作")
@@ -187,7 +200,8 @@ def accept(root: Path, path: Path) -> dict:
             or data["snapshot_fingerprint"] != state["snapshot_fingerprint"]):
         raise ValueError("第二輪資料與 claim 或快照不符")
     challenge = data["line_challenges"]
-    expected = row["challenge_expected"]
+    expected = {file_path: {str(n): proof_line_hash(root, file_path, n) for n in lines}
+                for file_path, lines in row["task"]["challenge_lines"].items()}
     if (not isinstance(challenge, dict)
             or set(challenge) != set(expected)
             or any(not isinstance(lines, list) or
@@ -229,6 +243,14 @@ def accept(root: Path, path: Path) -> dict:
         raise ValueError("第二輪存在未結事項，不能標記已接受；交由主代理進一步核對")
     row["status"] = "accepted"
     row["digest"] = payload_hash
+    # The result is not a verdict; keep the checked artifact for main-agent adjudication.
+    result_file = root / ANALYSIS / "multi-agent/second-pass-results" / (data["task_id"] + ".json")
+    if result_file.exists():
+        raise ValueError("第二輪交接檔已存在，不得覆寫")
+    _write(result_file, data)
+    row["result_path"] = str(result_file.relative_to(root))
+    state["measured_tokens"] += max(row["estimated_tokens"], 512)
+    state["window_charged"] += max(row["estimated_tokens"], 512)
     _write(root / SECOND, state)
     return {"accepted": True, "task_id": data["task_id"],
             "official_adversarial_review_completed": False,
