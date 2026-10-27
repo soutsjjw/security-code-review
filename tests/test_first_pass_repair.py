@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from batch_evidence_gate import batch_quality_errors
-from first_pass_repair import repair_plan
+from first_pass_repair import blocker_source_path, repair_plan
 
 
 def file_review(path, reason="已審查真實的授權控制執行分支並核對來源與行號。", rule="AC-08"):
@@ -44,6 +44,33 @@ class RepairPlanTests(unittest.TestCase):
         self.assertEqual(plan["priority_files"][0]["path"], "src/Handler0.cs")
         self.assertIn("LG-01", plan["p2_control_rules"])
         self.assertTrue(plan["read_only"])
+
+    def test_source_blockers_are_mapped_by_both_authoritative_prefix_formats(self):
+        path = "src/Orders/DeleteOrderCommandHandler.cs"
+        assessment = {
+            "checks": [{"id": "AC-08", "execution": {
+                "state": "completed", "inspected_paths": [path]}}],
+            "file_reviews": [file_review(path)],
+        }
+        diagnostics = {"blocked_count": 3, "ready_for_second_pass": False,
+                       "blocker_signature": "same", "blockers": [
+            {"category": "unrelated_evidence", "rule_ids": ["AC-08"],
+             "message": "AC-08: src/Orders/DeleteOrderCommandHandler.cs:8-19 "
+                        "引用程式碼與本規則的控制行為無關"},
+            {"category": "unrelated_evidence", "rule_ids": ["AC-08"],
+             "message": "src/Orders/DeleteOrderCommandHandler.cs: AC-08: "
+                        "rule_reviews 只有宣告／無關程式碼"},
+            {"category": "control_trace", "rule_ids": ["AC-01"],
+             "message": "AC-01: Q2 控制鏈未連結正式證據"},
+        ]}
+        result = repair_plan(assessment, diagnostics)
+        self.assertEqual(result["candidate_repair_file_count"], 1)
+        self.assertEqual(result["priority_files"][0]["observed_source_blockers"],
+                         {"unrelated_evidence": 2})
+        self.assertEqual(result["priority_files"][0]["repair_order"], "P0 逐檔證據重讀")
+        self.assertIsNone(blocker_source_path(
+            "AC-08: src/Unknown.cs:8-19 來源錯誤", {path}
+        ))
 
     def test_missing_rule_links_are_not_auto_removed(self):
         assessment = {"file_reviews": [file_review("src/Handler.cs")],
