@@ -39,6 +39,8 @@
 - **強制補查**：同一套固定文字排除多個 `candidate_exclusions` 會被拒絕；若掃描結果仍有 `review_integrity_errors`／`recheck_rule_ids`，即使 70/70 completed 也不得產生正式報告。保留既有 Finding 和有效歷史證據，必須真正重新核對原始碼、方法呼叫、設定及外部證據。
 - `rule_reviews` 必須逐一覆蓋上述所有 `rule_ids`，記錄 `pass / fail / review`、具體理由及檔案內有效行號；同一檔案可以關聯多項規則，但**沒有固定最低項數**。無直接適用規則時可以是空陣列，十類仍要逐項判斷。
 - 同一個 `rule_reviews[].rule_id` 必須已完成 `checks[].execution.state=completed`，且該檔案在該規則 `execution.inspected_paths` 中；反向亦同，禁止只靠路徑灌滿覆蓋率。
+- **不適用（`na`）的檢查範圍例外**：`checks[].status=na` 且 `execution.state=completed` 時，`execution.inspected_paths` 可以包含為了確認規則不適用而實際閱讀的原始碼。這些是**檢查範圍**，不是「本檔適用規則」；不得因此將 `na` 填入 `category_screening.rule_ids` 或 `rule_reviews`，也不能改判 `pass`。Verifier 只對通過完整逐檔 SHA256、十類篩選與來源品質驗證的檔案承認此類關聯，且 `na` 規則自身須有具體判定理由、實際搜尋／閱讀方法與至少一筆可定位且有實質程式碼的 source evidence（須位於其已檢查路徑）。診斷的 `verified_na_inspection_paths` 會另外列出這些路徑，不計入適用的 `reviewed_file_rule_ids`。不符合者維持 blocker，不能直接從 `inspected_paths` 推定已驗證。
+
 - `sha256` 需從實際來源內容計算，不可填 Git Revision 或事後任意編造。來源異動後必須重新檢查、更新雜湊與相關紀錄。
 - **跨檔理由不得制式化**：若大量沒有 `rule_reviews` 的檔案，在相同安全類別重複同一個理由模板，完整性驗證會拒絕交付。要逐檔追查控制責任並寫明實際來源差異；抽樣（例如 20 檔）只能用來複核可信度，不能取代完整來源覆蓋。
 - **覆蓋數字要對帳**：`eligible_file_count` 是全部未排除工作樹檔案，`reviewed_file_count` 是已驗證的逐檔紀錄；`source_file_count` 是必要審查的原始碼／設定檔，`missing_source_file_count` 只計算這個來源子集。正式報告 `eligible_unreviewed_files` 必須完整列出差額與原因，不得把 `missing_source_file_count=0` 解讀成所有 eligible 已審查。
