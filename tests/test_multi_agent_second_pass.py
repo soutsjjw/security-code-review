@@ -15,7 +15,7 @@ from multi_agent_second_pass import plan, claim, accept, status, SECOND, _read
 
 class SecondPassTests(unittest.TestCase):
     def setUp(self):
-        fixture = MultiAgentTests("test_probe_success_multiple_workers_and_idempotent_plan")
+        fixture = fixture_module.MultiAgentTests("test_probe_success_multiple_workers_and_idempotent_plan")
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
         self.fixture = fixture
