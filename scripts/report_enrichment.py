@@ -169,10 +169,12 @@ def build_pending_information(
     if review_ids:
         listed = "、".join(review_ids[:8])
         kinds = review_breakdown(assessment.get("checks", []))
-        if kinds["static"] or kinds["external"]:
+        if kinds["static"] or kinds["external"] or kinds["delegated"]:
             pending.append(
                 f"{len(review_ids)} 項 review：靜態查核已完成、僅缺部署／政策／動態佐證 {kinds['static']} 項；"
-                f"本質上需外部或制度證據 {kinds['external']} 項；未分類 {kinds['unclassified']} 項（例如 {listed}）")
+                f"本質上需外部或制度證據 {kinds['external']} 項；"
+                f"已確認外部責任但缺運作證據 {kinds['delegated']} 項；"
+                f"未分類 {kinds['unclassified']} 項（例如 {listed}）")
         else:
             pending.append(f"{len(review_ids)} 項檢核尚缺部署／政策／動態佐證（例如 {listed}）")
     review, total = review_ratio(assessment)
