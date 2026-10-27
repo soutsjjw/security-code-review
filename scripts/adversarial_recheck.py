@@ -106,6 +106,7 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     issues = first_pass_issues(target, assessment)
     if issues:
         raise ValueError("第一輪審查或來源證據尚未完整：" + "；".join(issues[:8]))
+    checks = assessment["checks"]
     snap = _read(target / SNAPSHOT, {})
     if not isinstance(snap, dict) or not isinstance(snap.get("source_hashes"), dict):
         raise ValueError("沒有可使用的來源快照")
