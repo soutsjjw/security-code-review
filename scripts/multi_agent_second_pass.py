@@ -121,11 +121,24 @@ def _active(root: Path) -> tuple[dict, dict]:
     state = _read(root / SECOND)
     snap, _, _ = _snapshot(root)
     probe = _read(root / PROBE)
+    first = _read(root / LEDGER)
+    observed = protected_report_digest(root)
+    recorded = state["report_guard"]
+    authorized_update = (
+        recorded != observed
+        and first.get("integration") is None
+        and first.get("report_guard") == observed
+        and any(change.get("before") == recorded and change.get("after") == observed
+                for change in first.get("integration_history", [])))
+    if authorized_update:
+        from evidence_integrity import errors as integrity_errors
+        authorized_update = not integrity_errors(root)
     if (state["snapshot_fingerprint"] != _fingerprint(snap)
             or state["probe_digest"] != digest(probe)
             or probe_errors(root, probe)
             or state["git_state"] != _git_state(root)
-            or state["report_guard"] != protected_report_digest(root)):
+            or first.get("integration") is not None
+            or (recorded != observed and not authorized_update)):
         raise ValueError("第二輪 probe／來源／正式工件已異動，停止沿用回報")
     for task_id, item in state["tasks"].items():
         if item.get("digest"):
