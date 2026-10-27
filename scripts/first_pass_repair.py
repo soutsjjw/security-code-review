@@ -35,6 +35,20 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
     checks = assessment.get("checks") or []
     rows = assessment.get("file_reviews") or []
     links: dict[str, set[str]] = defaultdict(set)
+    status_by_rule = {
+        check["id"]: check.get("status")
+        for check in checks
+        if isinstance(check, dict) and isinstance(check.get("id"), str)
+    }
+    na_scope = diagnostics.get("verified_na_inspection_paths") or {}
+    if not isinstance(na_scope, dict):
+        na_scope = {}
+    verified_na_by_path: dict[str, set[str]] = defaultdict(set)
+    for rid, paths in na_scope.items():
+        if status_by_rule.get(rid) == "na" and isinstance(paths, list):
+            for path in paths:
+                if isinstance(path, str):
+                    verified_na_by_path[path].add(rid)
     for check in checks:
         if not isinstance(check, dict) or not isinstance(check.get("id"), str):
             continue
@@ -46,10 +60,24 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
     known_paths = {row["path"] for row in rows
                    if isinstance(row, dict) and isinstance(row.get("path"), str)}
     reasons: dict[str, Counter[str]] = defaultdict(Counter)
+    source_issues: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for blocker in diagnostics.get("blockers", []):
-        path = blocker_source_path(str(blocker.get("message", "")), known_paths)
+        if not isinstance(blocker, dict):
+            continue
+        message = str(blocker.get("message", ""))
+        path = blocker_source_path(message, known_paths)
         if path:
-            reasons[path][blocker.get("category", "other")] += 1
+            category = str(blocker.get("category", "other"))
+            reasons[path][category] += 1
+            if len(source_issues[path]) < 12:
+                source_issues[path].append({
+                    "category": category,
+                    "rule_ids": sorted({
+                        rid for rid in (blocker.get("rule_ids") or [])
+                        if isinstance(rid, str)
+                    }),
+                    "message": message,
+                })
     clusters: dict[str, set[str]] = defaultdict(set)
     for row in rows:
         if not isinstance(row, dict) or not isinstance(row.get("path"), str):
@@ -71,17 +99,28 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         path = row["path"]
         reviews = {rr.get("rule_id") for rr in (row.get("rule_reviews") or [])
                    if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
-        missing = sorted(links.get(path, set()) - reviews)
+        absent = links.get(path, set()) - reviews
+        # A completed 'na' check can cite files examined to establish absence,
+        # without claiming the rule is applicable to those files. Only the
+        # authoritative verifier may confirm those separate inspection links.
+        na_scope_ids = {rid for rid in absent if status_by_rule.get(rid) == "na"}
+        verified_na = sorted(na_scope_ids & verified_na_by_path.get(path, set()))
+        unverified_na = sorted(na_scope_ids - set(verified_na))
+        missing = sorted(absent - na_scope_ids)
         issue_count = sum(reasons.get(path, {}).values())
-        if not (path in repeated_paths or missing or issue_count):
+        if not (path in repeated_paths or missing or unverified_na or issue_count):
             continue
         by_path[path] = {
             "path": path,
             "inspected_link_count": len(links.get(path, set())),
             "recorded_rule_review_count": len(reviews),
             "missing_rule_review_ids": missing,
+            "na_inspection_rule_ids": sorted(na_scope_ids),
+            "verified_na_inspection_rule_ids": verified_na,
+            "unverified_na_inspection_rule_ids": unverified_na,
             "repeated_rule_conclusion_template": path in repeated_paths,
             "observed_source_blockers": dict(sorted(reasons.get(path, {}).items())),
+            "observed_source_issue_details": source_issues.get(path, []),
             "repair_order": (
                 "P0 逐檔證據重讀" if path in repeated_paths or issue_count else
                 "P1 規則關聯核對"
@@ -91,7 +130,8 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
     ranked = sorted(by_path.values(), key=lambda item: (
         -int(item["repeated_rule_conclusion_template"]),
         -sum(item["observed_source_blockers"].values()),
-        -len(item["missing_rule_review_ids"]),
+        -(len(item["missing_rule_review_ids"]) +
+          len(item["unverified_na_inspection_rule_ids"])),
         -item["inspected_link_count"], item["path"],
     ))
     category_counts = Counter(b.get("category", "other") for b in diagnostics.get("blockers", []))
@@ -106,6 +146,11 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         "suspected_template_paths": len(repeated_paths),
         "candidate_repair_file_count": len(ranked),
         "priority_files": ranked[:limit],
+        "priority_note": (
+            "observed_source_issue_details 是權威診斷摘錄；"
+            "missing_rule_review_ids 不包含 na 檢查範圍。"
+            "na_inspection_rule_ids 不代表已放行，未驗證者仍須回到來源及正式守門核對。"
+        ),
         "remaining_priority_files": max(0, len(ranked) - limit),
         "p2_control_rules": sorted({
             rule for b in diagnostics.get("blockers", [])
