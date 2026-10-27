@@ -547,6 +547,9 @@ def _accept_payload(root: Path, result: dict) -> dict:
     row["unresolved_symbols"] = unresolved
     row["status"] = "needs_followup" if unresolved else "completed"
     row["result_digest"] = checksum
+    current_manifest = root / ANALYSIS / "integrity-manifest.json"
+    snapshot_manifest = _read(current_manifest) if current_manifest.exists() else {}
+    row["accepted_manifest_sequence"] = snapshot_manifest.get("sequence", -1)
     row["reviewed_rule_ids"] = sorted({
         rr["rule_id"] for entry in result["files"] for rr in entry["rule_states"]
         if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)
@@ -717,6 +720,9 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
     manifest = _read(root / MANIFEST)
     if not isinstance(manifest, dict) or document["manifest_head"] != manifest.get("head"):
         raise ValueError("結案證據未綁定有效正式審查 Manifest")
+    if (type(manifest.get("sequence")) is not int
+            or manifest["sequence"] <= row.get("accepted_manifest_sequence", -1)):
+        raise ValueError("結案前必須產生晚於 Worker 收件的正式主代理交易")
     if not isinstance(document["resolved"], list):
         raise ValueError("resolved 必須為陣列")
     expected = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
