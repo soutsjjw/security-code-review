@@ -25,6 +25,15 @@ $security-code-review /path/to/project
 
 也可指定子目錄作為審查重點，例如 `$security-code-review src/Api`。Claude Code 使用 `/security-code-review`。
 
+### 可選多代理唯讀審查（完整 70 項）
+
+```text
+$security-code-review --multi-agent --agents 3
+```
+
+主代理可以使用可用的 Codex 子代理**唯讀平行閱讀**，但需先按 [受控多代理 P0～P3](docs/multi-agent-review.md) 完成真實執行器試跑、證據契約驗證與權限確認；未符合時自動退回單代理。Worker 不得寫正式 assessment、Manifest／Journal 或自行判定 Pass。完整 70 項、100% 來源及第二輪正式守門不變；分類模式不開放多代理。這不是保證能加速或降低 Token 的功能。
+
+
 ### Codex App 指定分類審查
 
 在已開啟的**受測專案 Codex App 對話輸入**（不是 PowerShell 命令），可以選擇：
