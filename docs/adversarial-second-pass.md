@@ -108,7 +108,7 @@
 
 1. `--begin-second-pass` 於新 Baseline 一併在既有受控 `analysis/adversarial-reviews.json` 寫入 `__layered__.plan`。計畫含 70 項的事實性來源錨點（行號、檔名），**不提供** `status`、置信度或第一輪 `decision_reason`。保留原 Baseline 作最後對帳；同一主代理仍不算真正盲審。
 2. Agent 唯讀執行 `python "<SKILL_ROOT>/scripts/second_pass_layers.py" --target "<TARGET_ROOT>"` 取得 `rule_tasks`、`sample_tasks`、`targeted_paths` 與 `budgets`。每批預設最多 8 項規則、16 個錨點來源檔、4 個抽樣檔。輸出的 `token_hint_per_batch=30000` 是建議上限，**並非**可由 Python 強制量測代理 Token；使用執行器可取得的真實 Token 記錄，超出時結束本批、保存進度，再查下批，不能判定已完成。
-3. 70 項仍各自要有原本 Q4 反例與有效控制證據；新計畫啟用時每個 `adversarial_reviews[rule_id]` 額外帶 `blind_challenge`：`factual_claim`、`challenge_question`、`initial_observation`（各為實際來源描述）、`evidence`（已核實來源位置）。先從錨點觀察事實並提出可推翻問題，**最後**才比對第一輪結論並填 `reassessment`、`outcome`、`contradictions`。不得把第一輪整段判定當作事實性主張。
+3. 70 項仍各自要有原本反向複核反例與有效控制證據；新計畫啟用時每個 `adversarial_reviews[rule_id]` 額外帶 `blind_challenge`：`factual_claim`、`challenge_question`、`initial_observation`（各為實際來源描述）、`evidence`（已核實來源位置）。先從錨點觀察事實並提出可推翻問題，**最後**才比對第一輪結論並填 `reassessment`、`outcome`、`contradictions`。不得把第一輪整段判定當作事實性主張。
 4. 計畫按固定來源快照指紋、風險檔名訊號與可重現順序，選出第一輪正式 evidence **未引用**的入口、身分授權、設定、外部輸入與錯誤分支。這些是風險抽樣，不代表未引用路徑第一輪未讀；來源檔名只是選樣訊號，不能當作安全結論。預設最多 24 檔、候選約 10%，若無合格候選則樣本為空且保留候選數。
 5. 每個樣本由主代理真正讀取，透過 `review_safety.py --stage <JSON>`、`--integrate` 寫入受控資料。暫存 JSON 的 `second_pass_samples` 以**計畫中的檔案相對路徑**為鍵，每筆需 `outcome`（`no_new_issue`、`confirmed_vulnerability`、`not_applicable`）、具體 `inspection_summary`、`evidence`（同路徑實際來源行號）。新漏洞還需先建立正式 Finding 並以 `finding_id` 關聯；不能只記錄一段掃描摘要。範例（僅示意，不可照填未讀證據）：
 
