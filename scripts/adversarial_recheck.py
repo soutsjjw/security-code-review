@@ -106,7 +106,9 @@ def first_pass_issues(
         diagnostics["missing_source_paths"] = coverage["missing_source_paths"]
         diagnostics["missing_source_file_count"] = coverage["missing_source_file_count"]
     issues += coverage.get("review_integrity_errors", [])
-    if coverage["missing_source_file_count"] and not allow_partial:
+    # Partial diagnostics may report all other evidence defects early, but must
+    # never grant second-pass readiness when any source file is still unreviewed.
+    if coverage["missing_source_file_count"]:
         issues.append("第一輪：逐檔覆蓋尚未完成，禁止啟動第二輪")
     return issues
 

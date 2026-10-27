@@ -86,6 +86,29 @@ class BlockerDiagnosticsTests(unittest.TestCase):
         self.assertIn("缺少實際審查方法",
                       " ".join(b["message"] for b in result["blockers"]))
 
+    def test_all_completed_but_missing_source_cannot_start_second_pass(self):
+        from review_queue import load_rules
+        _, rules = load_rules()
+        checks = [{"id": rule["id"], "execution": {"state": "completed",
+                   "methods": ["real-review"], "summary": "已核對實際來源與安全設定",
+                   "inspected_paths": []}, "status": "na",
+                   "applicability_reason": "實際查核控制責任範圍"} for rule in rules]
+        coverage = {"missing_source_file_count": 1,
+                    "missing_source_paths": ["Orphan.cs"],
+                    "review_integrity_errors": [],
+                    "unverified_inspected_paths": {"total": 0, "by_rule": {}},
+                    "verified_na_inspection_paths": {}}
+        with patch("review_safety.snapshot_errors", return_value=[]), \
+             patch("source_coverage.build_source_coverage", return_value=coverage), \
+             patch("review_safety.closure_errors", return_value=[]), \
+             patch("control_effectiveness.verification_errors", return_value=[]), \
+             patch("decision_adjudication.adjudication_errors", return_value=[]):
+            result = diagnose(Path("."), {"checks": checks, "file_reviews": []})
+        self.assertEqual(result["pending_rule_count"], 0)
+        self.assertEqual(result["missing_source_file_count"], 1)
+        self.assertFalse(result["ready_for_second_pass"])
+        self.assertIn("逐檔覆蓋尚未完成", " ".join(b["message"] for b in result["blockers"]))
+
     def test_diagnosis_preserves_assessment_and_displays_exact_relation_ids(self):
         data = {"checks": [], "findings": [{"id": "F-001"}]}
         untouched = copy.deepcopy(data)
