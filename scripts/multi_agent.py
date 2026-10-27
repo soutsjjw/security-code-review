@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 from multi_agent_contract import VERSION, digest, validate_worker_result, finding_key
-from multi_agent_guard import (runtime_binding, probe_errors, protected_report_digest, challenges_for)
+from multi_agent_guard import (runtime_binding, probe_errors, protected_report_digest, challenges_for, exclusive_ledger)
 from source_reader import source_digest
 from source_coverage import expected_paths
 from scope_inventory import relative_path
@@ -214,6 +214,7 @@ def _build_tasks(root: Path, snap: dict, index: dict, *, max_agents: int,
     return {"tasks": result, "workers": workers, "estimated_tokens": total}
 
 
+@exclusive_ledger
 def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
          task_tokens: int = 12000, replan: bool = False) -> dict:
     if not 1 <= max_agents <= 8 or budget_tokens < 12000 or not 2000 <= task_tokens <= 30000:
@@ -288,6 +289,7 @@ def _active(root: Path) -> tuple[dict, dict]:
     return state, snap
 
 
+@exclusive_ledger
 def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
     state, _ = _active(root)
     if not state.get("multi_agent_enabled"):
@@ -325,6 +327,7 @@ def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
     return task
 
 
+@exclusive_ledger
 def fail(root: Path, task_id: str) -> dict:
     # Explicit main-agent acknowledgement of timeout or worker error.
     state, _ = _active(root)
@@ -343,6 +346,7 @@ def fail(root: Path, task_id: str) -> dict:
             "fallback_required": remaining <= 0}
 
 
+@exclusive_ledger
 def accept(root: Path, path: Path) -> dict:
     state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
@@ -390,6 +394,7 @@ def accept(root: Path, path: Path) -> dict:
             "notice": "僅代表 Worker 格式、範圍和來源定位可驗證；主代理仍須重讀所有 Finding 與正式 Stage/Integrate"}
 
 
+@exclusive_ledger
 def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
     state, snap = _active(root)
     row = state["tasks"].get(task_id)
@@ -413,6 +418,7 @@ def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
             "instruction": "只回報可驗證的跨檔實際來源定位；完整證據交主代理核對，不得修改審查資料"}
 
 
+@exclusive_ledger
 def accept_followup(root: Path, path: Path) -> dict:
     state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
@@ -466,6 +472,7 @@ def accept_followup(root: Path, path: Path) -> dict:
             "main_agent_verification_required": True}
 
 
+@exclusive_ledger
 def renew_budget(root: Path) -> dict:
     # Main agent must checkpoint and explicitly start the next budget window.
     state, _ = _active(root)
