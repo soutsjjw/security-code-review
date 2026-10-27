@@ -136,8 +136,12 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     existing = _read(path)
     from second_pass_layers import RESERVED, build_plan
     layered_enabled = (_read(target / INDEX, {}) or {}).get("adversarial_quality_version") == 1
+    old_record = _read(target / REVIEWS, {}) or {}
+    needs_upgrade = bool(restart and existing == checkpoint and layered_enabled
+                         and not isinstance(old_record.get(RESERVED), dict))
+    needs_write = existing != checkpoint or needs_upgrade
     replacement_reviews = None
-    if existing != checkpoint and layered_enabled and (existing is None or restart):
+    if needs_write and layered_enabled and (existing is None or restart):
         # 首次固定錨點或人工重啟才產生樣本；保留既有版本的審查工件。
         replacement_reviews = {RESERVED: {
             "plan": build_plan(assessment, checkpoint, snap), "samples": {},
@@ -149,7 +153,7 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
         trouble = integrity_errors(target)
         if trouble:
             raise ValueError("；".join(trouble))
-    if existing is not None and existing != checkpoint:
+    if existing is not None and needs_write:
         if not restart:
             raise ValueError("已存在不同的第一輪快照，禁止自動覆寫；"
                              "需先查明差異，經人工重新驗證後才能 --restart-second-pass")
@@ -159,7 +163,7 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
         if archive_file.is_file() and _read(archive_file) != archived:
             raise ValueError("歷次複核歸檔出現內容衝突，拒絕覆寫")
         _write(archive_file, archived)
-    if integrity_enabled(target) and existing != checkpoint:
+    if integrity_enabled(target) and needs_write:
         from evidence_integrity import commit as integrity_commit
         updates = {"analysis/first-pass-baseline.json": checkpoint}
         if existing is not None and restart:
@@ -167,7 +171,7 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
         elif replacement_reviews is not None:
             updates["analysis/adversarial-reviews.json"] = replacement_reviews
         integrity_commit(target, updates, event="second-pass-restart" if restart else "second-pass-begin")
-    elif existing != checkpoint:
+    elif needs_write:
         if existing is not None and restart:
             _write(target / REVIEWS, replacement_reviews if replacement_reviews is not None else {})
         elif replacement_reviews is not None:
@@ -175,7 +179,7 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
         _write(path, checkpoint)
     return {"rule_count": 70, "snapshot_fingerprint": checkpoint["snapshot_fingerprint"],
             "already_existed": existing == checkpoint,
-            "restarted": bool(restart and existing is not None and existing != checkpoint)}
+            "restarted": bool(restart and existing is not None and needs_write)}
 
 
 def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
