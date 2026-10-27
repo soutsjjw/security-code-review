@@ -267,6 +267,16 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
+## 完整模式第二輪的分層式工作清單
+
+第一輪 `--diagnose-first-pass` 確認 `ready_for_second_pass=true` 後，執行原本的 `review_safety.py --begin-second-pass`，其新 Baseline 會在**既有受控交易檔**建立分層錨點及固定高風險樣本；不用重新掃描全專案。接著唯讀查詢：
+
+```powershell
+& "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\second_pass_layers.py" --target "<TARGET_ROOT>"
+```
+
+依 `rule_tasks` 逐項反向核實實際來源、填入 `blind_challenge` 與 `adversarial_reviews`；依 `sample_tasks` 實際重讀未引用高風險來源，把結果放入暫存 JSON 的 `second_pass_samples`，沿用 `review_safety.py --stage`／`--integrate` 原子整合。分批返回工作清單直到 70 項且全部固定樣本完成，再作正式驗證。最多 8 規則／16 個錨點來源檔／4 樣本是預設**工作清單**上限，`token_hint_per_batch` 只能作執行器預算提示，不能冒稱已限制工具 Token。超出限額或遇必需追查的例外路徑，保留 checkpoint 後分批續跑，未完成不得交付。參見 [第二輪分層契約](adversarial-second-pass.md#分層第二輪完整-70-項模式)。
+
 ## 跨檔控制鏈的實際來源驗證
 
 新版結構索引要求跨檔規則在原有 `rule-closures.json` 內提供真實 `control_trace`（已閱讀節點、確認的關聯、實際來源行號），並逐一用證據驗證呼叫點與排除候選。單靠文件清單、全部候選 ID 或大量相同的 excluded 理由不能結案。須使用 `review_queue.py --detail-id <規則ID>` 取得控制責任，再由來源追查 Controller／Handler／Service／Repository、Middleware、DI、設定與可能旁路；外部控制不應虛構程式碼鏈。詳見 [完整性守門操作指引](review-integrity-guards.md)。
