@@ -185,7 +185,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
-- 維持單代理執行，不啟動子代理或平行審查；保留來源與結果完整性守門，並執行跨檔呼叫點追查、安全控制有效性、待確認判定驗證及第二輪反向複核。
+- 預設維持單代理執行；僅在明確指定 `--multi-agent`、完成 Codex 真實 P0 試跑及強制唯讀能力核對時，才可依 [受控多代理 P0～P3](multi-agent-review.md) 進行唯讀分工。所有正式審查與寫入仍由單一主代理完成；保留來源、跨檔關聯、控制有效性與第二輪完整性守門。
 
 完成條件：
 
