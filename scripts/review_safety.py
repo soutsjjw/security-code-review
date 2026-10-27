@@ -381,6 +381,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     adversarial_reviews = _read(report_dir(target) / ADVERSARIAL_REVIEWS, {}) or {}
     known_fingerprints = {_fingerprint(f): fid for fid, f in findings.items()}
     new_files: set[str] = set()
+    changed_file_evidence: set[str] = set()
+    newly_completed_paths: set[str] = set()
     new_checks: set[str] = set()
     new_closures: set[str] = set()
     new_control_verifications: set[str] = set()
@@ -407,6 +409,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
             if name in files and files[name] != record:
                 if name in new_files or not allow_revision:
                     raise ValueError(f"{name}: 逐檔結果衝突，須人工核對後才允許修訂")
+            if files.get(name) != record:
+                changed_file_evidence.add(name)
             files[name] = record
             new_files.add(name)
         for record in part.get("findings", []):
@@ -438,6 +442,9 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
                     raise ValueError(f"{rid}: 不允許未裁決即將已確認弱點改判為非 fail")
                 if not allow_revision:
                     raise ValueError(f"{rid}: 已完成的規則不同，須明確人工允許修訂")
+            if ((checks[rid].get("execution") or {}).get("state") != "completed"
+                    and (record.get("execution") or {}).get("state") == "completed"):
+                newly_completed_paths.update((record.get("execution") or {}).get("inspected_paths") or [])
             checks[rid] = record
             new_checks.add(rid)
             if rid in required_recheck and (record.get("execution") or {}).get("state") == "completed":
@@ -508,7 +515,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     from batch_evidence_gate import batch_quality_errors
     defects = batch_quality_errors(
         target, previous_assessment, data,
-        changed_paths=new_files, snapshot_paths=set(snapshot["source_hashes"]),
+        changed_paths=changed_file_evidence | newly_completed_paths,
+        snapshot_paths=set(snapshot["source_hashes"]),
     )
     if defects:
         raise ValueError("；".join(defects[:12]))
