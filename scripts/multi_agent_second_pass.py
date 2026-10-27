@@ -285,8 +285,14 @@ def renew_budget(root: Path) -> dict:
     state, _ = _active(root)
     if any(x["status"] == "running" for x in state["tasks"].values()):
         raise ValueError("第二輪尚有 running 工作，不得重置預算窗口")
-    if state["window_charged"] < int(state["budget_tokens"] * 0.8):
-        raise ValueError("第二輪尚未達預算門檻")
+    cap = int(state["budget_tokens"] * 0.8)
+    due = [row["estimated_tokens"] for row in state["tasks"].values()
+           if row["status"] in ("pending", "failed") and row["attempts"] < 2]
+    if state["window_charged"] < cap and (
+            not due or any(cost <= cap - state["window_charged"] for cost in due)):
+        raise ValueError("第二輪仍有可派分片，無須續開窗口")
+    if due and min(due) > cap:
+        raise ValueError("第二輪單一任務超出上限，須主代理重切分片")
     state["window_charged"] = 0
     state["budget_window"] = state.get("budget_window", 1) + 1
     _write(root / SECOND, state)
