@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import hashlib
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
@@ -127,6 +128,7 @@ def unverified_inspected_paths(
     by_rule: Counter[str] = Counter()
     by_reason: Counter[str] = Counter()
     examples: list[dict[str, str]] = []
+    link_lines: list[str] = []
     for check in assessment.get("checks") or []:
         if not isinstance(check, dict) or not isinstance(check.get("id"), str):
             continue
@@ -150,10 +152,12 @@ def unverified_inspected_paths(
                 reason = "invalid_file_review"
             by_rule[rid] += 1
             by_reason[reason] += 1
+            link_lines.append(f"{rid}\\t{path}\\t{reason}")
             if len(examples) < 10:
                 examples.append({"rule_id": rid, "path": path, "reason": reason})
     return {
         "total": sum(by_rule.values()),
+        "fingerprint": hashlib.sha256("\\n".join(sorted(link_lines)).encode("utf-8")).hexdigest(),
         "by_rule": dict(sorted(by_rule.items())),
         "by_reason": dict(sorted(by_reason.items())),
         "examples": examples,
