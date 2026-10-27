@@ -100,6 +100,7 @@ def first_pass_issues(
     coverage = build_source_coverage(assessment, target)
     if diagnostics is not None:
         diagnostics["unverified_inspected_paths"] = coverage["unverified_inspected_paths"]
+        diagnostics["verified_na_inspection_paths"] = coverage["verified_na_inspection_paths"]
     issues += coverage.get("review_integrity_errors", [])
     if coverage["missing_source_file_count"]:
         issues.append("第一輪：逐檔覆蓋尚未完成，禁止啟動第二輪")
