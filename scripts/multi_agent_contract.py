@@ -159,6 +159,9 @@ def validate_worker_result(root: Path, task: dict, result: Any,
             for proof in rule.get("evidence", []) if isinstance(rule.get("evidence"), list) else []:
                 if not _proof(root, proof, hashes, {path: count}, anchored=path):
                     errors.append(f"{path}: 規則證據行號或格式無效")
+        required_candidates = set(owned[path].get("candidate_rule_ids", []))
+        if not required_candidates <= seen:
+            errors.append(f"{path}: 缺少候選規則的逐條 hit/not_applicable/unassessed 回報")
         symbols = row.get("unresolved_symbols")
         if not isinstance(symbols, list):
             errors.append(f"{path}: 未解符號格式無效")
