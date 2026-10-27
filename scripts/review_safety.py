@@ -157,7 +157,8 @@ def scope_tasks(target: Path) -> list[dict]:
 
 def closure_errors(target: Path, assessment: dict, *, index_override: dict | None = None,
                    snapshot_override: dict | None = None,
-                   closures_override: dict | None = None) -> list[str]:
+                   closures_override: dict | None = None,
+                   diagnostics: dict[str, dict] | None = None) -> list[str]:
     """明確記錄人工查證的邊界及全專案責任；不以索引候選冒充結論。"""
     if snapshot_override is None and not (report_dir(target) / SNAPSHOT).exists():
         return []
@@ -220,6 +221,11 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
                    if edge.get("source") in relevant_paths or edge.get("target") in relevant_paths}
         unresolved = sorted(related - set(ids) - set(dismissed))
         if unresolved:
+            if diagnostics is not None:
+                diagnostics[rid] = {
+                    "count": len(unresolved),
+                    "relationship_ids": unresolved,
+                }
             errors.append(f"{rid}: 尚有 {len(unresolved)} 筆跨檔／組態候選未查證或排除："
                           + "、".join(unresolved[:5]))
         # P1 只對新索引中與本規則相關的呼叫點加上明確覆核要求。
