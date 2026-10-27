@@ -105,7 +105,7 @@ class GoalEndToEndSmokeTests(unittest.TestCase):
         lowered = dict(original, severity="low")
         draft = self.report / "lowered.json"
         _write(draft, {"findings": [lowered], "finding_revisions": {"F-2": {
-            "reason": "再次核對身分驗證與資料存取流程，但此操作不應能降低已確認弱點的嚴重度。",
+            "reason": "再次核對身分驗證與資料存取流程，確認原始越權缺陷仍可重現；本次測試刻意嘗試降低嚴重度，應由工具拒絕並保留原始 Finding 證據。",
             "reviewer": "security-review-agent",
         }}})
         stage(self.root, draft)

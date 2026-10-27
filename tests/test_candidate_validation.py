@@ -138,7 +138,7 @@ class CandidateValidationTests(unittest.TestCase):
         rr["semantic_review"] = {
             "control_behavior": "CanEdit 以 Invoice.TenantKey 驗證目前租戶存取權，拒絕後直接拋出例外阻止後續變更。",
             "call_chain": "CancelInvoice 從參數定位 Invoices 資料，再執行租戶條件核對，最後才修改 Cancelled 並提交。",
-            "verification_method": "逐行閱讀授權決策與寫入順序並查驗呼叫端",
+            "verification_method": "逐行閱讀授權決策與資料寫入順序，並核實 API 呼叫端的實際資料流及控制分支",
         }
         self.assertEqual(build_source_coverage(data, self.root)["review_integrity_errors"], [])
         data["checks"][0]["evidence"][0]["line_start"] = 1
