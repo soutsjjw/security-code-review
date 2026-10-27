@@ -606,10 +606,25 @@ def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
 
 @exclusive_ledger
 def accept_followup(root: Path, path: Path) -> dict:
-    state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
         raise ValueError("補查結果路徑不安全")
-    data = _read(path)
+    return _accept_followup_payload(root, _read(path))
+
+
+@exclusive_ledger
+def accept_followup_stdin(root: Path, raw: str) -> dict:
+    if len(raw.encode("utf-8")) > 2_000_000:
+        raise ValueError("跨檔補查資料過大，尚未落地即拒絕")
+    from multi_agent_contract import SECRET
+    if SECRET.search(raw):
+        raise ValueError("跨檔補查疑似包含機敏資訊，尚未落地即拒絕")
+    return _accept_followup_payload(root, json.loads(raw))
+
+
+def _accept_followup_payload(root: Path, data: dict) -> dict:
+    state, snap = _active(root)
+    if not isinstance(data, dict):
+        raise ValueError("跨檔補查回報必須為 JSON 物件")
     row = state["tasks"].get(data.get("task_id"))
     if (row is None or row["status"] != "followup_running"
             or data.get("round") != row["followup_round"]
@@ -826,7 +841,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "claim-batch", "fail", "followup", "accept-followup", "renew-budget", "accept", "accept-stdin",
+    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "claim-batch", "fail", "followup", "accept-followup", "accept-followup-stdin", "renew-budget", "accept", "accept-stdin",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -897,6 +912,8 @@ def main() -> int:
             if not args.task_id or not args.agent_id:
                 raise ValueError("--followup 必須指定 --task-id 與 --agent-id")
             answer = followup(root, args.task_id, agent_id=args.agent_id)
+        elif args.accept_followup_stdin:
+            answer = accept_followup_stdin(root, sys.stdin.read(2_000_001))
         elif args.accept_followup:
             if args.result is None:
                 raise ValueError("--accept-followup 必須指定 --result")
