@@ -63,7 +63,8 @@ class BlockerDiagnosticsTests(unittest.TestCase):
         data = {"checks": [], "findings": [{"id": "F-001"}]}
         untouched = copy.deepcopy(data)
 
-        def fake_first_pass(target, assessment, *, diagnostics=None):
+        def fake_first_pass(target, assessment, *, diagnostics=None, allow_partial=False):
+            self.assertTrue(allow_partial)
             diagnostics["cross_file_candidates"] = {
                 "AU-09": {"count": 2, "relationship_ids": ["edge-a", "edge-b"]}}
             diagnostics["unverified_inspected_paths"] = {
@@ -75,6 +76,7 @@ class BlockerDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result["cross_file_candidates"]["AU-09"]["relationship_ids"],
                          ["edge-a", "edge-b"])
         self.assertNotIn("inspected_paths_diagnostic", result)
+        self.assertEqual(result["pending_rule_count"], 0)
         self.assertEqual(data, untouched)
 
 

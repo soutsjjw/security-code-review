@@ -57,8 +57,11 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         for path in (check.get("execution") or {}).get("inspected_paths") or []:
             if isinstance(path, str):
                 links[path].add(check["id"])
-    known_paths = {row["path"] for row in rows
-                   if isinstance(row, dict) and isinstance(row.get("path"), str)}
+    existing = {row["path"]: row for row in rows
+                if isinstance(row, dict) and isinstance(row.get("path"), str)}
+    missing_paths = {p for p in diagnostics.get("missing_source_paths", [])
+                     if isinstance(p, str) and p}
+    known_paths = set(existing) | missing_paths
     reasons: dict[str, Counter[str]] = defaultdict(Counter)
     source_issues: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for blocker in diagnostics.get("blockers", []):
@@ -93,12 +96,11 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         if len(paths) >= threshold:
             repeated_paths.update(paths)
     by_path = {}
-    for row in rows:
-        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
-            continue
-        path = row["path"]
+    for path in sorted(known_paths):
+        row = existing.get(path, {})
         reviews = {rr.get("rule_id") for rr in (row.get("rule_reviews") or [])
                    if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
+        missing_file_review = path not in existing
         absent = links.get(path, set()) - reviews
         # A completed 'na' check can cite files examined to establish absence,
         # without claiming the rule is applicable to those files. Only the
@@ -108,10 +110,12 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         unverified_na = sorted(na_scope_ids - set(verified_na))
         missing = sorted(absent - na_scope_ids)
         issue_count = sum(reasons.get(path, {}).values())
-        if not (path in repeated_paths or missing or unverified_na or issue_count):
+        if not (path in repeated_paths or missing or unverified_na or issue_count
+                or path in missing_paths):
             continue
         by_path[path] = {
             "path": path,
+            "missing_file_review": missing_file_review,
             "inspected_link_count": len(links.get(path, set())),
             "recorded_rule_review_count": len(reviews),
             "missing_rule_review_ids": missing,
@@ -122,12 +126,14 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
             "observed_source_blockers": dict(sorted(reasons.get(path, {}).items())),
             "observed_source_issue_details": source_issues.get(path, []),
             "repair_order": (
+                "P0 建立缺少的逐檔審查" if missing_file_review else
                 "P0 逐檔證據重讀" if path in repeated_paths or issue_count else
                 "P1 規則關聯核對"
             ),
         }
     # 不推導規則適用性；同檔有多個疑點時先處理高扇出來源。
     ranked = sorted(by_path.values(), key=lambda item: (
+        -int(item["missing_file_review"]),
         -int(item["repeated_rule_conclusion_template"]),
         -sum(item["observed_source_blockers"].values()),
         -(len(item["missing_rule_review_ids"]) +

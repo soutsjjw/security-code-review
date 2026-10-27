@@ -112,8 +112,18 @@ def summarize(
 def diagnose(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
     from adversarial_recheck import first_pass_issues
     details: dict[str, Any] = {}
-    messages = first_pass_issues(target.resolve(), assessment, diagnostics=details)
+    messages = first_pass_issues(target.resolve(), assessment, diagnostics=details,
+                                 allow_partial=True)
+    pending = sorted(c.get("id") for c in assessment.get("checks", [])
+                     if isinstance(c, dict) and isinstance(c.get("id"), str)
+                     and (c.get("execution") or {}).get("state") != "completed")
+    if pending:
+        messages.append(f"第一輪：尚有 {len(pending)} 項規則未完成")
     result = summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"))
+    result["pending_rule_count"] = len(pending)
+    result["pending_rule_ids"] = pending
+    result["missing_source_file_count"] = details.get("missing_source_file_count", 0)
+    result["missing_source_paths"] = details.get("missing_source_paths", [])
     if details.get("cross_file_candidates"):
         result["cross_file_candidates"] = details["cross_file_candidates"]
     result["verified_na_inspection_paths"] = details.get("verified_na_inspection_paths", {})

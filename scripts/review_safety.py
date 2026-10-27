@@ -241,6 +241,16 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
                 ))
             }
             reviews = closure.get("callsite_reviews", {})
+            missing_callsites = {cid: origin for cid, (origin, _) in callsites.items()
+                                 if not isinstance(reviews, dict)
+                                 or not isinstance(reviews.get(cid), dict)}
+            if diagnostics is not None and missing_callsites:
+                diag = diagnostics.setdefault(rid, {"count": 0, "relationship_ids": []})
+                by_source: dict[str, list[str]] = {}
+                for cid, origin in sorted(missing_callsites.items()):
+                    by_source.setdefault(origin, []).append(cid)
+                diag["unverified_callsite_count"] = len(missing_callsites)
+                diag["unverified_callsites_by_source"] = by_source
             if not isinstance(reviews, dict):
                 errors.append(f"{rid}: callsite_reviews 必須為呼叫點 ID 對應的覆核紀錄")
                 reviews = {}

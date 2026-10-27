@@ -249,16 +249,24 @@ def logged_main(main, phase: str) -> int:
     except (ValueError, IndexError):
         selected = next((s.split("=", 1)[1] for s in args if s.startswith("--target=")), None)
         target = Path(selected) if selected else Path.cwd()
-    # 停滯後任何完整審查 CLI 都不得再執行昂貴查詢或整合；
-    # 只有明確呼叫 review_log.py start 才能建立新的 run 繼續。
+    # 停滯後只容許唯讀定位／診斷；修改與正式驗證仍須明確開啟新 run。
+    readonly_diagnostic = (
+        ("--diagnose-first-pass" in args or "--repair-plan" in args)
+        or ("--detail-id" in args and "--init" not in args)
+        or ("--plan" in args and not any(x in args for x in
+            ("--stage", "--integrate", "--init", "--seal-integrity")))
+    )
     try:
         prior = _load(_paths(target)[1])
-        if prior and prior.get("status") == "stalled":
-            print("ERROR: 審查已 stalled；先檢查阻塞原因，再明確執行 review_log.py start 恢復。", file=sys.stderr)
+        if prior and prior.get("status") == "stalled" and not readonly_diagnostic:
+            print("ERROR: 審查已 stalled；可先使用唯讀診斷，查明後再執行 review_log.py start 恢復。", file=sys.stderr)
             return 3
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: 無法安全讀取審查執行狀態（{type(exc).__name__}）", file=sys.stderr)
         return 2
+    if prior and prior.get("status") == "stalled" and readonly_diagnostic:
+        # 不得以唯讀診斷建立新 run、遞增 checkpoint 或改寫已停滯紀錄。
+        return main()
     start_at = time.perf_counter()
     operation = next((part.removeprefix("--") for part in args if part.startswith("--")
                       and part not in ("--target", "--compact", "--batch-size", "--detail-id",

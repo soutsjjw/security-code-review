@@ -64,9 +64,9 @@ def _enabled(target: Path) -> bool:
 
 def first_pass_issues(
     target: Path, assessment: dict[str, Any], *,
-    diagnostics: dict[str, Any] | None = None,
+    diagnostics: dict[str, Any] | None = None, allow_partial: bool = False,
 ) -> list[str]:
-    """Run the same authoritative first-pass gates for diagnosis and baseline creation."""
+    """Validate completed evidence even mid-run; baseline still requires every rule."""
     from review_completion import completion_errors
     from review_decision import decision_quality_errors
     from review_safety import snapshot_errors, closure_errors
@@ -77,9 +77,11 @@ def first_pass_issues(
     checks = assessment.get("checks")
     matrix = load_decision_matrix()
     if (not isinstance(checks, list) or len(checks) != 70
-            or {c.get("id") for c in checks if isinstance(c, dict)} != set(matrix)
-            or any((c.get("execution") or {}).get("state") != "completed"
-                   for c in checks if isinstance(c, dict))):
+            or any(not isinstance(c, dict) for c in checks)
+            or {c.get("id") for c in checks} != set(matrix)):
+        return ["第一輪：必須具有完整且不重複的 70 項規則"]
+    complete = [c for c in checks if (c.get("execution") or {}).get("state") == "completed"]
+    if len(complete) != len(checks) and not allow_partial:
         return ["第一輪：須先完成全部 70 項檢核"]
     staged_dir = target / RELATIVE / "staged"
     if staged_dir.is_dir() and any(staged_dir.glob("*.json")):
@@ -90,7 +92,7 @@ def first_pass_issues(
                 "、".join(recheck["rule_ids"])]
     cross_file_details: dict[str, dict] = {}
     issues = (snapshot_errors(target)
-              + completion_errors(checks)
+              + completion_errors(complete if allow_partial else checks)
               + decision_quality_errors(checks, source_root=target)
               + closure_errors(target, assessment, diagnostics=cross_file_details)
               + verification_errors(target, checks)
@@ -101,8 +103,10 @@ def first_pass_issues(
     if diagnostics is not None:
         diagnostics["unverified_inspected_paths"] = coverage["unverified_inspected_paths"]
         diagnostics["verified_na_inspection_paths"] = coverage["verified_na_inspection_paths"]
+        diagnostics["missing_source_paths"] = coverage["missing_source_paths"]
+        diagnostics["missing_source_file_count"] = coverage["missing_source_file_count"]
     issues += coverage.get("review_integrity_errors", [])
-    if coverage["missing_source_file_count"]:
+    if coverage["missing_source_file_count"] and not allow_partial:
         issues.append("第一輪：逐檔覆蓋尚未完成，禁止啟動第二輪")
     return issues
 
