@@ -58,7 +58,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 已確認缺陷建立 `Finding`、關聯 `fail`，並**繼續**其他規則；不修改受測程式、不要求先修補。不能為通過驗證造假工件、補寫模板、消除已確認 Finding 或把 `pass`／`na` 當預設結果。
 - 只有已完成必要靜態查核且**真正有會改變結論的外部工件缺口**才可標 `completed+review`；查核尚未完成保持 `pending/blocked`。通過 Schema 或報告工具不等於真實安全控制有效。
 - 完整模式僅主代理可寫入 `review_safety.py --stage/--integrate`，子代理如可用**僅可唯讀分析**；不得平行修改正式 JSON、Manifest 或 Journal。保留來源 Git Revision／SHA256 快照、跨檔 `closures/control_trace`、呼叫點人工驗證、控制繞過與外部裁決紀錄；源碼變動時保守重新核對並依規則復原，禁止無聲繞過完整性鏈。
-- **第二輪不可省略**：第一輪 70 項、所有來源與跨檔／控制證據完成後，主代理才建立固定 baseline，重新閱讀程式碼逐條提出反例並調和矛盾；分類模式按分類各自建立。第二輪未完成不得交付。
+- **第二輪不可省略**：第一輪 70 項、100% 來源與跨檔／控制證據完成後固定 baseline。完整模式採**分層反向複核**：70 項逐條針對性重讀證據並提出反例、抽查未引用的高風險來源及調和矛盾；不得對整個來源樹進行無目的第二次全掃。批次由 `second_pass_layers.py --target "<TARGET_ROOT>"` 唯讀產生；有界延伸追查不得跳過必要來源，資源上限時保存進度並續跑，未完成不得交付。分類模式沿用各分類第二輪守門。
 - **外部控制不得假造本地證據**：只有查得正式外部責任工件或真正的責任交接程式碼／設定，才可依 [外部責任判定契約](docs/review-decision-adjudication.md#可查證的外部控制責任適用全-70-項) 記錄 `external_responsibility_pending`；已證實外部控制生效才可使用 `external_verified` Pass。缺少檔案、Scan 或外部工件本身不構成 Pass／Review。
 - 環境僅支援 .NET Core／現代 .NET（含 net10.0）；遇 .NET Framework、Vue／混合專案或未能可靠解析 TFM，須明確阻擋，不得縮小來源範圍假裝完成。匯入／條件式 MSBuild 屬性須用實際 `dotnet msbuild -getProperty` 評估；不得修改受測專案以迎合分析器。
 
@@ -99,7 +99,7 @@ Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對�
 
 第一輪遇到大量逐檔無關證據、重複模板或未驗證關聯時，先使用 `review_queue.py --diagnose-first-pass` 確認權威阻擋，再以唯讀 `review_queue.py --repair-plan` 按檔案及規則定向補查。`--integrate` 會提前拒絕本批新增的無效完成證據；已完成紀錄需要修訂時，須取得明確授權後才能使用 `--allow-revision`，且不得刪除原 Finding、偽造來源或跳過完整性守門。詳細流程見 [進階操作](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
-第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準，主代理重新閱讀來源完成第二輪與矛盾裁決。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
+第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準與分層抽樣計畫，再使用 `second_pass_layers.py --target "<TARGET_ROOT>"` 取得下一批原始證據錨點及抽樣檔案。第二輪逐條推翻式驗證並提交抽樣證據與矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
 
 ## 發佈前品質驗收及進階操作
 
