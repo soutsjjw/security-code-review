@@ -195,8 +195,8 @@ def validate_worker_result(root: Path, task: dict, result: Any,
                 errors.append(f"{path}: 未解跨分片符號無效")
         # Disallow verbatim source fragments in any worker text field.
         for line in text.splitlines():
-            if len(line) >= 64 and any(
-                    line[i:i+64] in raw for i in range(0, len(line)-63, 24)):
+            if len(line) >= 48 and any(
+                    line[i:i+48] in raw for i in range(0, len(line)-47, 16)):
                 errors.append(f"{path}: Worker 輸出包含來源長片段")
                 break
         findings = row.get("findings")
