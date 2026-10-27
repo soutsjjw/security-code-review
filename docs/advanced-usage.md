@@ -153,6 +153,22 @@ $security-code-review --categories AC,AU
 
 完整 CLI 操作、Windows／Linux 啟動器與資料路徑請見 [分類審查操作契約](category-review.md)。指定全部十類仍然是十份部分報告；不能當作正式 70 項結果。
 
+## 第一輪既有證據修復（P0～P3）
+
+`assessment.json`、`file_reviews`、Findings 與 Journal 都屬正式審查資料；重新載入不代表已經驗證。遇到大量第一輪 blocker 時，使用唯讀清單排定優先順序：
+
+ ```powershell
+python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --diagnose-first-pass
+python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-plan --source-batch-size 30
+```
+
+- **P0**：先重新閱讀重複模板、證據無關及高度扇出的檔案；空白 `rule_reviews` 不代表尚未審核，須依實際檔案確認十類責任。
+- **P1**：針對 `missing_rule_review_ids`、`inspected_paths_diagnostic` 的規則／檔案關聯逐一核實；不可將診斷列表自動轉換為補寫 payload，也不得擅自移除真實關聯。
+- **P2**：補查 Q2/Q3、P2/P3 控制呼叫鏈、失效位置、外部責任與來源快照；不因某條控制缺少關鍵字就直接放寬 Verifier。
+- **P3**：經本人核對真實來源及既有 Finding 後，以 `review_safety.py --stage` 暫存並使用 `--integrate --allow-revision` 合法修訂；每批整合前增量驗證變更檔的正式來源關聯，明顯無關行號與擴大的重複模板會拒絕寫入。最後重新執行 `--diagnose-first-pass`，只有 `ready_for_second_pass=true` 才能啟動第二輪；正式報告使用非 `--compact` 的完整佇列驗證。
+
+`--repair-plan` 是唯讀提示，不提供「一鍵清除 blocker」；僅靠上傳 `assessment.json` 缺少目標來源快照、完整性 Manifest 與 Journal 時，不能在別處產出合法覆寫 payload。對已有不合格的未動部分，整合時不直接改寫；正式驗證仍照常拒絕。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
@@ -181,6 +197,7 @@ $security-code-review --categories AC,AU
    - 追蹤適用的程式碼、呼叫鏈、資料流及設定。
    - 一個檔案可關聯多條適用規則，但不得為增加數量而建立無依據的關聯。
    - 每個檔案完成十類適用性篩選；無直接適用項目仍須提出已核對的控制責任及理由，不得制式填入「無直接適用」。
+   - 每批完成後使用 `--repair-plan` 唯讀確認新增的來源證據與關聯，優先修正重複模板與高扇出檔案；不得等到第二輪前才一次處理整體缺口。
 
 3. 對每項適用規則實際執行靜態安全分析：
    - 驗證安全控制的實作及有效性。
@@ -207,6 +224,7 @@ $security-code-review --categories AC,AU
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
    - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
+   - 對已核實需更正的既有紀錄，取得使用者明確授權後才以 `--integrate --allow-revision` 修訂；不得藉修訂跳過批次證據守門、Finding ID 保護、SHA256 或 Journal。
 
 6. 每批保存真實審查結果，持續執行直到：
    - 70 項規則均已實際完成。
@@ -215,11 +233,11 @@ $security-code-review --categories AC,AU
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
-   - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
+   - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`；有大量失敗時先以 `--repair-plan` 取得 P0～P3 的逐檔優先修復清單。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
    - 診斷中的 `inspected_paths_diagnostic` 僅彙整**已被正式逐檔驗證拒絕**的規則／檔案關聯：`by_rule` 按規則計數，`by_reason` 區分缺少逐檔紀錄、缺少規則審查及逐檔紀錄驗證失敗；不是新增檔案數或可自動修補清單。`cross_file_candidates` 列出完整未查證關聯 ID；必須核實來源後逐項處理，不能批次核准。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
-   - review_queue.py 回傳 ready_for_report=true。
+   - 必須執行不帶 `--compact`／`--detail-id` 的 `review_queue.py`，確認正式結果 `ready_for_report=true`。
    - 所有完成判定均有足夠的真實檢核依據。
 
 7. 正式交付前再次檢查：
@@ -236,7 +254,7 @@ $security-code-review --categories AC,AU
 
 8. 完成後執行 complete_review.py，成功產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論，並維持相關規範及附件的獨立查證要求。
 
-9. 只有真正無法繼續的執行錯誤或資源限制才能停止。停止時保留既有進度及 Findings，明確列出尚未完成的工作，不得宣稱已完成全部審查。
+9. 僅遇不可恢復的執行／資源限制、缺少必要人工修訂授權、無法取得且不能合法替代的必要證據時才可停止。停止前保留已完成診斷、blocker_signature、來源與 Findings、完整性交易鏈及明確續跑條件，不得宣稱審查已完成。
 
 在所有條件真正完成前，不得以 70/70 completed、100% 檔案覆蓋率或 JSON Schema 驗證通過，直接宣稱已完成實質資安審查。
 ```
