@@ -42,7 +42,10 @@ def probe_errors(root: Path, probe: dict, *, required: bool = True) -> list[str]
         errors.append("能力試跑已過期或時間無效")
     path = probe.get("trace_path")
     try:
-        candidate = Path(path).resolve(strict=True) if isinstance(path, str) else None
+        original = Path(path) if isinstance(path, str) else None
+        if original is not None and original.is_symlink():
+            errors.append("能力試跑 trace 不可為 symlink")
+        candidate = original.resolve(strict=True) if original is not None else None
         if (candidate is None or not candidate.is_file() or candidate.is_symlink()
                 or candidate.stat().st_size > 2_000_000
                 or sha(candidate.read_bytes()) != probe.get("trace_sha256")):
@@ -63,6 +66,8 @@ def protected_report_digest(root: Path) -> str:
         raise ValueError("正式報告工作目錄不存在")
     for current, dirs, filenames in os.walk(base, followlinks=False):
         here = Path(current)
+        if here == base / "analysis" and (here / "multi-agent").is_symlink():
+            raise ValueError("多代理協調目錄不可為 symlink")
         dirs[:] = sorted(d for d in dirs if not (
             here == base / "analysis" and d == "multi-agent"))
         for d in dirs:
