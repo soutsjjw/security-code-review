@@ -367,6 +367,10 @@ def accept(root: Path, path: Path) -> dict:
     row["unresolved_symbols"] = unresolved
     row["status"] = "needs_followup" if unresolved else "completed"
     row["result_digest"] = checksum
+    row["reviewed_rule_ids"] = sorted({
+        rr["rule_id"] for entry in result["files"] for rr in entry["rule_states"]
+        if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)
+    })
     row["finding_keys"] = sorted({
         finding_key(f) for entry in result["files"] for f in entry["findings"]
     })
