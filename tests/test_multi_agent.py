@@ -140,6 +140,22 @@ class MultiAgentTests(unittest.TestCase):
         self.assertIn("合法 path", str(validate_worker_result(
             self.root, task, result, self.hashes)))
 
+    def test_token_budget_window_requires_explicit_checkpoint(self):
+        from multi_agent import renew_budget
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        first_id, second_id = list(state["tasks"])
+        task = claim(self.root, first_id)
+        result = self.result(task)
+        result["tokens_used"] = 80000
+        result_file = self.root / "token-result.txt"
+        result_file.write_text(json.dumps(result, ensure_ascii=False), "utf-8")
+        self.assertTrue(accept(self.root, result_file)["accepted"])
+        with self.assertRaisesRegex(ValueError, "80%"):
+            claim(self.root, second_id)
+        self.assertEqual(renew_budget(self.root)["budget_window"], 2)
+        self.assertEqual(claim(self.root, second_id)["task_id"], second_id)
+
     def test_candidate_rule_cannot_be_silently_skipped(self):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
