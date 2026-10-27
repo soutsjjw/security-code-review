@@ -166,8 +166,10 @@ class MultiAgentTests(unittest.TestCase):
         result["issues"] = ["提示：這是來源原文 " + line + line]
         self.assertIn("來源長片段", str(validate_worker_result(
             self.root, task, result, self.hashes,
-            challenges=__import__("multi_agent")._read(self.root / LEDGER)
-            ["tasks"][task["task_id"]]["challenges"])))
+            challenges={path: {str(n): __import__("multi_agent_guard").proof_line_hash(
+                self.root, path, n) for n in positions} for path, positions in
+                        __import__("multi_agent")._read(self.root / LEDGER)
+                        ["tasks"][task["task_id"]]["challenges"].items()})))
 
     def test_wrong_random_challenge_is_rejected(self):
         self.verified_probe()
@@ -302,15 +304,30 @@ class MultiAgentTests(unittest.TestCase):
     def test_unresolved_symbol_is_accepted_for_followup_not_retry(self):
         from multi_agent import followup, accept_followup
         from multi_agent_guard import proof_line_hash
+        from multi_agent import _read, _write
+        index_path = self.root / ANALYSIS / "structure-index.json"
+        idx = _read(index_path)
+        idx["cross_file_call_hints"] = {
+            "src/AuthController.cs": [{
+                "called_method": "ResolvePolicy", "caller_line": 1,
+                "possible_targets": [{"path": "src/InputService.cs", "line": 1}]
+            }]
+        }
+        _write(index_path, idx)
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
-        task_id = next(iter(state["tasks"]))
+        task_id = next(key for key, value in state["tasks"].items()
+                       if "src/AuthController.cs" in
+                       [x["path"] for x in value["task"]["assigned_paths"]])
         task = claim(self.root, task_id, agent_id="codex-agent-test")
         result = self.result(task)
         result["files"][0]["reviewed_ranges"] = [{"start": 1, "end": 3}]
         errs = validate_worker_result(self.root, task, result, self.hashes,
-                                      challenges=__import__("multi_agent")._read(self.root / LEDGER)
-                                      ["tasks"][task_id]["challenges"])
+                                      challenges={path: {str(n): proof_line_hash(self.root, path, n)
+                                                        for n in positions}
+                                                  for path, positions in
+                                                  __import__("multi_agent")._read(self.root / LEDGER)
+                                                  ["tasks"][task_id]["challenges"].items()})
         self.assertIn("未覆蓋來源所有行", str(errs))
         result["files"][0]["reviewed_ranges"] = [{"start": 1, "end": 300}]
         result["files"][0]["unresolved_symbols"] = [{
@@ -335,7 +352,8 @@ class MultiAgentTests(unittest.TestCase):
                                   "line_start": 1, "evidence": proof}]}
         f = self.root / "resolution.txt"
         f.write_text(json.dumps(resolved, ensure_ascii=False), "utf-8")
-        self.assertEqual(accept_followup(self.root, f)["status"], "completed")
+        self.assertEqual(accept_followup(self.root, f)["status"], "needs_main")
+        self.assertFalse(summary(self.root)["work_results_accepted"])
 
 
     def test_secret_and_untrusted_instruction_cannot_modify_contract(self):
