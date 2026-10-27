@@ -265,5 +265,23 @@ class QualityAcceptanceTests(unittest.TestCase):
         self.assertEqual(code, 2)
 
 
+    def test_fixture_acceptance_requires_full_verified_queue_not_compact_preview(self):
+        case = self.cases[0]
+        self._create_artifacts(case)
+        seen = []
+
+        def checked_queue(*args, compact=False, **kwargs):
+            seen.append(compact)
+            return {"ready_for_report": not compact,
+                    "second_pass": {"pending_count": 0}}
+
+        with patch("quality_acceptance.build_queue", side_effect=checked_queue):
+            prediction, problems = verify_review(case, self.root / case["id"], [])
+        self.assertEqual(problems, [])
+        self.assertIsNotNone(prediction)
+        self.assertEqual(seen, [False])
+
+
+
 if __name__ == "__main__":
     unittest.main()
