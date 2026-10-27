@@ -96,6 +96,8 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對每項再用 `--detail-id` 取具體查核契約，實際閱讀來源、驗證控制及跨檔依賴，分批 `--stage`、`--integrate`，依真實結果記錄 checkpoint 並繼續；不能在 70/70 僅為狀態數或 1～3 個 Finding 時停止。`stalled`／退出碼 3 必須停止重試，保存原有證據，查明阻塞後才能明確開啟新 run。
 
+第一輪遇到大量逐檔無關證據、重複模板或未驗證關聯時，先使用 `review_queue.py --diagnose-first-pass` 確認權威阻擋，再以唯讀 `review_queue.py --repair-plan` 按檔案及規則定向補查。`--integrate` 會提前拒絕本批新增的無效完成證據；已完成紀錄需要修訂時，須取得明確授權後才能使用 `--allow-revision`，且不得刪除原 Finding、偽造來源或跳過完整性守門。詳細流程見 [進階操作](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
+
 第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準，主代理重新閱讀來源完成第二輪與矛盾裁決。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
 
 ## 發佈前品質驗收及進階操作
