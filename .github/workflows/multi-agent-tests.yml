@@ -1,0 +1,26 @@
+name: Controlled Multi-agent Gate
+on:
+  pull_request:
+    paths:
+      - "scripts/multi_agent*.py"
+      - "schemas/multi-agent-worker-result.schema.json"
+      - "tests/test_multi_agent*.py"
+      - ".github/workflows/multi-agent-tests.yml"
+  push:
+    paths:
+      - "scripts/multi_agent*.py"
+      - "schemas/multi-agent-worker-result.schema.json"
+      - "tests/test_multi_agent*.py"
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: python -m compileall -q scripts/multi_agent.py scripts/multi_agent_contract.py scripts/multi_agent_benchmark.py tests/test_multi_agent.py tests/test_multi_agent_benchmark.py
+      - run: python -m unittest discover -s tests -p 'test_multi_agent*.py' -v
