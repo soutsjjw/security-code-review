@@ -153,7 +153,7 @@ $security-code-review --categories AC,AU
 
 完整 CLI 操作、Windows／Linux 啟動器與資料路徑請見 [分類審查操作契約](category-review.md)。指定全部十類仍然是十份部分報告；不能當作正式 70 項結果。
 
-## 第一輪既有證據修復（P0～P3）
+## 第一輪既有證據修復（逐檔證據、關聯、控制鏈及正式驗證）
 
 `assessment.json`、`file_reviews`、Findings 與 Journal 都屬正式審查資料；重新載入不代表已經驗證。遇到大量第一輪 blocker 時，使用唯讀清單排定優先順序：
 
@@ -162,10 +162,10 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --diagnos
 python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-plan --source-batch-size 30
 ```
 
-- **P0**：先重新閱讀重複模板、證據無關及高度扇出的檔案；空白 `rule_reviews` 不代表尚未審核，須依實際檔案確認十類責任。
-- **P1**：針對 `missing_rule_review_ids`、`inspected_paths_diagnostic` 的規則／檔案關聯逐一核實；不可將診斷列表自動轉換為補寫 payload，也不得擅自移除真實關聯。
-- **P2**：補查 Q2/Q3、P2/P3 控制呼叫鏈、失效位置、外部責任與來源快照；不因某條控制缺少關鍵字就直接放寬 Verifier。
-- **P3**：經本人核對真實來源及既有 Finding 後，以 `review_safety.py --stage` 暫存並使用 `--integrate --allow-revision` 合法修訂；每批整合前增量驗證變更檔的正式來源關聯，明顯無關行號與擴大的重複模板會拒絕寫入。最後重新執行 `--diagnose-first-pass`，只有 `ready_for_second_pass=true` 才能啟動第二輪；正式報告使用非 `--compact` 的完整佇列驗證。
+- **逐檔證據重讀**：先重新閱讀重複模板、證據無關及高度扇出的檔案；空白 `rule_reviews` 不代表尚未審核，須依實際檔案確認十類責任。
+- **規則關聯核對**：針對 `missing_rule_review_ids`、`inspected_paths_diagnostic` 的規則／檔案關聯逐一核實；不可將診斷列表自動轉換為補寫 payload，也不得擅自移除真實關聯。
+- **控制鏈補查**：補查 Q2/Q3、P2/P3 控制呼叫鏈、失效位置、外部責任與來源快照；不因某條控制缺少關鍵字就直接放寬 Verifier。
+- **合法修訂與正式驗證**：經本人核對真實來源及既有 Finding 後，以 `review_safety.py --stage` 暫存並使用 `--integrate --allow-revision` 合法修訂；每批整合前增量驗證變更檔的正式來源關聯，明顯無關行號與擴大的重複模板會拒絕寫入。最後重新執行 `--diagnose-first-pass`，只有 `ready_for_second_pass=true` 才能啟動第二輪；正式報告使用非 `--compact` 的完整佇列驗證。
 
 `--repair-plan` 是唯讀提示，不提供「一鍵清除 blocker」；僅靠上傳 `assessment.json` 缺少目標來源快照、完整性 Manifest 與 Journal 時，不能在別處產出合法覆寫 payload。對已有不合格的未動部分，整合時不直接改寫；正式驗證仍照常拒絕。
 
@@ -233,7 +233,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
-   - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`；有大量失敗時先以 `--repair-plan` 取得 P0～P3 的逐檔優先修復清單。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
+   - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`；有大量失敗時先以 `--repair-plan` 取得 逐檔證據、關聯、控制鏈及正式驗證 的逐檔優先修復清單。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
    - 診斷中的 `inspected_paths_diagnostic` 僅彙整**已被正式逐檔驗證拒絕**的規則／檔案關聯：`by_rule` 按規則計數，`by_reason` 區分缺少逐檔紀錄、缺少規則審查及逐檔紀錄驗證失敗；不是新增檔案數或可自動修補清單。`cross_file_candidates` 列出完整未查證關聯 ID；必須核實來源後逐項處理，不能批次核准。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
