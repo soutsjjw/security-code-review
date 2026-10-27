@@ -152,7 +152,11 @@ class FileReviewIntegrityTests(unittest.TestCase):
 
     def _na_scope_check(self):
         (self.root / "NoCommand.cs").write_text(
-            "public static class Startup { public static int Add(int a, int b) => a + b; }\n",
+            "public static class Startup {\n"
+            "  public static int Add(int a, int b) {\n"
+            "    return a + b;\n"
+            "  }\n"
+            "}\n",
             encoding="utf-8",
         )
         self.assessment["file_reviews"].append(
@@ -169,8 +173,8 @@ class FileReviewIntegrityTests(unittest.TestCase):
                 "實際閱讀入口與外部邊界，確認沒有從 HTTP 輸入流向作業系統命令的執行路徑。"
             ),
             "evidence": [{
-                "kind": "source", "path": "NoCommand.cs", "line_start": 1,
-                "line_end": 1, "description": "實際查核來源，只包含受控算術運算。",
+                "kind": "source", "path": "NoCommand.cs", "line_start": 3,
+                "line_end": 3, "description": "已閱讀 return a + b，確認此處只有運算，沒有命令執行。",
             }],
             "execution": {
                 "state": "completed",
