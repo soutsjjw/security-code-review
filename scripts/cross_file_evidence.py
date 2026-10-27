@@ -64,6 +64,37 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
     formal = check.get("evidence") or []
     has_source = any(isinstance(e, dict) and e.get("kind") in {"source", "configuration"}
                      for e in formal)
+    # 已證實外部責任者不可虛構本地程式碼控制鏈；其他 closure
+    # 的候選關聯、呼叫點及責任結案仍由 review_safety.closure_errors 驗證。
+    if check.get("review_kind") == "external_responsibility_pending" and status == "review":
+        import json
+        from decision_adjudication import external_responsibility_errors, DELEGATED_RESULT
+        file = target / "reports/security-code-review/analysis/decision-audits.json"
+        try:
+            audits = json.loads(file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            audits = {}
+        audit = audits.get(rid) if isinstance(audits, dict) else None
+        if (isinstance(audit, dict) and audit.get("status") == "review"
+                and audit.get("static_result") == DELEGATED_RESULT
+                and not external_responsibility_errors(
+                    check, audit, target, set(snapshot.get("source_hashes") or {}))):
+            return []
+        return [f"{rid}: Q2 外部責任尚未獲正式證據確認，不能省略控制鏈"]
+    if status == "pass":
+        import json
+        from control_effectiveness import _external_pass_errors, REQUIRED_SCENARIOS
+        file = target / "reports/security-code-review/analysis/control-verifications.json"
+        try:
+            records = json.loads(file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            records = {}
+        proof = records.get(rid) if isinstance(records, dict) else None
+        if (isinstance(proof, dict) and proof.get("control_proof_mode") == "external_verified"
+                and not _external_pass_errors(target, check, proof,
+                    set(snapshot.get("source_hashes") or {}), snapshot,
+                    set(REQUIRED_SCENARIOS.get(rid, ("alternate_or_bypass_path",))))):
+            return []
     # 純外部的專案責任或真實 N/A 不虛構不存在的程式碼控制鏈。
     required = (scope == "cross_file" and status != "na") or (
         scope == "project" and has_source and status in {"pass", "fail", "review"}
