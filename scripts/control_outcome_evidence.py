@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from decision_adjudication import DELEGATED_KIND, DELEGATED_RESULT, external_responsibility_errors
 from control_effectiveness import (_proofs, REQUIRED_SCENARIOS,
                                    snapshot_fingerprint)
 from review_decision import _is_weak_source_evidence, load_decision_matrix
@@ -140,6 +141,15 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
         if status == "review" and (kind == "external_only" and
                                    matrix[rid]["mode"] == "external"):
             continue  # 真正的外部控制不應虛構程式碼執行點。
+        if status == "review" and kind == DELEGATED_KIND:
+            audit = audits.get(rid)
+            if (isinstance(audit, dict) and audit.get("status") == "review"
+                    and audit.get("review_kind") == DELEGATED_KIND
+                    and audit.get("static_result") == DELEGATED_RESULT
+                    and not external_responsibility_errors(check, audit, target, known_hashes)):
+                continue  # 外部責任已證明；仍由 P3 裁決外部缺口，不能冒充程式碼控制。
+            errors.append(f"{rid}: Q3 委外控制責任尚未以真實工件及來源搜尋驗證")
+            continue
         if status == "fail" and not formal and matrix[rid]["mode"] == "external":
             continue  # 外部工件的 Fail 交由正式 Finding / 外部證據驗證。
         record = records.get(rid)
