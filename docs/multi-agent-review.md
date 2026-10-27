@@ -49,7 +49,7 @@
 
 `--plan` 使用來源 SHA256、大小估計 Token（每 3 bytes 約 1 token，僅作分片提示）、高風險路徑及 Roslyn 跨檔候選建立分片。N 不大於平台設定、人工作業可平行分片數與 `budget_tokens // task_tokens`；預設上限 3，最少 1。擁有權不可重複，`consult_paths` 只允許交叉閱讀，不增加正式覆蓋率。大檔必須完整閱讀，可拆分閱讀批次但不能將部分閱讀申報 completed。**預估 Token 不等於計量 Token**，無實際統計值不可宣稱省下多少 Token。
 
-主代理先對各獨立工作執行 `--claim --task-id <TASK_ID> --agent-id <真正執行緒ID>`，同一批派出不同子代理，再收集結果。正式派發時會加入隨機來源行挑戰，Worker 必須回傳逐行 SHA256，Finding 證據亦需 `line_hash`：
+主代理可個別 `--claim --task-id <TASK_ID> --agent-id <真正執行緒ID>`；同批最多 N 個工作建議使用 `--claim-batch --assignments <JSON>`（內容為 `[{ "task_id": "...", "agent_id": "..." }]`），**只做一次完整 SHA256 檢查與原子 Ledger 寫入**，任一任務無效則整批不派工。領取後才透過實際 Codex 執行器平行送出工作。正式派發時會加入隨機來源行挑戰，Worker 必須回傳逐行 SHA256，Finding 證據亦需 `line_hash`：
 
 ```powershell
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent.py" --target "<TARGET_ROOT>" --claim --task-id "<TASK_ID>" --agent-id "<EXECUTOR_INSTANCE_ID>"
@@ -97,16 +97,16 @@ TASK_JSON：<由主代理貼入 --claim 回傳的實際 JSON>
 - 每個分片狀態為 `pending/running/failed/needs_followup/followup_running/needs_main/completed`，儲存到 `analysis/multi-agent/ledger.json`。
 - 主代理所有 Ledger 更新皆使用跨程序 `O_EXCL` 排他鎖，阻止並發 claim 的超發競態。中斷後若留有 `analysis/multi-agent/.exclusive-writer.lock`，應先確認沒有正在更新的主代理程序再**人工**處理；工具不會自行搶鎖或刪除其他工作者的鎖。`--plan` 在快照、probe 與設定相同時冪等；若 probe 已更新而舊 Ledger 尚無任何派工，可明確 `--plan --replan` 歸檔舊狀態重建；有執行紀錄則拒絕重設。`--accept` 或 `--accept-stdin` 相同結果 SHA256 冪等，不同結果拒絕衝突，且每次續跑重新驗證已保存的結果檔。
 - 單分片建議軟逾時 300 秒（**由 Codex 執行器／主代理計時**，Python 不會背景監控）。逾時或無結果，主代理執行 `--fail --task-id <TASK_ID>`；失敗最多兩次 claim（初次 + 一次重試），再改由主代理直接審查，保留未完成狀態與缺口。
-- 跨分片 `unresolved_symbols` 的初始 Worker 結果可以成功收件，但分片維持 `needs_followup`、**不視為完整覆蓋**；由主代理執行 `multi_agent.py --followup --task-id <TASK_ID> --agent-id <EXECUTOR_INSTANCE_ID>`，再用  `--accept-followup --result <JSON>` 驗證符號的 Roslyn 跨檔候選與來源行 SHA256（含行範圍），**成功補查也只轉 `needs_main`，不得由子代理直接標記 `completed`**。最多補派兩輪仍未解決也轉 `needs_main`。主代理需完成正式 Stage/Integrate，然後使用 `--resolve-main --task-id <ID> --evidence <JSON>` 綁定當前 Manifest、每個未解符號、結構索引呼叫點與目標行 SHA256；無可信呼叫鏈則維持未完成。新找到控制鏈時納入原有 `closures/control_trace` 與 callsite 既有驗證。
+- 跨分片 `unresolved_symbols` 的初始 Worker 結果可以成功收件，但分片維持 `needs_followup`、**不視為完整覆蓋**；由主代理執行 `multi_agent.py --followup --task-id <TASK_ID> --agent-id <EXECUTOR_INSTANCE_ID>`，再用  `--accept-followup-stdin`（或已遮罩的 `--accept-followup --result <JSON>`）驗證符號的 Roslyn 跨檔候選與來源行 SHA256（含行範圍），**成功補查也只轉 `needs_main`，不得由子代理直接標記 `completed`**。最多補派兩輪仍未解決也轉 `needs_main`。主代理需完成正式 Stage/Integrate，然後使用 `--resolve-main --task-id <ID> --evidence <JSON>` 綁定當前 Manifest、每個未解符號、結構索引呼叫點與目標行 SHA256；無可信呼叫鏈則維持未完成。新找到控制鏈時納入原有 `closures/control_trace` 與 callsite 既有驗證。
 - `--status` 的 `work_results_accepted=true` 只是 Worker 來源集合覆蓋，不是正式審查通過；正式覆蓋率仍由 `source_coverage`、`file_review_integrity` 驗證，70 項必須獨立完成。
 - 任何原始碼、Git revision、來源清單、未經授權的正式報告工件（含 assessment、Manifest、Journal）或非報告區 Git 工作樹狀態改變，立即拒絕後續作業；重新依現有 snapshot-refresh 規範審查受影響來源。Git 狀態與 SHA 無法證明修改後還原的行為，因此仍**必須靠執行器的強制唯讀隔離**。不得擅自修改受測程式。
-- 當本輪**實測 Token 與分片預估 Token 保守取較高值**達預算 80% 時停止派新任務（包含 running 預留）、保存已接受結果；確認所有任務不在 running 後由主代理記錄 checkpoint，再明確呼叫 `multi_agent.py --renew-budget` 開啟下一輪預算窗，不會自動延長執行或抹去累計 Token。沒有實際計量時須由主代理控管併發與批次，不能把 0 當成 0 成本。降級時記錄原因、單代理接手的分片與最後正式覆蓋率。
+- 當本輪**實測 Token 與分片預估 Token 保守取較高值**達預算 80%，或剩餘窗口已容不下任何待派分片時停止派新任務（包含 running 預留）、保存已接受結果；確認所有任務不在 running 後由主代理記錄 checkpoint，再明確呼叫 `multi_agent.py --renew-budget` 開啟下一輪預算窗，不會自動延長執行或抹去累計 Token。沒有實際計量時須由主代理控管併發與批次，不能把 0 當成 0 成本。降級時記錄原因、單代理接手的分片與最後正式覆蓋率。
 
 主代理逐項驗證候選 Finding 的實際來源行號、隨機行挑戰、每項證據的 `line_hash`、入口 → 控制 → Sink 與繞過條件。此防護只能發現部分虛構內容，不能證明 AI 確實逐行理解來源。候選去重鍵由（規則 ID、檔案、行範圍、Sink）生成，**僅供候選比對**；同一根因跨入口仍需人工語意合併，不能刪除既有 Finding。主代理在有子代理 Ledger 期間，先使用 `multi_agent.py --begin-integration` 停止派工並驗證舊交易；完成既有 `review_safety.py --stage/--integrate` 後，以 `multi_agent.py --commit-integration` 核對新 Manifest／Journal 並更新正式報告指紋，方可進入下一批。無新交易、來源異動、存在 running 子代理或完整性驗證失敗都拒絕結束整合窗口。只由主代理用既有 `review_safety.py --stage/--integrate` 保存 **正式 Schema** 的證據，不能把 Worker JSON 直接送入正式整合器。
 
 ## 第二輪獨立反例與品質驗收
 
-僅當第一輪原有 `--diagnose-first-pass` 回傳 `ready_for_second_pass=true`，由主代理執行 `--begin-second-pass` 固定 Baseline，然後：
+僅當第一輪原有 `--diagnose-first-pass` 回傳 `ready_for_second_pass=true`，主代理先呼叫 `multi_agent.py --begin-integration` 停止派工，再執行既有 `review_safety.py --begin-second-pass` 建立正式 Baseline／交易紀錄，最後 `multi_agent.py --commit-integration` 更新正式報告指紋，然後：
 
 ```powershell
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent_second_pass.py" --target "<TARGET_ROOT>" --plan
