@@ -33,7 +33,7 @@ class MultiAgentTests(unittest.TestCase):
         analysis = self.root / ANALYSIS
         analysis.mkdir(parents=True)
         (analysis / "review-snapshot.json").write_text(json.dumps({
-            "git_revision": "unit-test", "source_hashes": self.hashes,
+            "git_revision": "a" * 40, "source_hashes": self.hashes,
             "excluded_paths": []}), "utf-8")
         (analysis / "structure-index.json").write_text(json.dumps({
             "source_hashes": self.hashes, "cross_file_call_hints": {}}), "utf-8")
@@ -55,7 +55,7 @@ class MultiAgentTests(unittest.TestCase):
     def test_probe_fails_closed_and_single_agent_fallback(self):
         item = probe_template()
         item["execution_id"] = "trial-1"
-        item["evidence_note"] = "完成獨立上下文及寫入測試，但其中一項測試仍未通過。"
+        item["evidence_note"] = "完成獨立上下文及來源閱讀測試，但唯讀隔離與同時執行均尚未完成驗收，因此必須回退單代理執行。"
         recorded = record_probe(self.root, item)
         self.assertFalse(recorded["verified"])
         state = plan(self.root, max_agents=3, task_tokens=2000)
@@ -113,6 +113,22 @@ class MultiAgentTests(unittest.TestCase):
         self.assertFalse(s["formal_review_completed"])
         self.assertEqual(s["measured_tokens"], 200)
         self.assertEqual(s["task_counts"]["completed"], 2)
+
+    def test_explicit_timeout_retries_once_then_fallback(self):
+        from multi_agent import fail
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task_id = next(iter(state["tasks"]))
+        claim(self.root, task_id)
+        first = fail(self.root, task_id)
+        self.assertEqual(first["remaining_attempts"], 1)
+        self.assertFalse(first["fallback_required"])
+        claim(self.root, task_id)
+        second = fail(self.root, task_id)
+        self.assertTrue(second["fallback_required"])
+        with self.assertRaises(ValueError):
+            claim(self.root, task_id)
+        self.assertFalse(summary(self.root)["work_results_accepted"])
 
     def test_unresolved_symbol_and_missing_lines_block(self):
         self.verified_probe()
