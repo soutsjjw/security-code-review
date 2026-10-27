@@ -61,7 +61,7 @@
 
 以下均屬現有 `adversarial_reviews[rule_id]` 工作中證據的新增欄位，**不修改正式 assessment Schema**：
 
-- `reassessment.first_pass_claim`：須逐字對應不可變第一輪判定理由；`challenge_question` 指出可能推翻判定的具體條件；`reinspection_summary` 記錄再次查閱的入口、分支、DI／設定；`conclusion_basis` 說明為何維持或修訂；`verification_evidence` 必須能重新定位至已查核來源或真正外部工件。
+- **舊版 Baseline 相容模式**的 `reassessment.first_pass_claim`：須逐字對應不可變第一輪判定理由；新分層模式改用 `blind_challenge` 事實主張先行，正式裁決仍須與不可變 Baseline 對帳。`challenge_question` 指出可能推翻判定的具體條件；`reinspection_summary` 記錄再次查閱的入口、分支、DI／設定；`conclusion_basis` 說明為何維持或修訂；`verification_evidence` 必須能重新定位至已查核來源或真正外部工件。
 - 每個 `hypotheses[]` 除原有攻擊面、追查方法、結果及來源外，新增 `vector`、`attacker_precondition`、`expected_violation`、`inspection_steps`、`observed_behavior`、`inspection_evidence`。分別回答**攻擊者需具備什麼、試圖破壞什麼、實際重讀哪一個分支、查核後看到什麼**。僅更換規則編號或序號、重複同一攻擊敘述，不算不同反例。
 - `vector` 應選具體攻擊類別，包括 `alternate_entry`、`authorization_bypass`、`identity_substitution`、`expired_or_reused_credential`、`configuration_override`、`direct_storage_access`、`untrusted_input`、`output_encoding`、`state_change`、`exception_path`、`dependency_injection`、`third_party_boundary`、`operational_override`、`scope_challenge`；`other_specific` 需另附 `vector_explanation`。高風險規則仍需至少兩個**不同 vector**。
 - `evidence` 指向攻擊入口或缺失，`inspection_evidence` 指向重新閱讀的控制或拒絕分支。若兩者恰好同一來源行，提供 `same_line_explanation`（具體說明同一行如何承擔兩種責任）；若兩個高風險反例都用完全相同證據組，補 `shared_evidence_justification` 說明不同攻擊如何匯入共同控制。
