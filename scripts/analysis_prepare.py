@@ -22,7 +22,7 @@ from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
 INDEX_VERSION = 10
-ROSLYN_VERSION = "roslyn-symbol-candidates-v3"
+ROSLYN_VERSION = "roslyn-symbol-candidates-v4"
 CANDIDATE_VERSION = 2
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
@@ -50,22 +50,34 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
     return dict(sorted(files.items()))
 
 
-def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list[str]]:
-    """Roslyn 工具只按 Skill 原始碼與 SDK 指紋快取編譯產物；不快取安全結論。"""
+def _run_roslyn(root: Path, pending: list[str], probe: dict, *, no_cache: bool = False) -> tuple[dict, list[str]]:
+    """Use exactly the SDK shipping the Roslyn DLLs; cache permission fails open to scratch,
+    never to unverified symbol evidence."""
+    try:
+        return _run_roslyn_work(root, pending, probe, no_cache=no_cache)
+    except (OSError, PermissionError) as exc:
+        if not no_cache and os.environ.get("SECURITY_CODE_REVIEW_ROSLYN_CACHE", "1") != "0":
+            data, warnings = _run_roslyn(root, pending, probe, no_cache=True)
+            return data, ["Roslyn 快取／暫存權限不足，已改用隔離暫存：" + type(exc).__name__, *warnings]
+        return {}, ["Roslyn 無法建立可寫入的工具暫存目錄：" + type(exc).__name__]
+
+
+def _run_roslyn_work(root: Path, pending: list[str], probe: dict, *,
+                     no_cache: bool = False) -> tuple[dict, list[str]]:
     if not pending:
         return {}, []
     if not probe["available"]:
         return {}, ["Roslyn 無法使用；需由 Agent 繼續原始碼分析"]
     source = SKILL_ROOT / "tools/roslyn-indexer"
     project = (source / "roslyn-indexer.csproj").read_text(encoding="utf-8")
-    project = project.replace("net8.0", probe["target_framework"])
     program = (source / "Program.cs").read_bytes()
     fingerprint = hashlib.sha256(
         project.encode("utf-8") + program
         + str(probe.get("sdk_version")).encode("utf-8")
+        + str(probe["target_framework"]).encode("utf-8")
         + str(probe["executable"]).encode("utf-8")
     ).hexdigest()
-    use_cache = os.environ.get("SECURITY_CODE_REVIEW_ROSLYN_CACHE", "1") != "0"
+    use_cache = not no_cache and os.environ.get("SECURITY_CODE_REVIEW_ROSLYN_CACHE", "1") != "0"
     if use_cache:
         cache = Path.home() / ".cache" / "security-code-review" / "roslyn" / fingerprint
         # 本機快取不得經 symlink 執行任意替換的 binary；由使用者可關閉快取。
@@ -75,6 +87,15 @@ def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list
                DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1")
     with tempfile.TemporaryDirectory(prefix="security-review-roslyn-") as tmp:
         scratch = Path(tmp)
+        # dotnet --version and dotnet build MUST use the same isolated cwd:
+        # using the audited repo/global.json for one and cache for the other
+        # can select SDK 8 then compile against SDK 10 Roslyn (CS1705).
+        sdk_check = subprocess.run(
+            [probe["executable"], "--version"], cwd=scratch,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=10, check=False)
+        if sdk_check.returncode != 0 or sdk_check.stdout.strip() != probe.get("sdk_version"):
+            return {}, ["Roslyn SDK 版本在探測與建置之間變更，拒絕混用不同 SDK 的 Roslyn 元件"]
         manifest = scratch / "manifest.json"
         manifest.write_text(json.dumps(pending, ensure_ascii=False), encoding="utf-8")
         work = cache if use_cache else scratch
@@ -102,19 +123,30 @@ def _run_roslyn(root: Path, pending: list[str], probe: dict) -> tuple[dict, list
             try:
                 build = subprocess.run(
                     [probe["executable"], "build", str(proj_file), "--configuration", "Release",
-                     "--nologo"], capture_output=True, text=True, encoding="utf-8",
-                    errors="replace", cwd=work, env=env, timeout=180, check=False)
+                     "--nologo", f"-p:RoslynIndexerTargetFramework={probe['target_framework']}"],
+                    capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", cwd=scratch, env=env, timeout=180, check=False)
             except (OSError, subprocess.TimeoutExpired) as exc:
                 return {}, [f"Roslyn 編譯失敗：{type(exc).__name__}"]
             if build.returncode != 0 or not dll.is_file() or dll.is_symlink():
-                return {}, ["Roslyn 編譯失敗；請檢查 SDK 及本機工具相依"]
+                output = (build.stdout + "\n" + build.stderr)
+                if "CS1705" in output:
+                    return {}, ["Roslyn CS1705：SDK Roslyn 與 indexer TargetFramework 不相容"
+                                f"（SDK {probe.get('sdk_version')}, TFM {probe['target_framework']}）；"
+                                "請確認 dotnet SDK 安裝及全域 SDK 版本設定"]
+                if use_cache and any(code in output.lower() for code in (
+                        "access denied", "permission denied", "access to the path",
+                        "unauthorizedaccessexception", "msb3026", "msb3027")):
+                    parsed, issues = _run_roslyn(root, pending, probe, no_cache=True)
+                    return parsed, ["Roslyn 快取權限不足，已使用隔離暫存編譯", *issues]
+                return {}, ["Roslyn indexer 編譯失敗（非受測專案編譯）；請核對 SDK 及工具相依"]
             digest_file.write_text(hashlib.sha256(dll.read_bytes()).hexdigest(),
                                    encoding="utf-8")
         try:
             result = subprocess.run(
                 [probe["executable"], str(dll), str(root), str(manifest)],
                 capture_output=True, text=True, encoding="utf-8",
-                errors="replace", cwd=work, env=env, timeout=180, check=False)
+                errors="replace", cwd=scratch, env=env, timeout=180, check=False)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {}, [f"Roslyn 執行失敗：{type(exc).__name__}"]
         line = next((x.removeprefix("SCROSLYN_JSON:") for x in result.stdout.splitlines()
