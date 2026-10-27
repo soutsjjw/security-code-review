@@ -52,6 +52,9 @@ GENERIC_MISSING_TEST = ("缺少動態測試", "缺乏動態測試", "未提供�
 
 # Q1：只對新版結構索引啟用更嚴格的判定品質契約；舊紀錄保留原有驗證。
 QUALITY_VERSION = 1
+DELEGATED_KIND = "external_responsibility_pending"
+DELEGATED_RESULT = "delegated_control"
+EXTERNAL_PROOF_KINDS = frozenset({"deployment", "operating_record", "policy", "scan", "test", "interview"})
 PLACEHOLDER_ARTIFACT = re.compile(
     r"^(?:[a-z]{2}-\d{2}-)?(?:deployment|policy|external|platform|runtime)"
     r"(?:-or-(?:deployment|policy|external|platform|runtime))?"
@@ -143,6 +146,46 @@ def _quality_gap_errors(rule_id: str, rule: dict[str, Any],
     return errors
 
 
+def external_responsibility_errors(
+    check: dict[str, Any], record: dict[str, Any], target: Path,
+    known_paths: set[str] | dict[str, Any],
+) -> list[str]:
+    """Verify delegated ownership rather than assuming missing local code is safe."""
+    rid = str(check.get("id", "?"))
+    evidence = check.get("evidence") or []
+    formal = [e for e in evidence if isinstance(e, dict)]
+    proof = record.get("responsibility_evidence")
+    errors: list[str] = []
+    if not isinstance(proof, dict):
+        return [f"{rid}: P0 外部控制責任缺少真實、可定位的歸屬證據"]
+    kind = proof.get("kind")
+    if kind in {"source", "configuration"}:
+        path, lo, hi = proof.get("path"), proof.get("line_start"), proof.get("line_end")
+        inspected = (check.get("execution") or {}).get("inspected_paths") or []
+        if not (isinstance(path, str) and path in known_paths and path in inspected
+                and type(lo) is int and type(hi) is int and lo > 0 and hi >= lo
+                and any(e.get("kind") in {"source", "configuration"}
+                        and e.get("path") == path
+                        and type(e.get("line_start")) is int
+                        and type(e.get("line_end")) is int
+                        and e["line_start"] <= hi and e["line_end"] >= lo for e in formal)
+                and _meaningful_static_source(target, proof)):
+            errors.append(f"{rid}: P0 責任歸屬來源未連結正式查核或僅為無關宣告")
+    elif kind in EXTERNAL_PROOF_KINDS:
+        artifact_id = proof.get("artifact_id")
+        if not (isinstance(artifact_id, str) and artifact_id.strip()
+                and any(e.get("kind") == kind and e.get("artifact_id") == artifact_id
+                        for e in formal)):
+            errors.append(f"{rid}: P0 外部責任工件未與正式檢核的真實工件識別碼關聯")
+    else:
+        errors.append(f"{rid}: P0 控制責任證據必須是來源、設定或可追溯外部工件")
+    for field in ("responsibility_reason", "repository_search_summary"):
+        value = record.get(field)
+        if not isinstance(value, str) or len(value.strip()) < 24:
+            errors.append(f"{rid}: P0 缺少實際 {field}；不能只以儲存庫無 Workflow 推論委外")
+    return errors
+
+
 def guidance(rule_id: str) -> dict[str, Any]:
     matrix = load_decision_matrix()
     if rule_id not in matrix:
@@ -162,6 +205,7 @@ def guidance(rule_id: str) -> dict[str, Any]:
             "external_gap", "open_static_questions",
         ],
         "prohibited_review_reason": "僅缺非必要動態測試、未完成來源追查、已由程式碼證實的弱點",
+        "delegated_control_contract": "static/hybrid 可選 external_responsibility_pending：須有可追溯 responsibility_evidence、responsibility_reason、repository_search_summary，且 static_result=delegated_control；未核實歸屬時保持 pending/blocked",
         "quality_gap_fields": ["evidence_owner", "decision_outcomes",
                                "policy_binding（organization_policy 必填）"],
         "note": "審查紀錄不構成自動合格判定；靜態弱點須 fail + Finding",
@@ -201,17 +245,20 @@ def adjudication_errors(target: Path, checks: list[dict], *,
             issues.append(f"{rid}: P3 尚未說明真正阻斷結論的外部證據，不能完成 review")
             continue
         kind = check.get("review_kind")
-        if kind not in {"static_done_external_pending", "external_only"}:
+        if kind not in {"static_done_external_pending", "external_only", DELEGATED_KIND}:
             issues.append(f"{rid}: review_kind 須明確分類")
-        if matrix[rid]["mode"] != "external" and kind != "static_done_external_pending":
-            issues.append(f"{rid}: 靜態／混合規則不可跳過程式碼查核改成 external_only")
+        if matrix[rid]["mode"] != "external" and kind not in {"static_done_external_pending", DELEGATED_KIND}:
+            issues.append(f"{rid}: 靜態／混合規則不可直接使用 external_only")
+        if kind == DELEGATED_KIND and matrix[rid]["mode"] == "external":
+            issues.append(f"{rid}: 純外部規則應使用 external_only，而非委外控制例外")
         if record.get("status") != "review" or record.get("review_kind") != kind:
             issues.append(f"{rid}: P3 判定紀錄的狀態及分類與正式檢核衝突")
         if record.get("git_revision") != snapshot.get("git_revision") or (
                 record.get("snapshot_fingerprint") != full_hash):
             issues.append(f"{rid}: P3 判定紀錄的來源版本已失效，須重新查核")
         static_result = record.get("static_result")
-        expected = ("external_control" if kind == "external_only" else "control_satisfied")
+        expected = (DELEGATED_RESULT if kind == DELEGATED_KIND else
+                    "external_control" if kind == "external_only" else "control_satisfied")
         if static_result != expected:
             issues.append(f"{rid}: P3 靜態分析未完成或已發現缺陷，不得以 review 迴避 fail／pending")
         conclusion = record.get("static_conclusion")
@@ -227,14 +274,18 @@ def adjudication_errors(target: Path, checks: list[dict], *,
                                                 or p not in inspected_paths for p in searched):
             issues.append(f"{rid}: P3 搜尋的來源路徑不在快照或正式 inspected_paths")
             searched = []
-        if kind == "static_done_external_pending" and not searched:
-            issues.append(f"{rid}: P3 靜態部分沒有具體 inspected_paths，不能宣稱完成")
+        if kind in {"static_done_external_pending", DELEGATED_KIND} and not searched:
+            issues.append(f"{rid}: P3 必須核對儲存庫來源與實際控制責任")
+        if kind == DELEGATED_KIND:
+            issues.extend(external_responsibility_errors(check, record, target, known_paths))
         evidence = record.get("static_evidence")
         if not isinstance(evidence, list):
             issues.append(f"{rid}: P3 static_evidence 必須是來源行號清單")
             evidence = []
         if kind == "static_done_external_pending" and not evidence:
             issues.append(f"{rid}: P3 靜態結論缺少真實控制來源證據")
+        if kind == DELEGATED_KIND and evidence:
+            issues.append(f"{rid}: P0 委外責任模式不可把宣告或入口位置當成控制有效性的 static_evidence")
         formal = [e for e in check.get("evidence", []) if isinstance(e, dict)
                   and e.get("kind") in {"source", "configuration"}]
         for j, ev in enumerate(evidence):
