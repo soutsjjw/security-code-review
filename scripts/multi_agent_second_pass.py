@@ -34,7 +34,7 @@ def _source_targets(task: dict, hashes: dict) -> list[str]:
     return sorted(paths)
 
 
-def plan(root: Path) -> dict:
+def plan(root: Path, *, advance: bool = False) -> dict:
     from second_pass_layers import worklist
     work = worklist(root)
     if not work.get("ready"):
@@ -81,7 +81,7 @@ def plan(root: Path) -> dict:
                          "instruction": "只可提出反例與可重讀事實，絕不可接受第一輪 verdict"},
                 "challenge_expected": expected, "excluded_agent_ids": sorted(owners.get(key, set())),
                 "status": "pending", "agent_instance_id": None, "claimed_at": None,
-                "digest": None}
+                "digest": None, "attempts": 0}
     if not jobs:
         raise ValueError("第二輪沒有本批可分派工作")
     candidate = {"version": VERSION, "snapshot_fingerprint": _fingerprint(snap),
@@ -96,9 +96,18 @@ def plan(root: Path) -> dict:
                 or old.get("baseline_digest") != candidate["baseline_digest"]
                 or old.get("probe_digest") != candidate["probe_digest"]):
             raise ValueError("第二輪 Ledger 基準改變，不得覆寫")
-        if set(old.get("tasks", {})) != set(candidate["tasks"]):
-            raise ValueError("正式第二輪批次已變更；請完成裁決並明確存檔，不得隱性重置")
-        return old
+        if set(old.get("tasks", {})) == set(candidate["tasks"]):
+            return old
+        if not advance or any(x["status"] != "accepted" for x in old["tasks"].values()):
+            raise ValueError("第二輪批次已變更，須先完成舊批結果並明確 --advance")
+        from multi_agent_contract import digest as object_digest
+        from datetime import datetime, timezone
+        archive = destination.parent / "history" / ("second-pass-" + object_digest(old)[:24] + ".json")
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        if archive.exists():
+            raise ValueError("第二輪歷史記錄已存在，拒絕覆寫")
+        import os
+        os.replace(destination, archive
     _write(destination, candidate)
     return candidate
 
@@ -119,8 +128,8 @@ def _active(root: Path) -> tuple[dict, dict]:
 def claim(root: Path, task_id: str, agent_id: str) -> dict:
     state, _ = _active(root)
     task = state["tasks"].get(task_id)
-    if task is None or task["status"] != "pending":
-        raise ValueError("第二輪任務未待派或不存在")
+    if task is None or task["status"] not in ("pending", "failed") or task["attempts"] >= 2:
+        raise ValueError("第二輪任務不可再派或已達重試上限")
     if not isinstance(agent_id, str) or not AGENT.fullmatch(agent_id):
         raise ValueError("必須提供可追溯的 executor instance ID")
     if agent_id in task["excluded_agent_ids"]:
@@ -130,11 +139,23 @@ def claim(root: Path, task_id: str, agent_id: str) -> dict:
     if any(x["agent_instance_id"] == agent_id and x["status"] == "running"
            for x in state["tasks"].values()):
         raise ValueError("相同子代理不可同時執行兩項工作")
+    task["attempts"] += 1
     task["agent_instance_id"] = agent_id
     task["claimed_at"] = time.time()
     task["status"] = "running"
     _write(root / SECOND, state)
     return {**task["task"], "agent_instance_id": agent_id}
+
+
+def fail(root: Path, task_id: str) -> dict:
+    state, _ = _active(root)
+    task = state["tasks"].get(task_id)
+    if task is None or task["status"] != "running":
+        raise ValueError("只有 running 的第二輪任務能被標為失敗")
+    task["status"] = "failed" if task["attempts"] < 2 else "needs_main"
+    _write(root / SECOND, state)
+    return {"task_id": task_id, "status": task["status"],
+            "fallback_required": task["status"] == "needs_main"}
 
 
 def accept(root: Path, path: Path) -> dict:
@@ -218,8 +239,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     cmd = parser.add_mutually_exclusive_group(required=True)
-    for name in ("plan", "next", "claim", "accept", "status"):
+    for name in ("plan", "next", "claim", "fail", "accept", "status"):
         cmd.add_argument("--" + name, action="store_true")
+    parser.add_argument("--advance", action="store_true")
     parser.add_argument("--task-id")
     parser.add_argument("--agent-id")
     parser.add_argument("--result", type=Path)
@@ -227,15 +249,22 @@ def main() -> int:
     try:
         root = args.target.resolve()
         if args.plan:
-            state = plan(root)
+            state = plan(root, advance=args.advance)
             output = {"task_count": len(state["tasks"]),
                       "official_second_pass_completed": False}
         elif args.next:
             state, _ = _active(root)
             output = {"tasks": [x["task"] for x in state["tasks"].values()
-                                if x["status"] == "pending"]}
+                                if x["status"] in ("pending", "failed") and x["attempts"] < 2],
+                      "running": {key: {"agent_id": x["agent_instance_id"],
+                                       "claimed_at": x["claimed_at"]}
+                                  for key, x in state["tasks"].items() if x["status"] == "running"}}
         elif args.claim:
             output = claim(root, args.task_id, args.agent_id)
+        elif args.fail:
+            if not args.task_id:
+                raise ValueError("--fail 須指定 --task-id")
+            output = fail(root, args.task_id)
         elif args.accept:
             if args.result is None:
                 raise ValueError("必須指定 --result")
