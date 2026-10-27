@@ -2,7 +2,7 @@
 name: security-code-review
 version: 2.2.0-rc1
 description: 對目前專案執行完整 70 項或以 --categories 指定 AC～SI 分類的真實程式碼安全審查，完成證據驗證與離線 HTML／JSON 報告。
-argument-hint: "[專案路徑] [--categories AC,AU] [--multi-agent --agents N]"
+argument-hint: "[專案路徑] [--categories AC,AU]"
 ---
 
 # Security Code Review
