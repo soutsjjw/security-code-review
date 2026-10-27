@@ -563,6 +563,13 @@ def main() -> int:
             answer = {"tasks": [row["task"] for row in state["tasks"].values()
                                 if row["status"] in ("pending", "failed")
                                 and row["attempts"] < RETRY_LIMIT],
+                      "running": {key: {"claimed_at": row.get("claimed_at"),
+                                         "agent_instance_id": row.get("agent_instance_id"),
+                                         "status": row["status"]}
+                                  for key, row in state["tasks"].items()
+                                  if row["status"] in ("running", "followup_running")},
+                      "unresolved_followups": [key for key, row in state["tasks"].items()
+                                               if row["status"] in ("needs_followup", "needs_main")],
                       "formal_review_completed": False}
         elif args.claim:
             if not args.task_id:
