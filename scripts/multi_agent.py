@@ -295,6 +295,48 @@ def _active(root: Path) -> tuple[dict, dict]:
 
 
 @exclusive_ledger
+def renew_probe(root: Path, submitted: dict) -> dict:
+    """Keep accepted evidence when Codex must be re-probed between batches."""
+    state = _read(root / LEDGER)
+    if not state.get("multi_agent_enabled"):
+        raise ValueError("尚未核可多代理的審查不能透過續期跳過初次試跑")
+    if state.get("integration") is not None or any(
+            x["status"] in ("running", "followup_running") for x in state["tasks"].values()):
+        raise ValueError("存在執行中的工作或主代理整合窗口，禁止更新 Probe")
+    snap, _, _ = _snapshot(root)
+    if (state["snapshot_fingerprint"] != _fingerprint(snap)
+            or state["git_state"] != _git_state(root)
+            or state["report_guard"] != protected_report_digest(root)):
+        raise ValueError("續期時來源或正式報告有異動")
+    previous = _read(root / PROBE)
+    if state["probe_digest"] != digest(previous):
+        raise ValueError("目前 Probe 與 Ledger 不一致；不能繞過異常版本")
+    second_path = root / ANALYSIS / "multi-agent/second-pass-ledger.json"
+    secondary = _read(second_path) if second_path.exists() else None
+    if secondary and (secondary["probe_digest"] != digest(previous)
+                      or any(x["status"] == "running" for x in secondary["tasks"].values())):
+        raise ValueError("第二輪仍有執行中任務或 Probe 不一致")
+    record_probe(root, submitted)
+    new_probe = _read(root / PROBE)
+    errs = probe_errors(root, new_probe)
+    if errs:
+        _write(root / PROBE, previous)
+        raise ValueError("新 Probe 未完成真正能力試跑：" + "；".join(errs))
+    state["probe_digest"] = digest(new_probe)
+    state.setdefault("probe_renewals", []).append({
+        "old_digest": digest(previous), "new_digest": digest(new_probe),
+        "trace_sha256": new_probe["trace_sha256"], "verified_at": new_probe["verified_at"]})
+    _write(root / LEDGER, state)
+    if secondary:
+        secondary["probe_digest"] = state["probe_digest"]
+        secondary.setdefault("probe_renewals", []).append(state["probe_renewals"][-1])
+        _write(second_path, secondary)
+    return {"renewed": True, "accepted_task_count": sum(
+            x["status"] == "completed" for x in state["tasks"].values()),
+            "source_snapshot_unchanged": True}
+
+
+@exclusive_ledger
 def begin_integration(root: Path) -> dict:
     """Freeze worker activity before authoritative main-agent Stage/Integrate."""
     state, _ = _active(root)
@@ -682,7 +724,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
+    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -702,6 +744,10 @@ def main() -> int:
             if args.evidence is None:
                 raise ValueError("--record-probe 必須指定 --evidence")
             answer = record_probe(root, _read(args.evidence))
+        elif args.renew_probe:
+            if args.evidence is None:
+                raise ValueError("--renew-probe 需提供新試跑紀錄 --evidence")
+            answer = renew_probe(root, _read(args.evidence))
         elif args.plan:
             state = plan(root, max_agents=args.max_agents,
                          budget_tokens=args.budget_tokens, task_tokens=args.task_tokens,
