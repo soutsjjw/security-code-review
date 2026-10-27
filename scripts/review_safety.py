@@ -372,6 +372,7 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     integrity_head = (integrity_read(target / integrity_manifest)["head"]
                       if integrity_enabled(target) else None)
     files = {r["path"]: r for r in data.get("file_reviews", [])}
+    previous_assessment = json.loads(json.dumps(data, ensure_ascii=False))
     checks = {r["id"]: r for r in data.get("checks", [])}
     findings = {r["id"]: r for r in data.get("findings", [])}
     closures = _read(report_dir(target) / CLOSURES, {}) or {}
@@ -502,6 +503,15 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     data["file_reviews"] = [files[p] for p in sorted(files)]
     data["checks"] = [checks[r["id"]] for r in data["checks"]]
     data["findings"] = [findings[p] for p in sorted(findings)]
+    # 批次品質及新增檔案關聯必須在任何正式寫入／Journal 交易前通過。
+    # 不對舊批次未更動的錯誤直接改判，也不得藉 allow_revision 繞過。
+    from batch_evidence_gate import batch_quality_errors
+    defects = batch_quality_errors(
+        target, previous_assessment, data,
+        changed_paths=new_files, snapshot_paths=set(snapshot["source_hashes"]),
+    )
+    if defects:
+        raise ValueError("；".join(defects[:12]))
     # 跨多檔交易預寫入可核對的 ahead-log；中斷後須人工呼叫復原。
     if integrity_enabled(target):
         from evidence_integrity import commit as integrity_commit
