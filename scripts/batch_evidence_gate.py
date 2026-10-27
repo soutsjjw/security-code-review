@@ -52,6 +52,17 @@ def batch_quality_errors(target: Path, before: dict[str, Any], after: dict[str, 
         )
     }
     errors: list[str] = []
+    for check in after.get("checks", []):
+        if not isinstance(check, dict) or (check.get("execution") or {}).get("state") != "completed":
+            continue
+        rid = check.get("id")
+        for path in (check.get("execution") or {}).get("inspected_paths") or []:
+            if path not in changed_paths:
+                continue
+            recorded = {rr.get("rule_id") for rr in candidate.get(path, {}).get("rule_reviews") or []
+                        if isinstance(rr, dict)}
+            if rid not in recorded:
+                errors.append(f"{path}: {rid} 已列入 inspected_paths 但缺少 rule_reviews")
     if to_verify:
         _, failures = verified_file_rule_reviews(after, target, snapshot_paths)
         for failure in failures:
