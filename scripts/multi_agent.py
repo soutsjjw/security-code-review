@@ -291,6 +291,13 @@ def _active(root: Path) -> tuple[dict, dict]:
     if (state.get("snapshot_fingerprint") != _fingerprint(snap)
             or state.get("git_state") != _git_state(root)):
         raise ValueError("來源或 Git 狀態異動；停用既有子代理結果並重新查證")
+    for ident, row in state.get("tasks", {}).items():
+        if row.get("result_digest"):
+            candidate = root / ANALYSIS / "multi-agent/results" / (ident + ".json")
+            if (not candidate.is_file() or candidate.is_symlink()
+                    or candidate.stat().st_size > 2_000_000
+                    or digest(_read(candidate)) != row["result_digest"]):
+                raise ValueError("已接受 Worker 證據遺失或被改寫：" + ident)
     return state, snap
 
 
@@ -464,10 +471,26 @@ def fail(root: Path, task_id: str) -> dict:
 
 @exclusive_ledger
 def accept(root: Path, path: Path) -> dict:
-    state, snap = _active(root)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
         raise ValueError("結果來源不可為連結或超大檔案")
-    result = _read(path)
+    return _accept_payload(root, _read(path))
+
+
+@exclusive_ledger
+def accept_stdin(root: Path, raw: str) -> dict:
+    """Validate a worker message before any local write."""
+    if len(raw.encode("utf-8")) > 2_000_000:
+        raise ValueError("Worker 資料超出限制，拒絕保存")
+    from multi_agent_contract import SECRET
+    if SECRET.search(raw):
+        raise ValueError("Worker 資料疑似包含憑證，尚未落地即拒絕")
+    return _accept_payload(root, json.loads(raw))
+
+
+def _accept_payload(root: Path, result: dict) -> dict:
+    state, snap = _active(root)
+    if not isinstance(result, dict):
+        raise ValueError("Worker 回報必須為 JSON 物件")
     task_id = result.get("task_id")
     row = state["tasks"].get(task_id)
     if row is None:
@@ -503,6 +526,14 @@ def accept(root: Path, path: Path) -> dict:
     state["window_tokens"] = state.get("window_tokens", 0) + result["tokens_used"]
     state["window_charged"] = state.get("window_charged", 0) + max(
         result["tokens_used"], row["task"]["estimated_tokens"])
+    from multi_agent_contract import SECRET
+    if SECRET.search(json.dumps(result, ensure_ascii=False)):
+        raise ValueError("含機敏資訊的 Worker 資料不可保存")
+    destination = root / ANALYSIS / "multi-agent/results" / (task_id + ".json")
+    if destination.exists():
+        raise ValueError("已存在不同的已接受 Worker 結果，不可覆寫")
+    _write(destination, result)
+    row["result_path"] = str(destination.relative_to(root))
     _write(root / LEDGER, state)
     return {"accepted": True, "task_id": task_id,
             "needs_followup": bool(row["unresolved_symbols"]),
@@ -724,7 +755,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
+    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept", "accept-stdin",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -795,6 +826,8 @@ def main() -> int:
             answer = accept_followup(root, args.result)
         elif args.renew_budget:
             answer = renew_budget(root)
+        elif args.accept_stdin:
+            answer = accept_stdin(root, sys.stdin.read(2_000_001))
         elif args.accept:
             if args.result is None:
                 raise ValueError("--accept 必須指定 --result")
