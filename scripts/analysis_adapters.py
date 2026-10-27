@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -172,11 +173,15 @@ def probe_roslyn() -> dict:
     executable = shutil.which("dotnet")
     if not executable:
         return {"available": False, "reason": "未找到 dotnet SDK；Roslyn 分析降級"}
+    # SDK selection depends on current directory/global.json. The indexer
+    # compiles in a neutral temp directory, not in the audited repository.
     try:
-        version = subprocess.run([executable, "--version"], capture_output=True,
-                                 text=True, timeout=10, check=False)
+        with tempfile.TemporaryDirectory(prefix="security-review-sdk-probe-") as work:
+            version = subprocess.run(
+                [executable, "--version"], cwd=work, capture_output=True,
+                text=True, encoding="utf-8", errors="replace", timeout=10, check=False)
     except (OSError, subprocess.TimeoutExpired):
-        return {"available": False, "reason": "dotnet SDK 無法啟動"}
+        return {"available": False, "reason": "無法建立可寫 SDK 探測目錄或 dotnet SDK 無法啟動"}
     if version.returncode or not version.stdout.strip():
         return {"available": False, "reason": "無法讀取 dotnet SDK 版本"}
     try:
