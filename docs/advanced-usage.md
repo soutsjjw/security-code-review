@@ -215,7 +215,7 @@ $security-code-review --categories AC,AU
    - assessment.file_reviews 與 execution.inspected_paths 一致。
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
-   - 執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
+   - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
    - review_queue.py 回傳 ready_for_report=true。
