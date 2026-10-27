@@ -158,5 +158,31 @@ class FileReviewIntegrityTests(unittest.TestCase):
         self.assertIn("標為 pass", str(result["review_integrity_errors"]))
 
 
+    def test_orphaned_link_summary_is_rule_scoped_and_read_only(self):
+        self.checks.append({
+            "id": "IN-01",
+            "execution": {"state": "completed", "inspected_paths": ["Config.cs"]},
+        })
+        original = copy.deepcopy(self.assessment)
+        coverage = build_source_coverage(self.assessment, self.root)
+        gaps = coverage["unverified_inspected_paths"]
+        self.assertEqual(gaps["total"], 1)
+        self.assertEqual(gaps["by_rule"], {"IN-01": 1})
+        self.assertEqual(gaps["by_reason"], {"missing_rule_review": 1})
+        self.assertFalse(gaps["verified"])
+        self.assertEqual(self.assessment, original)
+        self.checks.reverse()
+        again = build_source_coverage(self.assessment, self.root)
+        self.assertEqual(gaps["fingerprint"],
+                         again["unverified_inspected_paths"]["fingerprint"])
+
+    def test_invalid_file_record_is_not_a_valid_rule_link(self):
+        self.assessment["file_reviews"][0]["category_screening"].pop("SI")
+        gaps = build_source_coverage(self.assessment, self.root)["unverified_inspected_paths"]
+        self.assertEqual(gaps["total"], 2)
+        self.assertEqual(gaps["by_reason"], {"invalid_file_review": 2})
+
+
+
 if __name__ == "__main__":
     unittest.main()
