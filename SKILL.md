@@ -16,7 +16,7 @@ argument-hint: "[專案路徑] [--categories AC,AU] [--multi-agent --agents N]"
 - **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。完整模式另可明確指定 `--multi-agent [--agents N]` 啟用**受控唯讀分工**；分類模式不得同時使用。未明確指定時維持單代理。
 - 使用者**不需要**自行執行 Python 指令；Agent 負責呼叫必要的工具。
 
-- `--multi-agent [--agents N]` 是 Agent 解析的 Skill 參數，非 `review_queue.py` 參數。完整模式指定時主代理須**自動呼叫原生工具**建立、派工及回收，Python 僅管理 Ledger。依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 先試跑、驗證唯讀及身分；能力不足即記錄原因並降級單代理，不得虛構 ID／trace。
+- `--multi-agent [--agents N]` 是 Agent 解析的 Skill 參數，非 `review_queue.py` 參數。完整模式指定時主代理須**自動呼叫原生工具**建立、派工及回收，Python 管理 Ledger。依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 先試跑、驗證唯讀及身分；能力不足即記錄原因並降級單代理，不得虛構 ID／trace。
 
 
 ## 解析受測目標（優先處理）
