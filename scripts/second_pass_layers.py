@@ -202,7 +202,10 @@ def worklist(target: Path) -> dict:
     plan = layer["plan"]
     budgets = plan["budgets"]
     done = {k for k, v in reviews.items() if k != RESERVED and isinstance(v, dict)
-            and v.get("baseline_digest") == baseline.get("checks", {}).get(k, {}).get("digest")}
+            and v.get("baseline_digest") == baseline.get("checks", {}).get(k, {}).get("digest")
+            and isinstance(v.get("final_digest"), str) and len(v["final_digest"]) == 64
+            and isinstance(v.get("hypotheses"), list) and bool(v["hypotheses"])
+            and v.get("open_issues") == []}
     pending = [rid for rid in sorted(plan["rules"]) if rid not in done]
     tasks = []
     paths: set[str] = set()
