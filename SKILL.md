@@ -16,6 +16,9 @@ argument-hint: "[專案路徑] [--categories AC,AU] [--multi-agent --agents 3]"
 - **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。完整模式另可明確指定 `--multi-agent [--agents N]` 啟用**受控唯讀分工**；分類模式不得同時使用。未明確指定時維持單代理。
 - 使用者**不需要**自行執行 Python 指令；Agent 負責呼叫必要的工具。
 
+- `--multi-agent` 及 `--agents N` 是供 Agent 解析的 Skill 指令參數，**不是** `review_queue.py` 的參數；先解析並移除控制旗標，再解析受測路徑／審查重點。預設不啟用。此功能不會自行啟動子代理，依 [P0～P3 操作契約](docs/multi-agent-review.md) 由主代理實際調度；未通過試跑即回退單代理。
+
+
 ## 解析受測目標（優先處理）
 
 1. **不提供參數**：從目前工作目錄找到所在 Git 專案的根目錄；若不是 Git 專案，就以目前目錄為根目錄。
