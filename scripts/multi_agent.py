@@ -162,6 +162,7 @@ def _build_tasks(root: Path, snap: dict, index: dict, *, max_agents: int,
     result = {}
     fp = _fingerprint(snap)
     relations = index.get("cross_file_call_hints") or {}
+    candidates = index.get("rule_candidates") or {}
     for i, batch in enumerate(bins):
         owned = {x["path"] for x in batch["files"]}
         consulted: set[str] = set()
@@ -178,7 +179,13 @@ def _build_tasks(root: Path, snap: dict, index: dict, *, max_agents: int,
                          "worker_id": f"worker-{i % workers}",
                          "snapshot_fingerprint": fp, "phase": "first_pass",
                          "assigned_paths": [{"path": x["path"], "sha256": x["sha256"],
-                                             "estimated_tokens": x["estimated_tokens"]}
+                                             "estimated_tokens": x["estimated_tokens"],
+                                             "candidate_rule_ids": sorted({
+                                                 hit["rule_id"] for hit in candidates.get(x["path"], [])
+                                                 if isinstance(hit, dict)
+                                                 and isinstance(hit.get("rule_id"), str)
+                                                 and re.fullmatch(r"(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}", hit["rule_id"])
+                                             })}
                                             for x in batch["files"]],
                          "consult_paths": sorted(consulted),
                          "estimated_tokens": batch["weight"],
