@@ -72,6 +72,47 @@ class RepairPlanTests(unittest.TestCase):
             "AC-08: src/Unknown.cs:8-19 來源錯誤", {path}
         ))
 
+    def test_verified_na_scope_does_not_require_applicable_rule_review(self):
+        path = "src/Web/Program.cs"
+        assessment = {
+            "checks": [{"id": "IN-04", "status": "na", "execution": {
+                "state": "completed", "inspected_paths": [path]}}],
+            "file_reviews": [file_review(path, rule="AC-04")],
+        }
+        original = copy.deepcopy(assessment)
+        result = repair_plan(assessment, {
+            "ready_for_second_pass": True,
+            "blockers": [],
+            "verified_na_inspection_paths": {"IN-04": [path]},
+        })
+        self.assertEqual(result["candidate_repair_file_count"], 0)
+        self.assertEqual(assessment, original)
+
+    def test_unverified_na_scope_remains_distinct_from_missing_rule_review(self):
+        path = "src/Web/Program.cs"
+        assessment = {
+            "checks": [
+                {"id": "IN-04", "status": "na", "execution": {
+                    "state": "completed", "inspected_paths": [path]}},
+                {"id": "AC-08", "status": "fail", "execution": {
+                    "state": "completed", "inspected_paths": [path]}},
+            ],
+            "file_reviews": [file_review(path, rule="AC-04")],
+        }
+        diag = {
+            "blockers": [{
+                "category": "unrelated_evidence", "rule_ids": ["AC-08"],
+                "message": "AC-08: src/Web/Program.cs:20-22 來源與規則無關",
+            }],
+            "verified_na_inspection_paths": {},
+        }
+        result = repair_plan(assessment, diag)
+        row = result["priority_files"][0]
+        self.assertEqual(row["missing_rule_review_ids"], ["AC-08"])
+        self.assertEqual(row["na_inspection_rule_ids"], ["IN-04"])
+        self.assertEqual(row["unverified_na_inspection_rule_ids"], ["IN-04"])
+        self.assertEqual(row["observed_source_issue_details"][0]["rule_ids"], ["AC-08"])
+
     def test_missing_rule_links_are_not_auto_removed(self):
         assessment = {"file_reviews": [file_review("src/Handler.cs")],
                       "checks": [{"id": "AC-01", "execution": {
