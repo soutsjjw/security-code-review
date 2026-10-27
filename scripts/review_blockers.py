@@ -21,12 +21,26 @@ FIXES: dict[str, str] = {
     "delegation_unverified": "先取得可追溯的外部控制責任歸屬；缺少 Workflow 不等於已委外",
     "missing_external_decision": "確認真正影響結論的外部工件、負責單位及兩種不同判定結果",
     "incomplete_static": "完成來源、呼叫鏈與組態的調查，不能用 review 當作尚未檢查完",
+    "file_review_links": "依 inspected_paths_diagnostic 按規則與原因核對逐檔記錄，不得批次補造證據或刪除關聯",
+    "cross_file_candidates": "依候選 ID 查驗真實跨檔關係，逐筆確認或提供可查證的排除理由",
+    "control_trace": "重新核對跨檔控制鏈與正式來源證據的檔案及行號交集",
+    "control_outcome": "以真實執行或失效位置連結控制結果和反向情境",
     "integrity": "核對來源快照、檔案覆蓋、關聯、Journal 與既有 Findings，禁止覆寫或略過守門",
     "other": "依權威錯誤訊息定向補查；同一證據沒有改變時不要重試相同驗證",
 }
 
 
 def classify(message: str) -> str:
+    if "未經逐檔驗證的 inspected_paths" in message:
+        return "file_review_links"
+    if "跨檔／組態候選未查證" in message:
+        return "cross_file_candidates"
+    if "Q2 控制鏈" in message:
+        return "control_trace"
+    if "Q3 external_boundary" in message or "情境未與實際失效／控制執行點連結" in message:
+        return "control_outcome"
+    if "完成證據僅包含" in message or "空結構等無效來源片段" in message:
+        return "weak_source_evidence"
     if any(x in message for x in ("無關", "不相關", "關聯規則", "未連結正式", "證據不一致")):
         return "unrelated_evidence"
     if any(x in message for x in ("只有宣告", "僅為宣告", "無效行號", "不能證明控制", "來源證據只含宣告", "控制實際執行位置", "來源僅有")):
@@ -42,16 +56,32 @@ def classify(message: str) -> str:
     return "other"
 
 
-def summarize(messages: list[str]) -> dict[str, Any]:
+def summarize(
+    messages: list[str], *, link_diagnostics: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Deterministic diagnostic summary; no automatic verdicts or repairs."""
     unique = sorted(set(messages))
+    links = link_diagnostics if isinstance(link_diagnostics, dict) else {}
+    link_rules = sorted((links.get("by_rule") or {}).keys())
+    signature_input = {
+        "errors": unique,
+        "unverified_links_fingerprint": links.get("fingerprint", ""),
+    }
     signature = hashlib.sha256(
-        json.dumps(unique, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        json.dumps(signature_input, ensure_ascii=False, sort_keys=True,
+                   separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     blockers = []
     ids: set[str] = set()
     for message in unique:
-        rules = sorted(set(RULE_ID.findall(message)))
+        # A rule ID in a diagnostic *example* is not the owner of the error.
+        # Only a leading rule label or authoritative rule/file link group counts.
+        owner = re.match(
+            r"^(?:[^:\\n]{1,500}:\\s*)?((?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}):",
+            message,
+        )
+        rules = ([owner.group(1)] if owner else
+                 link_rules if "未經逐檔驗證的 inspected_paths" in message else [])
         ids.update(rules)
         category = classify(message)
         blockers.append({
@@ -60,7 +90,7 @@ def summarize(messages: list[str]) -> dict[str, Any]:
             "message": message,
             "required_action": FIXES[category],
         })
-    return {
+    result = {
         "ready_for_second_pass": not blockers,
         "blocked_count": len(blockers),
         "blocker_signature": signature,
@@ -72,11 +102,16 @@ def summarize(messages: list[str]) -> dict[str, Any]:
             "須查明證據缺口或取得真正外部資料。不可假造資料、改判 Pass、清除 Findings 或繞過守門。"
         ),
     }
+    if links.get("total"):
+        result["inspected_paths_diagnostic"] = links
+    return result
 
 
 def diagnose(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
     from adversarial_recheck import first_pass_issues
-    return summarize(first_pass_issues(target.resolve(), assessment))
+    details: dict[str, Any] = {}
+    messages = first_pass_issues(target.resolve(), assessment, diagnostics=details)
+    return summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"))
 
 
 def main() -> int:
