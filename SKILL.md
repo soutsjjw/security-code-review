@@ -58,6 +58,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 只有已完成必要靜態查核且**真正有會改變結論的外部工件缺口**才可標 `completed+review`；查核尚未完成保持 `pending/blocked`。通過 Schema 或報告工具不等於真實安全控制有效。
 - 完整模式僅主代理可寫入 `review_safety.py --stage/--integrate`，子代理如可用**僅可唯讀分析**；不得平行修改正式 JSON、Manifest 或 Journal。保留來源 Git Revision／SHA256 快照、跨檔 `closures/control_trace`、呼叫點人工驗證、控制繞過與外部裁決紀錄；源碼變動時保守重新核對並依規則復原，禁止無聲繞過完整性鏈。
 - **第二輪不可省略**：第一輪 70 項、所有來源與跨檔／控制證據完成後，主代理才建立固定 baseline，重新閱讀程式碼逐條提出反例並調和矛盾；分類模式按分類各自建立。第二輪未完成不得交付。
+- **外部控制不得假造本地證據**：只有查得正式外部責任工件或真正的責任交接程式碼／設定，才可依 [外部責任判定契約](docs/review-decision-adjudication.md#可查證的外部控制責任適用全-70-項) 記錄 `external_responsibility_pending`；已證實外部控制生效才可使用 `external_verified` Pass。缺少檔案、Scan 或外部工件本身不構成 Pass／Review。
 - 環境僅支援 .NET Core／現代 .NET（含 net10.0）；遇 .NET Framework、Vue／混合專案或未能可靠解析 TFM，須明確阻擋，不得縮小來源範圍假裝完成。匯入／條件式 MSBuild 屬性須用實際 `dotnet msbuild -getProperty` 評估；不得修改受測專案以迎合分析器。
 
 ## 共同證據與結果判定（所有規範均適用）
