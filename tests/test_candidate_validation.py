@@ -52,20 +52,20 @@ class CandidateValidationTests(unittest.TestCase):
 
     def test_ac08_accepts_positive_resource_authorization_control(self):
         self.assertTrue(source_relevant_to_rule(
-            "PermissionResourceAuthorizationHandler.cs",
+            "AC-08",
             "src/Infrastructure/Authorization/PermissionResourceAuthorizationHandler.cs",
             ["var allowed = GetMaxAllowedScope(context.User, module, operation);"]
         ))
 
     def test_ac08_accepts_resource_operation_as_missing_control_evidence(self):
         self.assertTrue(source_relevant_to_rule(
-            "DeleteOrderCommandHandler.cs",
+            "AC-08",
             "src/Application/Features/Orders/Commands/DeleteOrder/DeleteOrderCommandHandler.cs",
             ["var order = await context.Orders.FindAsync([request.Id], cancellationToken);",
              "await context.SaveChangesAsync(cancellationToken);"]
         ))
         self.assertTrue(source_relevant_to_rule(
-            "GetOrdersQueryHandler.cs",
+            "AC-08",
             "src/Application/Features/Orders/Queries/GetOrders/GetOrdersQueryHandler.cs",
             ["var ordersQuery = _context.Orders",
              ".Where(order => !order.IsDelete);"]
@@ -75,6 +75,55 @@ class CandidateValidationTests(unittest.TestCase):
         self.assertTrue(source_relevant_to_rule(
             "AC-08", "src/Infrastructure/DependencyInjection.cs",
             ["builder.Services.AddScoped<IAuthorizationHandler, PermissionResourceAuthorizationHandler>();"]
+        ))
+
+    def test_ac08_accepts_object_owner_comparison_as_related_control(self):
+        self.assertTrue(source_relevant_to_rule(
+            "AC-08", "src/Orders/OrderService.cs",
+            ["if (order.OwnerId == currentUserId) return order;"]
+        ))
+
+    def test_ac08_failed_handler_is_accepted_by_full_file_evidence_verifier(self):
+        # 真實模式：既有 AC-08-F1 證據指向取得他人資源並修改的 Handler。
+        source = (
+            "public async Task<Result> Handle(DeleteOrderCommand request, CancellationToken cancellationToken)\\n"
+            "{\\n"
+            "    var order = await context.Orders.FindAsync([request.Id], cancellationToken);\\n"
+            "    order.IsDelete = true;\\n"
+            "    await context.SaveChangesAsync(cancellationToken);\\n"
+            "}\\n"
+        )
+        (self.root / "Handler.cs").write_text(source, encoding="utf-8")
+        data = self.assessment(("AC-08",))
+        data["file_reviews"][0]["rule_reviews"][0].update({
+            "result": "fail", "line_start": 3, "line_end": 5,
+        })
+        data["checks"][0].update({
+            "status": "fail",
+            "finding_ids": ["AC-08-F1"],
+            "evidence": [{
+                "kind": "source", "path": "Handler.cs",
+                "line_start": 3, "line_end": 5,
+                "description": "未核對訂單歸屬即存取並更新。",
+            }],
+        })
+        data["findings"] = [{"id": "AC-08-F1", "check_ids": ["AC-08"]}]
+        coverage = build_source_coverage(data, self.root)
+        self.assertEqual(coverage["review_integrity_errors"], [])
+        self.assertEqual(coverage["reviewed_file_rule_ids"]["Handler.cs"], ["AC-08"])
+
+    def test_ac08_does_not_accept_unrelated_handler_registration_or_mention(self):
+        self.assertFalse(source_relevant_to_rule(
+            "AC-08", "src/Infrastructure/DependencyInjection.cs",
+            ["builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();"]
+        ))
+        self.assertFalse(source_relevant_to_rule(
+            "AC-08", "src/Infrastructure/Logger.cs",
+            ['logger.LogInformation("PermissionResourceAuthorizationHandler");']
+        ))
+        self.assertFalse(source_relevant_to_rule(
+            "AC-08", "src/Orders/OrderService.cs",
+            ['var operationName = nameof(SaveChangesAsync);', 'var order = new Order();']
         ))
 
     def test_ac08_does_not_treat_unrelated_authorization_or_data_access_as_evidence(self):
