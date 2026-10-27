@@ -391,3 +391,8 @@ PYTHON="$(sh scripts/run-python.sh --resolve)"
 ```
 
 核心檔案包括 `rules.json`、`rules.yaml`、`rules/`、`schemas/`、`templates/security-report.html` 及 `scripts/`。規則集 v2.0.0 的正式發布**不需公司資安簽核**；個別專案的實際法規適用、風險接受與制度文件，仍須依其權責與證據確認。
+
+
+### 已存在 Finding 的證據更正
+
+已確認 Finding 的來源行號或敘述經重查不正確時，**不可**直接覆寫或刪除。取得明確授權後，依 [受控更正契約](review-integrity-guards.md#已確認-finding-的受控更正不可直接編輯-assessmentjson) 在暫存 JSON 放入完整同 ID Finding 與 `finding_revisions` 原因／覆核者，執行 `--integrate --allow-revision --allow-finding-revision`。既有 confirmed、規則關聯與嚴重度底線保持；修訂前全文及前後雜湊寫入 assessment.finding_amendments，由現有 Manifest／Journal 保護。

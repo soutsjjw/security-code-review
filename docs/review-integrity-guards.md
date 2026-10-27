@@ -159,3 +159,10 @@ python "<SKILL_ROOT>/scripts/analysis_prepare.py" --target "<TARGET_ROOT>" --mod
 刷新不清除原有 Findings、舊判定、file_reviews；會清除失效的結案與產生 `analysis/recheck-required.json`，要求原本 completed 的規則以真實證據重新審查。Agent 須藉由新的暫存 `checks[]` 覆核證據並重新整合，全部重查完畢才能正式交付。尚有暫存資料時不得刷新快照。若已存在相互矛盾的 findings／狀態，須人工裁決，不能以格式修補繞過。
 
 現行啟發式仍無法證明所有執行時動態連結、所有語意資料流或程式碼確曾被閱讀；必須保留來源追查與審查者複核，不能視為完整 SAST。
+
+
+## 已確認 Finding 的受控更正（不可直接編輯 assessment.json）
+
+若既有 Finding 的來源行號或說明經重新閱讀證明須更正，先保留舊 Finding，於 staged payload 的 `findings` 放入相同 ID 的完整新紀錄，並在 `finding_revisions` 以相同 ID 指定 `reason`（至少 40 字、描述實際重查）及 `reviewer`（至少 4 字）。主代理須取得使用者對該批修訂的明確授權，再執行 `review_safety.py --stage <payload>` 與 `review_safety.py --integrate --allow-revision --allow-finding-revision`。
+
+此路徑維持 Finding ID、既有檢核關聯與 confirmed 信心，不允許一般更正降低嚴重度或清空證據。整合器在受控 `assessment.finding_amendments` 保存舊 Finding 全文、修改前後 SHA256、覆核理由及人員，與整體 `assessment.json` 一起納入原有 Manifest／Journal 交易鏈。取消授權、不符欄位或跨批衝突必須拒絕寫入；不得自行覆寫 JSON 或重設 Manifest。

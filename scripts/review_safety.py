@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import subprocess
+from datetime import date
 import sys
 from pathlib import Path
 from typing import Any
@@ -336,13 +337,13 @@ def stage(target: Path, payload_path: Path) -> str:
     payload = _read(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
-    known_sections = {"file_reviews", "checks", "findings", "closures",
+    known_sections = {"file_reviews", "checks", "findings", "finding_revisions", "closures",
                       "control_verifications", "decision_audits", "adversarial_reviews"}
     unexpected = set(payload) - known_sections
     if unexpected:
         raise ValueError("暫存資料包含未知欄位，禁止靜默丟棄：" + "、".join(sorted(unexpected)))
-    for key in ("file_reviews", "checks", "findings", "closures", "control_verifications", "decision_audits", "adversarial_reviews"):
-        is_map = key in {"closures", "control_verifications", "decision_audits", "adversarial_reviews"}
+    for key in ("file_reviews", "checks", "findings", "finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews"):
+        is_map = key in {"finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews"}
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
@@ -363,7 +364,10 @@ def stage(target: Path, payload_path: Path) -> str:
     return path.as_posix()
 
 
-def integrate(target: Path, *, allow_revision: bool = False) -> dict:
+def integrate(target: Path, *, allow_revision: bool = False,
+              allow_finding_revision: bool = False) -> dict:
+    if allow_finding_revision and not allow_revision:
+        raise ValueError("Finding 修訂需要同時指定 --allow-revision")
     failures = snapshot_errors(target)
     from evidence_integrity import errors as evidence_integrity_errors
     failures += evidence_integrity_errors(target)
@@ -385,6 +389,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     previous_assessment = json.loads(json.dumps(data, ensure_ascii=False))
     checks = {r["id"]: r for r in data.get("checks", [])}
     findings = {r["id"]: r for r in data.get("findings", [])}
+    amendment_history = list(data.get("finding_amendments") or [])
+    amended_findings: set[str] = set()
     closures = _read(report_dir(target) / CLOSURES, {}) or {}
     control_verifications = _read(report_dir(target) / CONTROL_VERIFICATIONS, {}) or {}
     decision_audits = _read(report_dir(target) / DECISION_AUDITS, {}) or {}
@@ -423,11 +429,53 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
                 changed_file_evidence.add(name)
             files[name] = record
             new_files.add(name)
+        revisions = part.get("finding_revisions") or {}
+        if not isinstance(revisions, dict):
+            raise ValueError("finding_revisions 必須為 Finding ID 對應的理由物件")
+        changed_finding_ids = {item["id"] for item in part.get("findings", [])
+                               if item["id"] in findings and findings[item["id"]] != item}
+        if set(revisions) != changed_finding_ids:
+            raise ValueError("Finding 修訂說明必須精確對應已變更的 Finding ID")
         for record in part.get("findings", []):
             fid = record["id"]
             fingerprint = _fingerprint(record)
             if fid in findings and findings[fid] != record:
-                raise ValueError(f"{fid}: Finding ID 衝突，拒絕覆寫既有弱點")
+                if not allow_finding_revision or fid in amended_findings:
+                    raise ValueError(f"{fid}: Finding ID 衝突；須明確授權單筆修訂")
+                old = findings[fid]
+                revision = revisions.get(fid)
+                if (not isinstance(revision, dict)
+                        or set(revision) != {"reason", "reviewer"}
+                        or not isinstance(revision.get("reason"), str)
+                        or len(revision["reason"].strip()) < 40
+                        or not isinstance(revision.get("reviewer"), str)
+                        or len(revision["reviewer"].strip()) < 4):
+                    raise ValueError(f"{fid}: 修訂必須具備具體 40 字理由及人工覆核者")
+                if (old.get("confidence") == "confirmed"
+                        and record.get("confidence") != "confirmed"):
+                    raise ValueError(f"{fid}: 不得降低已確認 Finding 的證據信心")
+                if not set(old.get("check_ids", [])).issubset(record.get("check_ids", [])):
+                    raise ValueError(f"{fid}: 不得解除 Finding 既有規則關聯")
+                levels = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+                if levels.get(record.get("severity"), -1) < levels.get(old.get("severity"), -1):
+                    raise ValueError(f"{fid}: 不得在一般修訂中降低既有 Finding 嚴重度")
+                if not record.get("evidence"):
+                    raise ValueError(f"{fid}: 修訂不得清空既有弱點證據")
+                serialized = lambda obj: json.dumps(obj, ensure_ascii=False, sort_keys=True,
+                                                    separators=(",", ":")).encode("utf-8")
+                amendment_history.append({
+                    "finding_id": fid,
+                    "previous_sha256": hashlib.sha256(serialized(old)).hexdigest(),
+                    "updated_sha256": hashlib.sha256(serialized(record)).hexdigest(),
+                    "previous_finding": old,
+                    "reason": revision["reason"].strip(),
+                    "reviewer": revision["reviewer"].strip(),
+                    "recorded_on": date.today().isoformat(),
+                })
+                amended_findings.add(fid)
+                old_fp = _fingerprint(old)
+                if known_fingerprints.get(old_fp) == fid:
+                    del known_fingerprints[old_fp]
             if fingerprint in known_fingerprints and known_fingerprints[fingerprint] != fid:
                 canonical = findings[known_fingerprints[fingerprint]]
                 # 同位置／標題不代表證據、影響與建議相同；不得靜默遺失詳情。
@@ -520,6 +568,8 @@ def integrate(target: Path, *, allow_revision: bool = False) -> dict:
     data["file_reviews"] = [files[p] for p in sorted(files)]
     data["checks"] = [checks[r["id"]] for r in data["checks"]]
     data["findings"] = [findings[p] for p in sorted(findings)]
+    if amendment_history:
+        data["finding_amendments"] = amendment_history
     # 批次品質及新增檔案關聯必須在任何正式寫入／Journal 交易前通過。
     # 不對舊批次未更動的錯誤直接改判，也不得藉 allow_revision 繞過。
     from batch_evidence_gate import batch_quality_errors
@@ -617,6 +667,8 @@ def main() -> int:
     parser.add_argument("--integrate", action="store_true")
     parser.add_argument("--allow-revision", action="store_true",
                         help="人工核對後允許覆核既有 completed；仍禁止抹除已確認 fail")
+    parser.add_argument("--allow-finding-revision", action="store_true",
+                        help="搭配 --integrate --allow-revision 與 finding_revisions 明確修訂既有 Finding")
     parser.add_argument("--restart-second-pass", action="store_true",
                         help="明確重新執行第一輪後，歸檔舊快照／複核紀錄並重啟第二輪")
     parser.add_argument("--begin-second-pass", action="store_true",
@@ -624,6 +676,8 @@ def main() -> int:
     parser.add_argument("--snapshot-refresh", action="store_true",
                         help="明確更新來源版本，清除過期結案；所有受影響規則須重審")
     args = parser.parse_args()
+    if args.allow_finding_revision and (not args.integrate or not args.allow_revision):
+        parser.error("--allow-finding-revision 須搭配 --integrate --allow-revision")
     try:
         if args.recover_integrity:
             from evidence_integrity import recover
@@ -646,7 +700,8 @@ def main() -> int:
         elif args.stage:
             print("STAGED:", stage(args.target, args.stage))
         elif args.integrate:
-            print(json.dumps(integrate(args.target, allow_revision=args.allow_revision), ensure_ascii=False))
+            print(json.dumps(integrate(args.target, allow_revision=args.allow_revision,
+                                       allow_finding_revision=args.allow_finding_revision), ensure_ascii=False))
         elif args.plan:
             print(json.dumps(scope_tasks(args.target), ensure_ascii=False, indent=2))
         elif args.validate:

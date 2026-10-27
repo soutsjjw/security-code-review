@@ -190,6 +190,25 @@
         "additionalProperties": false
       }
     },
+    "finding_amendments": {
+      "type": "array",
+      "description": "保留由單一寫入者審查交易產生的 Finding 修訂前內容與雙向雜湊，不得由 staged payload 直接指定。",
+      "items": {
+        "type": "object",
+        "required": ["finding_id", "previous_sha256", "updated_sha256", "previous_finding",
+                     "reason", "reviewer", "recorded_on"],
+        "properties": {
+          "finding_id": {"type": "string", "minLength": 1},
+          "previous_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "updated_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "previous_finding": {"type": "object"},
+          "reason": {"type": "string", "minLength": 40},
+          "reviewer": {"type": "string", "minLength": 4},
+          "recorded_on": {"type": "string", "format": "date"}
+        },
+        "additionalProperties": false
+      }
+    },
     "findings": {
       "type": "array",
       "items": {
