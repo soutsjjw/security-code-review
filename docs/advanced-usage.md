@@ -124,7 +124,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/token_metrics.py" 
 
 ## 全 70 項品質驗收與真實專案回歸
 
-執行 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、判定與反例品質、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
+執行 `sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/quality_gate.py" --matrix-only` 取得全部 70 項判定及反例證據契約覆蓋結果；對已完成的 Northwind 或其他真實專案，使用 `quality_gate.py --target "<TARGET_ROOT>" --output "<QUALITY>.json"` 檢查正式審查結果、判定與反例品質、來源 100% 覆蓋、第二輪及 HTML／JSON 完整性。對相同來源版本使用 `--compare "<PREVIOUS>.json"` 找出既有 Fail／Finding 或來源證據退步。正式品質驗收必須使用**完整權威佇列驗證**；`--compact` 與 `--detail-id` 僅供查詢，`ready_for_report=false` 不能當成正式驗收結論。正式報告未生成前，品質驗收仍會保持 `blocked`，須先解決真實證據缺口並以 `complete_review.py` 交付報告。固定 16 案例另由 `quality_acceptance.py` 進行真正 Agent 審查的品質驗收；這些指令**不執行代理、不憑 CI 或合成測試宣稱模型準確率**。詳見 [品質驗收](quality-acceptance.md)。
 
 ## Codex App 指定分類審查（部分審查報告）
 
@@ -216,6 +216,7 @@ $security-code-review --categories AC,AU
    - review_safety.py --validate 通過，safety_integrity_errors 為空。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
    - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
+   - 診斷中的 `inspected_paths_diagnostic` 僅彙整**已被正式逐檔驗證拒絕**的規則／檔案關聯：`by_rule` 按規則計數，`by_reason` 區分缺少逐檔紀錄、缺少規則審查及逐檔紀錄驗證失敗；不是新增檔案數或可自動修補清單。`cross_file_candidates` 列出完整未查證關聯 ID；必須核實來源後逐項處理，不能批次核准。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
    - review_queue.py 回傳 ready_for_report=true。
