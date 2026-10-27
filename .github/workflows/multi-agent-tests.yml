@@ -14,6 +14,9 @@ on:
       - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
       - "tests/test_multi_agent*.py"
+      - "SKILL.md"
+      - "docs/multi-agent-review.md"
+      - "docs/advanced-usage.md"
       - ".github/workflows/multi-agent-tests.yml"
   push:
     paths:
@@ -29,6 +32,9 @@ on:
       - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
       - "tests/test_multi_agent*.py"
+      - "SKILL.md"
+      - "docs/multi-agent-review.md"
+      - "docs/advanced-usage.md"
 jobs:
   contract:
     runs-on: ubuntu-latest
