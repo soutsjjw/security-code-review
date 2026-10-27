@@ -91,6 +91,12 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
 
 
+## Codex 完整模式的原生子代理啟動
+
+完整審查完成環境／來源索引／快照初始化及 `review_safety.py --plan` 後，主代理**必須主動檢查本次 Codex 執行器有無原生子代理委派能力**；可用時直接透過 Codex 原生子代理工具實際啟動 2～4 名唯讀子代理（N 依可用並行額度與待辦檔案量決定），**不能只呼叫 `file_review_skeleton.py --workers N` 就宣稱已啟動 N 個代理**。各代理固定同一個 `TARGET_ROOT`、來源 SHA256 快照及 `--workers N --worker-id 0..N-1` 分片，完整閱讀其來源及關聯控制鏈，回傳具體檔案、行號、來源雜湊、規則適用性與待核對疑點；主代理須等待結果、重讀關鍵證據、處理跨分片依賴與矛盾，**唯一**由主代理 `--stage/--integrate` 保存正式結果。詳細指令與禁止事項見 [原生子代理分工契約](docs/review-performance.md#codex-原生子代理啟動完整模式)。
+
+**缺少 `.git` 或 `git rev-parse` 失敗本身不是停用唯讀子代理的理由**；不得因不是 Git repo 自動降級。Git worktree 與原生子代理委派是不同能力：不使用 worktree 也可共用受測目錄唯讀審查；來源仍以實際 SHA256 快照守門，Git 版本不可得時明確記錄，不能杜撰 Git Revision。只有原生委派工具確實不可用、明確拒絕啟動或可用代理數不足 2 時才降為單代理並說明能力／錯誤原因，不得假稱執行過子代理。分類審查仍依其獨立契約，不自動沿用完整模式的多代理流程。
+
 ## 正式完整模式執行與交付
 
 先讀 [完整審查迴圈](docs/full-review-workflow.md)，從已固定的 Python 執行器執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`，再 `review_safety.py --plan`。重跑只有符合索引／SHA256 契約才能用 `--mode incremental`；不要自動重置既有 Findings 或審查進度。
