@@ -80,7 +80,8 @@ TASK_JSON：<由主代理貼入 --claim 回傳的實際 JSON>
 ```
 
 
-- 每個分片狀態為 `pending/running/failed/needs_followup/followup_running/needs_main/completed`，儲存到 `analysis/multi-agent/ledger.json`。`--plan` 在快照、probe 與設定相同時冪等；若 probe 已更新而舊 Ledger 尚無任何派工，可明確 `--plan --replan` 歸檔舊狀態重建；有執行紀錄則拒絕重設。`--accept` 相同結果 SHA256 冪等，不同結果拒絕衝突。
+- 每個分片狀態為 `pending/running/failed/needs_followup/followup_running/needs_main/completed`，儲存到 `analysis/multi-agent/ledger.json`。
+- 主代理所有 Ledger 更新皆使用跨程序 `O_EXCL` 排他鎖，阻止並發 claim 的超發競態。中斷後若留有 `analysis/multi-agent/.exclusive-writer.lock`，應先確認沒有正在更新的主代理程序再**人工**處理；工具不會自行搶鎖或刪除其他工作者的鎖。`--plan` 在快照、probe 與設定相同時冪等；若 probe 已更新而舊 Ledger 尚無任何派工，可明確 `--plan --replan` 歸檔舊狀態重建；有執行紀錄則拒絕重設。`--accept` 相同結果 SHA256 冪等，不同結果拒絕衝突。
 - 單分片建議軟逾時 300 秒（**由 Codex 執行器／主代理計時**，Python 不會背景監控）。逾時或無結果，主代理執行 `--fail --task-id <TASK_ID>`；失敗最多兩次 claim（初次 + 一次重試），再改由主代理直接審查，保留未完成狀態與缺口。
 - 跨分片 `unresolved_symbols` 的初始 Worker 結果可以成功收件，但分片維持 `needs_followup`、**不視為完整覆蓋**；由主代理執行 `multi_agent.py --followup --task-id <TASK_ID> --agent-id <EXECUTOR_INSTANCE_ID>`，再用 `--accept-followup --result <JSON>` 驗證實際符號及跨檔來源行 SHA256。最多補派兩輪仍未解決即轉 `needs_main`，必須由主代理親自追查後才能正式結案。新找到控制鏈時納入原有 `closures/control_trace` 與 callsite 既有驗證。
 - `--status` 的 `work_results_accepted=true` 只是 Worker 來源集合覆蓋，不是正式審查通過；正式覆蓋率仍由 `source_coverage`、`file_review_integrity` 驗證，70 項必須獨立完成。
