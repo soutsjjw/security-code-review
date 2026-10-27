@@ -152,7 +152,7 @@ class FileReviewIntegrityTests(unittest.TestCase):
 
     def _na_scope_check(self):
         (self.root / "NoCommand.cs").write_text(
-            "public static class Startup { public static int Add(int a, int b) => a + b; }\\n",
+            "public static class Startup { public static int Add(int a, int b) => a + b; }\n",
             encoding="utf-8",
         )
         self.assessment["file_reviews"].append(
