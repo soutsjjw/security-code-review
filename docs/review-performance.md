@@ -24,7 +24,7 @@ Skeleton 單次提供真實來源 SHA256、編碼、行數、多規則候選、R
 
 ## 可選擇唯讀平行分工
 
-**新版受控分工請優先遵守 [P0～P3 多代理契約](multi-agent-review.md)。** 下列 `--workers` 僅為原本唯讀 Skeleton 的路徑模數分片範例，不會啟動 Codex 子代理，也不會驗證 Worker 交付物。正式多代理模式應使用 `multi_agent.py` 的主代理 Ledger／封閉 Schema 與 P0 能力門檻。
+**新版受控分工請優先遵守 [受控多代理 多代理契約](multi-agent-review.md)。** 下列 `--workers` 僅為原本唯讀 Skeleton 的路徑模數分片範例，不會啟動 Codex 子代理，也不會驗證 Worker 交付物。正式多代理模式應使用 `multi_agent.py` 的主代理 Ledger／封閉 Schema 與 能力試跑門檻。
 
 若執行器支援子代理，主代理可分派各子代理 **唯讀檔案閱讀、十類適用性與跨檔候選分析建議**。同一輪分工使用相同來源快照與固定 worker 數，ID 從 0 起算：
 
@@ -37,7 +37,7 @@ python "<SKILL_ROOT>/scripts/file_review_skeleton.py" --target "<TARGET_ROOT>" -
 
 分片由來源相對路徑 SHA256 取模，對相同來源清單與 worker 數不重疊。各 worker 使用 `--offset 0` 開始，依 `next_offset` 連續分頁直到 `null`，**所有 worker 交付暫存分析前不得先整合**，以固定初始工作清單，避免重複或漏審。每批都重新核實來源快照。
 
-**唯一主代理寫入：** 子代理不得執行 `review_queue.py --init`、`review_safety.py --stage/--integrate`、`--seal-integrity`、`--snapshot-refresh`，也不得修改正式 `assessment.json`、Manifest、Journal 或結案證據。主代理逐項複核子代理意見，處理重複與衝突後，統一依現有 `--stage`、`--integrate` 契約原子保存；第二輪正式裁決與來源重讀仍由主代理負責；通過 P0 後可由未參與該規則第一輪審查的唯讀子代理提出盲審反例。沒有子代理的執行器使用單代理流程，安全要求相同。
+**唯一主代理寫入：** 子代理不得執行 `review_queue.py --init`、`review_safety.py --stage/--integrate`、`--seal-integrity`、`--snapshot-refresh`，也不得修改正式 `assessment.json`、Manifest、Journal 或結案證據。主代理逐項複核子代理意見，處理重複與衝突後，統一依現有 `--stage`、`--integrate` 契約原子保存；第二輪正式裁決與來源重讀仍由主代理負責；通過 執行器能力試跑 後可由未參與該規則第一輪審查的唯讀子代理提出盲審反例。沒有子代理的執行器使用單代理流程，安全要求相同。
 
 ## Roslyn 編譯快取
 
