@@ -86,6 +86,9 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
         return ["第二輪 Q4: 無有效來源快照"]
     if baseline.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
         return ["第二輪 Q4: 第一輪與來源快照指紋不一致"]
+    from second_pass_layers import RESERVED
+    layered_mode = (isinstance(records.get(RESERVED), dict)
+                    and isinstance(records[RESERVED].get("plan"), dict))
     matrix = load_decision_matrix()
     checks = assessment.get("checks", [])
     originals = baseline.get("checks", {})
@@ -116,14 +119,28 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
         audit = decision_audits.get(rid) if isinstance(decision_audits, dict) else None
         first_claim = original.get("decision_reason")
         review = record.get("reassessment")
-        if not isinstance(first_claim, str) or len(first_claim.strip()) < 20:
+        if not layered_mode and (not isinstance(first_claim, str) or len(first_claim.strip()) < 20):
             errors.append(f"{rid}: 第二輪 Q4 第一輪錨點缺少原始判定理由，須重建不可變錨點")
         if not isinstance(review, dict):
             errors.append(f"{rid}: 第二輪 Q4 缺少獨立於第一輪摘要的 reassessment")
         else:
             claim = review.get("first_pass_claim")
-            if not isinstance(claim, str) or claim != first_claim:
+            if not layered_mode and (not isinstance(claim, str) or claim != first_claim):
                 errors.append(f"{rid}: 第二輪 Q4 反向核對未引用第一輪固定的原始判定")
+            if layered_mode:
+                blind = record.get("blind_challenge")
+                if not isinstance(blind, dict):
+                    errors.append(f"{rid}: 第二輪分層複核缺少先於結論的 blind_challenge")
+                else:
+                    for field in ("factual_claim", "challenge_question", "initial_observation"):
+                        errors.extend(_text_issues(blind.get(field), rid, "blind_challenge."+field))
+                    factual = blind.get("factual_claim")
+                    if (isinstance(first_claim, str) and isinstance(factual, str)
+                            and first_claim.strip() and first_claim.strip() in factual):
+                        errors.append(f"{rid}: 第二輪事實主張沿用第一輪判定措辭，存在錨定")
+                    errors.extend(_evidence_errors(
+                        target, blind.get("evidence"), rid, "分層事實主張定位",
+                        inspected, known, status, audit, formal))
             for field in ("challenge_question", "reinspection_summary", "conclusion_basis"):
                 errors.extend(_text_issues(review.get(field), rid, field))
                 if isinstance(review.get(field), str):
