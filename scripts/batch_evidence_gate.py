@@ -68,10 +68,24 @@ def batch_quality_errors(target: Path, before: dict[str, Any], after: dict[str, 
                     continue
                 errors.append(f"{path}: {rid} 已列入 inspected_paths 但缺少 rule_reviews")
     if to_verify:
-        _, failures = verified_file_rule_reviews(after, target, snapshot_paths)
+        from file_review_integrity import verified_na_inspection_links
+        verified, failures = verified_file_rule_reviews(after, target, snapshot_paths)
         for failure in failures:
             if any(failure.startswith(path + ":") for path in to_verify):
                 errors.append("批次逐檔證據不合格：" + failure)
+        na_links = verified_na_inspection_links(after, target, snapshot_paths, verified)
+        for check in after.get("checks", []):
+            if not isinstance(check, dict) or check.get("status") != "na":
+                continue
+            if (check.get("execution") or {}).get("state") != "completed":
+                continue
+            rid = check.get("id")
+            for path in (check.get("execution") or {}).get("inspected_paths") or []:
+                if path in to_verify and rid not in na_links.get(path, set()):
+                    errors.append(
+                        f"{path}: {rid} 不適用檢查範圍缺少有效來源或逐檔證據；"
+                        "不得直接以 inspected_paths 當作已驗證關聯"
+                    )
 
     # A repaired row must not extend an already invalid mass-template cluster.
     # Existing clusters are not silently accepted at formal validation.
