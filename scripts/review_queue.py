@@ -296,7 +296,17 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                         "對 next_checks 逐項實際分析並更新 assessment.json；找到漏洞要記錄 Finding，"
                         "依 decision_guidance 先判斷主要證據方式及符合條件，能以靜態證據證實的 pass/fail 不得一律保留 review；逐項納入 tacert_v2_checks 與 owasp_2025_categories 的可驗證內容，未覆蓋的 coverage_gap 與缺少部署/動態佐證時清楚記錄待確認；system_baseline_v13_controls 是獨立普／中／高防護基準提示，不得從原 70 項狀態自動宣稱已符合；web_guide_v32_checks 依 V3.2 第4章查核 ASP.NET/.NET 及通用 Web 控制，不執行 Java、PHP 專屬範例或規則，缺外部證據記待確認；web_guide_v32_appendix1 為附件1 55項逐列檢測提示：適用項目可依源碼與外部證據單獨記錄，不得以70項 Pass 自動宣稱附件符合；web_guide_v32_appendix3 補強 CR-05 六項 HTTP 安全標頭、HSTS 與 CR-01、CSP 與 IN-02 的關聯；只能採 ASP.NET/.NET 或通用 HTTP 控制，Java/PHP 專屬範例排除；缺真實 HTTPS 回應證據不得標 pass，需記錄各個標頭實際安全設定值與部署限制；不得修復受測程式或提前結束。儲存後再次執行此工具取得下一批。")
     }
-    if not remaining and second_pass.get("enabled") and second_pass.get("pending_count", 0):
+    first_pass_blocked = bool(
+        rule_errors or integrity_errors or unreviewed or
+        [e for e in safety_issues if not (e.startswith("第二輪：") or ": 第二輪" in e)]
+    )
+    if not remaining and first_pass_blocked:
+        queue["instruction"] = (
+            "第一輪權威守門未通過。先執行 scripts/review_blockers.py --target <TARGET_ROOT>，"
+            "只補查 recheck_rule_ids 與對應原始證據。若 blocker_signature 未變，不得反覆重跑"
+            " --begin-second-pass；未取得外部控制責任時不能假造 static_evidence。"
+        )
+    elif not remaining and second_pass.get("enabled") and second_pass.get("pending_count", 0):
         queue["instruction"] = (
             "先執行 review_safety.py --begin-second-pass 固定第一輪結論。"
             if not second_pass.get("baseline_ready") else
@@ -346,6 +356,7 @@ def main() -> int:
                         help="每批來源檔案路徑數（1～200），不影響審查覆蓋要求")
     parser.add_argument("--compact", action="store_true", help="僅回傳精簡檢核工作清單；詳細規範另查")
     parser.add_argument("--detail-id", help="僅查詢一條規則的詳細提示（包括已完成規則）")
+    parser.add_argument("--diagnose-first-pass", action="store_true", help="唯讀取得進入第二輪前的完整阻斷與定向補查建議")
     parser.add_argument("--categories", action="append", metavar="AC,AU",
                         help="指定分類並建立／查詢獨立審查進度；報告須另通過分類驗證")
     parser.add_argument("--stage", type=Path, help="暫存單一分類的批次 JSON")
@@ -369,6 +380,8 @@ def main() -> int:
         parser.error("--allow-revision 僅可搭配 --integrate")
     if args.categories and any(operations) and (args.init or args.detail_id or args.compact):
         parser.error("分類安全操作不可混用 --init、--detail-id 或 --compact")
+    if args.diagnose_first_pass and (args.compact or args.detail_id or args.init or args.categories):
+        parser.error("--diagnose-first-pass 不能與初始化、分類或預覽模式混用")
     if args.compact and args.detail_id:
         parser.error("--compact 與 --detail-id 不可同時指定")
     if not 1 <= args.batch_size <= 70:
@@ -422,6 +435,16 @@ def main() -> int:
             sys.stdout.reconfigure(encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1 if args.validate and not result["safety_valid"] else 0
+    if args.diagnose_first_pass:
+        from review_blockers import diagnose
+        try:
+            assessment = json.loads((target / REPORT_RELATIVE / "assessment.json").read_text(encoding="utf-8"))
+            diagnostics = diagnose(target, assessment)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
+        return 0
     profile: dict[str, float] = {}
     started = time.perf_counter()
     try:
