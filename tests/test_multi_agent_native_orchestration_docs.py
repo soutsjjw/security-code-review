@@ -30,7 +30,7 @@ class NativeCodexOrchestrationDocsTests(unittest.TestCase):
         self.assertIn("實際", NATIVE)
         self.assertIn("不能只列出派工清單", ADVANCED)
         self.assertIn("不得憑空宣稱工具存在", NATIVE)
-        self.assertIn("prompt 禁寫", NATIVE.lower().replace("「不得寫入」", "禁寫"))
+        self.assertIn("不能取代 sandbox 權限", NATIVE)
 
     def test_no_worker_direct_formal_write_and_no_skipped_second_pass(self):
         for source in (ADVANCED, NATIVE):
@@ -41,7 +41,7 @@ class NativeCodexOrchestrationDocsTests(unittest.TestCase):
             self.assertIn("Manifest", source)
         self.assertIn("不得宣稱盲審", ADVANCED)
         self.assertIn("不得稱獨立盲審", NATIVE)
-        self.assertIn("不得自行", SKILL)
+        self.assertIn("不得平行修改", SKILL)
 
 
 if __name__ == "__main__":
