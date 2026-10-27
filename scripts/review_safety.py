@@ -565,7 +565,7 @@ def integrate(target: Path, *, allow_revision: bool = False,
                 raise ValueError("第二輪抽樣：缺少已封存的分層計畫")
             samples = dict(layer.get("samples", {}))
             source_snapshot = _read(report_dir(target) / SNAPSHOT, {})
-            sample_assessment = {"findings": list(findings.values())}
+            sample_assessment = {"findings": list(findings.values()), "checks": list(checks.values())}
             for source_path, sample in sample_entries.items():
                 problems = record_errors(target, source_path, sample, layer["plan"],
                                          source_snapshot, sample_assessment)
