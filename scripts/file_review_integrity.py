@@ -114,6 +114,42 @@ def verified_na_inspection_links(
     return dict(links)
 
 
+def _semantic_relevance_verified(rr: dict, check: dict, path: str) -> bool:
+    """Require an explicit human-reviewed call chain and overlapping formal source proof.
+
+    This is a narrowly scoped escape from name-based heuristics, not a verdict
+    override. The actual execution and effectiveness still require review.
+    """
+    from analysis_candidates import RULE_EVIDENCE_SIGNALS
+    rid = rr.get("rule_id")
+    if rid not in RULE_EVIDENCE_SIGNALS:
+        return False  # External / workflow proof may not use this exception.
+    manual = rr.get("semantic_review")
+    if not isinstance(manual, dict) or set(manual) != {
+        "control_behavior", "call_chain", "verification_method"
+    }:
+        return False
+    for key, minimum in (("control_behavior", 40), ("call_chain", 40),
+                         ("verification_method", 20)):
+        text = manual.get(key)
+        if not isinstance(text, str) or len(text.strip()) < minimum:
+            return False
+    if len(set(manual.values())) != 3:
+        return False
+    start, end = rr.get("line_start"), rr.get("line_end")
+    if type(start) is not int or type(end) is not int:
+        return False
+    if (check.get("execution") or {}).get("state") != "completed":
+        return False
+    return any(
+        isinstance(ev, dict) and ev.get("kind") == "source"
+        and ev.get("path") == path
+        and type(ev.get("line_start")) is int and type(ev.get("line_end")) is int
+        and ev["line_start"] <= end and start <= ev["line_end"]
+        for ev in check.get("evidence") or []
+    )
+
+
 def verified_file_rule_reviews(
     assessment: dict[str, Any], root: Path, expected: set[str], *,
     selected_categories: tuple[str, ...] = CATEGORIES,
@@ -260,10 +296,12 @@ def verified_file_rule_reviews(
                 if (check_by_id.get(rid, {}).get("status") in ("pass", "fail", "review")
                         and isinstance(start, int) and isinstance(end, int)
                         and 1 <= start <= end <= len(lines)
-                        and not source_relevant_to_rule(rid, path, lines[start - 1:end])):
+                        and not source_relevant_to_rule(rid, path, lines[start - 1:end])
+                        and not _semantic_relevance_verified(rr, check_by_id.get(rid, {}), path)):
                     faults.append(
-                        f"{rid}: rule_reviews 第 {start}-{end} 行只有宣告／無關程式碼；"
-                        "請追查實際控制呼叫或設定，不能僅以行號和關鍵字作為審查證據"
+                        f"{rid}: rule_reviews 第 {start}-{end} 行只有宣告／無關程式碼，"
+                        "或自訂控制缺少與正式來源證據交集的 semantic_review；"
+                        "須人工核對實際控制呼叫鏈，不能僅以行號和關鍵字完成"
                     )
         if recorded != selected:
             faults.append("category_screening.rule_ids 與逐條 rule_reviews 不一致")
@@ -380,8 +418,19 @@ def verified_file_rule_reviews(
                 errors.append(f"{rid}: {path}:{start}-{end} 來源證據僅為 using／註解／宣告，不能證明規則已完成")
                 continue
             if not source_relevant_to_rule(rid, path, excerpt):
-                errors.append(f"{rid}: {path}:{start}-{end} 引用程式碼與本規則的控制行為無關；需核對實際實作或掃描工件")
-                continue
+                rows_for_path = next((r for r in rows if isinstance(r, dict)
+                                      and r.get("path") == path), {})
+                manually_linked = any(
+                    isinstance(rr, dict) and rr.get("rule_id") == rid
+                    and _semantic_relevance_verified(rr, check, path)
+                    and isinstance(rr.get("line_start"), int)
+                    and isinstance(rr.get("line_end"), int)
+                    and rr["line_start"] <= end and start <= rr["line_end"]
+                    for rr in rows_for_path.get("rule_reviews", [])
+                )
+                if not manually_linked:
+                    errors.append(f"{rid}: {path}:{start}-{end} 引用程式碼與本規則的控制行為無關；需核對實際實作或掃描工件")
+                    continue
             meaningful = True
         if source_evidence and not meaningful and not non_source_evidence:
             errors.append(

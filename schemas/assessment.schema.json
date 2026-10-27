@@ -747,6 +747,17 @@
                 "line_end": {
                   "type": "integer",
                   "minimum": 1
+                },
+                "semantic_review": {
+                  "type": "object",
+                  "description": "人工核對非慣用命名的實際控制。須與正式同規則來源證據交集；非 Regex 自動放行。",
+                  "required": ["control_behavior", "call_chain", "verification_method"],
+                  "properties": {
+                    "control_behavior": {"type": "string", "minLength": 40},
+                    "call_chain": {"type": "string", "minLength": 40},
+                    "verification_method": {"type": "string", "minLength": 20}
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false

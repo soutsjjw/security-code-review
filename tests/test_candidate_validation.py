@@ -112,6 +112,39 @@ class CandidateValidationTests(unittest.TestCase):
         self.assertEqual(coverage["review_integrity_errors"], [])
         self.assertEqual(coverage["reviewed_file_rule_ids"]["Handler.cs"], ["AC-08"])
 
+    def test_custom_named_control_requires_explicit_semantic_source_trace(self):
+        source = (
+            "public async Task CancelInvoice(int id) {\n"
+            "  var invoice = await db.Invoices.SingleAsync(x => x.Id == id);\n"
+            "  if (!currentTenant.CanEdit(invoice.TenantKey)) throw new SecurityException();\n"
+            "  invoice.Cancelled = true;\n"
+            "  await db.SaveChangesAsync();\n"
+            "}\n"
+        )
+        (self.root / "Handler.cs").write_text(source, encoding="utf-8")
+        data = self.assessment(("AC-08",))
+        rr = data["file_reviews"][0]["rule_reviews"][0]
+        rr.update({"line_start": 2, "line_end": 5})
+        data["checks"][0].update({
+            "status": "pass", "evidence": [{
+                "kind": "source", "path": "Handler.cs",
+                "line_start": 2, "line_end": 5,
+                "description": "已追查租戶所有權檢查與受保護操作",
+            }],
+        })
+        self.assertFalse(source_relevant_to_rule("AC-08", "Handler.cs", source.splitlines()))
+        errors = build_source_coverage(data, self.root)["review_integrity_errors"]
+        self.assertTrue(any("semantic_review" in e or "無關" in e for e in errors), errors)
+        rr["semantic_review"] = {
+            "control_behavior": "CanEdit 以 Invoice.TenantKey 驗證目前租戶存取權，拒絕後直接拋出例外阻止後續變更。",
+            "call_chain": "CancelInvoice 從參數定位 Invoices 資料，再執行租戶條件核對，最後才修改 Cancelled 並提交。",
+            "verification_method": "逐行閱讀授權決策與寫入順序並查驗呼叫端",
+        }
+        self.assertEqual(build_source_coverage(data, self.root)["review_integrity_errors"], [])
+        data["checks"][0]["evidence"][0]["line_start"] = 1
+        data["checks"][0]["evidence"][0]["line_end"] = 1
+        self.assertTrue(build_source_coverage(data, self.root)["review_integrity_errors"])
+
     def test_ac08_does_not_accept_unrelated_handler_registration_or_mention(self):
         self.assertFalse(source_relevant_to_rule(
             "AC-08", "src/Infrastructure/DependencyInjection.cs",
