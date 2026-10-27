@@ -258,25 +258,54 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
 def _active(root: Path) -> tuple[dict, dict]:
     state = _read(root / LEDGER)
     snap, _, _ = _snapshot(root)
+    probe = _read(root / PROBE) if (root / PROBE).exists() else {}
+    if state.get("probe_digest") != digest(probe):
+        raise ValueError("能力 probe 變更，Ledger 失效；不得沿用舊派工")
+    if state.get("report_guard") != protected_report_digest(root):
+        raise ValueError("正式 assessment／Manifest／Journal 或其他審查工件被異動")
+    if state.get("multi_agent_enabled"):
+        errors = probe_errors(root, probe)
+        if errors:
+            raise ValueError("Codex 能力試跑已失效：" + "；".join(errors))
     if (state.get("snapshot_fingerprint") != _fingerprint(snap)
             or state.get("git_state") != _git_state(root)):
         raise ValueError("來源或 Git 狀態異動；停用既有子代理結果並重新查證")
     return state, snap
 
 
-def claim(root: Path, task_id: str) -> dict:
+def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
     state, _ = _active(root)
+    if not state.get("multi_agent_enabled"):
+        raise ValueError("未通過強制唯讀能力試跑，禁止使用多代理 claim，請走單代理流程")
     row = state["tasks"].get(task_id)
     if row is None:
         raise ValueError("未知 task_id")
     if row["status"] not in {"pending", "failed"} or row["attempts"] >= RETRY_LIMIT:
         raise ValueError("此分片不可重複派發；需主代理改為單代理調查")
+    running = [r for r in state["tasks"].values() if r["status"] == "running"]
+    if len(running) >= state["workers"]:
+        raise ValueError("已達 workers 同時執行上限，應等待既有 Worker")
+    if any(r["task"]["worker_id"] == row["task"]["worker_id"] for r in running):
+        raise ValueError("此 worker slot 正在執行另一個分片")
     if state.get("window_tokens", 0) >= int(state["config"]["budget_tokens"] * 0.8):
         raise ValueError("Token 達本輪 80% 預算，停止新增任務，先保存並明確續開預算")
+    if not isinstance(agent_id, str) or not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}", agent_id):
+        raise ValueError("必須提供本次執行器可追溯的獨立 agent_instance_id")
+    if any(r["status"] == "running" and r.get("agent_instance_id") == agent_id
+           for r in state["tasks"].values()):
+        raise ValueError("同一執行器 instance 不得同時領取兩個分片")
+    task = row["task"]
+    visible, expected = challenges_for(root, [x["path"] for x in task["assigned_paths"]])
+    for part in task["assigned_paths"]:
+        part["challenge_lines"] = visible[part["path"]]
+    task["agent_instance_id"] = agent_id
+    row["challenges"] = expected
+    row["agent_instance_id"] = agent_id
+    row["claimed_at"] = time.time()
     row["attempts"] += 1
     row["status"] = "running"
     _write(root / LEDGER, state)
-    return row["task"]
+    return task
 
 
 def fail(root: Path, task_id: str) -> dict:
@@ -302,20 +331,24 @@ def accept(root: Path, path: Path) -> dict:
     if row is None:
         raise ValueError("未知 task_id")
     checksum = digest(result)
-    if row["status"] == "completed":
+    if row["status"] in ("completed", "needs_followup"):
         if row["result_digest"] == checksum:
             return {"accepted": True, "idempotent": True, "task_id": task_id}
         raise ValueError("已完成分片的內容與既有結果衝突")
     if row["status"] != "running":
         raise ValueError("必須先由主代理 claim 分片")
-    errors = validate_worker_result(root, row["task"], result, snap["source_hashes"])
+    errors = validate_worker_result(root, row["task"], result, snap["source_hashes"],
+                                    challenges=row.get("challenges", {}))
     if errors or result.get("status") != "completed":
         row["status"] = "failed"
         _write(root / LEDGER, state)
         return {"accepted": False, "task_id": task_id,
                 "errors": errors or ["Worker 未完成工作"],
                 "remaining_attempts": RETRY_LIMIT - row["attempts"]}
-    row["status"] = "completed"
+    unresolved = [dict(x) for entry in result["files"]
+                  for x in entry["unresolved_symbols"]]
+    row["unresolved_symbols"] = unresolved
+    row["status"] = "needs_followup" if unresolved else "completed"
     row["result_digest"] = checksum
     row["finding_keys"] = sorted({
         finding_key(f) for entry in result["files"] for f in entry["findings"]
@@ -323,7 +356,9 @@ def accept(root: Path, path: Path) -> dict:
     state["measured_tokens"] += result["tokens_used"]
     state["window_tokens"] = state.get("window_tokens", 0) + result["tokens_used"]
     _write(root / LEDGER, state)
-    return {"accepted": True, "task_id": task_id, "finding_keys": row["finding_keys"],
+    return {"accepted": True, "task_id": task_id,
+            "needs_followup": bool(row["unresolved_symbols"]),
+            "finding_keys": row["finding_keys"],
             "notice": "僅代表 Worker 格式、範圍和來源定位可驗證；主代理仍須重讀所有 Finding 與正式 Stage/Integrate"}
 
 
@@ -355,10 +390,15 @@ def summary(root: Path) -> dict:
     return {"multi_agent_enabled": state["multi_agent_enabled"],
             "workers": state["workers"], "task_counts": {
                 value: sum(x["status"] == value for x in state["tasks"].values())
-                for value in ("pending", "running", "failed", "completed")},
+                for value in ("pending", "running", "failed", "needs_followup", "completed")},
             "missing_source_paths": missing, "duplicate_primary_ownership": duplicate,
             "unresolved_tasks": unresolved,
+            "running_tasks": {ident: {"claimed_at": row.get("claimed_at"),
+                                      "agent_instance_id": row.get("agent_instance_id")}
+                              for ident, row in state["tasks"].items() if row["status"] == "running"},
             "measured_tokens": state["measured_tokens"],
+            "unresolved_symbol_count": sum(len(r.get("unresolved_symbols", []))
+                                           for r in state["tasks"].values()),
             "window_tokens": state.get("window_tokens", 0),
             "budget_window": state.get("budget_window", 1),
             "work_results_accepted": not missing and not duplicate and not unresolved,
@@ -394,6 +434,7 @@ def main() -> int:
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--task-id")
+    parser.add_argument("--agent-id")
     parser.add_argument("--result", type=Path)
     parser.add_argument("--max-agents", type=int, default=3)
     parser.add_argument("--budget-tokens", type=int, default=96000)
@@ -423,7 +464,7 @@ def main() -> int:
         elif args.claim:
             if not args.task_id:
                 raise ValueError("--claim 必須指定 --task-id")
-            answer = claim(root, args.task_id)
+            answer = claim(root, args.task_id, agent_id=args.agent_id)
         elif args.fail:
             if not args.task_id:
                 raise ValueError("--fail 必須指定 --task-id")
