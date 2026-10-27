@@ -18,16 +18,21 @@ RULE = re.compile(r"^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$")
 SECRET = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
     r"\bAKIA[0-9A-Z]{16}\b|"
-    r"\b(?:Bearer\s+[A-Za-z0-9._~+/-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,})\b|"
-    r"(?i:password|client_secret|api[_-]?key)\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+    r"(?i:password|pwd|client_secret|api[_-]?key|access_token|connectionstring)\s*[:=]\s*"
+    r"['\"]?[^\s;'\",}]{6,}|"
+    r"(?i:(?:Server|Data Source)\s*=[^;\n]{1,120};\s*(?:Password|Pwd)\s*=[^;\s]+)|"
+    r"\beyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{8,}\b|"
+    r"\b(?:sk-(?:proj-)?|xoxb-|xoxp-|gh[pousr]_)[A-Za-z0-9_-]{12,}\b|"
+    r"\bBearer\s+[A-Za-z0-9._~+/-]{20,}\b"
 )
+
 ALLOWED_ROOT = {"schema_version", "task_id", "worker_id", "snapshot_fingerprint",
                 "status", "files", "issues", "tokens_used"}
 ALLOWED_FILE = {"path", "sha256", "reviewed_ranges", "category_screening",
-                "rule_states", "unresolved_symbols", "findings"}
+                "rule_states", "unresolved_symbols", "findings", "line_challenges"}
 ALLOWED_FINDING = {"rule_id", "path", "line_start", "line_end",
-                   "sink", "root_cause", "summary", "evidence"}
-ALLOWED_PROOF = {"path", "line_start", "line_end", "summary"}
+                   "sink", "root_cause", "summary", "evidence", "line_hash"}
+ALLOWED_PROOF = {"path", "line_start", "line_end", "summary", "line_hash"}
 
 
 def digest(obj: Any) -> str:
@@ -59,7 +64,8 @@ def _proof(root: Path, value: Any, hashes: dict, lines: dict[str, int],
 
 
 def validate_worker_result(root: Path, task: dict, result: Any,
-                           hashes: dict[str, str], *, require_complete: bool = True
+                           hashes: dict[str, str], *, challenges: dict | None = None,
+                           require_complete: bool = True
                            ) -> list[str]:
     """Return bounded errors; success is NOT a security verdict or completed review."""
     errors: list[str] = []
@@ -98,6 +104,7 @@ def validate_worker_result(root: Path, task: dict, result: Any,
     if status == "completed" and require_complete and set(paths) != set(owned):
         errors.append("completed 必須涵蓋本次所有分配來源")
     known_lines: dict[str, int] = {}
+    challenges = challenges or {}
     for row in files:
         if not isinstance(row, dict) or set(row) != ALLOWED_FILE:
             errors.append("檔案結果欄位不符契約")
@@ -207,5 +214,5 @@ def validate_worker_result(root: Path, task: dict, result: Any,
 
 def finding_key(finding: dict) -> str:
     """候選去重線索；不同入口或相同根因仍需人工裁決。"""
-    return digest([finding.get(k) for k in
-                   ("rule_id", "path", "line_start", "line_end", "sink", "root_cause")])
+    return digest([str(finding.get(k, "")).strip().lower() for k in
+                   ("rule_id", "path", "line_start", "line_end", "sink")])
