@@ -79,6 +79,12 @@ class LayeredTests(unittest.TestCase):
         self.assertLessEqual(len(first["targeted_paths"]), 16)
         self.records["R-00"] = {"baseline_digest": self.baseline["checks"]["R-00"]["digest"]}
         _write(report_dir(self.root) / "analysis/adversarial-reviews.json", self.records)
+        self.assertEqual(worklist(self.root)["rules_pending"], 70)
+        self.records["R-00"].update({
+            "final_digest": digest(self.checks[0]), "hypotheses": [{}],
+            "open_issues": [],
+        })
+        _write(report_dir(self.root) / "analysis/adversarial-reviews.json", self.records)
         self.assertEqual(worklist(self.root)["rules_pending"], 69)
 
     def test_atomic_sample_integration_rejects_conflicts(self):
