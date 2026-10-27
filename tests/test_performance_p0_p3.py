@@ -185,8 +185,12 @@ class RoslynBuildCacheTests(unittest.TestCase):
 
             def fake_run(args, **kwargs):
                 calls.append(args[1])
+                if args[1] == "--version":
+                    return subprocess.CompletedProcess(args, 0, stdout="8.0.100\n", stderr="")
                 if args[1] == "build":
-                    dll = Path(kwargs["cwd"]) / "bin/Release/net8.0/roslyn-indexer.dll"
+                    # The CLI runs in isolated scratch; binary belongs to the
+                    # SDK/version-specific *project* cache directory.
+                    dll = Path(args[2]).parent / "bin/Release/net8.0/roslyn-indexer.dll"
                     dll.parent.mkdir(parents=True, exist_ok=True)
                     dll.write_bytes(b"compiled")
                     binary.append(dll)
