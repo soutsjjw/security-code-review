@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from test_multi_agent import MultiAgentTests
+import test_multi_agent as fixture_module
 from multi_agent import ANALYSIS, LEDGER, accept as first_accept, claim as first_claim, plan as first_plan
 from multi_agent_guard import proof_line_hash
 from multi_agent_second_pass import plan, claim, accept, status, SECOND, _read
