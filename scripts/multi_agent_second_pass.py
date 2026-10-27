@@ -124,12 +124,16 @@ def _active(root: Path) -> tuple[dict, dict]:
     first = _read(root / LEDGER)
     observed = protected_report_digest(root)
     recorded = state["report_guard"]
-    authorized_update = (
-        recorded != observed
-        and first.get("integration") is None
-        and first.get("report_guard") == observed
-        and any(change.get("before") == recorded and change.get("after") == observed
-                for change in first.get("integration_history", [])))
+    # The second-pass batch may span several legitimate main-agent transactions.
+    # Only accept a complete contiguous chain from its initial digest.
+    cursor = recorded
+    for change in first.get("integration_history", []):
+        if isinstance(change, dict) and change.get("before") == cursor:
+            cursor = change.get("after")
+    authorized_update = (recorded != observed
+                         and first.get("integration") is None
+                         and first.get("report_guard") == observed
+                         and cursor == observed)
     if authorized_update:
         from evidence_integrity import errors as integrity_errors
         authorized_update = not integrity_errors(root)
