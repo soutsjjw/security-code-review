@@ -127,6 +127,8 @@ def unverified_inspected_paths(
             reviews.setdefault(row["path"], row)
     by_rule: Counter[str] = Counter()
     by_reason: Counter[str] = Counter()
+    by_path: Counter[str] = Counter()
+    reason_by_path: dict[str, Counter[str]] = {}
     examples: list[dict[str, str]] = []
     link_lines: list[str] = []
     for check in assessment.get("checks") or []:
@@ -152,6 +154,8 @@ def unverified_inspected_paths(
                 reason = "invalid_file_review"
             by_rule[rid] += 1
             by_reason[reason] += 1
+            by_path[path] += 1
+            reason_by_path.setdefault(path, Counter())[reason] += 1
             link_lines.append(f"{rid}\t{path}\t{reason}")
             if len(examples) < 10:
                 examples.append({"rule_id": rid, "path": path, "reason": reason})
@@ -160,6 +164,12 @@ def unverified_inspected_paths(
         "fingerprint": hashlib.sha256("\n".join(sorted(link_lines)).encode("utf-8")).hexdigest(),
         "by_rule": dict(sorted(by_rule.items())),
         "by_reason": dict(sorted(by_reason.items())),
+        "affected_file_count": len(by_path),
+        "top_paths": [
+            {"path": path, "invalid_links": count,
+             "by_reason": dict(sorted(reason_by_path[path].items()))}
+            for path, count in sorted(by_path.items(), key=lambda item: (-item[1], item[0]))[:30]
+        ],
         "examples": examples,
         "verified": False,
         "note": "僅分類已被正式驗證器拒絕的規則／檔案關聯；不能據此直接更改檢核結論",
