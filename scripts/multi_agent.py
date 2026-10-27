@@ -87,6 +87,9 @@ def _snapshot(root: Path) -> tuple[dict, dict, dict]:
         if (not p.is_relative_to(root) or not p.is_file() or p.is_symlink()
                 or source_digest(p.read_bytes()) != sha):
             raise ValueError("來源 SHA256 無法核對：" + relative)
+    actual_head = _git_state(root)["head"]
+    if actual_head and snap.get("git_revision") != actual_head:
+        raise ValueError("來源快照 Git Revision 與實際 HEAD 不一致")
     return snap, index, assessment
 
 
@@ -115,6 +118,8 @@ def record_probe(root: Path, submitted: dict) -> dict:
         raise ValueError("P0 試跑紀錄缺少實測資訊")
     # A declaration is not proof: the main agent must retain the independent
     # experiment outputs for review; this gate only refuses missing/failed checks.
+    if all(checks.values()) and not submitted["codex_version"].strip():
+        raise ValueError("全數核可的 P0 試跑必須填入實際 Codex 版本")
     safe = {key: submitted[key] for key in ("schema_version", "codex_version",
                                             "execution_id", "checks", "evidence_note")}
     raw = json.dumps(safe, ensure_ascii=False)
