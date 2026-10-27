@@ -100,6 +100,7 @@ def guidance(rule_id: str) -> dict[str, Any]:
     info = matrix[rule_id]
     return {
         "required_for_pass": info["mode"] != "external",
+        "external_verified_pass_contract": "需真實 responsibility_evidence、control_evidence、版本快照、完整必要繞過情境與 formal evidence 交叉引用；不可用缺少 Workflow 或宣告當控制有效",
         "required_for_fail": "具原始碼／組態來源的已確認缺陷",
         "required_for_review": "靜態／混合控制已有靜態結論且確有外部阻斷",
         "pass_condition": info["pass_condition"],
@@ -162,7 +163,60 @@ def _proofs(root: Path, known: set[str], inspected: set[str],
     return errs, located
 
 
-def verification_errors(target: Path, checks: list[dict], *,
+def _external_pass_errors(
+    target: Path, check: dict, record: dict, known: set[str],
+    snapshot: dict, scenarios_required: set[str],
+) -> list[str]:
+    """Pass from proved external enforcement, never from package declarations."""
+    from decision_adjudication import external_responsibility_errors, EXTERNAL_PROOF_KINDS
+    rid = check["id"]
+    issues = external_responsibility_errors(check, record, target, known)
+    inspected = (check.get("execution") or {}).get("inspected_paths") or []
+    if not inspected:
+        issues.append(f"{rid}: P0 委外有效控制仍須有實際儲存庫檢閱範圍")
+    if (record.get("git_revision") != snapshot.get("git_revision")
+            or record.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot)):
+        issues.append(f"{rid}: P0 外部控制查證與來源快照版本不一致")
+    proof = record.get("control_evidence")
+    formal = [e for e in (check.get("evidence") or []) if isinstance(e, dict)]
+    def matches(item: Any) -> bool:
+        return (isinstance(item, dict) and item.get("kind") in EXTERNAL_PROOF_KINDS
+                and isinstance(item.get("artifact_id"), str) and item["artifact_id"].strip()
+                and any(e.get("kind") == item["kind"]
+                        and e.get("artifact_id") == item["artifact_id"] for e in formal))
+    if not matches(proof):
+        issues.append(f"{rid}: P0 外部有效控制需獨立可追溯的實際運作工件，責任歸屬不等於控制有效")
+    for field in ("control_condition", "failure_behavior", "search_summary"):
+        value = record.get(field)
+        if not isinstance(value, str) or len(value.strip()) < 24:
+            issues.append(f"{rid}: P0 外部控制缺少具體 {field} 查證內容")
+    scenarios = record.get("bypass_scenarios")
+    if not isinstance(scenarios, list):
+        scenarios = []
+    seen: set[str] = set()
+    for item in scenarios:
+        if not isinstance(item, dict):
+            issues.append(f"{rid}: P0 外部控制繞過情境必須為物件")
+            continue
+        key = item.get("scenario")
+        if not isinstance(key, str) or key in seen:
+            issues.append(f"{rid}: P0 外部控制繞過情境重複或缺少名稱")
+            continue
+        seen.add(key)
+        if (item.get("outcome") not in {"blocked", "not_applicable"}
+                or not isinstance(item.get("reason"), str)
+                or len(item["reason"].strip()) < 24
+                or not matches(item.get("evidence"))):
+            issues.append(f"{rid}: P0 {key} 缺少可追溯的外部繞過防護證據")
+    if scenarios_required - seen:
+        issues.append(f"{rid}: P0 尚未核實的外部繞過情境：" +
+                      "、".join(sorted(scenarios_required - seen)))
+    if not isinstance(record.get("open_issues"), list) or record["open_issues"]:
+        issues.append(f"{rid}: P0 外部控制仍有未完成的查證，不可宣稱 pass")
+    return issues
+
+
+def verification_errors(target: Path, checks: list[dict], *
                         index_override: dict | None = None,
                         snapshot_override: dict | None = None,
                         records_override: dict | None = None,
@@ -190,6 +244,14 @@ def verification_errors(target: Path, checks: list[dict], *,
         record = records.get(rid)
         if not isinstance(record, dict):
             errors.append(f"{rid}: P2 缺少控制存在、有效性與繞過路徑的查核紀錄")
+            continue
+        if record.get("control_proof_mode") == "external_verified":
+            if record.get("status") != "pass":
+                errors.append(f"{rid}: P0 外部有效控制紀錄狀態與 pass 不一致")
+            errors.extend(_external_pass_errors(
+                target, check, record, known, snapshot,
+                set(REQUIRED_SCENARIOS.get(rid, ("alternate_or_bypass_path",))),
+            ))
             continue
         if record.get("status") != "pass":
             errors.append(f"{rid}: P2 控制驗證紀錄與規則 pass 不一致")
