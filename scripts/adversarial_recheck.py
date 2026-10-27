@@ -78,14 +78,15 @@ def first_pass_issues(target: Path, assessment: dict[str, Any]) -> list[str]:
             or any((c.get("execution") or {}).get("state") != "completed"
                    for c in checks if isinstance(c, dict))):
         return ["第一輪：須先完成全部 70 項檢核"]
+    issues: list[str] = []
     staged_dir = target / RELATIVE / "staged"
     if staged_dir.is_dir() and any(staged_dir.glob("*.json")):
-        return ["第一輪：仍有未整合的第一輪暫存結果"]
+        issues.append("第一輪：仍有未整合的第一輪暫存結果")
     recheck = _read(target / RELATIVE / "recheck-required.json", {})
     if isinstance(recheck, dict) and recheck.get("rule_ids"):
-        return ["第一輪：來源異動後仍有待重新查核規則：" +
-                "、".join(recheck["rule_ids"])]
-    issues = (snapshot_errors(target)
+        issues.append("第一輪：來源異動後仍有待重新查核規則：" +
+                      "、".join(recheck["rule_ids"]))
+    issues += (snapshot_errors(target)
               + completion_errors(checks)
               + decision_quality_errors(checks, source_root=target)
               + closure_errors(target, assessment)
