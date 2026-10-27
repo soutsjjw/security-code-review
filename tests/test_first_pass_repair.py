@@ -112,7 +112,9 @@ class BatchGateTests(unittest.TestCase):
                  "checks": [{"id": "IN-04", "status": "na", "execution": {
                      "state": "completed", "inspected_paths": ["src/NoShell.cs"]}}]}
         with patch("file_review_integrity.verified_file_rule_reviews",
-                   return_value=({"src/NoShell.cs": set()}, [])) as verifier:
+                   return_value=({"src/NoShell.cs": set()}, [])) as verifier, \
+             patch("file_review_integrity.verified_na_inspection_links",
+                   return_value={"src/NoShell.cs": {"IN-04"}}):
             problems = batch_quality_errors(
                 Path("."), before, after,
                 changed_paths={"src/NoShell.cs"}, snapshot_paths={"src/NoShell.cs"},
@@ -126,12 +128,14 @@ class BatchGateTests(unittest.TestCase):
                  "checks": [{"id": "IN-04", "status": "na", "execution": {
                      "state": "completed", "inspected_paths": ["src/NoShell.cs"]}}]}
         with patch("file_review_integrity.verified_file_rule_reviews",
-                   return_value=({}, ["存在 1 筆未經逐檔驗證的 inspected_paths"])):
+                   return_value=({"src/NoShell.cs": set()}, [
+                       "存在 1 筆未經逐檔驗證的 inspected_paths"])) , \
+             patch("file_review_integrity.verified_na_inspection_links", return_value={}):
             problems = batch_quality_errors(
                 Path("."), before, after,
                 changed_paths={"src/NoShell.cs"}, snapshot_paths={"src/NoShell.cs"},
             )
-        self.assertTrue(problems)
+        self.assertIn("不適用檢查範圍缺少有效來源", " ".join(problems))
 
     def test_na_inspection_does_not_allow_other_statuses_without_reviews(self):
         before = {"file_reviews": [], "checks": []}
