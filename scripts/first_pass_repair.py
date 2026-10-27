@@ -12,7 +12,19 @@ from typing import Any
 from review_completion import _template
 
 REPORT = Path("reports/security-code-review/assessment.json")
-RULE_PATH = re.compile(r"^([^:\n]+): ((?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}):")
+RULE_ID = r"(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}"
+# Verifier emits both "path: RULE: details" and "RULE: path:line details".
+FILE_RULE = re.compile(rf"^(?P<path>[^:\\n]+): (?P<rule>{RULE_ID}):")
+RULE_FILE = re.compile(rf"^(?P<rule>{RULE_ID}): (?P<path>[^:\\n]+):")
+
+
+def blocker_source_path(message: str, known_paths: set[str]) -> str | None:
+    """Assign only an explicitly named, existing reviewed source path."""
+    for pattern in (FILE_RULE, RULE_FILE):
+        match = pattern.match(message)
+        if match and match.group("path") in known_paths:
+            return match.group("path")
+    return None
 
 
 def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
@@ -31,11 +43,13 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         for path in (check.get("execution") or {}).get("inspected_paths") or []:
             if isinstance(path, str):
                 links[path].add(check["id"])
+    known_paths = {row["path"] for row in rows
+                   if isinstance(row, dict) and isinstance(row.get("path"), str)}
     reasons: dict[str, Counter[str]] = defaultdict(Counter)
     for blocker in diagnostics.get("blockers", []):
-        match = RULE_PATH.match(blocker.get("message", ""))
-        if match:
-            reasons[match.group(1)][blocker.get("category", "other")] += 1
+        path = blocker_source_path(str(blocker.get("message", "")), known_paths)
+        if path:
+            reasons[path][blocker.get("category", "other")] += 1
     clusters: dict[str, set[str]] = defaultdict(set)
     for row in rows:
         if not isinstance(row, dict) or not isinstance(row.get("path"), str):
