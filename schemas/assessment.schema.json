@@ -139,8 +139,8 @@
             "type": "string"
           },
           "review_kind": {
-            "enum": ["static_done_external_pending", "external_only"],
-            "description": "僅 status=review 使用：static_done_external_pending＝靜態查核已完成、僅缺部署／政策／動態證據；external_only＝本規則本質上需外部或制度證據。"
+            "enum": ["static_done_external_pending", "external_only", "external_responsibility_pending"],
+            "description": "僅 status=review 使用：static_done_external_pending＝靜態查核已完成、僅缺部署／政策／動態證據；external_only＝本規則本質上需外部或制度證據；external_responsibility_pending＝已取得可定位的委外控制責任證據，但控制結果仍缺必要外部工件。"
           },
           "finding_ids": {
             "type": "array",
