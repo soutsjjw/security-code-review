@@ -215,7 +215,7 @@ def _build_tasks(root: Path, snap: dict, index: dict, *, max_agents: int,
 
 
 def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
-         task_tokens: int = 12000) -> dict:
+         task_tokens: int = 12000, replan: bool = False) -> dict:
     if not 1 <= max_agents <= 8 or budget_tokens < 12000 or not 2000 <= task_tokens <= 30000:
         raise ValueError("workers/budget/task_tokens 不在允許範圍")
     snap, index, _ = _snapshot(root)
@@ -230,12 +230,27 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
     current = root / LEDGER
     if current.exists():
         prior = _read(current)
-        if (prior.get("snapshot_fingerprint") != _fingerprint(snap)
-                or prior.get("probe_digest") != digest(probe)
-                or prior.get("config") != {"max_agents": max_agents, "budget_tokens": budget_tokens,
-                                         "task_tokens": task_tokens}):
-            raise ValueError("已有不同快照或設定的多代理 Ledger，不得默默覆寫")
-        return prior
+        compatible = (prior.get("snapshot_fingerprint") == _fingerprint(snap)
+                      and prior.get("probe_digest") == digest(probe)
+                      and prior.get("multi_agent_enabled") == enabled
+                      and prior.get("config") == {
+                          "max_agents": max_agents, "budget_tokens": budget_tokens,
+                          "task_tokens": task_tokens})
+        if compatible:
+            return prior
+        if not replan:
+            raise ValueError("Ledger 的 probe、執行器或分片設定已改變；須明確 --replan")
+        if any(row.get("attempts", 0) != 0 or row.get("status") != "pending"
+               or row.get("result_digest") for row in prior.get("tasks", {}).values()):
+            raise ValueError("已有進行中或已驗證證據，禁止自動重建 Ledger")
+        from datetime import datetime, timezone
+        history = root / ANALYSIS / "multi-agent/history"
+        history.mkdir(parents=True, exist_ok=True)
+        import os
+        archive = history / ("ledger-" + digest(prior)[:24] + ".json")
+        if archive.exists():
+            raise ValueError("歷史 Ledger 已存在，拒絕覆蓋")
+        os.replace(current, archive)
     state = {"schema_version": VERSION, "snapshot_fingerprint": _fingerprint(snap),
              "probe_digest": digest(probe),
              "report_guard": protected_report_digest(root),
@@ -245,7 +260,7 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
              "config": {"max_agents": max_agents, "budget_tokens": budget_tokens,
                         "task_tokens": task_tokens},
              "estimated_total_tokens": built["estimated_tokens"], "measured_tokens": 0,
-             "window_tokens": 0, "budget_window": 1,
+             "window_tokens": 0, "window_charged": 0, "budget_window": 1,
              "tasks": {key: {"task": task, "status": "pending", "attempts": 0,
                              "result_digest": None, "finding_keys": [],
                              "claimed_at": None, "agent_instance_id": None,
@@ -287,8 +302,10 @@ def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
         raise ValueError("已達 workers 同時執行上限，應等待既有 Worker")
     if any(r["task"]["worker_id"] == row["task"]["worker_id"] for r in running):
         raise ValueError("此 worker slot 正在執行另一個分片")
-    if state.get("window_tokens", 0) >= int(state["config"]["budget_tokens"] * 0.8):
-        raise ValueError("Token 達本輪 80% 預算，停止新增任務，先保存並明確續開預算")
+    maximum = int(state["config"]["budget_tokens"] * 0.8)
+    reserved = sum(x["task"]["estimated_tokens"] for x in running)
+    if state.get("window_charged", 0) + reserved + row["task"]["estimated_tokens"] > maximum:
+        raise ValueError("Token 預估與實測保守計費已達本輪 80% 預算，禁止超額派工")
     if not isinstance(agent_id, str) or not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}", agent_id):
         raise ValueError("必須提供本次執行器可追溯的獨立 agent_instance_id")
     if any(r["status"] == "running" and r.get("agent_instance_id") == agent_id
@@ -355,6 +372,8 @@ def accept(root: Path, path: Path) -> dict:
     })
     state["measured_tokens"] += result["tokens_used"]
     state["window_tokens"] = state.get("window_tokens", 0) + result["tokens_used"]
+    state["window_charged"] = state.get("window_charged", 0) + max(
+        result["tokens_used"], row["task"]["estimated_tokens"])
     _write(root / LEDGER, state)
     return {"accepted": True, "task_id": task_id,
             "needs_followup": bool(row["unresolved_symbols"]),
@@ -443,10 +462,11 @@ def renew_budget(root: Path) -> dict:
     state, _ = _active(root)
     if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
         raise ValueError("仍有執行中分片，不能在批次中途重設預算")
-    if state.get("window_tokens", 0) < int(state["config"]["budget_tokens"] * 0.8):
+    if state.get("window_charged", 0) < int(state["config"]["budget_tokens"] * 0.8):
         raise ValueError("尚未達本輪預算門檻，不需續開")
     state["budget_window"] = state.get("budget_window", 1) + 1
     state["window_tokens"] = 0
+    state["window_charged"] = 0
     _write(root / LEDGER, state)
     return {"budget_window": state["budget_window"],
             "measured_tokens_total": state["measured_tokens"],
@@ -476,6 +496,7 @@ def summary(root: Path) -> dict:
             "unresolved_symbol_count": sum(len(r.get("unresolved_symbols", []))
                                            for r in state["tasks"].values()),
             "window_tokens": state.get("window_tokens", 0),
+            "window_charged": state.get("window_charged", 0),
             "budget_window": state.get("budget_window", 1),
             "work_results_accepted": not missing and not duplicate and not unresolved,
             "formal_review_completed": False,
@@ -513,6 +534,7 @@ def main() -> int:
     parser.add_argument("--agent-id")
     parser.add_argument("--result", type=Path)
     parser.add_argument("--max-agents", type=int, default=3)
+    parser.add_argument("--replan", action="store_true")
     parser.add_argument("--budget-tokens", type=int, default=96000)
     parser.add_argument("--task-tokens", type=int, default=12000)
     args = parser.parse_args()
@@ -526,7 +548,8 @@ def main() -> int:
             answer = record_probe(root, _read(args.evidence))
         elif args.plan:
             state = plan(root, max_agents=args.max_agents,
-                         budget_tokens=args.budget_tokens, task_tokens=args.task_tokens)
+                         budget_tokens=args.budget_tokens, task_tokens=args.task_tokens,
+                         replan=args.replan)
             answer = {"multi_agent_enabled": state["multi_agent_enabled"],
                       "workers": state["workers"],
                       "fallback_reason": state["fallback_reason"],
