@@ -111,7 +111,10 @@ def diagnose(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
     from adversarial_recheck import first_pass_issues
     details: dict[str, Any] = {}
     messages = first_pass_issues(target.resolve(), assessment, diagnostics=details)
-    return summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"))
+    result = summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"))
+    if details.get("cross_file_candidates"):
+        result["cross_file_candidates"] = details["cross_file_candidates"]
+    return result
 
 
 def main() -> int:
