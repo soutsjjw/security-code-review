@@ -27,7 +27,8 @@ HIGH_RISK = re.compile(r"auth|identity|session|credential|permission|access|"
                        r"controller|endpoint|request|input|upload|serializ|"
                        r"deserializ|middleware|token|password|config", re.I)
 CHECKS = ("parallel_dispatch", "independent_context", "single_layer",
-          "enforced_read_only", "structured_result", "failure_recovery")
+          "enforced_read_only", "structured_result", "failure_recovery",
+          "first_pass_result_isolation")
 RETRY_LIMIT = 2
 
 
