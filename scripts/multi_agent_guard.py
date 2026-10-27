@@ -14,6 +14,31 @@ from source_reader import read_source_text
 REPORT = Path("reports/security-code-review")
 PROBE_TTL_SECONDS = 24 * 3600
 
+def exclusive_ledger(function):
+    """Cross-process exclusive metadata mutation; lock is never auto-stolen."""
+    from functools import wraps
+
+    @wraps(function)
+    def guarded(root: Path, *args, **kwargs):
+        directory = root.resolve() / REPORT / "analysis/multi-agent"
+        directory.mkdir(parents=True, exist_ok=True)
+        if directory.is_symlink():
+            raise ValueError("多代理工作目錄不可為符號連結")
+        lock = directory / ".exclusive-writer.lock"
+        try:
+            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError as exc:
+            raise ValueError("另一程序正在更新 Ledger，拒絕同時 claim／accept") from exc
+        try:
+            os.write(fd, b"main-agent-ledger-lock\n")
+            return function(root, *args, **kwargs)
+        finally:
+            os.close(fd)
+            lock.unlink(missing_ok=True)
+
+    return guarded
+
+
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
