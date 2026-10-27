@@ -441,7 +441,7 @@ def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
     for part in task["assigned_paths"]:
         part["challenge_lines"] = visible[part["path"]]
     task["agent_instance_id"] = agent_id
-    row["challenges"] = expected
+    row["challenges"] = visible  # Only line numbers, never expected hashes in ledger
     row["agent_instance_id"] = agent_id
     row["claimed_at"] = time.time()
     row["attempts"] += 1
@@ -502,8 +502,11 @@ def _accept_payload(root: Path, result: dict) -> dict:
         raise ValueError("已完成分片的內容與既有結果衝突")
     if row["status"] != "running":
         raise ValueError("必須先由主代理 claim 分片")
+    from multi_agent_guard import proof_line_hash
+    challenge_hashes = {path: {str(n): proof_line_hash(root, path, n) for n in positions}
+                        for path, positions in row.get("challenges", {}).items()}
     errors = validate_worker_result(root, row["task"], result, snap["source_hashes"],
-                                    challenges=row.get("challenges", {}))
+                                    challenges=challenge_hashes)
     if errors or result.get("status") != "completed":
         row["status"] = "failed"
         _write(root / LEDGER, state)
