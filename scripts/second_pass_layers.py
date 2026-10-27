@@ -159,18 +159,18 @@ def layered_errors(target: Path, assessment: dict, baseline: dict,
     if not isinstance(layer, dict) or not isinstance(layer.get("plan"), dict):
         return ["第二輪：分層計畫損毀"]
     plan = layer["plan"]
-    expected = build_plan(assessment, baseline, snapshot,
-                          sample_limit=(plan.get("sample_policy") or {}).get("limit", 24),
-                          sample_rate=(plan.get("sample_policy") or {}).get("rate", 0.1),
-                          rule_batch=(plan.get("budgets") or {}).get("max_rules_per_batch", 8),
-                          path_batch=(plan.get("budgets") or {}).get("max_paths_per_batch", 16),
-                          sample_batch=(plan.get("budgets") or {}).get("max_samples_per_batch", 4))
-    # 第一輪判定合法修訂後仍使用原本固定計畫，避免重新抽樣掩蓋發現。
+    # 完整性由既有 Journal/Manifest 維護；不因第二輪合法修訂正式 checks
+    # 而改寫原本的取樣清單，避免讓既有樣本悄悄消失。
+    chosen_rows = plan.get("sampling")
+    planned_rules = plan.get("rules")
     if (plan.get("version") != VERSION
             or plan.get("snapshot_fingerprint") != baseline.get("snapshot_fingerprint")
             or plan.get("baseline_digest") != _hash(baseline)
-            or plan.get("sampling") != expected["sampling"]
-            or plan.get("rules") != expected["rules"]):
+            or not isinstance(chosen_rows, list)
+            or not isinstance(planned_rules, dict)
+            or set(planned_rules) != set(baseline.get("checks", {}))
+            or any(not isinstance(row, dict) or row.get("path") not in snapshot.get("source_hashes", {})
+                   for row in chosen_rows)):
         return ["第二輪：固定抽樣計畫與第一輪不可變錨點不一致"]
     samples = layer.get("samples", {})
     if not isinstance(samples, dict):
