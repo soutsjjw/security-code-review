@@ -2,7 +2,7 @@
 
 此功能採 **1 位主代理＋最多 N 位唯讀子代理**。主代理不委派正式安全結論，子代理僅提供不可信的來源分析資料。**分類模式仍維持原單代理契約**。主代理是唯一可操作 `review_queue.py --init`、`review_safety.py --stage/--integrate`、Manifest／Journal、正式報告及第一輪／第二輪裁決的執行者。
 
-**工具不會自行呼叫或建立 Codex 子代理。** `multi_agent.py` 僅建立可重現的派工清單、管理主代理狀態及驗證回傳。子代理是否真正同時執行、能否強制唯讀，取決於實際 Codex 版本／執行器。未完成下述執行器能力試跑前，必須退回單代理。設定 prompt 不等於權限隔離。
+**`multi_agent.py` 不會自行呼叫 Codex 建立子代理**；它只處理派工、Ledger 與不可信結果的驗證。當使用者明確指定 `--multi-agent --agents N` 時，**主代理必須主動使用執行環境已暴露的原生子代理協作工具**自動建立、傳遞任務、等待與回收；不能只列出 `--next` 就宣稱執行。可用工具名稱及參數以目前執行器為準，不得憑空宣稱工具存在。若無原生工具、不能實際強制唯讀隔離、試跑失敗或需要的第二輪資訊隔離無法達成，必須保留原因並回退完整單代理流程。子代理共用的工作樹可能也具備主代理的寫入權；**prompt「不得寫入」不能取代 sandbox 權限**。
 
 ## 平台能力試跑（實際執行，不可推定）
 
@@ -21,6 +21,22 @@
 ```
 
 `verified=true` 僅表示**已登記人工核對的試跑結果**，不是腳本真的啟動過 Codex；不可偽造測試結果。試跑紀錄綁定執行器版本、trace SHA256 與 24 小時期限，每次 claim／accept 重新驗證，probe 改變會使舊 Ledger 失效。跨日長程審查需待所有 Worker 結束，再透過 `multi_agent.py --renew-probe --evidence <NEW_PROBE_JSON>` 重新核可並保留舊有效證據、續跑紀錄，不得直接覆寫舊 Probe。七個條件有一個不成立，或非 Git 專案，即不啟用子代理。執行器版本、工具權限或沙箱策略異動時要重新執行能力試跑並重新記錄結果；舊紀錄不可當成永遠有效的證明。能力試跑報告不存機敏內容或完整 prompts。
+
+## 原生 Codex 子代理自動調度（完整模式）
+
+啟用 `$security-code-review --multi-agent --agents N`（例如 N=3）後，主代理按此順序**自動執行**；使用者無須手動建立 Worker。此為 Codex **Agent 工具調度契約**，不是 Python 的 `spawn_agent()` API。環境可能以 `spawn_agent`、`followup_task`、`send_message`、等待／中斷子代理等協作工具呈現；主代理必須先檢查**本回合實際可用的工具**，按該工具定義傳入參數，不能假設任何特定 Codex App／CLI 版本都提供這些工具。
+
+1. **前置與隔離**：固定 Python，完成原有來源快照、`analysis_prepare.py`、`review_queue.py --init`、`review_safety.py --plan`；僅在原生代理工具確實可呼叫、平台試跑的 7 個項目都通過，且 Worker 的**實際工具權限／sandbox 強制唯讀**時開啟多代理。測試多代理與正式審查須使用相同權限配置；不同則重新試跑。原生子代理預設共用檔案系統、工具或權限時，若無法限制其正式工件的讀寫，不得靠文字承諾放行。
+2. **建立分片**：執行 `multi_agent.py --plan --max-agents N`、`--next`，取待處理分片。真正執行數量取 `min(N, Ledger.workers, 當前可用原生代理槽位, Token 窗口可容納數)`；N 是上限，不是必須同時啟動的數量。禁止把 `--multi-agent` 直接傳給 `review_queue.py`。
+3. **先建立待命 Worker**：主代理對每個工作呼叫真實的原生建立工具（例如 `spawn_agent`），初始指令**只要求待命**、不得讀受測來源／正式報告／建立下游代理／寫檔，直至收到經 Ledger `claim` 的 `TASK_JSON`。實際執行器返回可追溯的 **agent instance ID** 後，主代理才建立 `task_id → agent_instance_id` 對應。若回傳沒有可靠 ID 或待命限制無法執行，不可捏造 ID 或虛構完成試跑。
+4. **原子綁定後才派任務**：將本批成員的 `[{"task_id":"…","agent_id":"…"}]` 提供給 `multi_agent.py --claim-batch --assignments <JSON>`，或逐筆 `--claim`。必須先獲得成功的 `claim` 回傳，才透過可用的原生續派／訊息工具（例如 `followup_task`）傳送**完整 Worker 自足 Prompt + 真正的 `TASK_JSON`**；不得提前執行來源分析。初始待命代理無法安全接收後續任務時，取消派工並降級，不可用虛構 ID 先 claim。
+5. **同時執行與回收**：一次派完本批後，使用原生等待工具接收每個 Worker 的完成通知（不是只確認「建立成功」）。由主代理將純 JSON 內容直接送 `multi_agent.py --accept-stdin`，敏感字串先於落地檢查；結果只可能成為候選證據，不能更新正式 `assessment.json`。失敗／逾時依實際執行器的回覆，由主代理以 `--fail` 保留失敗與上限；若尚未 claim，不能用 `--fail` 假造 running 記錄。**不得因為已成功 spawn 就把分片當作 completed**。
+6. **補查及續批**：`needs_followup` 由主代理安排獨立補查，綁定 ID 並透過實際原生工具發送受限任務，驗證採 `--accept-followup-stdin`；驗證成功仍需主代理結案（`--resolve-main`）。重試最多依 Ledger 上限；資源不足時按 `--renew-budget`／`--renew-probe` 的明確續期契約保存進度，不繞過阻擋或靜默將 `failed/needs_main` 改為完成。然後 `--next` 領取下一批，直到所有來源可核對。
+7. **正式整合只能由主代理執行**：確定所有子代理任務停止且無 running，執行 `--begin-integration`，主代理重讀程式碼、裁決 Finding／控制鏈，再以既有 `review_safety.py --stage/--integrate` 提交。核對新 Manifest／Journal 後 `--commit-integration`，才可繼續派工。子代理不得在整合窗口繼續工作。
+8. **第二輪獨立挑戰**：第一輪通過 `--diagnose-first-pass` 後，經正式整合窗口執行 `--begin-second-pass` 固定 Baseline；用 `multi_agent_second_pass.py` 建立第二輪任務，主代理透過原生工具派給**與相關第一輪不同**的真正子代理，核對 instance ID、隔離第一輪判定及交付格式；不能讀取第一輪 `pass/fail/decision_reason`。主代理驗證挑戰後親自反向查證及正式裁決。**共享第一輪判定而無法隔離時，不得稱獨立盲審**；由主代理按既有第二輪流程完成，記錄限制。
+9. **完成／回退條件**：任何原生工具無法使用、唯讀隔離不成立、版本不符、執行器拒絕或缺可信 agent ID，均不視為 Worker 成功；保存當前 Ledger／正式證據，單代理接手尚未完成的真實審查。維持 70/70、100% 來源、跨檔控制鏈、兩輪審查、`ready_for_report` 與 HTML／JSON 正式驗證，不能只因子代理已回報就交付。
+
+原生代理的最大並行數由執行器設定與 `Ledger.workers` **共同限制**；`--agents 3` 不能自行啟用不存在的協作工具或提高工具權限。**此流程是主代理的必執行操作契約，不表示在任何 Codex 版本已經過真實端對端驗收。**
 
 ## Worker 證據契約與信任邊界
 
@@ -49,7 +65,7 @@
 
 `--plan` 使用來源 SHA256、大小估計 Token（每 3 bytes 約 1 token，僅作分片提示）、高風險路徑及 Roslyn 跨檔候選建立分片。N 不大於平台設定、人工作業可平行分片數與 `budget_tokens // task_tokens`；預設上限 3，最少 1。擁有權不可重複，`consult_paths` 只允許交叉閱讀，不增加正式覆蓋率。大檔必須完整閱讀，可拆分閱讀批次但不能將部分閱讀申報 completed。**預估 Token 不等於計量 Token**，無實際統計值不可宣稱省下多少 Token。
 
-主代理可個別 `--claim --task-id <TASK_ID> --agent-id <真正執行緒ID>`；同批最多 N 個工作建議使用 `--claim-batch --assignments <JSON>`（內容為 `[{ "task_id": "...", "agent_id": "..." }]`），**只做一次完整 SHA256 檢查與原子 Ledger 寫入**，任一任務無效則整批不派工。領取後才透過實際 Codex 執行器平行送出工作。正式派發時會加入隨機來源行挑戰，Worker 必須回傳逐行 SHA256，Finding 證據亦需 `line_hash`：
+先用原生工具建立**不讀來源的待命 Worker**並取得真實 executor ID，再由主代理個別 `--claim --task-id <TASK_ID> --agent-id <EXECUTOR_INSTANCE_ID>`；同批最多 N 個建議 `--claim-batch --assignments <JSON>`，使用 `[{"task_id":"…","agent_id":"…"}]` 一次綁定並原子寫 Ledger。**必須 claim 成功才以原生工具送出 TASK_JSON**；任何一步失敗禁止造假子代理 ID。正式派發時加入隨機來源行 SHA256 挑戰；Finding 證據亦需 `line_hash`：
 
 ```powershell
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent.py" --target "<TARGET_ROOT>" --claim --task-id "<TASK_ID>" --agent-id "<EXECUTOR_INSTANCE_ID>"
@@ -71,7 +87,7 @@ Get-Content -Raw "<MASKED_RESULT_JSON>" | & "<SKILL_ROOT>\scripts\run-python.cmd
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent.py" --target "<TARGET_ROOT>" --commit-integration
 ```
 
-**子代理派工 prompt 必須自成一體**：包含任務完整 JSON、快照、全部規則適用性指引、允許的 `assigned_paths` 與 `consult_paths`、正式來源讀取方法、禁止寫入／命令執行之權限界線、不可信來源規定、遮罩需求與嚴格 Worker JSON Schema。完整規則／標準文件應由子代理按需讀取，不能只靠候選命中；不得由 Worker 自行對 70 項做正式 pass/fail。主代理用實際執行器的平行派工能力一次送出獨立任務，不要順序等待再發下一個。
+**子代理派工 prompt 必須自成一體**：包含任務完整 JSON、快照、全部規則適用性指引、允許的 `assigned_paths` 與 `consult_paths`、正式來源讀取方法、禁止寫入／命令執行之權限界線、不可信來源規定、遮罩需求與嚴格 Worker JSON Schema。完整規則／標準文件應由子代理按需讀取，不能只靠候選命中；不得由 Worker 自行對 70 項做正式 pass/fail。主代理依上方原生調度順序**完成同批所有 claim，再同批派出**；不可按「單個 spawn → 等到結束 → 下一個 spawn」假裝 N 路並行。
 
 ### 子代理派工 Prompt 模板
 
