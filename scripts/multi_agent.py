@@ -350,6 +350,10 @@ def begin_integration(root: Path) -> dict:
     state, _ = _active(root)
     if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
         raise ValueError("仍有執行中的 Worker，不得進入主代理正式整合窗口")
+    second_path = root / ANALYSIS / "multi-agent/second-pass-ledger.json"
+    if second_path.exists() and any(x["status"] == "running"
+                                    for x in _read(second_path)["tasks"].values()):
+        raise ValueError("第二輪仍有執行中的 Worker，不可開啟整合窗口")
     from evidence_integrity import errors, MANIFEST
     integrity_errors = errors(root)
     if integrity_errors:
@@ -393,22 +397,19 @@ def commit_integration(root: Path) -> dict:
     # At this point the official journal has independently authenticated all
     # authoritative tracked files. The coordinator does not write them.
     newer = protected_report_digest(root)
+    secondary_path = root / ANALYSIS / "multi-agent/second-pass-ledger.json"
+    if secondary_path.exists():
+        secondary = _read(secondary_path)
+        if (secondary.get("snapshot_fingerprint") != state["snapshot_fingerprint"]
+                or secondary.get("report_guard") != integration["before"]
+                or any(x.get("status") == "running" for x in secondary["tasks"].values())):
+            raise ValueError("第二輪仍有 running 工作或報告指紋不同步")
     state["report_guard"] = newer
     state["integration"] = None
     state.setdefault("integration_history", []).append({
         "sequence": manifest["sequence"], "manifest_head": manifest["head"],
         "before": integration["before"], "after": newer})
     _write(root / LEDGER, state)
-    other = root / ANALYSIS / "multi-agent/second-pass-ledger.json"
-    if other.exists():
-        secondary = _read(other)
-        if (secondary.get("snapshot_fingerprint") != state["snapshot_fingerprint"]
-                or secondary.get("report_guard") != integration["before"]):
-            raise ValueError("第二輪 Ledger 指紋不同步；須先核對後才能使用")
-        secondary["report_guard"] = newer
-        secondary.setdefault("integration_history", []).append({
-            "sequence": manifest["sequence"], "manifest_head": manifest["head"]})
-        _write(other, secondary)
     return {"integration_closed": True, "manifest_sequence": manifest["sequence"],
             "source_revision_unchanged": True, "official_review_completed": False}
 
