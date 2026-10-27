@@ -106,6 +106,45 @@ class BatchGateTests(unittest.TestCase):
                          changed_paths={"src/Handler.cs"}, snapshot_paths={"src/Handler.cs"})
         self.assertIn("缺少 rule_reviews", " ".join(problems))
 
+    def test_completed_na_inspection_skips_fake_rule_review_but_uses_full_gate(self):
+        before = {"file_reviews": [], "checks": []}
+        after = {"file_reviews": [{"path": "src/NoShell.cs", "rule_reviews": []}],
+                 "checks": [{"id": "IN-04", "status": "na", "execution": {
+                     "state": "completed", "inspected_paths": ["src/NoShell.cs"]}}]}
+        with patch("file_review_integrity.verified_file_rule_reviews",
+                   return_value=({"src/NoShell.cs": set()}, [])) as verifier:
+            problems = batch_quality_errors(
+                Path("."), before, after,
+                changed_paths={"src/NoShell.cs"}, snapshot_paths={"src/NoShell.cs"},
+            )
+        self.assertEqual(problems, [])
+        verifier.assert_called_once()
+
+    def test_completed_na_with_invalid_source_is_rejected(self):
+        before = {"file_reviews": [], "checks": []}
+        after = {"file_reviews": [{"path": "src/NoShell.cs", "rule_reviews": []}],
+                 "checks": [{"id": "IN-04", "status": "na", "execution": {
+                     "state": "completed", "inspected_paths": ["src/NoShell.cs"]}}]}
+        with patch("file_review_integrity.verified_file_rule_reviews",
+                   return_value=({}, ["存在 1 筆未經逐檔驗證的 inspected_paths"])):
+            problems = batch_quality_errors(
+                Path("."), before, after,
+                changed_paths={"src/NoShell.cs"}, snapshot_paths={"src/NoShell.cs"},
+            )
+        self.assertTrue(problems)
+
+    def test_na_inspection_does_not_allow_other_statuses_without_reviews(self):
+        before = {"file_reviews": [], "checks": []}
+        after = {"file_reviews": [{"path": "src/NoShell.cs", "rule_reviews": []}],
+                 "checks": [{"id": "IN-04", "status": "pass", "execution": {
+                     "state": "completed", "inspected_paths": ["src/NoShell.cs"]}}]}
+        with patch("file_review_integrity.verified_file_rule_reviews", return_value=({}, [])):
+            problems = batch_quality_errors(
+                Path("."), before, after,
+                changed_paths={"src/NoShell.cs"}, snapshot_paths={"src/NoShell.cs"},
+            )
+        self.assertIn("缺少 rule_reviews", " ".join(problems))
+
     def test_new_mass_template_is_blocked_without_invalidating_unchanged_backlog(self):
         reason = "檢查了這個檔案的共同安全控制邏輯，確認各項來源位置。"
         original = [file_review(f"File{i}.cs", reason) for i in range(15)]
