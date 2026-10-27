@@ -185,7 +185,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
-- 預設維持單代理執行；僅在明確指定 `--multi-agent`、完成 Codex 真實 P0 試跑及強制唯讀能力核對時，才可依 [受控多代理 P0～P3](multi-agent-review.md) 進行唯讀分工。所有正式審查與寫入仍由單一主代理完成；保留來源、跨檔關聯、控制有效性與第二輪完整性守門。
+- 預設維持單代理執行；僅在明確指定 `--multi-agent`、完成 Codex 真實 執行器試跑及強制唯讀能力核對時，才可依 [受控多代理 受控多代理](multi-agent-review.md) 進行唯讀分工。所有正式審查與寫入仍由單一主代理完成；保留來源、跨檔關聯、控制有效性與第二輪完整性守門。
 
 完成條件：
 
@@ -267,7 +267,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。
 
-選用多代理時，使用者可明確指定 `$security-code-review --multi-agent --agents 3`，或將上方 `/goal` 首句改成「使用 `$security-code-review --multi-agent --agents 3`」；主代理仍須先完成 [P0 真實試跑](multi-agent-review.md)，不可因提供參數就宣稱已具有唯讀子代理。回傳結果必須依 Worker Schema 驗證；成功也不能代替完整審查。
+選用多代理時，使用者可明確指定 `$security-code-review --multi-agent --agents 3`，或將上方 `/goal` 首句改成「使用 `$security-code-review --multi-agent --agents 3`」；主代理仍須先完成 [執行器能力試跑](multi-agent-review.md)，不可因提供參數就宣稱已具有唯讀子代理。回傳結果必須依 Worker Schema 驗證；成功也不能代替完整審查。
 單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
 ## 完整模式第二輪的分層式工作清單
@@ -386,7 +386,7 @@ V3.2 限用 ASP.NET/.NET、IIS 與通用 Web 安全控制，**排除 Java 與 PH
 
 ## 編碼與來源核對
 
-來源檔支援 UTF-8、UTF-8-BOM、帶 BOM UTF-16；必要時唯讀回退 CP950、CP1252，並保留可能誤判的警告。JSON/HTML 輸出維持 UTF-8，**不修改受測原始檔**。
+來源檔支援 UTF-8、UTF-8-BOM、帶 BOM UTF-16；必要時唯讀回退 CP950、CWorker 證據契約252，並保留可能誤判的警告。JSON/HTML 輸出維持 UTF-8，**不修改受測原始檔**。
 
 若需要檢查指定行號，Agent 可呼叫：
 
