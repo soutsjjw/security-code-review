@@ -215,5 +215,27 @@ class RealProjectQualityGateTests(unittest.TestCase):
         # 本測試用模擬的 build_queue；正式執行須通過真實 Q1~Q4 的判定守門。
 
 
+    def test_project_acceptance_requires_full_verified_queue_not_compact_preview(self):
+        self.save()
+        seen = []
+
+        def checked_queue(data, rules, batch_size, *, source_root=None, compact=False, **kwargs):
+            seen.append((compact, source_root))
+            if compact:
+                return {"completed": 70, "ready_for_report": False,
+                        "source_coverage": {"source_file_count": 1,
+                                            "reviewed_source_file_count": 1,
+                                            "missing_source_file_count": 0,
+                                            "verified": False}}
+            return copy.deepcopy(self.queue)
+
+        with patch("quality_gate.build_queue", side_effect=checked_queue), \
+             patch("quality_gate.report_artifact_errors", return_value=[]):
+            outcome = measure(self.root)
+        self.assertTrue(outcome["quality_gate_passed"], outcome["diagnostics"])
+        self.assertEqual(seen, [(False, self.root.resolve())])
+
+
+
 if __name__ == "__main__":
     unittest.main()
