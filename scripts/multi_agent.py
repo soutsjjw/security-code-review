@@ -238,6 +238,8 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
                           "max_agents": max_agents, "budget_tokens": budget_tokens,
                           "task_tokens": task_tokens})
         if compatible:
+            if prior.get("report_guard") != protected_report_digest(root):
+                raise ValueError("既有 Ledger 的正式報告指紋已異動，禁止重新使用")
             return prior
         if not replan:
             raise ValueError("Ledger 的 probe、執行器或分片設定已改變；須明確 --replan")
@@ -255,6 +257,7 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
     state = {"schema_version": VERSION, "snapshot_fingerprint": _fingerprint(snap),
              "probe_digest": digest(probe),
              "report_guard": protected_report_digest(root),
+             "integration": None,
              "git_state": _git_state(root), "multi_agent_enabled": enabled,
              "workers": built["workers"],
              "fallback_reason": None if enabled else "P0 尚未實測核可，退回單代理",
@@ -275,6 +278,8 @@ def _active(root: Path) -> tuple[dict, dict]:
     state = _read(root / LEDGER)
     snap, _, _ = _snapshot(root)
     probe = _read(root / PROBE) if (root / PROBE).exists() else {}
+    if state.get("integration") is not None:
+        raise ValueError("主代理正式整合窗口尚未結束，禁止分派／收件子代理")
     if state.get("probe_digest") != digest(probe):
         raise ValueError("能力 probe 變更，Ledger 失效；不得沿用舊派工")
     if state.get("report_guard") != protected_report_digest(root):
@@ -287,6 +292,75 @@ def _active(root: Path) -> tuple[dict, dict]:
             or state.get("git_state") != _git_state(root)):
         raise ValueError("來源或 Git 狀態異動；停用既有子代理結果並重新查證")
     return state, snap
+
+
+@exclusive_ledger
+def begin_integration(root: Path) -> dict:
+    """Freeze worker activity before authoritative main-agent Stage/Integrate."""
+    state, _ = _active(root)
+    if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
+        raise ValueError("仍有執行中的 Worker，不得進入主代理正式整合窗口")
+    from evidence_integrity import errors, MANIFEST
+    integrity_errors = errors(root)
+    if integrity_errors:
+        raise ValueError("正式交易完整性不符：" + "；".join(integrity_errors[:4]))
+    manifest = _read(root / MANIFEST)
+    if not isinstance(manifest.get("sequence"), int) or not isinstance(manifest.get("head"), str):
+        raise ValueError("缺少有效 Manifest，禁止放行主代理整合")
+    state["integration"] = {
+        "before": state["report_guard"], "sequence": manifest["sequence"],
+        "head": manifest["head"], "started_at": time.time()}
+    _write(root / LEDGER, state)
+    return {"integration_open": True, "manifest_sequence": manifest["sequence"],
+            "warning": "整合窗口內僅允許主代理執行正式 Stage/Integrate，子代理不得讀寫"}
+
+
+@exclusive_ledger
+def commit_integration(root: Path) -> dict:
+    """Re-seal verified main-agent transaction without trusting arbitrary edits."""
+    state = _read(root / LEDGER)
+    integration = state.get("integration")
+    if not isinstance(integration, dict):
+        raise ValueError("沒有已授權的主代理整合窗口")
+    if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
+        raise ValueError("Worker 仍在執行，不得重封存")
+    snapshot, _, _ = _snapshot(root)
+    if (state["snapshot_fingerprint"] != _fingerprint(snapshot)
+            or state["git_state"] != _git_state(root)):
+        raise ValueError("主代理整合期間原始碼或 Git 狀態改變")
+    probe = _read(root / PROBE) if (root / PROBE).exists() else {}
+    if state.get("probe_digest") != digest(probe):
+        raise ValueError("整合期間 Probe 已異動，拒絕重封存")
+    from evidence_integrity import errors, MANIFEST
+    problems = errors(root)
+    if problems:
+        raise ValueError("正式 Manifest／Journal 驗證不通過：" + "；".join(problems[:4]))
+    manifest = _read(root / MANIFEST)
+    if (type(manifest.get("sequence")) is not int
+            or manifest["sequence"] <= integration["sequence"]
+            or manifest.get("head") == integration["head"]):
+        raise ValueError("缺少新的有效 Stage/Integrate 交易，不得默認合法變更")
+    # At this point the official journal has independently authenticated all
+    # authoritative tracked files. The coordinator does not write them.
+    newer = protected_report_digest(root)
+    state["report_guard"] = newer
+    state["integration"] = None
+    state.setdefault("integration_history", []).append({
+        "sequence": manifest["sequence"], "manifest_head": manifest["head"],
+        "before": integration["before"], "after": newer})
+    _write(root / LEDGER, state)
+    other = root / ANALYSIS / "multi-agent/second-pass-ledger.json"
+    if other.exists():
+        secondary = _read(other)
+        if (secondary.get("snapshot_fingerprint") != state["snapshot_fingerprint"]
+                or secondary.get("report_guard") != integration["before"]):
+            raise ValueError("第二輪 Ledger 指紋不同步；須先核對後才能使用")
+        secondary["report_guard"] = newer
+        secondary.setdefault("integration_history", []).append({
+            "sequence": manifest["sequence"], "manifest_head": manifest["head"]})
+        _write(other, secondary)
+    return {"integration_closed": True, "manifest_sequence": manifest["sequence"],
+            "source_revision_unchanged": True, "official_review_completed": False}
 
 
 @exclusive_ledger
@@ -542,7 +616,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "plan", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
+    for name in ("probe-template", "record-probe", "plan", "begin-integration", "commit-integration", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -570,6 +644,10 @@ def main() -> int:
                       "workers": state["workers"],
                       "fallback_reason": state["fallback_reason"],
                       "task_count": len(state["tasks"]), "formal_review_completed": False}
+        elif args.begin_integration:
+            answer = begin_integration(root)
+        elif args.commit_integration:
+            answer = commit_integration(root)
         elif args.next:
             state, _ = _active(root)
             answer = {"tasks": [row["task"] for row in state["tasks"].values()
