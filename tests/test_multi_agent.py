@@ -92,6 +92,16 @@ class MultiAgentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "probe|試跑"):
             claim(self.root, next(iter(state["tasks"])), agent_id="codex-test-001")
 
+    def test_ledger_lock_rejects_concurrent_process_mutation(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        lock = self.root / ANALYSIS / "multi-agent/.exclusive-writer.lock"
+        lock.write_text("another agent is updating ledger", "utf-8")
+        with self.assertRaisesRegex(ValueError, "另一程序"):
+            claim(self.root, next(iter(state["tasks"])), agent_id="codex-test-001")
+        self.assertTrue(lock.exists())
+        lock.unlink()
+
     def test_worker_concurrency_cannot_exceed_n(self):
         from multi_agent import _write
         # Keep each file large enough to create separate tasks.
