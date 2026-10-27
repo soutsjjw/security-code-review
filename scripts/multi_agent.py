@@ -159,6 +159,7 @@ def _build_tasks(root: Path, snap: dict, index: dict, *, max_agents: int,
     for b in bins:
         b["files"].sort(key=lambda x: x["path"])
     bins.sort(key=lambda x: min(e["path"] for e in x["files"]))
+    workers = min(workers, len(bins) or 1)
     result = {}
     fp = _fingerprint(snap)
     relations = index.get("cross_file_call_hints") or {}
@@ -223,6 +224,7 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
              "config": {"max_agents": max_agents, "budget_tokens": budget_tokens,
                         "task_tokens": task_tokens},
              "estimated_total_tokens": built["estimated_tokens"], "measured_tokens": 0,
+             "window_tokens": 0, "budget_window": 1,
              "tasks": {key: {"task": task, "status": "pending", "attempts": 0,
                              "result_digest": None, "finding_keys": []}
                        for key, task in built["tasks"].items()}}
@@ -246,8 +248,8 @@ def claim(root: Path, task_id: str) -> dict:
         raise ValueError("未知 task_id")
     if row["status"] not in {"pending", "failed"} or row["attempts"] >= RETRY_LIMIT:
         raise ValueError("此分片不可重複派發；需主代理改為單代理調查")
-    if state["measured_tokens"] >= state["config"]["budget_tokens"]:
-        raise ValueError("Token 已達預算，停止新增平行工作")
+    if state.get("window_tokens", 0) >= int(state["config"]["budget_tokens"] * 0.8):
+        raise ValueError("Token 達本輪 80% 預算，停止新增任務，先保存並明確續開預算")
     row["attempts"] += 1
     row["status"] = "running"
     _write(root / LEDGER, state)
@@ -296,9 +298,25 @@ def accept(root: Path, path: Path) -> dict:
         finding_key(f) for entry in result["files"] for f in entry["findings"]
     })
     state["measured_tokens"] += result["tokens_used"]
+    state["window_tokens"] = state.get("window_tokens", 0) + result["tokens_used"]
     _write(root / LEDGER, state)
     return {"accepted": True, "task_id": task_id, "finding_keys": row["finding_keys"],
             "notice": "僅代表 Worker 格式、範圍和來源定位可驗證；主代理仍須重讀所有 Finding 與正式 Stage/Integrate"}
+
+
+def renew_budget(root: Path) -> dict:
+    # Main agent must checkpoint and explicitly start the next budget window.
+    state, _ = _active(root)
+    if any(row["status"] == "running" for row in state["tasks"].values()):
+        raise ValueError("仍有執行中分片，不能在批次中途重設預算")
+    if state.get("window_tokens", 0) < int(state["config"]["budget_tokens"] * 0.8):
+        raise ValueError("尚未達本輪預算門檻，不需續開")
+    state["budget_window"] = state.get("budget_window", 1) + 1
+    state["window_tokens"] = 0
+    _write(root / LEDGER, state)
+    return {"budget_window": state["budget_window"],
+            "measured_tokens_total": state["measured_tokens"],
+            "formal_review_completed": False}
 
 
 def summary(root: Path) -> dict:
@@ -318,6 +336,8 @@ def summary(root: Path) -> dict:
             "missing_source_paths": missing, "duplicate_primary_ownership": duplicate,
             "unresolved_tasks": unresolved,
             "measured_tokens": state["measured_tokens"],
+            "window_tokens": state.get("window_tokens", 0),
+            "budget_window": state.get("budget_window", 1),
             "work_results_accepted": not missing and not duplicate and not unresolved,
             "formal_review_completed": False,
             "notice": "Worker 自述覆蓋不等於正式逐檔審查；仍需 70 規則、跨檔閉包、第二輪及正式守門。"}
@@ -346,7 +366,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "plan", "next", "claim", "fail", "accept",
+    for name in ("probe-template", "record-probe", "plan", "next", "claim", "fail", "renew-budget", "accept",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -385,6 +405,8 @@ def main() -> int:
             if not args.task_id:
                 raise ValueError("--fail 必須指定 --task-id")
             answer = fail(root, args.task_id)
+        elif args.renew_budget:
+            answer = renew_budget(root)
         elif args.accept:
             if args.result is None:
                 raise ValueError("--accept 必須指定 --result")
