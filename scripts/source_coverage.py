@@ -111,6 +111,57 @@ def provisional_source_coverage(assessment: dict[str, Any], source_root: Path) -
     }
 
 
+
+def unverified_inspected_paths(
+    assessment: dict[str, Any], expected: set[str], verified: dict[str, set[str]],
+) -> dict[str, Any]:
+    """Group rule/file links rejected by the authoritative file verifier.
+
+    These are diagnostics only: an existing row does not prove that its SHA,
+    rule applicability, line numbers, or control evidence is valid.
+    """
+    reviews: dict[str, dict[str, Any]] = {}
+    for row in assessment.get("file_reviews") or []:
+        if isinstance(row, dict) and isinstance(row.get("path"), str):
+            reviews.setdefault(row["path"], row)
+    by_rule: Counter[str] = Counter()
+    by_reason: Counter[str] = Counter()
+    examples: list[dict[str, str]] = []
+    for check in assessment.get("checks") or []:
+        if not isinstance(check, dict) or not isinstance(check.get("id"), str):
+            continue
+        if (check.get("execution") or {}).get("state") != "completed":
+            continue
+        rid = check["id"]
+        recorded = (check.get("execution") or {}).get("inspected_paths") or []
+        if not isinstance(recorded, list):
+            continue
+        for path in sorted(set(p for p in recorded if isinstance(p, str)) & expected):
+            if rid in verified.get(path, set()):
+                continue
+            row = reviews.get(path)
+            if row is None:
+                reason = "missing_file_review"
+            elif not isinstance(row.get("rule_reviews"), list) or not any(
+                    isinstance(item, dict) and item.get("rule_id") == rid
+                    for item in row["rule_reviews"]):
+                reason = "missing_rule_review"
+            else:
+                reason = "invalid_file_review"
+            by_rule[rid] += 1
+            by_reason[reason] += 1
+            if len(examples) < 10:
+                examples.append({"rule_id": rid, "path": path, "reason": reason})
+    return {
+        "total": sum(by_rule.values()),
+        "by_rule": dict(sorted(by_rule.items())),
+        "by_reason": dict(sorted(by_reason.items())),
+        "examples": examples,
+        "verified": False,
+        "note": "僅分類已被正式驗證器拒絕的規則／檔案關聯；不能據此直接更改檢核結論",
+    }
+
+
 def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
                           ignored_artifacts: Iterable[Path | None] = (),
                           selected_categories: tuple[str, ...] = CATEGORIES) -> dict[str, Any]:
@@ -140,6 +191,7 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
     verified, integrity_errors = verified_file_rule_reviews(
         assessment, root, expected, selected_categories=selected_categories)
     inspected = set(verified)
+    link_gaps = unverified_inspected_paths(assessment, expected, verified)
 
     missing = sorted(expected - inspected)
     counts = Counter(Path(path).suffix.lower() or Path(path).name for path in missing)
@@ -151,5 +203,6 @@ def build_source_coverage(assessment: dict[str, Any], source_root: Path, *,
         "missing_source_paths": missing,
         "missing_by_type": dict(sorted(counts.items())),
         "review_integrity_errors": integrity_errors,
+        "unverified_inspected_paths": link_gaps,
         "reviewed_file_rule_ids": {p: sorted(ids) for p, ids in sorted(verified.items())},
     }
