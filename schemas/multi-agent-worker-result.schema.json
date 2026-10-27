@@ -11,7 +11,8 @@
     "status",
     "files",
     "issues",
-    "tokens_used"
+    "tokens_used",
+    "agent_instance_id"
   ],
   "properties": {
     "schema_version": {
@@ -52,6 +53,12 @@
       "items": {
         "$ref": "#/$defs/file"
       }
+    },
+    "agent_instance_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
     }
   },
   "$defs": {
@@ -80,7 +87,8 @@
         "path",
         "line_start",
         "line_end",
-        "summary"
+        "summary",
+        "line_hash"
       ],
       "properties": {
         "path": {
@@ -99,6 +107,10 @@
           "type": "string",
           "minLength": 12,
           "maxLength": 1000
+        },
+        "line_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },
@@ -199,7 +211,8 @@
         "sink",
         "root_cause",
         "summary",
-        "evidence"
+        "evidence",
+        "line_hash"
       ],
       "properties": {
         "rule_id": {
@@ -239,6 +252,10 @@
           "items": {
             "$ref": "#/$defs/proof"
           }
+        },
+        "line_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },
@@ -252,7 +269,8 @@
         "category_screening",
         "rule_states",
         "unresolved_symbols",
-        "findings"
+        "findings",
+        "line_challenges"
       ],
       "properties": {
         "path": {
@@ -333,6 +351,27 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/finding"
+          }
+        },
+        "line_challenges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "line",
+              "sha256"
+            ],
+            "properties": {
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
           }
         }
       }
