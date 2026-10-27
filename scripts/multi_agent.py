@@ -547,6 +547,72 @@ def accept_followup(root: Path, path: Path) -> dict:
 
 
 @exclusive_ledger
+def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
+    """Do not clear needs_main merely by editing a status flag."""
+    state, snap = _active(root)
+    row = state["tasks"].get(task_id)
+    if row is None or row["status"] not in ("needs_main", "needs_followup"):
+        raise ValueError("僅允許主代理結案未解符號")
+    if evidence_path.is_symlink() or not evidence_path.is_file() or evidence_path.stat().st_size > 2_000_000:
+        raise ValueError("主代理結案證據不可為 symlink 或過大檔案")
+    document = _read(evidence_path)
+    if not isinstance(document, dict) or set(document) != {"task_id", "resolved", "manifest_head"}:
+        raise ValueError("主代理結案證據欄位不完整")
+    from multi_agent_contract import SECRET
+    if SECRET.search(json.dumps(document, ensure_ascii=False)):
+        raise ValueError("主代理結案證據含疑似機敏資訊")
+    from evidence_integrity import errors as integrity_errors, MANIFEST
+    if integrity_errors(root):
+        raise ValueError("正式審查資料完整性尚未通過驗證")
+    manifest = _read(root / MANIFEST)
+    if not isinstance(manifest, dict) or document["manifest_head"] != manifest.get("head"):
+        raise ValueError("結案證據未綁定有效正式審查 Manifest")
+    if not isinstance(document["resolved"], list):
+        raise ValueError("resolved 必須為陣列")
+    expected = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
+    observed: set[tuple] = set()
+    from multi_agent_guard import proof_line_hash
+    index = _read(root / INDEX)
+    for item in document["resolved"]:
+        if not isinstance(item, dict) or set(item) != {
+                "path", "name", "line_start", "target_path", "target_line",
+                "target_line_hash", "reason"}:
+            raise ValueError("未解符號結案欄位不符合契約")
+        ident = (item.get("path"), item.get("name"), item.get("line_start"))
+        if ident not in expected or ident in observed:
+            raise ValueError("未解符號缺失、重複或不屬於本批")
+        observed.add(ident)
+        target = item["target_path"]
+        line = item["target_line"]
+        if (not isinstance(target, str) or target not in snap["source_hashes"]
+                or type(line) is not int or line < 1
+                or item["target_line_hash"] != proof_line_hash(root, target, line)
+                or not isinstance(item["reason"], str) or len(item["reason"].strip()) < 35):
+            raise ValueError("主代理證據沒有有效的目標行及 SHA256")
+        # Match at least one indexed cross-file candidate; this remains a
+        # candidate, so the main agent must separately verify actual call behavior.
+        hints = (index.get("cross_file_call_hints") or {}).get(item["path"], [])
+        if not any(
+            isinstance(h, dict)
+            and h.get("called_method") == item["name"]
+            and h.get("line") == item["line_start"]
+            and any(isinstance(x, dict) and x.get("path") == target
+                    for x in h.get("possible_targets", []))
+            for h in hints
+        ):
+            raise ValueError("未能在可信結構索引核對呼叫點與目標符號，禁止自動核銷")
+    if observed != expected:
+        raise ValueError("仍有未核銷跨檔符號，不得完成本分片")
+    row["unresolved_symbols"] = []
+    row["status"] = "completed"
+    row["main_resolution_digest"] = digest(document)
+    row["main_manifest_head"] = manifest["head"]
+    _write(root / LEDGER, state)
+    return {"task_id": task_id, "status": "completed",
+            "formal_security_verdict": False, "main_resolution_recorded": True}
+
+
+@exclusive_ledger
 def renew_budget(root: Path) -> dict:
     # Main agent must checkpoint and explicitly start the next budget window.
     state, _ = _active(root)
@@ -616,7 +682,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "plan", "begin-integration", "commit-integration", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
+    for name in ("probe-template", "record-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
@@ -644,6 +710,10 @@ def main() -> int:
                       "workers": state["workers"],
                       "fallback_reason": state["fallback_reason"],
                       "task_count": len(state["tasks"]), "formal_review_completed": False}
+        elif args.resolve_main:
+            if not args.task_id or args.evidence is None:
+                raise ValueError("--resolve-main 需要 --task-id 與 --evidence")
+            answer = resolve_main(root, args.task_id, args.evidence)
         elif args.begin_integration:
             answer = begin_integration(root)
         elif args.commit_integration:
