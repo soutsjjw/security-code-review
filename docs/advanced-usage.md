@@ -176,16 +176,25 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 ## Codex 可選 `/goal` 完整審查指令
 
-在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下使用可攜的 Skill 名稱 `$security-code-review`，不綁定個人電腦的安裝路徑：
+在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下範例**明確選用主代理＋最多 3 位子代理**，Skill 名稱可攜。一般 `$security-code-review` 仍預設單代理，分類 `--categories` 不啟用多代理：
 
 ```text
-/goal 使用 $security-code-review Skill，對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
+/goal 使用 $security-code-review --multi-agent --agents 3 Skill，對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
 
 前置：
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
-- 預設維持單代理執行；僅在明確指定 `--multi-agent`、完成 Codex 真實 執行器試跑及強制唯讀能力核對時，才可依 [受控多代理 受控多代理](multi-agent-review.md) 進行唯讀分工。所有正式審查與寫入仍由單一主代理完成；保留來源、跨檔關聯、控制有效性與第二輪完整性守門。
+- 本 `/goal` 選用最多 3 個唯讀子代理。主代理須依 `SKILL.md` 與 `docs/multi-agent-review.md` **自動調用目前執行器實際提供的原生協作工具**，不能只列出派工清單就宣稱已執行；缺工具、真實唯讀沙箱、可信 agent ID 或隔離驗收未過時，記錄原因後**完整降級單代理**。正式判定與寫入始終只由主代理負責。
+
+多代理自動執行（此段是 Agent 必須採取的工具動作，**不是** shell 指令）：
+
+- 主代理確認此回合有真實原生子代理建立、續派及等待工具（名稱例如 `spawn_agent`、`followup_task`，以執行器實際提供者為準），在**正式相同沙箱配置**下實測平行、獨立上下文、強制唯讀、單層委派、失敗復原、封閉回報及第一輪結論隔離等七項條件。使用 `multi_agent.py --probe-template`／`--record-probe` 登記實際 trace；只靠 Prompt 禁寫不得通過。
+- 完成來源索引及初始化後，主代理執行 `multi_agent.py --plan --max-agents 3` 與 `--next`；透過原生工具建立**只待命、不讀來源**的 Worker，先取得實際 agent instance ID，才以 `--claim-batch --assignments <JSON>`（或逐筆 `--claim`）綁定 task 與 agent。只有成功 claim 後，才透過原生續派／訊息工具送出完整 Worker Prompt 和 TASK_JSON。派工數量不超過 3、Ledger.workers、執行器可用槽位及 Token 窗口。
+- **同批真正並行執行**、等待每個 Worker 完成，而非只等建立成功。主代理將純 JSON 以 `--accept-stdin` 在落地前驗證機敏資料、來源 SHA256、隨機行挑戰、完整閱讀範圍及逐檔十類／規則證據；失敗或逾時明確 `--fail`、依上限重試。未解跨檔符號以 `--followup`、`--accept-followup-stdin` 補查，最後仍由主代理在權威交易後 `--resolve-main`。
+- 每批所有 Worker 停止後，主代理執行 `--begin-integration`，實際重讀控制鏈並以 `review_safety.py --stage/--integrate` 正式寫入，再 `--commit-integration` 驗證新 Manifest／Journal，然後自動派下一批。資源不足保留進度，依 `--renew-budget`／`--renew-probe` 契約明確續期，不得自動略過。
+- 第一輪通過 `--diagnose-first-pass` 且 `ready_for_second_pass=true` 才能在正式整合窗口執行 `review_safety.py --begin-second-pass`；再以 `multi_agent_second_pass.py --plan/--next` 派給**未參與相同規則第一輪**、可隔離第一輪判定的不同子代理。主代理只接受候選，重新讀取來源、反向查證及裁決，完成全部第二輪與正式報告守門。若原生隔離不足，改由主代理依原第二輪流程繼續，**不得宣稱盲審**。
+- 原生工具不存在、沙箱強制唯讀失敗或 agent ID 不可信時，不創造虛構 Worker／trace；保留原有合法進度與 Finding，以單代理繼續完整 70 項、100% 來源、安全控制及第二輪檢核，最終仍須產出並驗證 HTML／JSON。
 
 完成條件：
 
@@ -228,7 +237,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - 既有 status=review 的項目，一律依新版判定階梯重新判定；能改為 pass 或 fail 者須更新 status、decision_reason 與必要 Finding，保留原有證據，不得刪除。
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
-   - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
+   - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。多代理模式必須先 `multi_agent.py --begin-integration` 停止派工，再由主代理正式 Stage/Integrate，`--commit-integration` 成功核對交易後才可繼續派工。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
    - 對已核實需更正的既有紀錄，取得使用者明確授權後才以 `--integrate --allow-revision` 修訂；不得藉修訂跳過批次證據守門、Finding ID 保護、SHA256 或 Journal。
 
 6. 每批保存真實審查結果，持續執行直到：
@@ -239,7 +248,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - 第一輪以 `--diagnose-first-pass` 的 `ready_for_second_pass=true` 作為建立 baseline 的前置判斷；**不得在第二輪完成之前要求正式 `review_safety.py --validate` 通過**。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
    - 每批均可執行 `--diagnose-first-pass` 與 `--repair-plan`：`pending_rule_ids` 表示未完成規則，`missing_source_paths` 表示尚未通過逐檔驗證的來源，診斷仍需回報已完成規則的證據問題。第一輪 70/70 且 `ready_for_second_pass=true` 才可執行 `--begin-second-pass`。
-   - 第二輪由主代理依 `second_pass.pending_ids` 逐項重讀來源、追查反例並儲存 `adversarial_reviews`；須完成所有 70 項及矛盾裁決。
+   - 第二輪採定向反例、不能重掃整棵來源樹：隔離驗收通過時按 `multi_agent_second_pass.py --plan/--next` 派給第一輪未參與相同規則的子代理；子代理僅回傳反例候選。主代理依 `second_pass.pending_ids` 逐項重讀來源、追查反例並正式儲存 `adversarial_reviews`；沒有真正獨立隔離則回退主代理第二輪，須完成所有 70 項及矛盾裁決。
    - 診斷中的 `inspected_paths_diagnostic` 僅彙整**已被正式逐檔驗證拒絕**的規則／檔案關聯：`by_rule` 按規則計數，`by_reason` 區分缺少逐檔紀錄、缺少規則審查及逐檔紀錄驗證失敗；不是新增檔案數或可自動修補清單。`cross_file_candidates` 列出完整未查證關聯 ID；必須核實來源後逐項處理，不能批次核准。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
@@ -267,7 +276,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。
 
-選用多代理時，使用者可明確指定 `$security-code-review --multi-agent --agents 3`，或將上方 `/goal` 首句改成「使用 `$security-code-review --multi-agent --agents 3`」；主代理仍須先完成 [執行器能力試跑](multi-agent-review.md)，不可因提供參數就宣稱已具有唯讀子代理。回傳結果必須依 Worker Schema 驗證；成功也不能代替完整審查。
+**本 `/goal` 範例已預選 `--multi-agent --agents 3`。** 若要維持單代理，首句改為 `/goal 使用 $security-code-review Skill` 並移除上方多代理自動執行段落。分類審查仍僅用 `--categories`，不可混用多代理。原生調度和 Fail Closed 規範見 [受控多代理自動調度](multi-agent-review.md#原生-codex-子代理自動調度完整模式)；Worker JSON 驗證成功不等於 70 項審查完成。
 單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
 ## 完整模式第二輪的分層式工作清單
