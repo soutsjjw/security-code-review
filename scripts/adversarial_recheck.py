@@ -62,25 +62,8 @@ def _enabled(target: Path) -> bool:
     return isinstance(index, dict) and index.get("adversarial_second_pass_version") == CONTRACT_VERSION
 
 
-def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool = False) -> dict[str, Any]:
-    """在第一輪完整結案後才建立不可默默覆寫的版本錨點，不產生任何安全結論。"""
-    target = target.resolve()
-    if not _enabled(target):
-        raise ValueError("索引未啟用第二輪複核，請先執行 analysis_prepare.py")
-    checks = assessment.get("checks")
-    matrix = load_decision_matrix()
-    if (not isinstance(checks, list) or len(checks) != 70
-            or {c.get("id") for c in checks if isinstance(c, dict)} != set(matrix)
-            or any((c.get("execution") or {}).get("state") != "completed"
-                   for c in checks if isinstance(c, dict))):
-        raise ValueError("須先完成全部 70 項第一輪檢核，才能固定第二輪起點")
-    # 不得把尚未整合的第一輪草稿或來源變更後待重查工作封存為已完成。
-    staged_dir = target / RELATIVE / "staged"
-    if staged_dir.is_dir() and any(staged_dir.glob("*.json")):
-        raise ValueError("仍有未整合的第一輪暫存結果，不得固定第一輪快照")
-    recheck = _read(target / RELATIVE / "recheck-required.json", {})
-    if isinstance(recheck, dict) and recheck.get("rule_ids"):
-        raise ValueError("來源異動後仍有未完成的重新查核規則，不得開始第二輪")
+def first_pass_issues(target: Path, assessment: dict[str, Any]) -> list[str]:
+    """Run the same authoritative first-pass gates for diagnosis and baseline creation."""
     from review_completion import completion_errors
     from review_decision import decision_quality_errors
     from review_safety import snapshot_errors, closure_errors
@@ -88,6 +71,20 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     from decision_adjudication import adjudication_errors
     from source_coverage import build_source_coverage
 
+    checks = assessment.get("checks")
+    matrix = load_decision_matrix()
+    if (not isinstance(checks, list) or len(checks) != 70
+            or {c.get("id") for c in checks if isinstance(c, dict)} != set(matrix)
+            or any((c.get("execution") or {}).get("state") != "completed"
+                   for c in checks if isinstance(c, dict))):
+        return ["第一輪：須先完成全部 70 項檢核"]
+    staged_dir = target / RELATIVE / "staged"
+    if staged_dir.is_dir() and any(staged_dir.glob("*.json")):
+        return ["第一輪：仍有未整合的暫存結果"]
+    recheck = _read(target / RELATIVE / "recheck-required.json", {})
+    if isinstance(recheck, dict) and recheck.get("rule_ids"):
+        return ["第一輪：來源異動後仍有待重新查核規則：" +
+                "、".join(recheck["rule_ids"])]
     issues = (snapshot_errors(target)
               + completion_errors(checks)
               + decision_quality_errors(checks, source_root=target)
@@ -97,7 +94,16 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     coverage = build_source_coverage(assessment, target)
     issues += coverage.get("review_integrity_errors", [])
     if coverage["missing_source_file_count"]:
-        issues.append("逐檔覆蓋尚未完成，禁止啟動第二輪")
+        issues.append("第一輪：逐檔覆蓋尚未完成，禁止啟動第二輪")
+    return issues
+
+
+def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool = False) -> dict[str, Any]:
+    """在第一輪完整結案後才建立不可默默覆寫的版本錨點，不產生任何安全結論。"""
+    target = target.resolve()
+    if not _enabled(target):
+        raise ValueError("索引未啟用第二輪複核，請先執行 analysis_prepare.py")
+    issues = first_pass_issues(target, assessment)
     if issues:
         raise ValueError("第一輪審查或來源證據尚未完整：" + "；".join(issues[:8]))
     snap = _read(target / SNAPSHOT, {})
