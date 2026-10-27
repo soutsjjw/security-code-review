@@ -45,7 +45,7 @@ class LayeredTests(unittest.TestCase):
 
     def sample(self, path):
         return {"outcome": "no_new_issue",
-                "inspection_summary": "已實際核對設定讀取與輸入分支，確認未觀察到新的缺失。",
+                "inspection_summary": "已實際核對設定讀取、外部輸入與驗證分支，確認沒有新的權限繞過或不安全預設值。" ,
                 "evidence": {"kind": "source", "path": path, "line_start": 1,
                              "line_end": 1}}
 
