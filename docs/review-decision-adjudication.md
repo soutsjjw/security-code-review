@@ -12,6 +12,18 @@
 
 規則 `manual_boundary` 只是可供查證的外部邊界，**不是每條規則自動列為 review 的理由**。例如 AC-01 的 Session 有效期限已實作且會過期，通常可由靜態來源判斷；僅當組織**實際存在的逾時長度正式政策**是否符合會改變該規則結論，才使用 `review`。IN-07 同理，只有真正無法由儲存庫取得且具決定性的主機符號連結／Volume／ACL 資料才可待確認。
 
+## 可查證的外部控制責任（適用全 70 項）
+
+驗證器一律先看證據，不把缺少 Workflow、Lockfile、CI Runner、套件掃描或部署程式碼視為安全，也不要求虛構來源行號。
+
+- `static_done_external_pending`：程式碼控制已證實符合靜態部分，`static_result=control_satisfied`，須有真正的 `static_evidence`。
+- `external_only`：僅限矩陣 `mode=external`，`static_result=external_control`；仍須完成控制責任及外部缺口裁決。
+- `external_responsibility_pending`：僅限 `static/hybrid`；已取得**真實的委外控制責任歸屬**，但不能從儲存庫確認外部控制是否生效。設 `static_result=delegated_control`、`static_evidence=[]`、列出真實 `searched_paths`，並提供 `responsibility_evidence`、具體 `responsibility_reason` 和 `repository_search_summary`。責任證據必須對應正式 `checks[].evidence` 的來源行號或實際外部工件 `artifact_id`；不可用泛稱政策、未取得的文件或套件宣告充數。仍須以 `external_gap` 列出確實會改變判定的外部工件、負責單位與雙向結果。
+- `pass` 的控制完全由外部平台執行且已經核實時，可在 `analysis/control-verifications.json` 記錄 `control_proof_mode=external_verified`，另附已存在於正式檢核證據的 `responsibility_evidence` 與 `control_evidence`、實際控制條件、失效行為、全規則指定繞過情境及來源快照版本。**已證實責任歸屬不等於已證實控制有效**；找不到外部控制運作證據時不得標 `pass`。
+- 來源已證明弱點仍為 `fail` ＋ Finding；無法確認委外責任或尚未完成必要搜尋時為 `pending/blocked`。不因缺證據機械改成 `review`、`na` 或 `pass`。
+
+外部責任已被驗證時，Q2／Q3 不要求虛構本地程式碼控制點，但跨檔候選、呼叫點、結案責任、來源覆蓋、證據日誌與第二輪仍須完整驗證。以上只是工具契約格式；是否確實委外及外部工件內容是否有效仍須由主代理實際核對。
+
 ## 全 70 項的外部缺口決定性驗證
 
 新版 `analysis_prepare.py --mode full` 產出的結構索引包含 `decision_quality_version=1`。在保留既有判定驗證之外，**每個完成的 Review** 都必須說明外部資料如何真正改變判定，不因 AC-01 等個別規則而特殊放行。
