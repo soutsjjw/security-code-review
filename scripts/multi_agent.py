@@ -329,13 +329,18 @@ def fail(root: Path, task_id: str) -> dict:
     # Explicit main-agent acknowledgement of timeout or worker error.
     state, _ = _active(root)
     row = state["tasks"].get(task_id)
-    if row is None or row["status"] != "running":
-        raise ValueError("只有 running 任務可以記錄失敗")
-    row["status"] = "failed"
+    if row is None or row["status"] not in ("running", "followup_running"):
+        raise ValueError("只有 running／followup_running 任務可以記錄失敗")
+    if row["status"] == "followup_running":
+        row["status"] = "needs_main" if row["followup_round"] >= 2 else "needs_followup"
+        remaining = 2 - row["followup_round"]
+    else:
+        row["status"] = "failed"
+        remaining = RETRY_LIMIT - row["attempts"]
     _write(root / LEDGER, state)
-    return {"task_id": task_id, "status": "failed",
-            "remaining_attempts": RETRY_LIMIT - row["attempts"],
-            "fallback_required": row["attempts"] >= RETRY_LIMIT}
+    return {"task_id": task_id, "status": row["status"],
+            "remaining_attempts": remaining,
+            "fallback_required": remaining <= 0}
 
 
 def accept(root: Path, path: Path) -> dict:
