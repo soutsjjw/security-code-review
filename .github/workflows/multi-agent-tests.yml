@@ -3,12 +3,22 @@ on:
   pull_request:
     paths:
       - "scripts/multi_agent*.py"
+      - "scripts/source_reader.py"
+      - "scripts/second_pass_layers.py"
+      - "scripts/file_review_integrity.py"
+      - "tests/fixtures/multi_agent_cases/**"
+      - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
       - "tests/test_multi_agent*.py"
       - ".github/workflows/multi-agent-tests.yml"
   push:
     paths:
       - "scripts/multi_agent*.py"
+      - "scripts/source_reader.py"
+      - "scripts/second_pass_layers.py"
+      - "scripts/file_review_integrity.py"
+      - "tests/fixtures/multi_agent_cases/**"
+      - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
       - "tests/test_multi_agent*.py"
 jobs:
@@ -22,5 +32,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q scripts/multi_agent.py scripts/multi_agent_contract.py scripts/multi_agent_benchmark.py tests/test_multi_agent.py tests/test_multi_agent_benchmark.py
+      - run: python -m compileall -q scripts/multi_agent*.py tests/test_multi_agent*.py
       - run: python -m unittest discover -s tests -p 'test_multi_agent*.py' -v
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet build tests/fixtures/multi_agent_cases/SecurityFixtures.csproj --configuration Release
