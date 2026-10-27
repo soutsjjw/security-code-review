@@ -50,7 +50,7 @@ def _proof(root: Path, value: Any, hashes: dict, lines: dict[str, int],
     if not isinstance(value, dict) or not set(value) <= ALLOWED_PROOF:
         return False
     path = value.get("path")
-    if path not in hashes or (anchored is not None and path != anchored):
+    if not isinstance(path, str) or path not in hashes or (anchored is not None and path != anchored):
         return False
     return (type(value.get("line_start")) is int
             and type(value.get("line_end")) is int
@@ -90,8 +90,9 @@ def validate_worker_result(root: Path, task: dict, result: Any,
         return errors + ["files 必須為陣列"]
     owned = {entry["path"]: entry for entry in task.get("assigned_paths", [])}
     paths = [row.get("path") for row in files if isinstance(row, dict)]
-    if len(paths) != len(files) or len(set(paths)) != len(paths):
-        errors.append("檔案缺少 path 或重複")
+    if (len(paths) != len(files) or any(not isinstance(p, str) for p in paths)
+            or len(set(paths)) != len(paths)):
+        return errors + ["檔案缺少合法 path 或重複"]
     if not set(paths) <= set(owned):
         errors.append("worker 回報未授權的分片路徑")
     if status == "completed" and require_complete and set(paths) != set(owned):
