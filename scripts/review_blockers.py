@@ -77,7 +77,7 @@ def summarize(
         # A rule ID in a diagnostic *example* is not the owner of the error.
         # Only a leading rule label or authoritative rule/file link group counts.
         owner = re.match(
-            r"^(?:[^:\\n]{1,500}:\\s*)?((?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\\d{2}):",
+            r"^(?:[^:\n]{1,500}:\s*)?((?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}):",
             message,
         )
         rules = ([owner.group(1)] if owner else
