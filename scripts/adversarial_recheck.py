@@ -51,7 +51,7 @@ def guidance(rule_id: str) -> dict[str, Any]:
             ["alternative_entry", "bypass_or_counterexample"] if rule_id in HIGH_RISK_RULES
             else ["counterexample_or_opposite_verdict"]
         ),
-        "method": "重新閱讀來源，從攻擊者觀點尋找另一入口／不安全分支／相反判定",
+        "method": "依固定錨點針對性重讀、對抗性尋找反例，另依分層計畫獨立抽樣；不全面重掃",
         "evidence_contract": "第一輪固定摘要、反例來源、修訂後結論、矛盾裁決與未結問題",
         "cannot_skip": "任何已完成規則，包括 pass/fail/review/na，均需第二輪複核",
     }
@@ -134,6 +134,15 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     }
     path = target / BASELINE
     existing = _read(path)
+    from second_pass_layers import RESERVED, build_plan
+    layered_enabled = (_read(target / INDEX, {}) or {}).get("adversarial_quality_version") == 1
+    replacement_reviews = None
+    if existing != checkpoint and layered_enabled and (existing is None or restart):
+        # 首次固定錨點或人工重啟才產生樣本；保留既有版本的審查工件。
+        replacement_reviews = {RESERVED: {
+            "plan": build_plan(assessment, checkpoint, snap), "samples": {},
+        }}
+
     from review_safety import _write
     from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors
     if integrity_enabled(target):
@@ -154,11 +163,15 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
         from evidence_integrity import commit as integrity_commit
         updates = {"analysis/first-pass-baseline.json": checkpoint}
         if existing is not None and restart:
-            updates["analysis/adversarial-reviews.json"] = {}
+            updates["analysis/adversarial-reviews.json"] = replacement_reviews if replacement_reviews is not None else {}
+        elif replacement_reviews is not None:
+            updates["analysis/adversarial-reviews.json"] = replacement_reviews
         integrity_commit(target, updates, event="second-pass-restart" if restart else "second-pass-begin")
     elif existing != checkpoint:
         if existing is not None and restart:
-            _write(target / REVIEWS, {})
+            _write(target / REVIEWS, replacement_reviews if replacement_reviews is not None else {})
+        elif replacement_reviews is not None:
+            _write(target / REVIEWS, replacement_reviews)
         _write(path, checkpoint)
     return {"rule_count": 70, "snapshot_fingerprint": checkpoint["snapshot_fingerprint"],
             "already_existed": existing == checkpoint,
@@ -330,6 +343,8 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
         from adversarial_quality import quality_errors
         errors.extend(quality_errors(target, assessment, stored, baseline, decision_audits,
                                      snapshot_override=snapshot_override))
+    from second_pass_layers import layered_errors
+    errors.extend(layered_errors(target, assessment, baseline, snapshot, stored))
     return errors
 
 
@@ -355,6 +370,15 @@ def progress(target: Path, assessment: dict[str, Any], batch_size: int = 10) -> 
                and (c["id"] in invalid
                     or not isinstance(reviews.get(c["id"]), dict)
                     or reviews[c["id"]].get("final_digest") != digest(c))]
+    from second_pass_layers import RESERVED
+    layer = reviews.get(RESERVED)
+    sample_tasks = (layer.get("plan") or {}).get("sampling", []) if isinstance(layer, dict) else []
+    finished = layer.get("samples", {}) if isinstance(layer, dict) else {}
+    sample_pending = [s["path"] for s in sample_tasks
+                      if s["path"] not in (finished if isinstance(finished, dict) else {})]
     return {"enabled": True, "baseline_ready": True,
             "completed": len(checks) - len(pending), "pending_count": len(pending),
-            "pending_ids": pending[:batch_size], "error_count": len(diagnostics)}
+            "pending_ids": pending[:batch_size], "error_count": len(diagnostics),
+            "sampling_total": len(sample_tasks),
+            "sampling_pending_count": len(sample_pending),
+            "sampling_pending_paths": sample_pending[:batch_size]}
