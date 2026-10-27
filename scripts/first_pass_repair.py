@@ -133,12 +133,12 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         }
     # 不推導規則適用性；同檔有多個疑點時先處理高扇出來源。
     ranked = sorted(by_path.values(), key=lambda item: (
-        -int(item["missing_file_review"]),
         -int(item["repeated_rule_conclusion_template"]),
         -sum(item["observed_source_blockers"].values()),
         -(len(item["missing_rule_review_ids"]) +
           len(item["unverified_na_inspection_rule_ids"])),
-        -item["inspected_link_count"], item["path"],
+        -item["inspected_link_count"],
+        -int(item["missing_file_review"]), item["path"],
     ))
     category_counts = Counter(b.get("category", "other") for b in diagnostics.get("blockers", []))
     return {

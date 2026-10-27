@@ -59,6 +59,33 @@ class BlockerDiagnosticsTests(unittest.TestCase):
         self.assertEqual(classify("SI-01: 完成證據僅包含無效來源片段"),
                          "weak_source_evidence")
 
+    def test_partial_first_pass_diagnosis_keeps_pending_but_shows_completed_errors(self):
+        from review_queue import load_rules
+        _, rules = load_rules()
+        checks = [{"id": r["id"], "execution": {"state": "pending"}} for r in rules]
+        checks[0] = {"id": rules[0]["id"], "status": "pass",
+                     "execution": {"state": "completed", "methods": [],
+                                   "summary": "", "inspected_paths": []}}
+        data = {"checks": checks, "file_reviews": []}
+        coverage = {
+            "missing_source_file_count": 1,
+            "missing_source_paths": ["NotYetReviewed.cs"],
+            "review_integrity_errors": ["NotYetReviewed.cs: 來源證據不足"],
+            "unverified_inspected_paths": {"total": 0, "by_rule": {}},
+            "verified_na_inspection_paths": {},
+        }
+        with patch("adversarial_recheck.snapshot_errors", return_value=[]), \
+             patch("adversarial_recheck.build_source_coverage", return_value=coverage), \
+             patch("adversarial_recheck.closure_errors", return_value=[]), \
+             patch("adversarial_recheck.verification_errors", return_value=[]), \
+             patch("adversarial_recheck.adjudication_errors", return_value=[]):
+            result = diagnose(Path("."), data)
+        self.assertEqual(result["pending_rule_count"], 69)
+        self.assertEqual(result["missing_source_paths"], ["NotYetReviewed.cs"])
+        self.assertFalse(result["ready_for_second_pass"])
+        self.assertIn("缺少實際審查方法",
+                      " ".join(b["message"] for b in result["blockers"]))
+
     def test_diagnosis_preserves_assessment_and_displays_exact_relation_ids(self):
         data = {"checks": [], "findings": [{"id": "F-001"}]}
         untouched = copy.deepcopy(data)

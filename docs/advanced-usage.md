@@ -202,7 +202,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - 追蹤適用的程式碼、呼叫鏈、資料流及設定。
    - 一個檔案可關聯多條適用規則，但不得為增加數量而建立無依據的關聯。
    - 每個檔案完成十類適用性篩選；無直接適用項目仍須提出已核對的控制責任及理由，不得制式填入「無直接適用」。
-   - 每批完成後使用 `--repair-plan` 唯讀確認新增的來源證據與關聯，優先修正重複模板與高扇出檔案；不得等到第二輪前才一次處理整體缺口。
+   - 每批完成後使用 `--repair-plan` 唯讀檢查已保存的第一輪證據及未建檔來源；尚有 pending 規則也要回報已完成規則的品質缺口。優先修正重複模板與高扇出檔案；不得等到第二輪前才一次處理整體缺口。
 
 3. 對每項適用規則實際執行靜態安全分析：
    - 驗證安全控制的實作及有效性。
@@ -236,13 +236,14 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - source_coverage.missing_source_file_count = 0。
    - review_integrity_errors 與 rule_integrity_errors 均為空。
    - assessment.file_reviews 與 execution.inspected_paths 一致。
-   - review_safety.py --validate 通過，safety_integrity_errors 為空。
+   - 第一輪以 `--diagnose-first-pass` 的 `ready_for_second_pass=true` 作為建立 baseline 的前置判斷；**不得在第二輪完成之前要求正式 `review_safety.py --validate` 通過**。
    - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
-   - 第二輪前先執行 `review_queue.py --diagnose-first-pass`（或 `review_blockers.py --target "<TARGET_ROOT>"`）唯讀列出完整阻斷、定向補查規則及 `blocker_signature`；有大量失敗時先以 `--repair-plan` 取得 逐檔證據、關聯、控制鏈及正式驗證 的逐檔優先修復清單。只在合法證據變更且重新驗證通過後，才執行 --begin-second-pass 固定第一輪 70 項判定；所有規則均完成第二輪反例搜尋與裁決，`adversarial_reviews` 無缺漏或未解問題。
+   - 每批均可執行 `--diagnose-first-pass` 與 `--repair-plan`：`pending_rule_ids` 表示未完成規則，`missing_source_paths` 表示尚未通過逐檔驗證的來源，診斷仍需回報已完成規則的證據問題。第一輪 70/70 且 `ready_for_second_pass=true` 才可執行 `--begin-second-pass`。
+   - 第二輪由主代理依 `second_pass.pending_ids` 逐項重讀來源、追查反例並儲存 `adversarial_reviews`；須完成所有 70 項及矛盾裁決。
    - 診斷中的 `inspected_paths_diagnostic` 僅彙整**已被正式逐檔驗證拒絕**的規則／檔案關聯：`by_rule` 按規則計數，`by_reason` 區分缺少逐檔紀錄、缺少規則審查及逐檔紀錄驗證失敗；不是新增檔案數或可自動修補清單。`cross_file_candidates` 列出完整未查證關聯 ID；必須核實來源後逐項處理，不能批次核准。
    - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
    - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
-   - 必須執行不帶 `--compact`／`--detail-id` 的 `review_queue.py`，確認正式結果 `ready_for_report=true`。
+   - **完成第二輪之後**才執行 `review_safety.py --validate`，接著執行不帶 `--compact`／`--detail-id` 的 `review_queue.py`，確認正式結果 `ready_for_report=true`。
    - 所有完成判定均有足夠的真實檢核依據。
 
 7. 正式交付前再次檢查：
@@ -257,7 +258,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - 是否有全專案控制缺席、版本不一致、跨檔證據或 Finding 衝突仍未處理。
    發現上述問題時，必須重新執行相關檢核，不得只修改 JSON 以通過驗證。
 
-8. 完成後執行 complete_review.py，成功產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論，並維持相關規範及附件的獨立查證要求。
+8. 只有第一輪診斷通過、第二輪完整、`review_safety.py --validate` 成功且正式 `ready_for_report=true`，才執行 complete_review.py，產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論，並維持相關規範及附件的獨立查證要求。
 
 9. 僅遇不可恢復的執行／資源限制、缺少必要人工修訂授權、無法取得且不能合法替代的必要證據時才可停止。停止前保留已完成診斷、blocker_signature、來源與 Findings、完整性交易鏈及明確續跑條件，不得宣稱審查已完成。
 
