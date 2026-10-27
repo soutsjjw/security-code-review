@@ -386,7 +386,7 @@ V3.2 限用 ASP.NET/.NET、IIS 與通用 Web 安全控制，**排除 Java 與 PH
 
 ## 編碼與來源核對
 
-來源檔支援 UTF-8、UTF-8-BOM、帶 BOM UTF-16；必要時唯讀回退 CP950、CWorker 證據契約252，並保留可能誤判的警告。JSON/HTML 輸出維持 UTF-8，**不修改受測原始檔**。
+來源檔支援 UTF-8、UTF-8-BOM、帶 BOM UTF-16；必要時唯讀回退 CP950、CP1252，並保留可能誤判的警告。JSON/HTML 輸出維持 UTF-8，**不修改受測原始檔**。
 
 若需要檢查指定行號，Agent 可呼叫：
 
