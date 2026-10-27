@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""Untrusted second-pass challenges with independent executor identity and no verdicts.
+
+Main agent alone adjudicates and writes official adversarial reviews.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import time
+from pathlib import Path
+
+from multi_agent import (ANALYSIS, LEDGER, PROBE, SNAPSHOT, _read, _write,
+                         _snapshot, _fingerprint, _git_state)
+from multi_agent_contract import VERSION, SECRET, digest
+from multi_agent_guard import (probe_errors, protected_report_digest,
+                               challenges_for, proof_line_hash)
+
+SECOND = ANALYSIS / "multi-agent/second-pass-ledger.json"
+AGENT = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
+MAX_BYTES = 2_000_000
+
+
+def _source_targets(task: dict, hashes: dict) -> list[str]:
+    paths = {a["path"] for a in task.get("evidence_anchors", [])
+             if isinstance(a, dict) and a.get("path") in hashes}
+    paths.update(p for p in task.get("candidate_paths", []) if p in hashes)
+    if task.get("path") in hashes:
+        paths.add(task["path"])
+    if not paths:
+        raise ValueError("第二輪工作缺少可定位來源，必須由主代理追查")
+    return sorted(paths)
+
+
+def plan(root: Path) -> dict:
+    from second_pass_layers import worklist
+    work = worklist(root)
+    if not work.get("ready"):
+        raise ValueError("第一輪 Baseline 尚未固定")
+    baseline = _read(root / ANALYSIS / "first-pass-baseline.json")
+    first = _read(root / LEDGER)
+    snap, _, _ = _snapshot(root)
+    probe = _read(root / PROBE)
+    if probe_errors(root, probe) or first.get("probe_digest") != digest(probe):
+        raise ValueError("第二輪不得沿用失效的 Codex 唯讀 probe")
+    if first.get("snapshot_fingerprint") != _fingerprint(snap):
+        raise ValueError("第一輪及第二輪來源快照不符")
+    if any(x.get("status") != "completed" for x in first["tasks"].values()):
+        raise ValueError("第一輪仍有未完成或未結的跨分片工作")
+    owners: dict[str, set[str]] = {}
+    for row in first["tasks"].values():
+        agent = row.get("agent_instance_id")
+        if not isinstance(agent, str) or not AGENT.fullmatch(agent):
+            raise ValueError("第一輪缺少可追溯的執行緒身分，不得宣稱獨立複核")
+        for rule_id in row.get("reviewed_rule_ids", []):
+            owners.setdefault("rule:" + rule_id, set()).add(agent)
+        for item in row["task"]["assigned_paths"]:
+            owners.setdefault("sample:" + item["path"], set()).add(agent)
+    jobs = {}
+    for category, entries in (("rule", work.get("rule_tasks", [])),
+                              ("sample", work.get("sample_tasks", []))):
+        for row in entries:
+            if category == "rule":
+                key = "rule:" + row["rule_id"]
+                sanitized = {k: row[k] for k in
+                             ("rule_id", "evidence_anchors", "candidate_paths", "needs_new_anchor")
+                             if k in row}
+            else:
+                key = "sample:" + row["path"]
+                sanitized = {k: row[k] for k in ("path", "risk_signals") if k in row}
+            targets = _source_targets(sanitized, snap["source_hashes"])
+            public, expected = challenges_for(root, targets)
+            task_id = digest([_fingerprint(snap), digest(baseline), key])[:20]
+            jobs[task_id] = {
+                "task": {"schema_version": VERSION, "task_id": task_id,
+                         "snapshot_fingerprint": _fingerprint(snap),
+                         "kind": category, "factual_anchors": sanitized,
+                         "source_paths": targets, "challenge_lines": public,
+                         "instruction": "只可提出反例與可重讀事實，絕不可接受第一輪 verdict"},
+                "challenge_expected": expected, "excluded_agent_ids": sorted(owners.get(key, set())),
+                "status": "pending", "agent_instance_id": None, "claimed_at": None,
+                "digest": None}
+    if not jobs:
+        raise ValueError("第二輪沒有本批可分派工作")
+    candidate = {"version": VERSION, "snapshot_fingerprint": _fingerprint(snap),
+                 "baseline_digest": digest(baseline), "probe_digest": digest(probe),
+                 "git_state": _git_state(root),
+                 "report_guard": protected_report_digest(root),
+                 "workers": first["workers"], "tasks": jobs}
+    destination = root / SECOND
+    if destination.exists():
+        old = _read(destination)
+        if (old.get("snapshot_fingerprint") != candidate["snapshot_fingerprint"]
+                or old.get("baseline_digest") != candidate["baseline_digest"]
+                or old.get("probe_digest") != candidate["probe_digest"]):
+            raise ValueError("第二輪 Ledger 基準改變，不得覆寫")
+        if set(old.get("tasks", {})) != set(candidate["tasks"]):
+            raise ValueError("正式第二輪批次已變更；請完成裁決並明確存檔，不得隱性重置")
+        return old
+    _write(destination, candidate)
+    return candidate
+
+
+def _active(root: Path) -> tuple[dict, dict]:
+    state = _read(root / SECOND)
+    snap, _, _ = _snapshot(root)
+    probe = _read(root / PROBE)
+    if (state["snapshot_fingerprint"] != _fingerprint(snap)
+            or state["probe_digest"] != digest(probe)
+            or probe_errors(root, probe)
+            or state["git_state"] != _git_state(root)
+            or state["report_guard"] != protected_report_digest(root)):
+        raise ValueError("第二輪 probe／來源／正式工件已異動，停止沿用回報")
+    return state, snap
+
+
+def claim(root: Path, task_id: str, agent_id: str) -> dict:
+    state, _ = _active(root)
+    task = state["tasks"].get(task_id)
+    if task is None or task["status"] != "pending":
+        raise ValueError("第二輪任務未待派或不存在")
+    if not isinstance(agent_id, str) or not AGENT.fullmatch(agent_id):
+        raise ValueError("必須提供可追溯的 executor instance ID")
+    if agent_id in task["excluded_agent_ids"]:
+        raise ValueError("同一子代理曾參與第一輪相同規則或樣本，禁止當作獨立複核")
+    if sum(x["status"] == "running" for x in state["tasks"].values()) >= state["workers"]:
+        raise ValueError("超過第二輪併發上限")
+    if any(x["agent_instance_id"] == agent_id and x["status"] == "running"
+           for x in state["tasks"].values()):
+        raise ValueError("相同子代理不可同時執行兩項工作")
+    task["agent_instance_id"] = agent_id
+    task["claimed_at"] = time.time()
+    task["status"] = "running"
+    _write(root / SECOND, state)
+    return {**task["task"], "agent_instance_id": agent_id}
+
+
+def accept(root: Path, path: Path) -> dict:
+    state, snap = _active(root)
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
+        raise ValueError("第二輪結果檔案不存在或不安全")
+    raw = path.read_text("utf-8")
+    if SECRET.search(raw):
+        raise ValueError("第二輪回報疑似洩漏憑證")
+    data = json.loads(raw)
+    if not isinstance(data, dict) or set(data) != {
+            "schema_version", "task_id", "agent_instance_id", "snapshot_fingerprint",
+            "hypothesis", "line_challenges", "issues"}:
+        raise ValueError("第二輪結果不符合封閉 Schema")
+    row = state["tasks"].get(data["task_id"])
+    if row is None:
+        raise ValueError("第二輪 task_id 無效")
+    payload_hash = digest(data)
+    if row["status"] == "accepted":
+        if row["digest"] == payload_hash:
+            return {"accepted": True, "idempotent": True}
+        raise ValueError("第二輪已回報內容與原始結果衝突")
+    if (row["status"] != "running" or data["schema_version"] != VERSION
+            or data["agent_instance_id"] != row["agent_instance_id"]
+            or data["snapshot_fingerprint"] != state["snapshot_fingerprint"]):
+        raise ValueError("第二輪資料與 claim 或快照不符")
+    challenge = data["line_challenges"]
+    expected = row["challenge_expected"]
+    if (not isinstance(challenge, dict)
+            or set(challenge) != set(expected)
+            or any(not isinstance(lines, list) or
+                   {str(x["line"]): x["sha256"] for x in lines} != expected[path]
+                   or len(lines) != len(expected[path])
+                   for path, lines in challenge.items())):
+        raise ValueError("第二輪隨機來源行 SHA256 挑戰不符")
+    hyp = data["hypothesis"]
+    if not isinstance(hyp, dict) or set(hyp) != {
+            "attacker_precondition", "expected_violation", "inspection_steps",
+            "observed_behavior", "evidence"}:
+        raise ValueError("第二輪反例欄位不完整")
+    for name in ("attacker_precondition", "expected_violation",
+                 "inspection_steps", "observed_behavior"):
+        if not isinstance(hyp[name], str) or not 20 <= len(hyp[name].strip()) <= 1800:
+            raise ValueError("第二輪反例缺少實際調查內容")
+    evidence = hyp["evidence"]
+    if not isinstance(evidence, dict) or set(evidence) != {
+            "path", "line_start", "line_end", "line_hash", "summary"}:
+        raise ValueError("第二輪反例證據不完整")
+    source = evidence["path"]
+    if (not isinstance(source, str) or source not in snap["source_hashes"]
+            or type(evidence["line_start"]) is not int
+            or type(evidence["line_end"]) is not int
+            or evidence["line_start"] <= 0
+            or evidence["line_end"] < evidence["line_start"]
+            or evidence["line_hash"] != proof_line_hash(root, source, evidence["line_start"])
+            or not isinstance(evidence["summary"], str)
+            or len(evidence["summary"].strip()) < 20):
+        raise ValueError("第二輪反例來源行與 SHA256 不一致")
+    if not isinstance(data["issues"], list) or any(
+            not isinstance(x, str) or not 5 <= len(x) <= 1000 for x in data["issues"]):
+        raise ValueError("第二輪未結事項無效")
+    if data["issues"]:
+        raise ValueError("第二輪存在未結事項，不能標記已接受；交由主代理進一步核對")
+    row["status"] = "accepted"
+    row["digest"] = payload_hash
+    _write(root / SECOND, state)
+    return {"accepted": True, "task_id": data["task_id"],
+            "official_adversarial_review_completed": False,
+            "notice": "只接受了可定位的挑戰候選；仍須主代理反向閱讀、裁決並透過原有 Stage/Integrate 保存"}
+
+
+def status(root: Path) -> dict:
+    state, _ = _active(root)
+    return {"tasks": {k: {"status": v["status"], "agent_id": v["agent_instance_id"],
+                          "claimed_at": v["claimed_at"]} for k, v in state["tasks"].items()},
+            "all_challenges_received": all(x["status"] == "accepted" for x in state["tasks"].values()),
+            "official_second_pass_completed": False}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", type=Path, default=Path.cwd())
+    cmd = parser.add_mutually_exclusive_group(required=True)
+    for name in ("plan", "next", "claim", "accept", "status"):
+        cmd.add_argument("--" + name, action="store_true")
+    parser.add_argument("--task-id")
+    parser.add_argument("--agent-id")
+    parser.add_argument("--result", type=Path)
+    args = parser.parse_args()
+    try:
+        root = args.target.resolve()
+        if args.plan:
+            state = plan(root)
+            output = {"task_count": len(state["tasks"]),
+                      "official_second_pass_completed": False}
+        elif args.next:
+            state, _ = _active(root)
+            output = {"tasks": [x["task"] for x in state["tasks"].values()
+                                if x["status"] == "pending"]}
+        elif args.claim:
+            output = claim(root, args.task_id, args.agent_id)
+        elif args.accept:
+            if args.result is None:
+                raise ValueError("必須指定 --result")
+            output = accept(root, args.result)
+        else:
+            output = status(root)
+        print(json.dumps(output, ensure_ascii=False, separators=(",", ":")))
+        return 0
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        print("ERROR: 第二輪分工拒絕操作：" + str(exc), file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
