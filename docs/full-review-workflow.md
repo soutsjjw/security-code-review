@@ -45,7 +45,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 
 ## 可選受控多代理分工（僅完整模式）
 
-使用者明確指定 `--multi-agent` 時，主代理於分析準備／初始化完成後依 [受控多代理實作契約](multi-agent-review.md) 完成 P0 實測核可、Worker Schema 驗證及分片派工。未通過 P0 或強制唯讀不足時退回單代理。子代理不得寫入正式 JSON 或宣告安全結果；
+使用者明確指定 `--multi-agent` 時，主代理於分析準備／初始化完成後依 [受控多代理實作契約](multi-agent-review.md) 完成 執行器能力試跑 實測核可、Worker Schema 驗證及分片派工。未通過 執行器能力試跑 或強制唯讀不足時退回單代理。子代理不得寫入正式 JSON 或宣告安全結果；
 正式 70 項、100% 來源與第二輪驗證均不變。
 
 ## 自動審查流程（完整模式；未指定 `--categories`）
