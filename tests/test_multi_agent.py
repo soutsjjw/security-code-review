@@ -36,7 +36,8 @@ class MultiAgentTests(unittest.TestCase):
             "git_revision": "a" * 40, "source_hashes": self.hashes,
             "excluded_paths": []}), "utf-8")
         (analysis / "structure-index.json").write_text(json.dumps({
-            "source_hashes": self.hashes, "cross_file_call_hints": {}}), "utf-8")
+            "source_hashes": self.hashes, "cross_file_call_hints": {},
+            "rule_candidates": {name: [{"rule_id": "AC-01"}] for name in self.names}}), "utf-8")
         (analysis.parent / "assessment.json").write_text(
             json.dumps({"scope_details": {"excluded_paths": []}}), "utf-8")
         self.git = {"head": "a" * 40, "worktree_digest": "b" * 64}
@@ -129,6 +130,16 @@ class MultiAgentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             claim(self.root, task_id)
         self.assertFalse(summary(self.root)["work_results_accepted"])
+
+    def test_candidate_rule_cannot_be_silently_skipped(self):
+        self.verified_probe()
+        state = plan(self.root, task_tokens=2000)
+        task = next(iter(state["tasks"].values()))["task"]
+        self.assertIn("AC-01", task["assigned_paths"][0]["candidate_rule_ids"])
+        result = self.result(task)
+        result["files"][0]["rule_states"] = []
+        self.assertIn("缺少候選規則", str(validate_worker_result(
+            self.root, task, result, self.hashes)))
 
     def test_unresolved_symbol_and_missing_lines_block(self):
         self.verified_probe()
