@@ -553,6 +553,13 @@ def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
         raise ValueError("補查須指定實際 agent_instance_id")
     if sum(x["status"] in ("running", "followup_running") for x in state["tasks"].values()) >= state["workers"]:
         raise ValueError("已達子代理併發上限")
+    remaining = int(state["config"]["budget_tokens"] * 0.8) - state.get("window_charged", 0)
+    reserved = sum(min(max(x["task"]["estimated_tokens"] // 4, 512), 5000)
+                   for x in state["tasks"].values() if x["status"] == "followup_running")
+    estimate = min(max(row["task"]["estimated_tokens"] // 4, 512), 5000)
+    if estimate + reserved > remaining:
+        raise ValueError("跨分片補查已達本批保守 Token 預算")
+    row["followup_estimated_tokens"] = estimate
     round_number = row["followup_round"] + 1
     row["status"] = "followup_running"
     row["followup_round"] = round_number
@@ -577,8 +584,13 @@ def accept_followup(root: Path, path: Path) -> dict:
             or data.get("agent_instance_id") != row["followup_agent"]
             or data.get("snapshot_fingerprint") != state["snapshot_fingerprint"]):
         raise ValueError("補查結果與執行中任務或快照不符")
-    if set(data) != {"task_id", "round", "agent_instance_id", "snapshot_fingerprint", "resolved"}:
+    if set(data) not in (
+            {"task_id", "round", "agent_instance_id", "snapshot_fingerprint", "resolved"},
+            {"task_id", "round", "agent_instance_id", "snapshot_fingerprint", "resolved", "tokens_used"}):
         raise ValueError("補查結果存在未授權欄位")
+    used = data.get("tokens_used", 0)
+    if type(used) is not int or used < 0:
+        raise ValueError("跨分片 Token 必須為非負實測數值")
     resolved = data["resolved"]
     if not isinstance(resolved, list):
         raise ValueError("補查結果必須是陣列")
@@ -586,6 +598,7 @@ def accept_followup(root: Path, path: Path) -> dict:
     if SECRET.search(json.dumps(data, ensure_ascii=False)):
         raise ValueError("補查結果包含疑似機敏資訊")
     from multi_agent_guard import proof_line_hash
+    index = _read(root / INDEX)
     unresolved_ids = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
     seen = set()
     for item in resolved:
@@ -601,17 +614,34 @@ def accept_followup(root: Path, path: Path) -> dict:
         target = proof.get("path")
         if not isinstance(target, str) or target not in snap["source_hashes"]:
             raise ValueError("補查控制鏈不在快照中")
+        from source_reader import read_source_text
+        source_lines = read_source_text(root / target)[0].splitlines()
         if (type(proof.get("line_start")) is not int
                 or type(proof.get("line_end")) is not int
                 or proof["line_start"] < 1 or proof["line_end"] < proof["line_start"]
+                or proof["line_end"] > len(source_lines)
                 or proof.get("line_hash") != proof_line_hash(root, target, proof["line_start"])
                 or not isinstance(proof.get("summary"), str)
                 or len(proof["summary"].strip()) < 20):
             raise ValueError("補查來源行 SHA256 或說明不可信")
-    row["unresolved_symbols"] = [x for x in row["unresolved_symbols"]
-                                  if (x["path"], x["name"], x["line_start"]) not in seen]
-    row["status"] = ("completed" if not row["unresolved_symbols"] else
-                     "needs_main" if row["followup_round"] >= 2 else "needs_followup")
+        hints = (index.get("cross_file_call_hints") or {}).get(item["path"], [])
+        if not any(
+                isinstance(h, dict) and h.get("called_method") == item["name"]
+                and h.get("caller_line") == item["line_start"]
+                and any(isinstance(candidate, dict)
+                        and candidate.get("path") == target
+                        for candidate in h.get("possible_targets", []))
+                for h in hints):
+            raise ValueError("補查目標與結構索引中的跨檔呼叫候選不一致")
+    row.setdefault("followup_candidates", []).extend(resolved)
+    # Workers provide candidates only. Main agent must close with authoritative
+    # transaction and verified callsite; never turn a candidate into completed.
+    row["status"] = ("needs_main" if seen or row["followup_round"] >= 2
+                     else "needs_followup")
+    state["measured_tokens"] += used
+    state["window_tokens"] = state.get("window_tokens", 0) + used
+    state["window_charged"] = state.get("window_charged", 0) + max(
+        used, row.get("followup_estimated_tokens", 512))
     row.setdefault("followup_result_digests", []).append(digest(data))
     _write(root / LEDGER, state)
     return {"task_id": data["task_id"], "status": row["status"],
