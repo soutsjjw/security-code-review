@@ -37,6 +37,19 @@ class CheckpointTests(unittest.TestCase):
         assessment["main_review_note"] = "main agent reviewed the control path"
         commit(self.root, {"assessment.json": assessment}, event="verified-main-review")
 
+    def test_window_renews_when_no_remaining_shard_fits(self):
+        from multi_agent import renew_budget
+        self.fixture.verified_probe()
+        state = plan(self.root, task_tokens=2000, budget_tokens=12000)
+        ids = list(state["tasks"])
+        first = claim(self.root, ids[0], agent_id="codex-check-001")
+        self.assertTrue(accept_stdin(
+            self.root, json.dumps(self.fixture.result(first), ensure_ascii=False))["accepted"])
+        with self.assertRaisesRegex(ValueError, "預算"):
+            claim(self.root, ids[1], agent_id="codex-check-002")
+        self.assertEqual(renew_budget(self.root)["budget_window"], 2)
+        self.assertEqual(claim(self.root, ids[1], agent_id="codex-check-002")["task_id"], ids[1])
+
     def test_legal_main_transaction_advances_report_guard(self):
         self.seal_official()
         self.fixture.verified_probe()
