@@ -417,6 +417,32 @@ def commit_integration(root: Path) -> dict:
 @exclusive_ledger
 def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
     state, _ = _active(root)
+    task = _claim_locked(root, state, task_id, agent_id)
+    _write(root / LEDGER, state)
+    return task
+
+
+@exclusive_ledger
+def claim_batch(root: Path, assignments: list[dict]) -> dict:
+    """One full snapshot check and one atomic ledger write for N parallel tasks."""
+    state, _ = _active(root)
+    if (not isinstance(assignments, list) or not assignments
+            or len(assignments) > state["workers"]):
+        raise ValueError("批次派工數量必須介於 1 至 workers 上限")
+    if any(not isinstance(item, dict) or set(item) != {"task_id", "agent_id"}
+           for item in assignments):
+        raise ValueError("批次派工必須包含 task_id 及 agent_id")
+    if (len(set(x["task_id"] for x in assignments)) != len(assignments)
+            or len(set(x["agent_id"] for x in assignments)) != len(assignments)):
+        raise ValueError("派工 task 或 agent_instance_id 重複")
+    results = [_claim_locked(root, state, x["task_id"], x["agent_id"])
+               for x in assignments]
+    _write(root / LEDGER, state)
+    return {"claimed": results, "workers": state["workers"],
+            "note": "已使用同一個來源快照驗證及單次原子更新，請實際平行派工"}
+
+
+def _claim_locked(root: Path, state: dict, task_id: str, agent_id: str) -> dict:
     if not state.get("multi_agent_enabled"):
         raise ValueError("未通過強制唯讀能力試跑，禁止使用多代理 claim，請走單代理流程")
     row = state["tasks"].get(task_id)
@@ -448,8 +474,9 @@ def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
     row["claimed_at"] = time.time()
     row["attempts"] += 1
     row["status"] = "running"
-    _write(root / LEDGER, state)
     return task
+
+
 
 
 @exclusive_ledger
@@ -799,12 +826,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
-    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "fail", "followup", "accept-followup", "renew-budget", "accept", "accept-stdin",
+    for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "claim-batch", "fail", "followup", "accept-followup", "renew-budget", "accept", "accept-stdin",
                  "status", "blind-tasks"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--task-id")
     parser.add_argument("--agent-id")
+    parser.add_argument("--assignments", type=Path)
     parser.add_argument("--result", type=Path)
     parser.add_argument("--max-agents", type=int, default=3)
     parser.add_argument("--replan", action="store_true")
@@ -852,6 +880,11 @@ def main() -> int:
                       "unresolved_followups": [key for key, row in state["tasks"].items()
                                                if row["status"] in ("needs_followup", "needs_main")],
                       "formal_review_completed": False}
+        elif args.claim_batch:
+            if args.assignments is None or args.assignments.is_symlink():
+                raise ValueError("--claim-batch 必須指定受控 --assignments JSON 路徑")
+            payload = json.loads(args.assignments.read_text(encoding="utf-8"))
+            answer = claim_batch(root, payload)
         elif args.claim:
             if not args.task_id:
                 raise ValueError("--claim 必須指定 --task-id")
