@@ -1,0 +1,29 @@
+{
+  "notice": "測試標籤屬示意，需在獨立標記專案植入並驗證實際來源，不能宣稱為 Codex 模型實測結果。",
+  "cases": [
+    {
+      "id": "idor-unsafe",
+      "vulnerable": true,
+      "rule_id": "AC-08",
+      "scenario": "查詢僅以資源 ID 過濾，未限制使用者擁有權"
+    },
+    {
+      "id": "session-unsafe",
+      "vulnerable": true,
+      "rule_id": "AC-01",
+      "scenario": "憑證逾期後仍可被接受"
+    },
+    {
+      "id": "owner-safe",
+      "vulnerable": false,
+      "rule_id": "AC-08",
+      "scenario": "所有入口均強制受測者綁定資源所有權"
+    },
+    {
+      "id": "session-safe",
+      "vulnerable": false,
+      "rule_id": "AC-01",
+      "scenario": "身分驗證已核對逾期並禁止過期憑證使用"
+    }
+  ]
+}
