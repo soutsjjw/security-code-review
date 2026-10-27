@@ -114,7 +114,7 @@ def record_probe(root: Path, submitted: dict) -> dict:
             or not isinstance(submitted.get("execution_id"), str)
             or len(submitted["execution_id"].strip()) < 4
             or not isinstance(submitted.get("evidence_note"), str)
-            or len(submitted["evidence_note"].strip()) < 30):
+            or not 30 <= len(submitted["evidence_note"].strip()) <= 2000):
         raise ValueError("P0 試跑紀錄缺少實測資訊")
     # A declaration is not proof: the main agent must retain the independent
     # experiment outputs for review; this gate only refuses missing/failed checks.
