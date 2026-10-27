@@ -152,12 +152,12 @@ def unverified_inspected_paths(
                 reason = "invalid_file_review"
             by_rule[rid] += 1
             by_reason[reason] += 1
-            link_lines.append(f"{rid}\\t{path}\\t{reason}")
+            link_lines.append(f"{rid}\t{path}\t{reason}")
             if len(examples) < 10:
                 examples.append({"rule_id": rid, "path": path, "reason": reason})
     return {
         "total": sum(by_rule.values()),
-        "fingerprint": hashlib.sha256("\\n".join(sorted(link_lines)).encode("utf-8")).hexdigest(),
+        "fingerprint": hashlib.sha256("\n".join(sorted(link_lines)).encode("utf-8")).hexdigest(),
         "by_rule": dict(sorted(by_rule.items())),
         "by_reason": dict(sorted(by_reason.items())),
         "examples": examples,
