@@ -41,7 +41,7 @@ class NativeCodexOrchestrationDocsTests(unittest.TestCase):
             self.assertIn("Manifest", source)
         self.assertIn("不得宣稱盲審", ADVANCED)
         self.assertIn("不得稱獨立盲審", NATIVE)
-        self.assertIn("不得平行修改", SKILL)
+        self.assertIn("只有主代理可正式 Stage/Integrate", SKILL)
 
 
 if __name__ == "__main__":
