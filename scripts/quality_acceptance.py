@@ -111,7 +111,7 @@ def verify_review(case: dict[str, Any], directory: Path, rules: list[dict]) -> t
                        for c in checks if isinstance(c, dict))):
             problems.append("70 項規則尚未全部 completed 或含重複規則")
         else:
-            queue = build_queue(data, rules, 10, source_root=directory, compact=True)
+            queue = build_queue(data, rules, 10, source_root=directory)
             if not queue.get("ready_for_report"):
                 problems.append("審查證據／完整性守門尚未全部通過")
                 for key in ("review_integrity_errors", "rule_integrity_errors",
