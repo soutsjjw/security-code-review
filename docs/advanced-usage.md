@@ -265,7 +265,10 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 在所有條件真正完成前，不得以 70/70 completed、100% 檔案覆蓋率或 JSON Schema 驗證通過，直接宣稱已完成實質資安審查。
 ```
 
-若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
+若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。
+
+選用多代理時，使用者可明確指定 `$security-code-review --multi-agent --agents 3`，或將上方 `/goal` 首句改成「使用 `$security-code-review --multi-agent --agents 3`」；主代理仍須先完成 [P0 真實試跑](multi-agent-review.md)，不可因提供參數就宣稱已具有唯讀子代理。回傳結果必須依 Worker Schema 驗證；成功也不能代替完整審查。
+單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
 
 ## 完整模式第二輪的分層式工作清單
 
