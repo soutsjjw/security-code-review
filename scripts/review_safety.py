@@ -338,12 +338,12 @@ def stage(target: Path, payload_path: Path) -> str:
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
     known_sections = {"file_reviews", "checks", "findings", "finding_revisions", "closures",
-                      "control_verifications", "decision_audits", "adversarial_reviews"}
+                      "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples"}
     unexpected = set(payload) - known_sections
     if unexpected:
         raise ValueError("暫存資料包含未知欄位，禁止靜默丟棄：" + "、".join(sorted(unexpected)))
-    for key in ("file_reviews", "checks", "findings", "finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews"):
-        is_map = key in {"finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews"}
+    for key in ("file_reviews", "checks", "findings", "finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples"):
+        is_map = key in {"finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples"}
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
@@ -555,6 +555,26 @@ def integrate(target: Path, *, allow_revision: bool = False,
                 raise ValueError(f"{rid}: 第二輪複核紀錄衝突，須人工核對或明確允許修訂")
             adversarial_reviews[rid] = record
             new_adversarial_reviews.add(rid)
+        # 獨立抽樣併入既有受控 adversarial-reviews.json；
+        # 不新增 Manifest TRACKED 欄位，保留舊交易鏈的相容性。
+        sample_entries = part.get("second_pass_samples", {})
+        if sample_entries:
+            from second_pass_layers import RESERVED, record_errors
+            layer = adversarial_reviews.get(RESERVED)
+            if not isinstance(layer, dict) or not isinstance(layer.get("plan"), dict):
+                raise ValueError("第二輪抽樣：缺少已封存的分層計畫")
+            samples = dict(layer.get("samples", {}))
+            source_snapshot = _read(report_dir(target) / SNAPSHOT, {})
+            sample_assessment = {"findings": list(findings.values())}
+            for source_path, sample in sample_entries.items():
+                problems = record_errors(target, source_path, sample, layer["plan"],
+                                         source_snapshot, sample_assessment)
+                if problems:
+                    raise ValueError("；".join(problems))
+                if source_path in samples and samples[source_path] != sample and not allow_revision:
+                    raise ValueError(f"第二輪抽樣：{source_path} 紀錄衝突，需人工允許修訂")
+                samples[source_path] = sample
+            adversarial_reviews[RESERVED] = {**layer, "samples": samples}
 
     # 不允許因去重而留下錯誤 Finding ID 參照。
     for check in checks.values():
