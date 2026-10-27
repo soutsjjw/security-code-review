@@ -205,11 +205,15 @@ def accept(root: Path, path: Path) -> dict:
             "path", "line_start", "line_end", "line_hash", "summary"}:
         raise ValueError("第二輪反例證據不完整")
     source = evidence["path"]
+    from source_reader import read_source_text
+    source_line_count = len(read_source_text(root / source)[0].splitlines()) if (
+        isinstance(source, str) and source in snap["source_hashes"]) else 0
     if (not isinstance(source, str) or source not in snap["source_hashes"]
             or type(evidence["line_start"]) is not int
             or type(evidence["line_end"]) is not int
             or evidence["line_start"] <= 0
             or evidence["line_end"] < evidence["line_start"]
+            or evidence["line_end"] > source_line_count
             or evidence["line_hash"] != proof_line_hash(root, source, evidence["line_start"])
             or not isinstance(evidence["summary"], str)
             or len(evidence["summary"].strip()) < 20):
