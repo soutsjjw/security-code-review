@@ -96,7 +96,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/token_metrics.py" 
 
 來源快照更新採「完整性保護的影響閉包」：若只有 Git Revision 改變、受測來源 SHA256 完全相同，明確執行 `--snapshot-refresh` 只更新經 Manifest／Journal 封存的版本錨點，不重置既有規則、跨檔結案與 Findings。若來源異動，僅對有可信舊索引／來源證據／呼叫鏈關聯的規則縮小重查範圍；新增／刪除檔案、組態異動、失效索引、未知來源或無法界定影響時一律保守擴及全部 70 項。保留未受影響結案，重建索引後仍須通過正式關聯驗證。
 
-來源異動後的 `analysis/recheck-required.json` 是權威待辦清單；`--diagnose-first-pass` 的 `recheck_rule_ids` 直接引用此清單，並同時揭露其他阻塞。對新格式 `schema_version=2` 的待重查規則，`--stage` payload 必須包含同一規則的新 `checks[]` 證據，以及 `recheck_proof` 對應的 `snapshot_fingerprint`、`source_hashes`（目前快照中全部已變更且仍存在的來源路徑與 SHA256）和至少 40 字的 `verification_summary`。只重送舊 completed 資料、填入舊快照雜湊或未核對來源均不可解除待辦；完整性守門與 Finding 修訂授權不因此放寬。
+來源異動後的 `analysis/recheck-required.json` 是權威待辦清單；`--diagnose-first-pass` 的 `recheck_rule_ids` 直接引用此清單，並同時揭露其他阻塞。對新格式 `schema_version=2` 的待重查規則，`--stage` payload 必須包含同一規則的新 `checks[]` 證據，以及 `recheck_proof` 對應的 `snapshot_fingerprint`、`source_hashes`（目前快照中全部已變更且仍存在的來源路徑與 SHA256）、`removed_source_paths`（已刪除來源路徑，無則空陣列）和至少 40 字的 `verification_summary`。只重送舊 completed 資料、填入舊快照雜湊或未核對來源均不可解除待辦；完整性守門與 Finding 修訂授權不因此放寬。
 
 詳細 JSON 實例、參數、版本限制與不支援的語意分析類型見 [完整性守門指引](review-integrity-guards.md)。
 
