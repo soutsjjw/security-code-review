@@ -350,6 +350,15 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
                 or not all(isinstance(boundary.get(k), str) and re.fullmatch(r"[0-9a-f]{64}", boundary[k])
                            for k in ("inventory_sha256", "summary_sha256"))):
             return [f"資料完整性：交易日誌第 {n} 筆邊界認證格式異常"]
+        archive = row.get("archive_attestation")
+        if archive is not None and (
+                not isinstance(archive, dict)
+                or set(archive) != {"schema_version", "manifest_sha256", "script_count", "allow_cleanup"}
+                or archive.get("schema_version") != 1 or archive.get("allow_cleanup") is not False
+                or type(archive.get("script_count")) is not int or archive["script_count"] < 0
+                or not isinstance(archive.get("manifest_sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", archive["manifest_sha256"]) is None):
+            return [f"資料完整性：交易日誌第 {n} 筆舊腳本封存認證異常"]
         if set(row.get("file_hashes", {})) != set(TRACKED):
             return [f"資料完整性：交易日誌第 {n} 筆受控檔案清單異常"]
         previous, last = recorded_hash, row
@@ -375,7 +384,8 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
 def commit(target: Path, updates: dict[str, Any], *, event: str,
            staged_paths: list[Path] | None = None,
            new_snapshot: dict | None = None,
-           boundary_attestation: dict | None = None) -> dict:
+           boundary_attestation: dict | None = None,
+           archive_attestation: dict | None = None) -> dict:
     """先寫 ahead-log，再寫受控檔案；中斷後需明確 recovery。"""
     target = target.resolve()
     if not enabled(target):
@@ -420,6 +430,17 @@ def commit(target: Path, updates: dict[str, Any], *, event: str,
                            for k in ("inventory_sha256", "summary_sha256"))):
             raise ValueError("P0 邊界認證契約無效，拒絕交易")
         pending["boundary_attestation"] = boundary_attestation
+    if archive_attestation is not None:
+        if (event != "legacy-script-archive" or not isinstance(archive_attestation, dict)
+                or set(archive_attestation) != {"schema_version", "manifest_sha256", "script_count", "allow_cleanup"}
+                or archive_attestation.get("schema_version") != 1
+                or archive_attestation.get("allow_cleanup") is not False
+                or type(archive_attestation.get("script_count")) is not int
+                or archive_attestation["script_count"] < 0
+                or not isinstance(archive_attestation.get("manifest_sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", archive_attestation["manifest_sha256"]) is None):
+            raise ValueError("舊腳本封存交易契約無效")
+        pending["archive_attestation"] = archive_attestation
     _write(target / PENDING, pending)
     return recover(target)
 
@@ -452,6 +473,8 @@ def recover(target: Path) -> dict:
                    "file_hashes": after, "staged_sha256": pending["staged_sha256"]}
     if pending.get("boundary_attestation") is not None:
         record_data["boundary_attestation"] = pending["boundary_attestation"]
+    if pending.get("archive_attestation") is not None:
+        record_data["archive_attestation"] = pending["archive_attestation"]
     if pending.get("backup_mode") == BACKUP_MODE:
         record_data["backup_mode"] = BACKUP_MODE
         issues = _backup_errors(target, after)
