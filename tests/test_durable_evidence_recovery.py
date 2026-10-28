@@ -113,6 +113,17 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
         self.assertEqual(ledger.errors(self.target), [])
         self.assertTrue(ledger.backup_status(self.target)["ready"])
 
+    def test_corrupt_backup_can_only_be_repaired_from_intact_formal_evidence(self):
+        backed = self.backup(self.closure_path())
+        backed.write_text("corrupted", encoding="utf-8")
+        self.assertEqual(plan(self.target)["next_action"], "checkpoint")
+        result = ledger.repair_backups(self.target)
+        self.assertEqual(result["sequence"], 1)
+        self.assertEqual(ledger.errors(self.target), [])
+        incident = self.target / ledger.ANALYSIS / "integrity-incidents"
+        self.assertEqual(len(list(incident.glob("corrupt-backup-*.damaged"))), 1)
+        self.assertEqual(backed.read_bytes(), self.closure_path().read_bytes())
+
     def test_tampered_journal_rejects_restore_even_if_backup_is_valid(self):
         journal = self.target / ledger.JOURNAL / "00000000.json"
         row = ledger._read(journal)
