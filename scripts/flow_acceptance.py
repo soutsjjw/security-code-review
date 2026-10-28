@@ -33,12 +33,27 @@ def finding_hash(finding):
 def preservation(before, after):
     original = {x["id"]: finding_hash(x) for x in before.get("findings", [])}
     current = {x["id"]: finding_hash(x) for x in after.get("findings", [])}
-    # No silent mutation; legitimate revisions still need explicit audit receipts.
-    amendments = {a.get("finding_id") for a in after.get("finding_amendments", [])
-                  if isinstance(a, dict) and a.get("reason") and a.get("previous_sha256")}
+    # Validate the authorized amendment hash chain, not just a reviewer label.
+    entries = [a for a in after.get("finding_amendments", []) if isinstance(a, dict)]
+    def valid_revision(fid):
+        known = original[fid]
+        seen = set()
+        while known != current[fid]:
+            matches = [a for a in entries if a.get("finding_id") == fid
+                       and a.get("previous_sha256") == known
+                       and a.get("updated_sha256") not in seen
+                       and isinstance(a.get("reason"), str) and len(a["reason"].strip()) >= 40
+                       and isinstance(a.get("reviewer"), str) and len(a["reviewer"].strip()) >= 4
+                       and isinstance(a.get("previous_finding"), dict)
+                       and finding_hash(a["previous_finding"]) == known]
+            if len(matches) != 1:
+                return False
+            known = matches[0]["updated_sha256"]
+            seen.add(known)
+        return True
     missing = sorted(set(original) - set(current))
-    modified = sorted(x for x in original.keys() & current.keys()
-                      if original[x] != current[x] and x not in amendments)
+    modified = sorted(fid for fid in original.keys() & current.keys()
+                      if original[fid] != current[fid] and not valid_revision(fid))
     return missing, modified
 
 def compare_shadow(legacy, optimized):
@@ -139,8 +154,14 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
                    "reason": "L3 僅表示未偵測到違規，非強制隔離"
                    if boundary_level == "L3" else None})
     passed = all(x["passed"] for x in checks)
+    results = {item["id"]: item["passed"] for item in checks}
+    full_gate_passed = results.get("full_gate_passed", False) and results.get("integrity_verified", False)
+    ready_for_second_pass = full_gate_passed and results.get("second_pass_started", False)
     return {"schema_version": 1, "kind": "g1", "status": "accepted" if passed else "blocked",
-            "accepted": passed, "checks": checks, "boundary_level": boundary_level,
+            "accepted": passed, "incremental_clean": False,
+            "full_gate_passed": bool(full_gate_passed),
+            "ready_for_second_pass": bool(ready_for_second_pass),
+            "checks": checks, "boundary_level": boundary_level,
             "assurance": "conditional-audit-only" if boundary_level == "L3" else
                          "verified" if boundary_level in ("L1", "L2") else "unverified",
             "note": "G1 只證明交付的真實工件符合流程守門；不聲稱模型安全判定正確"}
