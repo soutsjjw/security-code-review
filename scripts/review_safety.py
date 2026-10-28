@@ -736,8 +736,40 @@ def refresh_snapshot(target: Path) -> None:
             "analysis/recheck-required.json": recheck,
             "analysis/rule-closures.json": retained,
         })
-    # A Git-only change updates the version anchor with a sealed transaction;
-    # it does not erase valid source-level evidence or outstanding work.
+    # Sidecar proofs also bind their snapshot_fingerprint to Git Revision.
+    # Reanchor only records already bound to the previous trusted snapshot.
+    # An active second-pass baseline cannot be reanchored without restarting
+    # its challenge/sample plan, so fail closed rather than silently rewriting.
+    if not changed_paths:
+        baseline_path = report_dir(target) / "analysis/first-pass-baseline.json"
+        if baseline_path.is_file():
+            raise ValueError("第二輪 baseline 已建立；不可僅更新 Git 錨點，"
+                             "須先確認來源版本並使用正式第二輪重啟流程")
+        from control_effectiveness import snapshot_fingerprint
+        old_fp = snapshot_fingerprint(old)
+        new_fp = snapshot_fingerprint(updated_snapshot)
+        for sidecar in (CONTROL_VERIFICATIONS, DECISION_AUDITS):
+            records = _read(report_dir(target) / sidecar)
+            if records is None:
+                continue
+            if not isinstance(records, dict):
+                raise ValueError(f"{sidecar}: 原始佐證格式無效，禁止自動重新錨定")
+            updated_records = {}
+            for rid, record in records.items():
+                if not isinstance(record, dict):
+                    updated_records[rid] = record
+                    continue
+                if (record.get("git_revision") == old["git_revision"]
+                        and record.get("snapshot_fingerprint") == old_fp):
+                    revised = dict(record)
+                    revised["git_revision"] = updated_snapshot["git_revision"]
+                    revised["snapshot_fingerprint"] = new_fp
+                    updated_records[rid] = revised
+                else:
+                    # Do not launder a stale/invalid preexisting evidence record.
+                    updated_records[rid] = record
+            if updated_records != records:
+                updates[sidecar.as_posix()] = updated_records
     if active:
         from evidence_integrity import commit as integrity_commit
         integrity_commit(target, updates, event="snapshot-refresh",
