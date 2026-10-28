@@ -35,11 +35,14 @@ class ImpactTests(unittest.TestCase):
             {"id": rid, "execution": {"inspected_paths": []}}
             for rid in self.scopes], "file_reviews": []}
 
-    def impact(self, new=None, index=None, assessment=None, closures=None):
+    def impact(self, new=None, index=None, assessment=None, closures=None, fresh=None):
+        if fresh is None:
+            fresh = {"A.cs": [{"rule_id": "AC-01"}]}
         return affected_rules(self.old, new if new is not None else self.new,
                               index if index is not None else self.index,
                               assessment if assessment is not None else self.assessment,
-                              closures if closures is not None else {}, self.scopes)
+                              closures if closures is not None else {}, self.scopes,
+                              current_candidates=fresh)
 
     def test_git_only_delta_never_invalidates_source_rules(self):
         self.assertEqual(source_delta(self.old, dict(self.old))["modified"], [])
@@ -60,7 +63,11 @@ class ImpactTests(unittest.TestCase):
 
     def test_changed_file_has_no_authoritative_owner_fails_closed(self):
         self.index["rule_candidates"]["A.cs"] = []
-        self.assertTrue(self.impact()["full_recheck"])
+        self.assertTrue(self.impact(fresh={"A.cs": []})["full_recheck"])
+
+    def test_newly_introduced_control_candidate_is_also_rechecked(self):
+        result = self.impact(fresh={"A.cs": [{"rule_id": "CR-02"}]})
+        self.assertEqual(result["rule_ids"], ["AC-01", "CR-02", "DP-01"])
 
     def test_added_removed_and_configuration_sources_fail_closed(self):
         self.assertTrue(self.impact(new={**self.old, "D.cs": "new"})["full_recheck"])
