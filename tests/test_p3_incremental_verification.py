@@ -86,6 +86,14 @@ class IncrementalTests(unittest.TestCase):
         self.assertTrue(result["full_recheck"])
         self.assertEqual(result["reason"], "unresolved-callgraph-edges")
 
+    def test_compare_rejects_stale_source_snapshot(self):
+        incremental = self.invoke({"changed_paths": ["Controller.cs"]})
+        self.snapshot["source_hashes"]["Controller.cs"] = "d" * 64
+        self.write("analysis/review-snapshot.json", self.snapshot)
+        comparison = p3.full_comparison(self.root, incremental)
+        self.assertFalse(comparison["incremental_clean"])
+        self.assertEqual(comparison["reason"], "incremental-cache-invalidated")
+
     def test_full_comparison_never_certifies_second_pass(self):
         incremental = self.invoke({"changed_paths": ["Controller.cs"]})
         with patch.object(p3, "diagnose", return_value={"blockers": [
