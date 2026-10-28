@@ -44,6 +44,8 @@ class MultiAgentTests(unittest.TestCase):
         trace.parent.mkdir(parents=True)
         trace.write_text("Synthetic fixture, NOT a real Codex trace.", "utf-8")
         self.trace = trace
+        from multi_agent import _git_state as original_git_state
+        self.original_git_state = original_git_state
         self.git = {"head": "a" * 40, "worktree_digest": "b" * 64}
         for name in ("multi_agent.runtime_binding", "multi_agent_guard.runtime_binding"):
             runtime = patch(name, return_value="codex-cli test-version")
@@ -78,11 +80,9 @@ class MultiAgentTests(unittest.TestCase):
             self.assertTrue(summary(self.root)["multi_agent_enabled"])
 
     def test_missing_git_executable_is_not_a_source_evidence_failure(self):
-        from multi_agent import _git_state
         with patch("subprocess.run", side_effect=FileNotFoundError):
-            with patch("multi_agent._git_state", _git_state):
-                self.assertEqual(_git_state(self.root),
-                                 {"head": None, "worktree_digest": None})
+            self.assertEqual(self.original_git_state(self.root),
+                             {"head": None, "worktree_digest": None})
 
     def test_claim_denied_without_verified_probe(self):
         from multi_agent import _read
