@@ -185,10 +185,17 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     stopped_for = max(0.0, _clock() - state["last_progress_epoch"])
     stalled = (state["no_progress_checkpoints"] >= STALL_CHECKPOINTS
                and stopped_for >= STALL_SECONDS)
-    if stalled:
+    # 新的 opt-in 收斂控制只標記診斷需求，不以時間／checkpoint 直接停止。
+    optimized = os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized"
+    if stalled and not optimized:
         state["status"] = "stalled"
-    _append(folder, state, "stalled" if stalled else "checkpoint", phase,
-            outcome="blocked" if stalled else "running", metrics=metrics)
+    if stalled and optimized:
+        state.setdefault("convergence", {})["checkpoint_diagnostic_required"] = True
+    event = ("non_converging_checkpoint" if stalled and optimized else
+             "stalled" if stalled else "checkpoint")
+    _append(folder, state, event, phase,
+            outcome="review" if stalled and optimized else "blocked" if stalled else "running",
+            metrics=metrics)
     _save(folder, state)
     return state
 
