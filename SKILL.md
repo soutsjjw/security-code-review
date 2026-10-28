@@ -97,6 +97,8 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對每項再用 `--detail-id` 取具體查核契約，實際閱讀來源、驗證控制及跨檔依賴，分批 `--stage`、`--integrate`，依真實結果記錄 checkpoint 並繼續；不能在 70/70 僅為狀態數或 1～3 個 Finding 時停止。`stalled`／退出碼 3 必須停止重試，保存原有證據，查明阻塞後才能明確開啟新 run。
 
+**完成證據修訂授權**：使用者在本次實際提交的 `/goal` 內容中，得明確預先授權限定受測專案與該次審查的既有 `completed` 證據修訂；僅已重新閱讀來源、核對證據且不違反 Finding／完整性守門者，才能使用 `--integrate --allow-revision`。文件範本本身不代表使用者已授權；未取得明確授權不得修訂。預先授權不包含 `--allow-finding-revision`、改動受測原始碼、繞過 Manifest／Journal 或處理來源版本及審查範圍重大變更。復原檔案優先使用 `review_evidence_recovery.py --plan` 查詢可信備份並以 `--restore` 核對後恢復；無備份時僅得明確隔離舊審查並重新取證，不得重新封存舊不一致鏈。
+
 第一輪遇到大量逐檔無關證據、重複模板或未驗證關聯時，先使用 `review_queue.py --diagnose-first-pass` 確認權威阻擋，再以唯讀 `review_queue.py --repair-plan` 按檔案及規則定向補查。`--integrate` 會提前拒絕本批新增的無效完成證據；已完成紀錄需要修訂時，須取得明確授權後才能使用 `--allow-revision`，且不得刪除原 Finding、偽造來源或跳過完整性守門。詳細流程見 [進階操作](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
 第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準與分層抽樣計畫，再使用 `second_pass_layers.py --target "<TARGET_ROOT>"` 取得下一批原始證據錨點及抽樣檔案。第二輪逐條推翻式驗證並提交抽樣證據與矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
