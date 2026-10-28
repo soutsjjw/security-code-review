@@ -142,6 +142,36 @@ class SnapshotRefreshTests(unittest.TestCase):
         self.assertEqual(_read(self.report / "assessment.json")["findings"],
                          self.assessment["findings"])
 
+    def test_new_review_receipt_can_clear_only_its_authorized_rule(self):
+        from control_effectiveness import snapshot_fingerprint
+        target_check = next(x for x in self.assessment["checks"] if x["id"] == "AC-01")
+        target_check["evidence"] = [{"kind": "source", "path": "App.cs",
+                                     "line_start": 1, "line_end": 1}]
+        _write(self.report / "assessment.json", self.assessment)
+        _write(self.report / "analysis/recheck-required.json", {
+            "schema_version": 2,
+            "rule_ids": ["AC-01", "AU-09"],
+            "changed_source_paths": ["App.cs"]})
+        updated_check = copy.deepcopy(target_check)
+        updated_check["execution"]["summary"] = (
+            "已重新閱讀當前 App.cs 並核對實際控制來源，重新記錄分析方法與適用範圍。")
+        receipt = {"snapshot_fingerprint": snapshot_fingerprint(self.snapshot),
+                   "source_hashes": dict(self.hashes),
+                   "verification_summary": "已重新閱讀 App.cs 的目前來源及實際執行位置，確認本次核對來源版本與先前紀錄有明確區別。"}
+        payload = self.report / "refresh-proof.json"
+        payload.write_text(json.dumps({"checks": [updated_check],
+                                       "recheck_proof": {"AC-01": receipt}},
+                                      ensure_ascii=False), encoding="utf-8")
+        with patch("review_safety._revision", return_value="old"):
+            stage(self.root, payload)
+            result = integrate(self.root, allow_revision=True)
+        self.assertEqual(result["applied"], 1)
+        ledger = _read(self.report / "analysis/recheck-required.json")
+        self.assertEqual(ledger["rule_ids"], ["AU-09"])
+        self.assertEqual(len(ledger["verified_rechecks"]["AC-01"]["receipt_sha256"]), 64)
+        self.assertEqual(_read(self.report / "assessment.json")["findings"],
+                         self.assessment["findings"])
+
     def test_replayed_completed_check_cannot_clear_recheck(self):
         from control_effectiveness import snapshot_fingerprint
         target_check = next(x for x in self.assessment["checks"] if x["id"] == "AC-01")
