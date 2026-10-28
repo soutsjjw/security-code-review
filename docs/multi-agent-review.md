@@ -20,11 +20,13 @@
 & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\multi_agent.py" --target "<TARGET_ROOT>" --record-probe --evidence "<PROBE_RESULT_JSON>"
 ```
 
-`verified=true` 僅表示**已登記人工核對的試跑結果**，不是腳本真的啟動過 Codex；不可偽造測試結果。試跑紀錄綁定執行器版本、trace SHA256 與 24 小時期限，每次 claim／accept 重新驗證，probe 改變會使舊 Ledger 失效。跨日長程審查需待所有 Worker 結束，再透過 `multi_agent.py --renew-probe --evidence <NEW_PROBE_JSON>` 重新核可並保留舊有效證據、續跑紀錄，不得直接覆寫舊 Probe。七個條件有一個不成立，或非 Git 專案，即不啟用子代理。執行器版本、工具權限或沙箱策略異動時要重新執行能力試跑並重新記錄結果；舊紀錄不可當成永遠有效的證明。能力試跑報告不存機敏內容或完整 prompts。
+`verified=true` 僅表示**已登記人工核對的試跑結果**，不是腳本真的啟動過 Codex；不可偽造測試結果。試跑紀錄綁定執行器版本、trace SHA256 與 24 小時期限，每次 claim／accept 重新驗證，probe 改變會使舊 Ledger 失效。跨日長程審查需待所有 Worker 結束，再透過 `multi_agent.py --renew-probe --evidence <NEW_PROBE_JSON>` 重新核可並保留舊有效證據、續跑紀錄，不得直接覆寫舊 Probe。七個條件有一個不成立，即不啟用子代理；**不是 Git repo 本身不構成降級理由**。非 Git 專案仍必須以完整來源清單、逐檔 SHA256、來源快照與原生工具強制唯讀驗證；Ledger 以 `git_state.head=null` 表示無法取得 Git Revision，不得冒稱存在 Git 提交。執行器版本、工具權限或沙箱策略異動時要重新執行能力試跑並重新記錄結果；舊紀錄不可當成永遠有效的證明。能力試跑報告不存機敏內容或完整 prompts。
 
 ## 原生 Codex 子代理自動調度（完整模式）
 
 啟用 `$security-code-review --multi-agent --agents N`（例如 N=3）後，主代理按此順序**自動執行**；使用者無須手動建立 Worker。此為 Codex **Agent 工具調度契約**，不是 Python 的 `spawn_agent()` API。環境可能以 `spawn_agent`、`followup_task`、`send_message`、等待／中斷子代理等協作工具呈現；主代理必須先檢查**本回合實際可用的工具**，按該工具定義傳入參數，不能假設任何特定 Codex App／CLI 版本都提供這些工具。
+
+無 Git 工作樹時，`multi_agent.py --plan` 仍必須在 SHA256 快照、原生代理權限與 P0 試跑全部合格時啟用多代理；**不能只因 `.git` 不存在就將 `workers` 強制設為 1**。如果來源 SHA256 或控制工件驗證失敗，應保留 `blocked` 並調查，而非把其解讀為單代理降級理由。
 
 1. **前置與隔離**：固定 Python，完成原有來源快照、`analysis_prepare.py`、`review_queue.py --init`、`review_safety.py --plan`；僅在原生代理工具確實可呼叫、平台試跑的 7 個項目都通過，且 Worker 的**實際工具權限／sandbox 強制唯讀**時開啟多代理。測試多代理與正式審查須使用相同權限配置；不同則重新試跑。原生子代理預設共用檔案系統、工具或權限時，若無法限制其正式工件的讀寫，不得靠文字承諾放行。
 2. **建立分片**：執行 `multi_agent.py --plan --max-agents N`、`--next`，取待處理分片。真正執行數量取 `min(N, Ledger.workers, 當前可用原生代理槽位, Token 窗口可容納數)`；N 是上限，不是必須同時啟動的數量。禁止把 `--multi-agent` 直接傳給 `review_queue.py`。
