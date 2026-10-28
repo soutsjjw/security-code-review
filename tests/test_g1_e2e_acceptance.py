@@ -80,6 +80,17 @@ class FlowAcceptanceTests(unittest.TestCase):
         self.assertFalse(checks["findings_preserved"]["passed"])
         self.assertFalse(checks["shadow_equivalent"]["passed"])
 
+    def test_fake_finding_amendment_cannot_hide_mutation(self):
+        before = {"findings": [self.finding]}
+        after = {"findings": [{"id": "F-1", "title": "changed"}],
+                 "finding_amendments": [{"finding_id": "F-1",
+                   "previous_sha256": "f" * 64, "updated_sha256": "e" * 64,
+                   "reviewer": "fake", "reason": "a" * 41,
+                   "previous_finding": self.finding}]}
+        missing, changed = gate.preservation(before, after)
+        self.assertEqual(missing, [])
+        self.assertEqual(changed, ["F-1"])
+
     def test_e2e_always_delegates_to_existing_strict_gate(self):
         with patch("flow_acceptance.quality_measure", return_value={
             "quality_gate_passed": False, "measurement_source": "real_project_artifacts",
