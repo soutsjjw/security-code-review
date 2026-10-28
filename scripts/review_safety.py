@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from snapshot_impact import affected_rules, source_delta
+
 RELATIVE = Path("reports/security-code-review")
 SNAPSHOT = Path("analysis/review-snapshot.json")
 CLOSURES = Path("analysis/rule-closures.json")
@@ -100,8 +102,6 @@ def snapshot_errors(target: Path) -> list[str]:
         return []  # 舊審查紀錄沒有新協定，不擅自宣稱其已完成 P0 守門。
     if not isinstance(original, dict) or original.get("schema_version") != 1:
         return ["審查快照版本無效"]
-    if _revision(target) != original.get("git_revision"):
-        return ["Git Revision 已改變，禁止混用不同提交的審查證據"]
     assessment = _read(report_dir(target) / "assessment.json", {}) or {}
     excluded = sorted({str(item.get("path", "")) for item in
                        (assessment.get("scope_details") or {}).get("excluded_paths", [])
@@ -124,6 +124,9 @@ def snapshot_errors(target: Path) -> list[str]:
     if changed or added or removed:
         return [f"來源快照已異動：修改 {changed[:5]}；新增 {added[:5]}；刪除 {removed[:5]}。"
                 "必須重新審查受影響的規則及檔案"]
+    if _revision(target) != original.get("git_revision"):
+        return ["Git Revision 已改變，但來源 SHA256 均未異動；"
+                "須明確執行 snapshot-refresh 更新版本錨點，不得跳過完整性守門"]
     return []
 
 
@@ -338,12 +341,12 @@ def stage(target: Path, payload_path: Path) -> str:
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
     known_sections = {"file_reviews", "checks", "findings", "finding_revisions", "closures",
-                      "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples"}
+                      "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"}
     unexpected = set(payload) - known_sections
     if unexpected:
         raise ValueError("暫存資料包含未知欄位，禁止靜默丟棄：" + "、".join(sorted(unexpected)))
-    for key in ("file_reviews", "checks", "findings", "finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples"):
-        is_map = key in {"finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples"}
+    for key in ("file_reviews", "checks", "findings", "finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"):
+        is_map = key in {"finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"}
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
@@ -388,6 +391,8 @@ def integrate(target: Path, *, allow_revision: bool = False,
     files = {r["path"]: r for r in data.get("file_reviews", [])}
     previous_assessment = json.loads(json.dumps(data, ensure_ascii=False))
     checks = {r["id"]: r for r in data.get("checks", [])}
+    checks_before = {rid: json.loads(json.dumps(value, ensure_ascii=False))
+                     for rid, value in checks.items()}
     findings = {r["id"]: r for r in data.get("findings", [])}
     amendment_history = list(data.get("finding_amendments") or [])
     amended_findings: set[str] = set()
@@ -508,6 +513,20 @@ def integrate(target: Path, *, allow_revision: bool = False,
             if rid in required_recheck and (record.get("execution") or {}).get("state") == "completed":
                 if not record.get("evidence") or not (record.get("execution") or {}).get("methods"):
                     raise ValueError(f"{rid}: 來源異動後重新完成須附實際分析證據及方法")
+                if recheck.get("schema_version") == 2:
+                    # Replayed completed checks cannot clear a new version obligation.
+                    from control_effectiveness import snapshot_fingerprint
+                    proof = (part.get("recheck_proof") or {}).get(rid)
+                    changed_paths = recheck.get("changed_source_paths") or []
+                    expected = {p: snapshot["source_hashes"][p] for p in changed_paths
+                                if p in snapshot["source_hashes"]}
+                    if (checks_before.get(rid) == record
+                            or not isinstance(proof, dict)
+                            or proof.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot)
+                            or proof.get("source_hashes") != expected
+                            or not isinstance(proof.get("verification_summary"), str)
+                            or len(proof["verification_summary"].strip()) < 40):
+                        raise ValueError(f"{rid}: 重新查核須新增實際證據，並提供綁定當前來源快照的查核紀錄")
                 newly_rechecked.add(rid)
         for rid, record in part.get("closures", {}).items():
             if rid not in rule_scopes():
@@ -637,8 +656,6 @@ def refresh_snapshot(target: Path) -> None:
     if folder.is_dir() and any(folder.glob("*.json")):
         raise ValueError("尚有未整合暫存；禁止刷新來源快照")
     from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors, MANIFEST as integrity_manifest
-    # 尚未建立 assessment 的純分析器工作樹沒有審查資料需要封存；
-    # 可刷新技術索引，但一旦審查檔存在就不能繞過完整性起點。
     active = integrity_enabled(target) and (
         (target / integrity_manifest).exists()
         or (report_dir(target) / "assessment.json").exists())
@@ -647,31 +664,56 @@ def refresh_snapshot(target: Path) -> None:
         if problems:
             raise ValueError("；".join(problems))
     old = _read(report_dir(target) / SNAPSHOT)
-    if old is None:
-        raise ValueError("尚未建立審查快照")
+    if not isinstance(old, dict) or not isinstance(old.get("source_hashes"), dict):
+        raise ValueError("尚未建立有效審查快照")
     assessment = _read(report_dir(target) / "assessment.json", {}) or {}
     excludes = sorted({str(row.get("path", "")) for row in
                        (assessment.get("scope_details") or {}).get("excluded_paths", [])
                        if isinstance(row, dict)})
+    if excludes != old.get("excluded_paths", []):
+        raise ValueError("審查排除範圍已改變；須完整重新盤點，禁止增量套用舊結論")
     current = current_hashes(target, excludes)
     updated_snapshot = {"schema_version": 1, "git_revision": _revision(target),
                         "source_hashes": current, "excluded_paths": excludes}
-    # 保留所有已存在 Finding；只解除過期結案並強制重新檢核完成規則。
-    completed = [row["id"] for row in assessment.get("checks", [])
-                 if (row.get("execution") or {}).get("state") == "completed"]
-    recheck = {"rule_ids": sorted(completed),
-               "reason": "審查來源或 Git 版本已變更，需重新驗證影響閉包"}
+    if old == updated_snapshot:
+        return
+
+    delta = source_delta(old["source_hashes"], current)
+    changed_paths = sorted(set().union(*map(set, delta.values())))
+    updates: dict[str, Any] = {"analysis/review-snapshot.json": updated_snapshot}
+    if changed_paths:
+        index = _read(report_dir(target) / INDEX, {}) or {}
+        closures = _read(report_dir(target) / CLOSURES, {}) or {}
+        impact = affected_rules(old["source_hashes"], current, index,
+                                assessment, closures, rule_scopes())
+        previous = _read(report_dir(target) / RECHECK, {}) or {}
+        recheck = {
+            "schema_version": 2,
+            "rule_ids": sorted(set(previous.get("rule_ids") or []) | set(impact["rule_ids"])),
+            "reason": "來源變更；需對影響閉包重新取得實際證據",
+            "source_delta": delta,
+            "changed_source_paths": sorted(set(previous.get("changed_source_paths") or [])
+                                           | set(changed_paths)),
+            "impact_reason": impact["reason"],
+            "full_recheck": impact["full_recheck"],
+        }
+        # Only invalidate affected closures. The formal verifier still checks
+        # retained relationships against the regenerated source index.
+        retained = {rid: record for rid, record in closures.items()
+                    if rid not in impact["rule_ids"]}
+        updates.update({
+            "analysis/recheck-required.json": recheck,
+            "analysis/rule-closures.json": retained,
+        })
+    # A Git-only change updates the version anchor with a sealed transaction;
+    # it does not erase valid source-level evidence or outstanding work.
     if active:
         from evidence_integrity import commit as integrity_commit
-        integrity_commit(target, {
-            "analysis/review-snapshot.json": updated_snapshot,
-            "analysis/recheck-required.json": recheck,
-            "analysis/rule-closures.json": None
-        }, event="snapshot-refresh", new_snapshot=updated_snapshot)
+        integrity_commit(target, updates, event="snapshot-refresh",
+                         new_snapshot=updated_snapshot)
     else:
-        _write(report_dir(target) / SNAPSHOT, updated_snapshot)
-        _write(report_dir(target) / RECHECK, recheck)
-        (report_dir(target) / CLOSURES).unlink(missing_ok=True)
+        for path, payload in updates.items():
+            _write(report_dir(target) / path, payload)
 
 
 def main() -> int:
