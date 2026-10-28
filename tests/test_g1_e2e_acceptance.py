@@ -41,7 +41,7 @@ class FlowAcceptanceTests(unittest.TestCase):
         self.write(self.target / "reports/security-code-review/logs/latest.json",
                    {"run_id": "20261028-100000-abcd1234"})
         self.write(self.target / "reports/security-code-review/logs/boundary-baselines/"
-                   "20261028-100000-abcd1234.json", {"inventory": {"boundary_level": "L3"}})
+                   "20261028-100000-abcd1234.json", {"inventory": {"boundary_level": "L3"}, "scripts": {}})
 
     def write(self, path, obj):
         path.parent.mkdir(parents=True, exist_ok=True)
