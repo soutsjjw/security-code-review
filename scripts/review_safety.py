@@ -521,10 +521,13 @@ def integrate(target: Path, *, allow_revision: bool = False,
                     changed_paths = recheck.get("changed_source_paths") or []
                     expected = {p: snapshot["source_hashes"][p] for p in changed_paths
                                 if p in snapshot["source_hashes"]}
+                    removed_paths = sorted(p for p in changed_paths
+                                           if p not in snapshot["source_hashes"])
                     if (checks_before.get(rid) == record
                             or not isinstance(proof, dict)
                             or proof.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot)
                             or proof.get("source_hashes") != expected
+                            or proof.get("removed_source_paths", []) != removed_paths
                             or not isinstance(proof.get("verification_summary"), str)
                             or len(proof["verification_summary"].strip()) < 40):
                         raise ValueError(f"{rid}: 重新查核須新增實際證據，並提供綁定當前來源快照的查核紀錄")
