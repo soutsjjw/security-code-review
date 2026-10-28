@@ -110,5 +110,3 @@ Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對�
 
 使用 [品質驗收指引](docs/quality-acceptance.md) 的 70 項品質矩陣與固定 16 個真實案例；未有實際完整審查工件不得宣稱品質實測通過。較完整的命令、Log、報告格式與復原方法見 [進階操作](docs/advanced-usage.md)。
 
-
-B0／P4-A／P0 的實驗性功能僅在明確 opt-in 時使用，詳見 [執行邊界與基準](docs/execution-boundary.md)。
