@@ -9,6 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import incremental_verification as p3
+from control_effectiveness import snapshot_fingerprint
 
 class IncrementalTests(unittest.TestCase):
     def setUp(self):
@@ -54,7 +55,8 @@ class IncrementalTests(unittest.TestCase):
         fingerprint = p3.contract_fingerprint(ROOT, "L3") if prior else "old"
         with patch.object(p3, "rule_scopes", return_value=self.scopes), \
              patch.object(p3, "__file__", str(ROOT / "scripts/incremental_verification.py")):
-            return p3.plan(self.root, changes, previous_contract=fingerprint, **kwargs)
+            return p3.plan(self.root, changes, previous_contract=fingerprint,
+                           previous_snapshot=snapshot_fingerprint(self.snapshot), **kwargs)
 
     def test_typed_chain_expands_and_preserves_global_scope(self):
         result = self.invoke({"changed_paths": ["Controller.cs"]})
@@ -64,6 +66,13 @@ class IncrementalTests(unittest.TestCase):
         self.assertIn("AU-01", result["sample_rules"])
         self.assertFalse(result["full_gate_passed"])
         self.assertFalse(result["ready_for_second_pass"])
+
+    def test_missing_source_snapshot_attestation_forces_full(self):
+        with patch.object(p3, "rule_scopes", return_value=self.scopes):
+            result = p3.plan(self.root, {"changed_paths": ["Controller.cs"]},
+                             previous_contract=p3.contract_fingerprint(ROOT, "L3"))
+        self.assertTrue(result["full_recheck"])
+        self.assertEqual(result["reason"], "source-snapshot-version-changed")
 
     def test_missing_provenance_forces_full(self):
         result = self.invoke({"changed_rule_ids": ["AC-08"]}, prior=False)
