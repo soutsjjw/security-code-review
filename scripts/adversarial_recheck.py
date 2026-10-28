@@ -87,9 +87,7 @@ def first_pass_issues(
     if staged_dir.is_dir() and any(staged_dir.glob("*.json")):
         return ["第一輪：仍有未整合的第一輪暫存結果"]
     recheck = _read(target / RELATIVE / "recheck-required.json", {})
-    if isinstance(recheck, dict) and recheck.get("rule_ids"):
-        return ["第一輪：來源異動後仍有待重新查核規則：" +
-                "、".join(recheck["rule_ids"])]
+    outstanding = (recheck.get("rule_ids") or []) if isinstance(recheck, dict) else []
     cross_file_details: dict[str, dict] = {}
     issues = (snapshot_errors(target)
               + completion_errors(complete if allow_partial else checks)
@@ -97,6 +95,11 @@ def first_pass_issues(
               + closure_errors(target, assessment, diagnostics=cross_file_details)
               + verification_errors(target, checks)
               + adjudication_errors(target, checks))
+    # Pending source rechecks are an independent first-pass blocker; do not
+    # return early and hide other evidence/closure defects from diagnosis.
+    if outstanding:
+        issues.insert(0, "第一輪：來源異動後仍有待重新查核規則：" +
+                      "、".join(outstanding))
     if diagnostics is not None:
         diagnostics["cross_file_candidates"] = cross_file_details
     coverage = build_source_coverage(assessment, target)
