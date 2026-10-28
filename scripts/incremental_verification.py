@@ -58,6 +58,7 @@ def _paths_from_trace(trace) -> set[str]:
     return result
 
 def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None = None,
+         previous_snapshot: str | None = None,
          boundary_level: str = "L3", sample_count: int = 8, seed: str = "p3-v1") -> dict:
     """Return a conservative recheck set; does not edit evidence or claim pass."""
     target = target.resolve()
@@ -103,6 +104,10 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
         return all_scope("unproven-artifact-impact")
     if previous_contract is None or previous_contract != contract:
         return all_scope("contract-or-boundary-version-changed")
+    from control_effectiveness import snapshot_fingerprint
+    if (not isinstance(snapshot, dict) or previous_snapshot is None
+            or previous_snapshot != snapshot_fingerprint(snapshot)):
+        return all_scope("source-snapshot-version-changed")
     hashes = snapshot.get("source_hashes") if isinstance(snapshot, dict) else None
     if (not isinstance(hashes, dict) or not all(isinstance(k, str) and isinstance(v, str)
                                                 for k, v in hashes.items())):
@@ -271,6 +276,7 @@ def main():
     p.add_argument("--target", required=True, type=Path)
     p.add_argument("--changes", required=True, type=Path)
     p.add_argument("--previous-contract")
+    p.add_argument("--previous-snapshot", help="上次可信來源快照的 snapshot_fingerprint")
     p.add_argument("--boundary-level", choices=("L1", "L2", "L3"), default="L3")
     p.add_argument("--sample-count", type=int, default=8)
     p.add_argument("--seed", default="p3-v1")
@@ -279,6 +285,7 @@ def main():
     try:
         changes = _load(args.changes)
         result = plan(args.target, changes, previous_contract=args.previous_contract,
+                      previous_snapshot=args.previous_snapshot,
                       boundary_level=args.boundary_level,
                       sample_count=args.sample_count, seed=args.seed)
         if args.compare_full:
