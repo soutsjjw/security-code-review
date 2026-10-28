@@ -458,12 +458,12 @@ PYTHON="$(sh scripts/run-python.sh --resolve)"
 - 本輪規則均 completed 但不能第二輪：`--diagnose-first-pass` 必須先完全通過；第二輪本身尚未完成不能當作第一輪缺失。只有第二輪 70 項完成後才執行正式 `--validate` 與報告交付。
 
 
-## 實驗性 B0／P4-A／P0 安全邊界與基準
+## 實驗性基準觀測、執行事件與安全邊界
 
 正式 B0 工具：`scripts/b0_baseline.py --latest <logs/latest.json> --output <b0.json>`。由於 `latest.json` 中 0 Token 可能表示未回報，這類值一律顯示為 `unavailable`。
 
 P4-A 事件驗證：`scripts/execution_boundary_events.py --target <TARGET_ROOT> --run-id <RUN_ID> --verify`。JSON Schema 未知版本拒收。Agent 不具可信人工覆核權限；不得自行填入 `execution_boundary_review` 使 `pending_review` 通過。
 
-P0 前置：`scripts/execution_boundary.py --target <TARGET_ROOT> --begin` 必須在 Log start 後呼叫，且同一 Run 不能覆寫原始基準。新版交易要在執行環境明確設定 `SECURITY_CODE_REVIEW_EXECUTION_MODE=optimized`；既有預設 legacy 續跑方式不受影響。L3 僅事後偵測 `analysis/` 可辨識的腳本變動；無可信完整能力清單時，禁止宣稱達成 L2。
+執行邊界前置：`scripts/execution_boundary.py --target <TARGET_ROOT> --begin` 必須在 Log start 後呼叫，且同一 Run 不能覆寫原始基準。新版交易要在執行環境明確設定 `SECURITY_CODE_REVIEW_EXECUTION_MODE=optimized`；既有預設 legacy 續跑方式不受影響。L3 僅事後偵測 `analysis/` 可辨識的腳本變動；無可信完整能力清單時，禁止宣稱達成 L2。
 
 新程式不得在 `analysis/` 臨時建立 `.py`、`.sh` 或 `.js` 修復器；既有舊腳本僅保留並等待可信的依賴審核，不直接刪除。其餘正式來源查核、Manifest／Journal 與第二輪完整性守門不變。
