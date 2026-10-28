@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path
 
-from execution_boundary_events import append_violation, verify_run, fingerprint
+from execution_boundary_events import append_violation, verify_run, fingerprint, snapshot_run_summary
 
 REPORT = Path("reports/security-code-review")
 SCRIPT_EXT = {".py", ".sh", ".js", ".ps1", ".cmd", ".bat", ".exe", ".dll"}
@@ -92,7 +92,7 @@ def inspect(target, *, batch_id, stage="first_pass", record=False):
     if record and batch_id in verify_run(target, run_id)["blocked_batches"]:
         report["clean"] = False
         report["pending_review"] = True
-    report["summary_sha256"] = verify_run(target, run_id)["summary_sha256"]
+    report["summary_sha256"] = snapshot_run_summary(target, run_id)["summary_sha256"]
     return report
 
 def require_clean(target, *, batch_id, stage="first_pass"):
