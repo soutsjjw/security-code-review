@@ -47,6 +47,9 @@ def compare_shadow(legacy, optimized):
     for key in KEYS:
         if legacy.get(key) != optimized.get(key):
             errors.append("shadow 欄位差異：" + key)
+    if (legacy.get("blocker_signature") and optimized.get("blocker_signature")
+            and legacy["blocker_signature"] != optimized["blocker_signature"]):
+        errors.append("shadow 正式 Blocker 指紋差異")
     for key in ("blockers",):
         def shape(obj):
             return sorted((x.get("category"), tuple(sorted(x.get("rule_ids") or [])))
@@ -107,9 +110,10 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
         if legacy == target:
             raise ValueError("必須使用獨立舊格式中途狀態")
         legacy_state = read(legacy / REPORT / "assessment.json")
+        from evidence_integrity import enabled as integrity_enabled
         issues = integrity_errors(legacy)
         old_ids = {f["id"] for f in legacy_state.get("findings", [])}
-        check("legacy_state_resumable", not issues and bool(old_ids) and
+        check("legacy_state_resumable", integrity_enabled(legacy) and not issues and
               all(f["id"] in old_ids for f in before.get("findings", [])),
               "舊格式狀態未核對／Findings 不完整")
     except (OSError, ValueError, KeyError, TypeError) as exc:
