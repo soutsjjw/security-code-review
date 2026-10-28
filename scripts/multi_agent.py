@@ -56,8 +56,13 @@ def _write(path: Path, data: dict) -> None:
 
 
 def _git_state(root: Path) -> dict:
-    head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
-                          capture_output=True, text=True, check=False)
+    try:
+        head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, check=False)
+    except OSError:
+        # Git is supplementary to the authoritative source snapshot, not a prerequisite
+        # for enforced read-only Codex workers. Never invent a revision.
+        return {"head": None, "worktree_digest": None}
     if head.returncode:
         return {"head": None, "worktree_digest": None}
     status = subprocess.run(["git", "-C", str(root), "status", "--porcelain=v1",
@@ -93,6 +98,8 @@ def _snapshot(root: Path) -> tuple[dict, dict, dict]:
     actual_head = _git_state(root)["head"]
     if actual_head and snap.get("git_revision") != actual_head:
         raise ValueError("來源快照 Git Revision 與實際 HEAD 不一致")
+    # Without Git, the recorded source hashes remain mandatory and authoritative;
+    # the lack of Git metadata is disclosed through the ledger git_state.
     return snap, index, assessment
 
 
@@ -226,7 +233,9 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
     except FileNotFoundError:
         probe = {}
     # Do not claim that an in-chat declaration enforces a sandbox.
-    enabled = (not probe_errors(root, probe) and _git_state(root)["head"] is not None)
+    # Gitless targets still have an exact source inventory and SHA256 snapshot.
+    # Only the native executor + forced read-only P0 probe determines availability.
+    enabled = not probe_errors(root, probe)
     built = _build_tasks(root, snap, index, max_agents=max_agents,
                          budget_tokens=budget_tokens, task_tokens=task_tokens, probe_ok=enabled)
     current = root / LEDGER
@@ -261,7 +270,7 @@ def plan(root: Path, *, max_agents: int = 3, budget_tokens: int = 96000,
              "integration": None,
              "git_state": _git_state(root), "multi_agent_enabled": enabled,
              "workers": built["workers"],
-             "fallback_reason": None if enabled else "P0 尚未實測核可，退回單代理",
+             "fallback_reason": None if enabled else "原生子代理／唯讀能力試跑未核可，退回單代理",
              "config": {"max_agents": max_agents, "budget_tokens": budget_tokens,
                         "task_tokens": task_tokens},
              "estimated_total_tokens": built["estimated_tokens"], "measured_tokens": 0,
