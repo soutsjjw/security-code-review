@@ -158,7 +158,7 @@ class SnapshotRefreshTests(unittest.TestCase):
             receipt = {"snapshot_fingerprint": snapshot_fingerprint(self.snapshot),
                        "source_hashes": dict(self.hashes),
                        "verification_summary": "已重新閱讀相關來源檔及行號，並將實際控制證據與原本結論逐項核對完畢。"}
-            payload = self.root / "payload.json"
+            payload = self.report / "payload.json"
             payload.write_text(json.dumps({"checks": [copy.deepcopy(target_check)],
                                            "recheck_proof": {"AC-01": receipt}},
                                           ensure_ascii=False), encoding="utf-8")
