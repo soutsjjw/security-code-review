@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 from datetime import date
 import sys
@@ -337,6 +338,11 @@ def stage(target: Path, payload_path: Path) -> str:
     failures = evidence_integrity_errors(target)
     if failures:
         raise ValueError("；".join(failures))
+    # 新流程 opt-in；既有審查續跑預設仍走原交易契約。
+    if os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized":
+        from execution_boundary import require_clean
+        require_clean(target, batch_id=hashlib.sha256(str(payload_path).encode("utf-8")).hexdigest()[:24],
+                      stage="first_pass")
     payload = _read(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
@@ -380,6 +386,11 @@ def integrate(target: Path, *, allow_revision: bool = False,
     paths = sorted(folder.glob("*.json")) if folder.exists() else []
     if not paths:
         return {"applied": 0, "message": "沒有待整合的暫存資料"}
+    boundary_attestation = None
+    if os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized":
+        from execution_boundary import require_clean
+        batch_key = hashlib.sha256("|".join(p.name for p in paths).encode("utf-8")).hexdigest()[:24]
+        boundary_attestation = require_clean(target, batch_id=batch_key, stage="first_pass")
     assessment_path = report_dir(target) / "assessment.json"
     data = _read(assessment_path)
     if not isinstance(data, dict):
@@ -648,7 +659,8 @@ def integrate(target: Path, *, allow_revision: bool = False,
                     **newly_rechecked_receipts,
                 }
             updates["analysis/recheck-required.json"] = recheck
-        integrity_commit(target, updates, event="integrate", staged_paths=paths)
+        integrity_commit(target, updates, event="integrate", staged_paths=paths,
+                         boundary_attestation=boundary_attestation)
     else:
         _write(report_dir(target) / CLOSURES, closures)
         _write(report_dir(target) / CONTROL_VERIFICATIONS, control_verifications)
