@@ -702,8 +702,21 @@ def refresh_snapshot(target: Path) -> None:
     if changed_paths:
         index = _read(report_dir(target) / INDEX, {}) or {}
         closures = _read(report_dir(target) / CLOSURES, {}) or {}
+        # Also consider newly introduced control patterns in modified sources.
+        # Parser failures force the conservative full-rule fallback.
+        current_candidates = {}
+        try:
+            from analysis_candidates import candidate_hits
+            from source_reader import read_source_text
+            for source_path in delta["modified"]:
+                if source_path.lower().endswith(".cs"):
+                    current_candidates[source_path] = candidate_hits(
+                        source_path, read_source_text(target / source_path)[0])
+        except (OSError, UnicodeError, ValueError, TypeError):
+            current_candidates = {}
         impact = affected_rules(old["source_hashes"], current, index,
-                                assessment, closures, rule_scopes())
+                                assessment, closures, rule_scopes(),
+                                current_candidates=current_candidates)
         previous = _read(report_dir(target) / RECHECK, {}) or {}
         recheck = {
             "schema_version": 2,
