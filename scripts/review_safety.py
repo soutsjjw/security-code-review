@@ -413,6 +413,7 @@ def integrate(target: Path, *, allow_revision: bool = False,
     recheck = _read(report_dir(target) / RECHECK, {}) or {}
     required_recheck = set(recheck.get("rule_ids", []))
     newly_rechecked: set[str] = set()
+    newly_rechecked_receipts: dict[str, dict] = {}
 
     # 先於記憶體完整調和、偵測衝突，絕不分批覆蓋正式檔。
     for path in paths:
@@ -527,6 +528,13 @@ def integrate(target: Path, *, allow_revision: bool = False,
                             or not isinstance(proof.get("verification_summary"), str)
                             or len(proof["verification_summary"].strip()) < 40):
                         raise ValueError(f"{rid}: 重新查核須新增實際證據，並提供綁定當前來源快照的查核紀錄")
+                    receipt_hash = hashlib.sha256(json.dumps(
+                        proof, ensure_ascii=False, sort_keys=True,
+                        separators=(",", ":")).encode("utf-8")).hexdigest()
+                    newly_rechecked_receipts[rid] = {
+                        "snapshot_fingerprint": proof["snapshot_fingerprint"],
+                        "receipt_sha256": receipt_hash,
+                    }
                 newly_rechecked.add(rid)
         for rid, record in part.get("closures", {}).items():
             if rid not in rule_scopes():
@@ -631,6 +639,11 @@ def integrate(target: Path, *, allow_revision: bool = False,
         }
         if required_recheck:
             recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
+            if newly_rechecked_receipts:
+                recheck["verified_rechecks"] = {
+                    **(recheck.get("verified_rechecks") or {}),
+                    **newly_rechecked_receipts,
+                }
             updates["analysis/recheck-required.json"] = recheck
         integrity_commit(target, updates, event="integrate", staged_paths=paths)
     else:
@@ -641,6 +654,11 @@ def integrate(target: Path, *, allow_revision: bool = False,
         _write(assessment_path, data)
         if required_recheck:
             recheck["rule_ids"] = sorted(required_recheck - newly_rechecked)
+            if newly_rechecked_receipts:
+                recheck["verified_rechecks"] = {
+                    **(recheck.get("verified_rechecks") or {}),
+                    **newly_rechecked_receipts,
+                }
             _write(report_dir(target) / RECHECK, recheck)
         for path in paths:
             path.unlink()
