@@ -85,7 +85,7 @@ def _backup_path(target: Path, sha: str) -> Path:
 
 def _backup_bytes(target: Path, sha: str) -> bytes:
     path = _backup_path(target, sha)
-    if any(p.is_symlink() for p in (path, path.parent, path.parent.parent)):
+    if any(p.is_symlink() for p in (path, path.parent, path.parent.parent, path.parent.parent.parent)):
         raise ValueError("完整性備份路徑包含 symbolic link")
     if not path.is_file():
         raise ValueError(f"找不到 SHA256={sha} 的可信證據內容備份")
@@ -101,7 +101,7 @@ def _store_backup(target: Path, raw: bytes) -> str:
     if path.is_file():
         _backup_bytes(target, sha)
         return sha
-    if any(p.is_symlink() for p in (path, path.parent, path.parent.parent)):
+    if any(p.is_symlink() for p in (path, path.parent, path.parent.parent, path.parent.parent.parent)):
         raise ValueError("完整性備份路徑包含 symbolic link")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".pending")
@@ -177,8 +177,8 @@ def repair_backups(target: Path) -> dict:
             continue
         raw = formal.read_bytes()
         backed = _backup_path(target, digest(raw))
-        if backed.is_symlink():
-            raise ValueError(f"{name}: 備份為 symbolic link，拒絕修補")
+        if any(p.is_symlink() for p in (backed, backed.parent, backed.parent.parent, backed.parent.parent.parent)):
+            raise ValueError(f"{name}: 備份路徑包含 symbolic link，拒絕修補")
         if backed.is_file() and digest(backed.read_bytes()) != digest(raw):
             damaged = backed.read_bytes()
             incident = target / ANALYSIS / "integrity-incidents" / (
