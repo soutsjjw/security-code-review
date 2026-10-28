@@ -79,11 +79,23 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
         check("full_gate_passed", not errors, errors[:5])
     except (OSError, ValueError, TypeError, KeyError) as exc:
         check("full_gate_passed", False, str(exc)[:250])
-    from pathlib import Path
-    baseline_path = target / REPORT / "analysis/first-pass-baseline.json"
-    check("second_pass_started", baseline_path.is_file() and
-          isinstance(read(baseline_path), dict) if baseline_path.is_file() else False,
-          "第一輪完成但尚未固定第二輪 baseline")
+    # Must match the formal checkpoint contract, not merely an arbitrary JSON file.
+    try:
+        from control_effectiveness import snapshot_fingerprint
+        checkpoint = read(target / REPORT / "analysis/first-pass-baseline.json")
+        snapshot = read(target / REPORT / "analysis/review-snapshot.json")
+        from review_queue import load_rules
+        _, rules = load_rules()
+        expected_ids = {r["id"] for r in rules}
+        expected = (checkpoint.get("snapshot_fingerprint") == snapshot_fingerprint(snapshot)
+                    and isinstance(checkpoint.get("checks"), dict)
+                    and set(checkpoint["checks"]) == expected_ids
+                    and isinstance(assessment.get("checks"), list)
+                    and {c.get("id") for c in assessment["checks"] if isinstance(c, dict)} == expected_ids)
+        check("second_pass_started", expected,
+              "第二輪 baseline 的快照／70 項規則錨點不一致")
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        check("second_pass_started", False, type(exc).__name__)
     try:
         old, new = read(shadow_legacy), read(shadow_optimized)
         differences = compare_shadow(old, new)
