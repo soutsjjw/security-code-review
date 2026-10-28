@@ -156,7 +156,7 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --snapsh
 python "<SKILL_ROOT>/scripts/analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
 ```
 
-刷新不清除原有 Findings、舊判定、file_reviews；會清除失效的結案與產生 `analysis/recheck-required.json`，要求原本 completed 的規則以真實證據重新審查。Agent 須藉由新的暫存 `checks[]` 覆核證據並重新整合，全部重查完畢才能正式交付。尚有暫存資料時不得刷新快照。若已存在相互矛盾的 findings／狀態，須人工裁決，不能以格式修補繞過。
+刷新不清除原有 Findings、舊判定、file_reviews。僅 Git Revision 改變而來源 SHA256 完全一致時，只以 Manifest／Journal 交易更新版本錨點，既有結案與待辦維持原狀。來源真的異動時，以舊版可信來源索引、跨檔關聯與檢核證據推導保守影響閉包；僅移除受影響規則的結案，新增／刪除檔案、設定異動或證據不足則回退全部 70 項，並寫入 `analysis/recheck-required.json` 的變更清單與範圍理由。Agent 須重新核對真實來源，以新 `checks[]` 配合 `recheck_proof`（新快照指紋、已變更來源 SHA256、40 字以上具體重新查核紀錄）暫存後合法整合；不得僅重送舊 completed 或隨意填寫標記。歷次整合仍須通過正式來源、Manifest／Journal、Finding 守門；尚有暫存資料時不得刷新快照。若已存在相互矛盾的 findings／狀態，須人工裁決，不能以格式修補繞過。
 
 現行啟發式仍無法證明所有執行時動態連結、所有語意資料流或程式碼確曾被閱讀；必須保留來源追查與審查者複核，不能視為完整 SAST。
 
