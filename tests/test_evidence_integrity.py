@@ -250,8 +250,17 @@ class EvidenceIntegrityTests(unittest.TestCase):
     def test_git_only_refresh_is_sealed_without_erasing_closures_or_findings(self):
         from review_safety import refresh_snapshot
         self.seal()
+        from control_effectiveness import snapshot_fingerprint
         closure = {"AC-08": {"status": "review", "summary": "preserved"}}
-        ledger.commit(self.root, {"analysis/rule-closures.json": closure},
+        old_fp = snapshot_fingerprint(self.snapshot)
+        proof = {
+            "AC-08": {"git_revision": "test-revision",
+                      "snapshot_fingerprint": old_fp},
+            "AU-09": {"git_revision": "stale-source",
+                      "snapshot_fingerprint": "stale-fingerprint"},
+        }
+        ledger.commit(self.root, {"analysis/rule-closures.json": closure,
+                                  "analysis/control-verifications.json": proof},
                       event="integrate")
         self.assertEqual(ledger.errors(self.root), [])
         with (patch("review_safety.current_hashes",
@@ -261,6 +270,10 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.assertEqual(ledger.errors(self.root), [])
         self.assertFalse((self.report / "analysis/recheck-required.json").exists())
         self.assertEqual(_read(self.report / "analysis/rule-closures.json"), closure)
+        reanchored = _read(self.report / "analysis/control-verifications.json")
+        self.assertEqual(reanchored["AC-08"]["git_revision"], "new-git-revision")
+        self.assertNotEqual(reanchored["AC-08"]["snapshot_fingerprint"], old_fp)
+        self.assertEqual(reanchored["AU-09"], proof["AU-09"])
         self.assertEqual(_read(self.report / "assessment.json"), self.assessment)
         journal = json.loads((self.root / ledger.JOURNAL / "00000002.json").read_text("utf-8"))
         self.assertEqual(journal["event"], "snapshot-refresh")
