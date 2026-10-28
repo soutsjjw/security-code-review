@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -455,6 +456,13 @@ def main() -> int:
                     observe_blockers(target, diagnostics)
                 except (OSError, ValueError, KeyError, TypeError) as log_exc:
                     print(f"WARNING: 無法記錄 blocker 指紋變化：{type(log_exc).__name__}", file=sys.stderr)
+            if (os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized"
+                    and (target / "reports/security-code-review/logs/latest.json").is_file()):
+                try:
+                    from convergence_controller import observe_diagnostics
+                    diagnostics["convergence"] = observe_diagnostics(target, diagnostics)
+                except (OSError, ValueError, TypeError, KeyError) as log_exc:
+                    print(f"WARNING: 收斂診斷無法記錄：{type(log_exc).__name__}", file=sys.stderr)
             if args.repair_plan:
                 from first_pass_repair import repair_plan
                 diagnostics = repair_plan(assessment, diagnostics, limit=args.source_batch_size)
