@@ -109,3 +109,12 @@ Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對�
 ## 發佈前品質驗收及進階操作
 
 使用 [品質驗收指引](docs/quality-acceptance.md) 的 70 項品質矩陣與固定 16 個真實案例；未有實際完整審查工件不得宣稱品質實測通過。較完整的命令、Log、報告格式與復原方法見 [進階操作](docs/advanced-usage.md)。
+
+
+## B0／P4-A／P0 執行邊界（實驗性、預設不啟用）
+
+- 效能量測先使用 [B0 基準](docs/b0-baseline.md)，未知 Token／Agent 耗時只能記為不可取得。
+- 新版 P4-A 事件只作追加式觀測：事件 JSON Schema 與驗證器位於 `schemas/execution-boundary-event-v1.schema.json`、`scripts/execution_boundary_events.py`；沒有可信覆核通道，不得由 Agent 自行產生有效覆核。
+- P0 前置 `execution_boundary.py` 目前只能確認 L3 事後稽核；不能宣稱 L1/L2 強制隔離。L3 不保證偵測 `python -c`、已刪除暫存檔或外部工具的所有寫入。
+- 完整模式新流程須明確設定 `SECURITY_CODE_REVIEW_EXECUTION_MODE=optimized` 並在 `review_log.py start` 後執行 `execution_boundary.py --target <TARGET_ROOT> --begin`。既有正式流程預設維持相容；違規批次不能藉重跑或範本證據解除阻塞。
+- 受測專案的 `analysis/` 是審查資料輸出，不得在其中開發、執行新的 Python／Shell／JavaScript 修復腳本。合法工具應收錄於 Skill 的 `scripts/` 並經版本管理；既有腳本在未確認依賴前不得刪除或執行。
