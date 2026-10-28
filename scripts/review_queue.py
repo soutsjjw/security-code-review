@@ -448,6 +448,13 @@ def main() -> int:
         try:
             assessment = json.loads((target / REPORT_RELATIVE / "assessment.json").read_text(encoding="utf-8"))
             diagnostics = diagnose(target, assessment)
+            # 僅在已有正式 Run 日誌時記錄差異；診斷不能自行建立審查狀態。
+            if (target / "reports/security-code-review/logs/latest.json").is_file():
+                try:
+                    from review_log import observe_blockers
+                    observe_blockers(target, diagnostics)
+                except (OSError, ValueError, KeyError, TypeError) as log_exc:
+                    print(f"WARNING: 無法記錄 blocker 指紋變化：{type(log_exc).__name__}", file=sys.stderr)
             if args.repair_plan:
                 from first_pass_repair import repair_plan
                 diagnostics = repair_plan(assessment, diagnostics, limit=args.source_batch_size)
