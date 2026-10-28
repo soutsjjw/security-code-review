@@ -365,7 +365,7 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
             manifest_path = folder / "legacy-manifests" / (name + ".json")
             if manifest_path.is_symlink() or not manifest_path.is_file():
                 return [f"資料完整性：交易日誌第 {n} 筆舊腳本封存清單不存在"]
-            manifest_bytes = manifest_path.read_bytes().rstrip(b"\\n")
+            manifest_bytes = manifest_path.read_bytes().rstrip(b"\n")
             if digest(manifest_bytes) != name:
                 return [f"資料完整性：交易日誌第 {n} 筆舊腳本清單指紋不一致"]
             try:
