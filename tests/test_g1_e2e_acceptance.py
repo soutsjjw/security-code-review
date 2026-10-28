@@ -80,6 +80,12 @@ class FlowAcceptanceTests(unittest.TestCase):
         self.assertFalse(checks["findings_preserved"]["passed"])
         self.assertFalse(checks["shadow_equivalent"]["passed"])
 
+    def test_pending_boundary_review_distinct_from_convergence_block(self):
+        with patch("flow_acceptance.verify_run", return_value={"blocked_batches": ["batch-1"]}):
+            result = self.run_g1()
+        self.assertFalse(result["accepted"])
+        self.assertEqual(result["status"], "blocked_pending_review")
+
     def test_fake_finding_amendment_cannot_hide_mutation(self):
         before = {"findings": [self.finding]}
         after = {"findings": [{"id": "F-1", "title": "changed"}],
