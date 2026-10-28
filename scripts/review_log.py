@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -204,6 +205,32 @@ def finish(target: Path, status: str) -> dict:
             elapsed_seconds=state["elapsed_seconds"])
     _save(folder, state)
     return state
+
+
+
+def observe_blockers(target: Path, diagnostics: dict) -> dict:
+    """P4-A：只記錄權威 blocker 指紋差異，不修改安全判定或修復次數上限。"""
+    if not isinstance(diagnostics, dict) or not isinstance(diagnostics.get("blockers"), list):
+        raise ValueError("blocker diagnostics 格式錯誤")
+    folder, state = _active(target)
+    current = sorted({
+        hashlib.sha256(json.dumps(
+            {"category": b.get("category"), "rule_ids": b.get("rule_ids"),
+             "message": b.get("message")}, sort_keys=True, ensure_ascii=False
+        ).encode("utf-8")).hexdigest()
+        for b in diagnostics["blockers"] if isinstance(b, dict)
+    })
+    old = state.get("blocker_observation") or {}
+    before, after = set(old.get("fingerprints") or []), set(current)
+    delta = {"blocked_count": len(after), "new_count": len(after - before),
+             "resolved_count": len(before - after),
+             "signature_changed": diagnostics.get("blocker_signature") != old.get("signature")}
+    state["blocker_observation"] = {"signature": diagnostics.get("blocker_signature"),
+                                    "count": len(after), "fingerprints": current,
+                                    "last_delta": delta}
+    _append(folder, state, "blocker_diagnosed", "first_pass", metrics=delta)
+    _save(folder, state)
+    return delta
 
 
 def record_profile(target: Path, phase: str, operation: str, durations: dict[str, float]) -> None:
