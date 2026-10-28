@@ -133,9 +133,11 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
               "舊格式狀態未核對／Findings 不完整")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         check("legacy_state_resumable", False, type(exc).__name__)
+    pending_boundary_batches = []
     try:
         latest = read(target / REPORT / "logs/latest.json")
         result = verify_run(target, latest["run_id"])
+        pending_boundary_batches = list(result["blocked_batches"])
         check("boundary_blocks_resolved", not result["blocked_batches"],
               result["blocked_batches"])
         from execution_boundary import scripts as current_executables
@@ -154,10 +156,12 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
                    "reason": "L3 僅表示未偵測到違規，非強制隔離"
                    if boundary_level == "L3" else None})
     passed = all(x["passed"] for x in checks)
+    gate_status = ("accepted" if passed else
+                   "blocked_pending_review" if pending_boundary_batches else "blocked")
     results = {item["id"]: item["passed"] for item in checks}
     full_gate_passed = results.get("full_gate_passed", False) and results.get("integrity_verified", False)
     ready_for_second_pass = full_gate_passed and results.get("second_pass_started", False)
-    return {"schema_version": 1, "kind": "g1", "status": "accepted" if passed else "blocked",
+    return {"schema_version": 1, "kind": "g1", "status": gate_status,
             "accepted": passed, "incremental_clean": False,
             "full_gate_passed": bool(full_gate_passed),
             "ready_for_second_pass": bool(ready_for_second_pass),
