@@ -340,6 +340,16 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
         if (_entry(original)["entry_hash"] != recorded_hash or row.get("sequence") != n
                 or row.get("previous") != previous or row.get("schema_version") != VERSION):
             return [f"資料完整性：交易日誌第 {n} 筆內容或鏈結不一致"]
+        boundary = row.get("boundary_attestation")
+        if boundary is not None and (
+                not isinstance(boundary, dict)
+                or set(boundary) != {"schema_version", "run_id", "batch_id", "boundary_level",
+                                     "inventory_sha256", "summary_sha256"}
+                or boundary.get("schema_version") != 1
+                or boundary.get("boundary_level") not in {"L1", "L2", "L3"}
+                or not all(isinstance(boundary.get(k), str) and re.fullmatch(r"[0-9a-f]{64}", boundary[k])
+                           for k in ("inventory_sha256", "summary_sha256"))):
+            return [f"資料完整性：交易日誌第 {n} 筆邊界認證格式異常"]
         if set(row.get("file_hashes", {})) != set(TRACKED):
             return [f"資料完整性：交易日誌第 {n} 筆受控檔案清單異常"]
         previous, last = recorded_hash, row
@@ -364,7 +374,8 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
 
 def commit(target: Path, updates: dict[str, Any], *, event: str,
            staged_paths: list[Path] | None = None,
-           new_snapshot: dict | None = None) -> dict:
+           new_snapshot: dict | None = None,
+           boundary_attestation: dict | None = None) -> dict:
     """先寫 ahead-log，再寫受控檔案；中斷後需明確 recovery。"""
     target = target.resolve()
     if not enabled(target):
@@ -398,6 +409,17 @@ def commit(target: Path, updates: dict[str, Any], *, event: str,
         "updates": updates, "staged_sha256": staged,
         "backup_mode": BACKUP_MODE,
     }
+    if boundary_attestation is not None:
+        if (not isinstance(boundary_attestation, dict)
+                or set(boundary_attestation) != {"schema_version", "run_id", "batch_id",
+                                                 "boundary_level", "inventory_sha256", "summary_sha256"}
+                or boundary_attestation.get("schema_version") != 1
+                or boundary_attestation.get("boundary_level") not in {"L1", "L2", "L3"}
+                or not all(isinstance(boundary_attestation.get(k), str)
+                           and re.fullmatch(r"[0-9a-f]{64}", boundary_attestation[k])
+                           for k in ("inventory_sha256", "summary_sha256"))):
+            raise ValueError("P0 邊界認證契約無效，拒絕交易")
+        pending["boundary_attestation"] = boundary_attestation
     _write(target / PENDING, pending)
     return recover(target)
 
@@ -428,6 +450,8 @@ def recover(target: Path) -> dict:
                    "previous": pending["previous"], "event": pending["event"],
                    "snapshot_fingerprint": pending["snapshot_fingerprint"],
                    "file_hashes": after, "staged_sha256": pending["staged_sha256"]}
+    if pending.get("boundary_attestation") is not None:
+        record_data["boundary_attestation"] = pending["boundary_attestation"]
     if pending.get("backup_mode") == BACKUP_MODE:
         record_data["backup_mode"] = BACKUP_MODE
         issues = _backup_errors(target, after)
