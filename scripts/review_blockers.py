@@ -96,7 +96,22 @@ def summarize(
             "message": message,
             "required_action": FIXES[category],
         })
+    # 只依權威診斷群組化，避免 Agent 為同類缺口反覆開發修復腳本。
+    grouped = {}
+    for blocker in blockers:
+        kind = blocker["category"]
+        group = grouped.setdefault(kind, {"category": kind, "blocker_count": 0,
+                                          "rule_ids": set(), "required_action": FIXES[kind]})
+        group["blocker_count"] += 1
+        group["rule_ids"].update(blocker["rule_ids"])
+    root_cause_groups = sorted(({"category": item["category"],
+                                 "blocker_count": item["blocker_count"],
+                                 "rule_ids": sorted(item["rule_ids"]),
+                                 "required_action": item["required_action"]}
+                                for item in grouped.values()),
+                               key=lambda item: (-item["blocker_count"], item["category"]))
     result = {
+        "root_cause_groups": root_cause_groups,
         "ready_for_second_pass": not blockers,
         "blocked_count": len(blockers),
         "blocker_signature": signature,
