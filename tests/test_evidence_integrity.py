@@ -250,14 +250,9 @@ class EvidenceIntegrityTests(unittest.TestCase):
     def test_git_only_refresh_is_sealed_without_erasing_closures_or_findings(self):
         from review_safety import refresh_snapshot
         self.seal()
-        _write(self.report / "analysis/rule-closures.json",
-               {"AC-08": {"status": "review", "summary": "preserved"}})
-        # The direct fixture write above is intentionally out-of-band: seal it
-        # with an authorized transaction before refreshing the Git anchor.
-        # The existing manifest must remain consistent throughout.
-        self.assertTrue(ledger.errors(self.root))
-        # New fixture must use the original review's existing sealed files.
-        (self.report / "analysis/rule-closures.json").unlink()
+        closure = {"AC-08": {"status": "review", "summary": "preserved"}}
+        ledger.commit(self.root, {"analysis/rule-closures.json": closure},
+                      event="integrate")
         self.assertEqual(ledger.errors(self.root), [])
         with (patch("review_safety.current_hashes",
                     return_value=dict(self.snapshot["source_hashes"])),
@@ -265,8 +260,9 @@ class EvidenceIntegrityTests(unittest.TestCase):
             refresh_snapshot(self.root)
         self.assertEqual(ledger.errors(self.root), [])
         self.assertFalse((self.report / "analysis/recheck-required.json").exists())
+        self.assertEqual(_read(self.report / "analysis/rule-closures.json"), closure)
         self.assertEqual(_read(self.report / "assessment.json"), self.assessment)
-        journal = json.loads((self.root / ledger.JOURNAL / "00000001.json").read_text("utf-8"))
+        journal = json.loads((self.root / ledger.JOURNAL / "00000002.json").read_text("utf-8"))
         self.assertEqual(journal["event"], "snapshot-refresh")
 
     def test_missing_manifest_cannot_refresh_version_anchor(self):
