@@ -11,10 +11,13 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 ## 一句話使用
 
-- Codex：`$security-code-review`（完整 70 項）、`$security-code-review --categories AC`（僅 AC 8 項）、`$security-code-review --categories AC,AU`（分別審查 AC 8 與 AU 10 項）。可附加受測專案路徑。
+- Codex：`$security-code-review`（完整 70 項、預設單代理）、`$security-code-review --multi-agent --agents 3`（完整模式選用主代理自動調度最多 3 個唯讀子代理）、`$security-code-review --categories AC`（僅 AC 8 項）、`$security-code-review --categories AC,AU`（分別審查 AC 8 與 AU 10 項）。可附加受測專案路徑。
 - Claude Code：`/security-code-review`；指定分類時明確輸入 `--categories AC,AU`。
-- **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。
+- **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。完整模式另可明確指定 `--multi-agent [--agents N]` 啟用**受控唯讀分工**；分類模式不得同時使用。未明確指定時維持單代理。
 - 使用者**不需要**自行執行 Python 指令；Agent 負責呼叫必要的工具。
+
+- `--multi-agent [--agents N]` 是 Agent 解析的 Skill 參數，非 `review_queue.py` 參數。完整模式指定時主代理須**自動呼叫原生工具**建立、派工及回收，Python 管理 Ledger。依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 先試跑、驗證唯讀及身分；能力不足即記錄原因並降級單代理，不得虛構 ID／trace。
+
 
 ## 解析受測目標（優先處理）
 
@@ -46,7 +49,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 | 控制有效性、Pass／Fail／Review 裁決時 | [安全控制及繞過](docs/control-effectiveness-review.md)、[外部證據裁決](docs/review-decision-adjudication.md)；須於對應規則判定前讀取 |
 | 第一輪全數完成、開始第二輪之前 | [反向複核與矛盾裁決](docs/adversarial-second-pass.md)；分類模式同時遵守分類契約 |
 | 完整模式正式報告驗證／交付前 | [正式報告及自動摘要](docs/report-handoff.md) |
-| 選用批次 Skeleton／唯讀分工／快取時 | [效能診斷與分工約束](docs/review-performance.md) |
+| 選用批次 Skeleton／唯讀分工／快取時 | [效能診斷與分工約束](docs/review-performance.md)；啟用 `--multi-agent` 必讀 [受控多代理與原生 Codex 調度契約](docs/multi-agent-review.md) |
 
 **必讀文件缺失或無法解析時，不得宣稱已執行其規範；須明確回報阻塞或尚未完成的項目。** 文件可在同一工作階段按版本快取；每條規則仍需獨立驗證適用性與程式碼證據。並非每次查詢都必須重新載入所有詳細指南。
 
@@ -57,7 +60,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - Agent 逐檔實際讀取原始碼與組態，核對 Controller → Handler → Service → Repository、DI、設定覆寫、匿名入口、控制實際執行及可繞過路徑；所有確實適用規則須建立雙向 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths`，附來源真實行號與 SHA256。不得制式填寫十類理由、不用同一條規則填滿全部檔案；來源不可解碼時記錄原因並繼續其他可執行工作。
 - 已確認缺陷建立 `Finding`、關聯 `fail`，並**繼續**其他規則；不修改受測程式、不要求先修補。不能為通過驗證造假工件、補寫模板、消除已確認 Finding 或把 `pass`／`na` 當預設結果。
 - 只有已完成必要靜態查核且**真正有會改變結論的外部工件缺口**才可標 `completed+review`；查核尚未完成保持 `pending/blocked`。通過 Schema 或報告工具不等於真實安全控制有效。
-- 完整模式僅主代理可寫入 `review_safety.py --stage/--integrate`，子代理如可用**僅可唯讀分析**；不得平行修改正式 JSON、Manifest 或 Journal。保留來源 Git Revision／SHA256 快照、跨檔 `closures/control_trace`、呼叫點人工驗證、控制繞過與外部裁決紀錄；源碼變動時保守重新核對並依規則復原，禁止無聲繞過完整性鏈。
+- 完整模式只有主代理可正式 Stage/Integrate、修改 assessment／Manifest／Journal 與裁決。`--multi-agent` 必須先通過真實唯讀與隔離試跑，才能依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 依序建立待命 Agent、取得 ID、claim、發送 TASK_JSON、等待、驗證與主代理整合；第二輪仍須獨立反例與正式驗證。**共享工作目錄及 Prompt 禁寫不等於強制唯讀**；無法隔離則單代理接手。**非 Git 專案不得直接降級**：沒有 `.git` 時依來源 SHA256 快照與 P0 原生工具實測判斷，可用且唯讀隔離通過仍須執行多代理；Git Revision 不可得必須明示，不得虛構。原有資安守門不變。
 - **第二輪不可省略**：第一輪 70 項、100% 來源與跨檔／控制證據完成後固定 baseline。完整模式採**分層反向複核**：70 項逐條針對性重讀證據並提出反例、抽查未引用的高風險來源及調和矛盾；不得對整個來源樹進行無目的第二次全掃。批次由 `second_pass_layers.py --target "<TARGET_ROOT>"` 唯讀產生；有界延伸追查不得跳過必要來源，資源上限時保存進度並續跑，未完成不得交付。分類模式沿用各分類第二輪守門。
 - **外部控制不得假造本地證據**：只有查得正式外部責任工件或真正的責任交接程式碼／設定，才可依 [外部責任判定契約](docs/review-decision-adjudication.md#可查證的外部控制責任適用全-70-項) 記錄 `external_responsibility_pending`；已證實外部控制生效才可使用 `external_verified` Pass。缺少檔案、Scan 或外部工件本身不構成 Pass／Review。
 - 環境僅支援 .NET Core／現代 .NET（含 net10.0）；遇 .NET Framework、Vue／混合專案或未能可靠解析 TFM，須明確阻擋，不得縮小來源範圍假裝完成。匯入／條件式 MSBuild 屬性須用實際 `dotnet msbuild -getProperty` 評估；不得修改受測專案以迎合分析器。
@@ -90,12 +93,6 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 若一條規則有多個非空對照，須載入全部相關文件；附件內容不能取代 V3.2 主文，必要時同時載入 [V3.2 主文](docs/web-guide-v3.2-review.md)。檔案讀取失敗時須記錄未完成的對照與原因，不能聲稱已完成該項查核。
 - 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
 
-
-## Codex 完整模式的原生子代理啟動
-
-完整模式完成索引、快照與 `review_safety.py --plan` 後，主代理必須檢查本次 Codex 的原生委派能力；可用且名額足夠時，透過**原生子代理工具實際啟動** 2～4 名唯讀子代理，固定同一來源 SHA256 快照並分派不同 `--workers N --worker-id K`，等待結果、親自複核衝突與跨檔證據，**僅主代理可寫正式審查資料**。`file_review_skeleton.py --workers N` 只是分片，不是啟動代理。
-
-**不得因不是 Git repo 自動降級**；唯讀子代理不要求 `.git` 或 Git worktree，仍須驗證 SHA256 並明示 Git Revision 不可得。僅在原生委派缺失、遭拒／失敗或可用名額不足 2 時降單代理，記錄實際原因，不得假稱子代理已執行。詳見 [原生子代理分工契約](docs/review-performance.md#codex-原生子代理啟動完整模式)；分類模式依獨立契約。
 
 ## 正式完整模式執行與交付
 

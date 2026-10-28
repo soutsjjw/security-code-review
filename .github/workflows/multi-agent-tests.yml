@@ -1,0 +1,78 @@
+name: Controlled Multi-agent Gate
+on:
+  pull_request:
+    paths:
+      - "scripts/multi_agent*.py"
+      - "scripts/analysis_prepare.py"
+      - "scripts/analysis_adapters.py"
+      - "tools/roslyn-indexer/**"
+      - "tests/test_roslyn_sdk_alignment.py"
+      - "scripts/source_reader.py"
+      - "scripts/second_pass_layers.py"
+      - "scripts/file_review_integrity.py"
+      - "tests/fixtures/multi_agent_cases/**"
+      - "tests/fixtures/multi_agent_security_cases.json"
+      - "schemas/multi-agent-worker-result.schema.json"
+      - "tests/test_multi_agent*.py"
+      - "tests/test_codex_multiagent_contract.py"
+      - "SKILL.md"
+      - "docs/multi-agent-review.md"
+      - "docs/advanced-usage.md"
+      - ".github/workflows/multi-agent-tests.yml"
+  push:
+    paths:
+      - "scripts/multi_agent*.py"
+      - "scripts/analysis_prepare.py"
+      - "scripts/analysis_adapters.py"
+      - "tools/roslyn-indexer/**"
+      - "tests/test_roslyn_sdk_alignment.py"
+      - "scripts/source_reader.py"
+      - "scripts/second_pass_layers.py"
+      - "scripts/file_review_integrity.py"
+      - "tests/fixtures/multi_agent_cases/**"
+      - "tests/fixtures/multi_agent_security_cases.json"
+      - "schemas/multi-agent-worker-result.schema.json"
+      - "tests/test_multi_agent*.py"
+      - "tests/test_codex_multiagent_contract.py"
+      - "SKILL.md"
+      - "docs/multi-agent-review.md"
+      - "docs/advanced-usage.md"
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: python -m compileall -q scripts/multi_agent*.py tests/test_multi_agent*.py
+      - run: python -m unittest discover -s tests -p 'test_multi_agent*.py' -v
+      - run: python -m unittest discover -s tests -p 'test_codex_multiagent_contract.py' -v
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet build tests/fixtures/multi_agent_cases/SecurityFixtures.csproj --configuration Release
+
+  roslyn-sdk-10:
+    name: Roslyn .NET 10 compatibility
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: python -m pip install -r requirements.txt
+      - name: Confirm real .NET 10 Roslyn indexing and permission fallback
+        run: python -m unittest discover -s tests -p test_roslyn_sdk_alignment.py -v

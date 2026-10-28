@@ -43,6 +43,11 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 - 執行佇列優先 `--compact` 以節省回傳 Token；其結果只為未驗證進度預覽，不代表正式完整性守門通過；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
+## 可選受控多代理分工（僅完整模式）
+
+使用者明確指定 `--multi-agent` 時，主代理於分析準備／初始化完成後依 [受控多代理實作契約](multi-agent-review.md) 完成 執行器能力試跑 實測核可、Worker Schema 驗證及分片派工。未通過 執行器能力試跑 或強制唯讀不足時退回單代理。子代理不得寫入正式 JSON 或宣告安全結果；
+正式 70 項、100% 來源與第二輪驗證均不變。
+
 ## 自動審查流程（完整模式；未指定 `--categories`）
 
 **完整模式（未指定 `--categories`）的交付物是 70 項正式資安審查報告；分類模式的交付物為各選定分類的部分審查報告，依上方分類流程另行驗證。**

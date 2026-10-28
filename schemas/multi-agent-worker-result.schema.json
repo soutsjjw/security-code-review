@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Untrusted read-only security review worker result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "worker_id",
+    "snapshot_fingerprint",
+    "status",
+    "files",
+    "issues",
+    "tokens_used",
+    "agent_instance_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{20}$"
+    },
+    "worker_id": {
+      "type": "string",
+      "pattern": "^worker-[0-9]+$"
+    },
+    "snapshot_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed"
+      ]
+    },
+    "tokens_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 1000
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    },
+    "agent_instance_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    }
+  },
+  "$defs": {
+    "line_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "line_start",
+        "line_end",
+        "summary",
+        "line_hash"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 1000
+        },
+        "line_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "screening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "candidate",
+            "not_applicable",
+            "unresolved"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 600
+        }
+      }
+    },
+    "rule_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "status",
+        "reason",
+        "evidence"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+        },
+        "status": {
+          "enum": [
+            "hit",
+            "not_applicable",
+            "unassessed"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 1000
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proof"
+          }
+        }
+      }
+    },
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "line_start",
+        "reason"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 600
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "path",
+        "line_start",
+        "line_end",
+        "sink",
+        "root_cause",
+        "summary",
+        "evidence",
+        "line_hash"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "pattern": "^(AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-[0-9]{2}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sink": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200
+        },
+        "root_cause": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 1000
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 1000
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/proof"
+          }
+        },
+        "line_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "reviewed_ranges",
+        "category_screening",
+        "rule_states",
+        "unresolved_symbols",
+        "findings",
+        "line_challenges"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reviewed_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line_range"
+          }
+        },
+        "category_screening": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "AC",
+            "AU",
+            "IN",
+            "CR",
+            "EH",
+            "LG",
+            "DP",
+            "PD",
+            "BC",
+            "SI"
+          ],
+          "properties": {
+            "AC": {
+              "$ref": "#/$defs/screening"
+            },
+            "AU": {
+              "$ref": "#/$defs/screening"
+            },
+            "IN": {
+              "$ref": "#/$defs/screening"
+            },
+            "CR": {
+              "$ref": "#/$defs/screening"
+            },
+            "EH": {
+              "$ref": "#/$defs/screening"
+            },
+            "LG": {
+              "$ref": "#/$defs/screening"
+            },
+            "DP": {
+              "$ref": "#/$defs/screening"
+            },
+            "PD": {
+              "$ref": "#/$defs/screening"
+            },
+            "BC": {
+              "$ref": "#/$defs/screening"
+            },
+            "SI": {
+              "$ref": "#/$defs/screening"
+            }
+          }
+        },
+        "rule_states": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rule_state"
+          }
+        },
+        "unresolved_symbols": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "line_challenges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "line",
+              "sha256"
+            ],
+            "properties": {
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

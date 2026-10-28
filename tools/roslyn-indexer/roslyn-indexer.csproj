@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- CLI must select the same TFM major as the SDK shipping Roslyn DLLs.
+         The .NET 8 default only supports manual SDK 8 builds; the Python runner
+         always passes RoslynIndexerTargetFramework for SDK 8/9/10+. -->
+    <TargetFramework Condition="'$(RoslynIndexerTargetFramework)' == ''">net8.0</TargetFramework>
+    <TargetFramework Condition="'$(RoslynIndexerTargetFramework)' != ''">$(RoslynIndexerTargetFramework)</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
