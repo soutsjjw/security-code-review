@@ -169,6 +169,27 @@ def repair_backups(target: Path) -> dict:
     troubles = errors(target, verify_backups=False)
     if troubles:
         raise ValueError("備份修補遭拒：先修復正式證據／Journal：" + "；".join(troubles))
+    # 只在受控正式檔完全吻合 Journal 時，才可依其 bytes 重建損毀備份。
+    # 舊損毀檔先隔離保留供事故鑑識，不能直接覆蓋或當作可信證據。
+    for name in TRACKED:
+        formal = _path(target, name)
+        if not formal.is_file():
+            continue
+        raw = formal.read_bytes()
+        backed = _backup_path(target, digest(raw))
+        if backed.is_symlink():
+            raise ValueError(f"{name}: 備份為 symbolic link，拒絕修補")
+        if backed.is_file() and digest(backed.read_bytes()) != digest(raw):
+            damaged = backed.read_bytes()
+            incident = target / ANALYSIS / "integrity-incidents" / (
+                "corrupt-backup-" + backed.stem + "-" + digest(damaged) + ".damaged")
+            incident.parent.mkdir(parents=True, exist_ok=True)
+            if incident.exists():
+                if incident.is_symlink() or incident.read_bytes() != damaged:
+                    raise ValueError(f"{name}: 事故備份內容衝突，拒絕覆蓋")
+                backed.unlink()
+            else:
+                backed.rename(incident)
     _backup_present_state(target)
     return commit(target, {}, event="backup-checkpoint")
 
