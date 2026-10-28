@@ -5,12 +5,17 @@ import json
 import statistics
 from pathlib import Path
 
-def observation(latest, label, commit=None):
+def observation(latest, label, commit=None, *, environment_fingerprint=None,
+                ruleset_version=None, dataset_sha256=None, executor=None):
     if not isinstance(latest.get("run_id"), str):
         raise ValueError("missing run_id")
     result = {"schema_version": 1, "kind": "b0-observation", "run_id": latest["run_id"],
               "status": latest.get("status"), "commit": commit, "label": label,
-              "comparable": latest.get("status") == "completed" and bool(commit),
+              "environment_fingerprint": environment_fingerprint,
+              "ruleset_version": ruleset_version, "dataset_sha256": dataset_sha256,
+              "executor": executor,
+              "comparable": latest.get("status") == "completed" and all(
+                  (commit, environment_fingerprint, ruleset_version, dataset_sha256, executor)),
               "metrics": {}}
     data = latest.get("progress") or {}
     data_seconds = latest.get("phase_wall_seconds") or {}
@@ -50,13 +55,20 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--latest", type=Path)
     p.add_argument("--commit")
+    p.add_argument("--environment-fingerprint")
+    p.add_argument("--ruleset-version")
+    p.add_argument("--dataset-sha256")
+    p.add_argument("--executor")
     p.add_argument("--aggregate", nargs="+", type=Path)
     p.add_argument("--output", required=True, type=Path)
     args = p.parse_args()
     if bool(args.latest) == bool(args.aggregate):
         p.error("choose --latest or --aggregate")
     if args.latest:
-        obj = observation(json.loads(args.latest.read_text("utf-8")), str(args.latest), args.commit)
+        obj = observation(json.loads(args.latest.read_text("utf-8")), str(args.latest), args.commit,
+                          environment_fingerprint=args.environment_fingerprint,
+                          ruleset_version=args.ruleset_version,
+                          dataset_sha256=args.dataset_sha256, executor=args.executor)
     else:
         obj = summary([json.loads(f.read_text("utf-8")) for f in args.aggregate])
     args.output.parent.mkdir(parents=True, exist_ok=True)
