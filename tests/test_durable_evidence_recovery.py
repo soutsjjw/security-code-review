@@ -156,6 +156,23 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
             ledger.repair_backups(self.target)
         self.assertFalse((self.target / ledger.JOURNAL / "00000001.json").exists())
 
+    def test_scoped_completed_revision_needs_flag_and_preserves_findings(self):
+        amended = copy.deepcopy(self.assessment["checks"][0])
+        amended["decision_reason"] = "重新閱讀原始碼後補充具體的控制失效原因；維持 fail 與既有 Finding。"
+        draft = self.report / "amended-completed.json"
+        _write(draft, {"checks": [amended]})
+        with patch("review_safety.snapshot_errors", return_value=[]):
+            stage(self.target, draft)
+            with self.assertRaisesRegex(ValueError, "明確人工允許修訂"):
+                integrate(self.target)
+            outcome = integrate(self.target, allow_revision=True)
+        self.assertEqual(outcome["checks"], 1)
+        current = ledger._read(self.report / "assessment.json")
+        self.assertEqual(current["findings"], self.findings)
+        self.assertEqual(current["checks"][0]["status"], "fail")
+        self.assertEqual(current["checks"][0]["decision_reason"], amended["decision_reason"])
+        self.assertEqual(ledger.errors(self.target), [])
+
     def test_revision_permission_does_not_imply_finding_permission(self):
         # /goal 的預先授權只涵蓋 --allow-revision，仍不能以此修改既有 Finding。
         finding = copy.deepcopy(self.findings[0])
