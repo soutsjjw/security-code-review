@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from b0_baseline import observation, summary
-from execution_boundary_events import append_violation, verify_run, batch_path, _verify_events
+from execution_boundary_events import append_violation, verify_run, batch_path, _verify_events, snapshot_run_summary
 
 class B0Tests(unittest.TestCase):
     def test_unreported_token_is_unavailable(self):
@@ -51,6 +51,16 @@ class BoundaryEventsTests(unittest.TestCase):
         other = dict(self.kwargs, batch_id="batch-2", severity="block")
         append_violation(self.target, **other)
         self.assertEqual(verify_run(self.target, "run-1")["blocked_batches"], ["batch-2"])
+    def test_run_summary_is_append_only_and_idempotent(self):
+        first = snapshot_run_summary(self.target, "run-1")
+        again = snapshot_run_summary(self.target, "run-1")
+        self.assertEqual(first["summary_sha256"], again["summary_sha256"])
+        append_violation(self.target, **self.kwargs)
+        second = snapshot_run_summary(self.target, "run-1")
+        self.assertEqual(second["previous_summary_sha256"], first["summary_sha256"])
+        self.assertEqual(second["summary_sequence"], 2)
+        self.assertEqual(second["batch_heads"][0]["event_count"], 1)
+
     def test_tampering_is_rejected(self):
         append_violation(self.target, **self.kwargs)
         p = batch_path(self.target, "run-1", "batch-1")
