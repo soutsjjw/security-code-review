@@ -20,6 +20,7 @@ def plan(target: Path) -> dict:
     target = target.resolve()
     report = target / REPORT
     issues = ledger.errors(target)
+    trusted_formal_files = ledger.enabled(target) and not ledger.errors(target, verify_backups=False)
     status = ledger.backup_status(target)
     manifest = ledger._read(target / ledger.MANIFEST, {})
     record = None
@@ -58,7 +59,7 @@ def plan(target: Path) -> dict:
         "preserved_finding_count": len(findings) if isinstance(findings, list) else 0,
         "next_action": (
             "restore" if differences and restorable else
-            "checkpoint" if not issues and not status.get("ready") else
+            "checkpoint" if trusted_formal_files and not status.get("ready") else
             "archive-and-recheck" if issues else
             "continue-review"
         ),
@@ -81,6 +82,8 @@ def archive_for_recheck(target: Path, *, acknowledged: bool = False) -> dict:
     diagnosis = plan(target)
     if not diagnosis["integrity_errors"]:
         raise ValueError("完整性鏈有效，不允許用災難復原重啟審查")
+    if ledger.enabled(target) and not ledger.errors(target, verify_backups=False):
+        raise ValueError("正式證據鏈完整，只有持久化備份異常；請先執行 --checkpoint，不可重新取證")
     if diagnosis["can_restore_from_backup"]:
         raise ValueError("可信備份仍可恢復受控檔案，請優先執行 --restore")
     archive_root = target / ARCHIVES
