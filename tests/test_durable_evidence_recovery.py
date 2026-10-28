@@ -105,6 +105,9 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
     def test_missing_backup_with_intact_sources_can_be_checkpointed(self):
         self.backup(self.closure_path()).unlink()
         self.assertIn("持久化備份不合格", str(ledger.errors(self.target)))
+        self.assertEqual(plan(self.target)["next_action"], "checkpoint")
+        with self.assertRaisesRegex(ValueError, "請先執行 --checkpoint"):
+            archive_for_recheck(self.target, acknowledged=True)
         result = ledger.repair_backups(self.target)
         self.assertEqual(result["sequence"], 1)
         self.assertEqual(ledger.errors(self.target), [])
