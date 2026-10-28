@@ -62,6 +62,28 @@ class MultiAgentTests(unittest.TestCase):
         item["evidence_note"] = "兩個獨立子代理測試並保存執行器 trace，確認唯讀沙箱拒絕寫入與失敗處理。"
         return record_probe(self.root, item)
 
+    def test_verified_gitless_target_still_uses_native_workers(self):
+        # The source tree is not a Git repository, but its authoritative source
+        # hashes and executor read-only probe are independently verifiable.
+        self.verified_probe()
+        with patch("multi_agent._git_state",
+                   return_value={"head": None, "worktree_digest": None}):
+            state = plan(self.root, max_agents=3, task_tokens=2000)
+            self.assertTrue(state["multi_agent_enabled"])
+            self.assertEqual(state["workers"], 2)
+            self.assertIsNone(state["git_state"]["head"])
+            task_id = next(iter(state["tasks"]))
+            task = claim(self.root, task_id, agent_id="codex-gitless-001")
+            self.assertEqual(task["task_id"], task_id)
+            self.assertTrue(summary(self.root)["multi_agent_enabled"])
+
+    def test_missing_git_executable_is_not_a_source_evidence_failure(self):
+        from multi_agent import _git_state
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            with patch("multi_agent._git_state", _git_state):
+                self.assertEqual(_git_state(self.root),
+                                 {"head": None, "worktree_digest": None})
+
     def test_claim_denied_without_verified_probe(self):
         from multi_agent import _read
         state = plan(self.root, task_tokens=2000)
