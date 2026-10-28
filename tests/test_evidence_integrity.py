@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import evidence_integrity as ledger
-from review_safety import stage, integrate, report_dir, _write
+from review_safety import stage, integrate, report_dir, _read, _write
 
 
 class EvidenceIntegrityTests(unittest.TestCase):
@@ -246,6 +246,39 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.assertEqual(journal["event"], "snapshot-refresh")
         self.assertEqual(json.loads((self.report / "assessment.json").read_text("utf-8")),
                          self.assessment)
+
+    def test_git_only_refresh_is_sealed_without_erasing_closures_or_findings(self):
+        from review_safety import refresh_snapshot
+        self.seal()
+        _write(self.report / "analysis/rule-closures.json",
+               {"AC-08": {"status": "review", "summary": "preserved"}})
+        # The direct fixture write above is intentionally out-of-band: seal it
+        # with an authorized transaction before refreshing the Git anchor.
+        # The existing manifest must remain consistent throughout.
+        self.assertTrue(ledger.errors(self.root))
+        # New fixture must use the original review's existing sealed files.
+        (self.report / "analysis/rule-closures.json").unlink()
+        self.assertEqual(ledger.errors(self.root), [])
+        with (patch("review_safety.current_hashes",
+                    return_value=dict(self.snapshot["source_hashes"])),
+              patch("review_safety._revision", return_value="new-git-revision")):
+            refresh_snapshot(self.root)
+        self.assertEqual(ledger.errors(self.root), [])
+        self.assertFalse((self.report / "analysis/recheck-required.json").exists())
+        self.assertEqual(_read(self.report / "assessment.json"), self.assessment)
+        journal = json.loads((self.root / ledger.JOURNAL / "00000001.json").read_text("utf-8"))
+        self.assertEqual(journal["event"], "snapshot-refresh")
+
+    def test_missing_manifest_cannot_refresh_version_anchor(self):
+        from review_safety import refresh_snapshot
+        self.seal()
+        (self.root / ledger.MANIFEST).unlink()
+        with (patch("review_safety.current_hashes",
+                    return_value=dict(self.snapshot["source_hashes"])),
+              patch("review_safety._revision", return_value="new-git-revision")):
+            with self.assertRaises(ValueError):
+                refresh_snapshot(self.root)
+        self.assertEqual(_read(self.report / "analysis/review-snapshot.json"), self.snapshot)
 
     def test_legacy_index_not_forced_into_unrequested_migration(self):
         _write(self.root / ledger.INDEX, {"schema_version": 6})
