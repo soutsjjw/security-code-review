@@ -145,6 +145,50 @@ def verify_run(target, run_id, *, trusted_review=None):
             "summary_sha256": fingerprint(batches),
             "blocked_batches": [x["batch_id"] for x in batches if x["status"].startswith("blocked")]}
 
+
+def snapshot_run_summary(target, run_id):
+    """單寫者保存不可變 Run 摘要；每筆可回溯至各 Batch 事件鏈頭。"""
+    validated = verify_run(target, run_id)
+    base = events_dir(target, run_id) / "summaries"
+    base.mkdir(parents=True, exist_ok=True)
+    gate = base / "summary"
+    schema = json.loads((ROOT / "schemas/execution-boundary-run-summary-v1.schema.json").read_text("utf-8"))
+    check = Draft202012Validator(schema, format_checker=FormatChecker())
+    with exclusive_lock(gate):
+        prior = sorted(base.glob("*.json"))
+        previous = None
+        for index, path in enumerate(prior, 1):
+            obj = json.loads(path.read_text("utf-8"))
+            check.validate(obj)
+            if (path.name != f"{index:08d}.json"
+                    or obj["summary_sequence"] != index
+                    or obj["previous_summary_sha256"] != previous
+                    or obj["summary_sha256"] != fingerprint({
+                        k: val for k, val in obj.items() if k != "summary_sha256"
+                    })):
+                raise ValueError("Run 摘要歷史或鏈結異常")
+            previous = obj["summary_sha256"]
+        heads = [{"batch_id": b["batch_id"], "event_count": b["event_count"],
+                  "head_event_sha256": b["head_event_sha256"]}
+                 for b in validated["batches"] if b["event_count"]]
+        if prior:
+            last = json.loads(prior[-1].read_text("utf-8"))
+            if last["batch_heads"] == heads:
+                return last
+        obj = {"schema_version": 1, "run_id": run_id,
+               "summary_sequence": len(prior) + 1,
+               "created_at": datetime.now(timezone.utc).isoformat(),
+               "previous_summary_sha256": previous, "batch_heads": heads}
+        obj["summary_sha256"] = fingerprint(obj)
+        check.validate(obj)
+        path = base / f"{obj['summary_sequence']:08d}.json"
+        with path.open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(obj, ensure_ascii=False, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        return obj
+
+
 def append_violation(target, *, run_id, batch_id, stage, boundary_level, batch_fingerprint,
                      severity, detection_method, policy_id, artifact_sha256=None):
     path = batch_path(target, run_id, batch_id)
