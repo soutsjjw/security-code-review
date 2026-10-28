@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import review_log
 import execution_boundary as boundary
 import evidence_integrity as ledger
+from legacy_script_archive import archive as archive_scripts
 
 class BoundaryTests(unittest.TestCase):
     def setUp(self):
@@ -76,6 +77,18 @@ class JournalBoundaryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ledger.commit(root, {}, event="integrate",
                               boundary_attestation={**att, "summary_sha256": "bad"})
+            script = root / ledger.RELATIVE / "analysis/legacy_repair.py"
+            script.write_text("print('old')", encoding="utf-8")
+            receipt = archive_scripts(root)
+            self.assertFalse(receipt["allow_cleanup"])
+            self.assertTrue(script.exists())
+            self.assertEqual(ledger.errors(root), [])
+            latest = json.loads((root / ledger.JOURNAL / "00000002.json").read_text("utf-8"))
+            self.assertEqual(latest["event"], "legacy-script-archive")
+            self.assertEqual(latest["archive_attestation"], receipt)
+            archived = root / ledger.RELATIVE / "archive/legacy-scripts"
+            next(archived.iterdir()).write_text("tampered", encoding="utf-8")
+            self.assertIn("封存", str(ledger.errors(root)))
 
 if __name__ == "__main__":
     unittest.main()
