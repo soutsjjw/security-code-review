@@ -123,8 +123,15 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
         result = verify_run(target, latest["run_id"])
         check("boundary_blocks_resolved", not result["blocked_batches"],
               result["blocked_batches"])
-        boundary_level = read(target / REPORT / "logs/boundary-baselines" /
-                              (latest["run_id"] + ".json"))["inventory"]["boundary_level"]
+        from execution_boundary import scripts as current_executables
+        baseline = read(target / REPORT / "logs/boundary-baselines" /
+                        (latest["run_id"] + ".json"))
+        boundary_level = baseline["inventory"]["boundary_level"]
+        if not isinstance(baseline.get("scripts"), dict):
+            raise ValueError("缺少可信的原始腳本清單")
+        no_script_changes = current_executables(target) == baseline["scripts"]
+        check("no_unreviewed_executable_changes", no_script_changes,
+              "analysis 執行檔新增／移除／SHA256 異動")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         boundary_level = "unverified"
         check("boundary_blocks_resolved", False, type(exc).__name__)
