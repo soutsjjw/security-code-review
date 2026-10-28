@@ -1,0 +1,531 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/security-code-review/execution-boundary-event-v1.schema.json",
+  "title": "P4-A Execution Boundary Event v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "execution_boundary_violation"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "batch_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "stage": {
+          "enum": [
+            "initialization",
+            "structure_index",
+            "queue",
+            "first_pass",
+            "cross_file_analysis",
+            "second_pass",
+            "validation",
+            "report"
+          ]
+        },
+        "boundary_level": {
+          "enum": [
+            "L1",
+            "L2",
+            "L3"
+          ]
+        },
+        "batch_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "batch_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "previous_event_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "event_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "extensions": {
+          "type": "object",
+          "maxProperties": 20,
+          "propertyNames": {
+            "pattern": "^x-[a-z][a-z0-9-]{0,62}$"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "severity": {
+          "enum": [
+            "block",
+            "warn"
+          ]
+        },
+        "detection_method": {
+          "enum": [
+            "filesystem-diff",
+            "trusted-executor",
+            "process-audit",
+            "tool-inventory",
+            "package-hook-audit"
+          ]
+        },
+        "policy_id": {
+          "enum": [
+            "unauthorized-executable",
+            "unauthorized-write",
+            "uncontrolled-entrypoint",
+            "boundary-downgrade",
+            "legacy-script-execution",
+            "unsafe-review-channel"
+          ]
+        },
+        "artifact_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "pending_review",
+            "auto_warn"
+          ]
+        },
+        "origin": {
+          "const": "boundary-monitor"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "timestamp",
+        "run_id",
+        "batch_id",
+        "stage",
+        "boundary_level",
+        "batch_sequence",
+        "batch_fingerprint",
+        "previous_event_sha256",
+        "event_sha256",
+        "severity",
+        "detection_method",
+        "policy_id",
+        "artifact_sha256",
+        "disposition",
+        "origin"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "severity": {
+                "const": "block"
+              }
+            },
+            "required": [
+              "severity"
+            ]
+          },
+          "then": {
+            "properties": {
+              "disposition": {
+                "const": "pending_review"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "disposition": {
+                "const": "auto_warn"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "execution_boundary_review"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "batch_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "stage": {
+          "enum": [
+            "initialization",
+            "structure_index",
+            "queue",
+            "first_pass",
+            "cross_file_analysis",
+            "second_pass",
+            "validation",
+            "report"
+          ]
+        },
+        "boundary_level": {
+          "enum": [
+            "L1",
+            "L2",
+            "L3"
+          ]
+        },
+        "batch_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "batch_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "previous_event_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "event_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "extensions": {
+          "type": "object",
+          "maxProperties": 20,
+          "propertyNames": {
+            "pattern": "^x-[a-z][a-z0-9-]{0,62}$"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "related_event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "previous_review_event_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "uuid"
+            }
+          ]
+        },
+        "reviewer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "id",
+            "credential_fingerprint"
+          ],
+          "properties": {
+            "type": {
+              "const": "authorized-human"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "credential_fingerprint": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "basis": {
+          "enum": [
+            "verified-authorized-operation",
+            "false-positive",
+            "policy-correction",
+            "additional-evidence"
+          ]
+        },
+        "basis_evidence_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "final_ruling": {
+          "enum": [
+            "upheld",
+            "overturned"
+          ]
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "artifact_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "origin": {
+          "const": "trusted-review-channel"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "timestamp",
+        "run_id",
+        "batch_id",
+        "stage",
+        "boundary_level",
+        "batch_sequence",
+        "batch_fingerprint",
+        "previous_event_sha256",
+        "event_sha256",
+        "related_event_id",
+        "previous_review_event_id",
+        "reviewer",
+        "basis",
+        "basis_evidence_sha256",
+        "final_ruling",
+        "reviewed_at",
+        "artifact_sha256",
+        "origin"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_type": {
+          "const": "execution_boundary_clearance"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "batch_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "stage": {
+          "enum": [
+            "initialization",
+            "structure_index",
+            "queue",
+            "first_pass",
+            "cross_file_analysis",
+            "second_pass",
+            "validation",
+            "report"
+          ]
+        },
+        "boundary_level": {
+          "enum": [
+            "L1",
+            "L2",
+            "L3"
+          ]
+        },
+        "batch_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "batch_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "previous_event_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "event_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "extensions": {
+          "type": "object",
+          "maxProperties": 20,
+          "propertyNames": {
+            "pattern": "^x-[a-z][a-z0-9-]{0,62}$"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "related_event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "related_review_event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "artifact_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "policy_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "check_result": {
+          "const": "passed"
+        },
+        "origin": {
+          "const": "boundary-monitor"
+        }
+      },
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "timestamp",
+        "run_id",
+        "batch_id",
+        "stage",
+        "boundary_level",
+        "batch_sequence",
+        "batch_fingerprint",
+        "previous_event_sha256",
+        "event_sha256",
+        "related_event_id",
+        "related_review_event_id",
+        "artifact_sha256",
+        "policy_fingerprint",
+        "check_result",
+        "origin"
+      ]
+    }
+  ]
+}
