@@ -96,11 +96,10 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
         return all_scope("missing-proven-change")
     if not rules <= set(all_rules):
         return all_scope("unknown-rule")
-    # Changing a shared or integrity-critical artifact is not locally attributable.
-    if any(x not in {"analysis/rule-closures.json", "analysis/control-verifications.json",
-                     "analysis/decision-audits.json", "assessment.json"}
-           for x in artifacts):
-        return all_scope("shared-or-unknown-artifact")
+    # No formal per-artifact diff receipt exists yet. Even a known sidecar can
+    # affect a rule outside the declared list, so always broaden to all rules.
+    if artifacts:
+        return all_scope("unproven-artifact-impact")
     if previous_contract is None or previous_contract != contract:
         return all_scope("contract-or-boundary-version-changed")
     hashes = snapshot.get("source_hashes") if isinstance(snapshot, dict) else None
@@ -119,6 +118,10 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
             or not isinstance(assessment.get("checks"), list)
             or not isinstance(assessment.get("file_reviews"), list)
             or not isinstance(closures, dict)):
+        return all_scope("incomplete-dependency-graph")
+    # A partial rule set is never a reliable absence-of-dependency proof.
+    checks = assessment["checks"]
+    if len(checks) != len(all_rules) or {c.get("id") for c in checks if isinstance(c, dict)} != set(all_rules):
         return all_scope("incomplete-dependency-graph")
     graph: dict[str, set[str]] = defaultdict(set)
     try:
