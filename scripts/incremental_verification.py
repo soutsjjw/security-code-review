@@ -258,7 +258,7 @@ def full_comparison(target: Path, plan_data: dict, *, selected_blocker_ids: list
         ids = blocker.get("rule_ids") or []
         if not ids or not set(ids) <= scope:
             unknown.append(blocker.get("category", "other"))
-    return {"incremental_clean": not unknown and not integrity,
+    return {"incremental_clean": not unknown and not integrity and diagnostics["blocked_count"] == 0,
             # This is a comparison, *never* a successful formal first-pass gate.
             "full_gate_passed": False, "ready_for_second_pass": False,
             "unexpected_full_blocker_categories": sorted(set(unknown)),
