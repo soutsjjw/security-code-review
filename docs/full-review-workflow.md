@@ -75,3 +75,19 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 6. 由 Agent 內部呼叫 `complete_review.py`，產出最終 `CodeReview_YYYYMMDD.html`、`report.json` 並驗證。最終答覆優先交付這兩個路徑、70 項狀態摘要與 Finding 數；改善建議應收錄於報告中，不要在最終訊息中先要求修復。
 
 **注意**：`review_queue.py` 只負責初始化、呈現下一批規則及進度計數，不會自行完成原始碼的 70 項判斷。Agent 必須實際使用程式碼／設定證據逐項分析；不得把佇列已列出 70 個 ID 當作審查完成。
+
+
+## 實驗性 B0／P4-A／P0 執行流程（非預設）
+
+B0 只記錄有來源的效能指標；P4-A 只驗證追加式邊界事件的結構與雜湊；P0 opt-in 透過 L3 檔案差異檢查保護當批 Stage／Integrate。這不是 L1/L2 Sandbox，不代表已完成 P1～P4-B 的重構。
+
+在正式模式初始化 Run 後，若使用者明確要求新流程，先固定同一個 Python，然後執行：
+
+```bash
+python <SKILL_ROOT>/scripts/execution_boundary.py --target <TARGET_ROOT> --begin
+python <SKILL_ROOT>/scripts/execution_boundary.py --target <TARGET_ROOT> --inspect --batch-id preflight
+```
+
+之後的 Stage／Integrate 須在同一執行環境設定 `SECURITY_CODE_REVIEW_EXECUTION_MODE=optimized`；未完成預先基準時會拒絕正式交易。邊界違規事件只在正式監測器建立；未配置可信人工覆核通道時，block 級批次保持待覆核，其餘獨立批次可繼續。任何檔案差異監測結果僅具有 L3 稽核保障；不能宣稱已偵測全部執行路徑。
+
+本方案不會用增量診斷取代進入第二輪前的全量驗證，亦不會自動修改受測程式碼。
