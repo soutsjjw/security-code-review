@@ -359,6 +359,30 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
                 or not isinstance(archive.get("manifest_sha256"), str)
                 or re.fullmatch(r"[0-9a-f]{64}", archive["manifest_sha256"]) is None):
             return [f"資料完整性：交易日誌第 {n} 筆舊腳本封存認證異常"]
+        if archive is not None:
+            name = archive["manifest_sha256"]
+            folder = target / RELATIVE / "archive"
+            manifest_path = folder / "legacy-manifests" / (name + ".json")
+            if manifest_path.is_symlink() or not manifest_path.is_file():
+                return [f"資料完整性：交易日誌第 {n} 筆舊腳本封存清單不存在"]
+            manifest_bytes = manifest_path.read_bytes().rstrip(b"\\n")
+            if digest(manifest_bytes) != name:
+                return [f"資料完整性：交易日誌第 {n} 筆舊腳本清單指紋不一致"]
+            try:
+                archive_manifest = json.loads(manifest_bytes)
+                entries = archive_manifest["scripts"]
+                if (not isinstance(entries, list) or len(entries) != archive["script_count"]
+                        or archive_manifest.get("allow_cleanup") is not False):
+                    raise ValueError("封存清單與交易不一致")
+                for item in entries:
+                    sha = item["archive_sha256"]
+                    if not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{64}", sha) is None:
+                        raise ValueError("封存內容指紋格式無效")
+                    file_path = folder / "legacy-scripts" / sha
+                    if file_path.is_symlink() or not file_path.is_file() or _hash_file(file_path) != sha:
+                        raise ValueError("封存內容遺失或版本變更")
+            except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                return [f"資料完整性：交易日誌第 {n} 筆舊腳本封存無法驗證：{exc}"]
         if set(row.get("file_hashes", {})) != set(TRACKED):
             return [f"資料完整性：交易日誌第 {n} 筆受控檔案清單異常"]
         previous, last = recorded_hash, row
