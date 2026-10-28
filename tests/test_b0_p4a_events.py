@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from b0_baseline import observation, summary
+import review_log
 from execution_boundary_events import append_violation, verify_run, batch_path, _verify_events, snapshot_run_summary
 
 class B0Tests(unittest.TestCase):
@@ -31,6 +32,23 @@ class B0Tests(unittest.TestCase):
         result = summary([a, b, c])
         self.assertEqual(result["runs"], 2)
         self.assertEqual(result["metrics"]["commands"]["median"], 6)
+
+class BlockerObservationTests(unittest.TestCase):
+    def test_delta_without_changing_verdict(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            review_log.start(root)
+            first = {"blockers": [{"category": "control_trace",
+                                   "rule_ids": ["AC-08"], "message": "missing"}],
+                     "blocker_signature": "first"}
+            one = review_log.observe_blockers(root, first)
+            self.assertEqual(one["new_count"], 1)
+            two = review_log.observe_blockers(root, first)
+            self.assertEqual(two["new_count"], 0)
+            empty = review_log.observe_blockers(root, {"blockers": [], "blocker_signature": "none"})
+            self.assertEqual(empty["resolved_count"], 1)
+            self.assertEqual(review_log._load(review_log._paths(root)[1])["status"], "running")
+
 
 class BoundaryEventsTests(unittest.TestCase):
     def setUp(self):
