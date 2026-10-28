@@ -185,6 +185,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 - 使用目前已包含「review 判定規則收斂」的 SKILL.md（原 claude/tighten-review-decision-rules 分支內容已整合時，以安裝版本為準）。判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
 - 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
+- **非 Git 專案不構成子代理降級條件**：`--multi-agent` 維持以來源 SHA256 快照與 Codex 原生工具／強制唯讀試跑判斷；缺 `.git` 時記錄 Git Revision 不可得，只有真正工具或安全隔離失敗才降級。完整性守門失敗仍須阻擋，不得以改成單代理掩蓋。
 - 本 `/goal` 選用最多 3 個唯讀子代理。主代理須依 `SKILL.md` 與 `docs/multi-agent-review.md` **自動調用目前執行器實際提供的原生協作工具**，不能只列出派工清單就宣稱已執行；缺工具、真實唯讀沙箱、可信 agent ID 或隔離驗收未過時，記錄原因後**完整降級單代理**。正式判定與寫入始終只由主代理負責。
 
 多代理自動執行（此段是 Agent 必須採取的工具動作，**不是** shell 指令）：
