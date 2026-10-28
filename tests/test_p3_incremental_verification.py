@@ -31,6 +31,8 @@ class IncrementalTests(unittest.TestCase):
                  "evidence": [{"path": "Controller.cs"}]},
                 {"id": "AU-01", "execution": {"inspected_paths": ["Unrelated.cs"]},
                  "evidence": [{"path": "Unrelated.cs"}]},
+                {"id": "BC-03", "execution": {"inspected_paths": []}, "evidence": []},
+                {"id": "IN-01", "execution": {"inspected_paths": []}, "evidence": []},
             ],
             "file_reviews": [{"path": "Service.cs", "rule_reviews": [{"rule_id": "AC-08"}]},
                              {"path": "Unrelated.cs", "rule_reviews": [{"rule_id": "AU-01"}]}]
@@ -74,7 +76,7 @@ class IncrementalTests(unittest.TestCase):
         self.assertNotEqual(first, p3.contract_fingerprint(ROOT, "L2"))
         result = self.invoke({"changed_artifacts": ["schemas/assessment.schema.json"]})
         self.assertTrue(result["full_recheck"])
-        self.assertEqual(result["reason"], "shared-or-unknown-artifact")
+        self.assertEqual(result["reason"], "unproven-artifact-impact")
 
     def test_untrusted_graph_forces_full(self):
         self.index["cross_file_call_hints"] = {"Controller.cs": [
