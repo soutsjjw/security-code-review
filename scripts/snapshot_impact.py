@@ -22,6 +22,7 @@ def affected_rules(
     old_hashes: dict[str, str], new_hashes: dict[str, str],
     index: dict[str, Any], assessment: dict[str, Any],
     closures: dict[str, Any], scopes: dict[str, str],
+    current_candidates: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Return an auditable, conservative set of rules requiring new evidence."""
     delta = source_delta(old_hashes, new_hashes)
@@ -54,6 +55,11 @@ def affected_rules(
         return fallback("missing-trustworthy-previous-index")
 
     candidates = index["rule_candidates"]
+    if (not isinstance(current_candidates, dict)
+            or any(path not in current_candidates
+                   or not isinstance(current_candidates[path], list)
+                   for path in changed)):
+        return fallback("current-source-candidates-unavailable")
     graph: dict[str, set[str]] = defaultdict(set)
     for edge in index["typed_relationships"]:
         if not isinstance(edge, dict):
@@ -99,6 +105,14 @@ def affected_rules(
         for hit in hits:
             if not isinstance(hit, dict):
                 return fallback("unrecognized-rule-candidates")
+            rid = hit.get("rule_id")
+            if rid in scopes:
+                owners.add(rid)
+
+    for path in changed:
+        for hit in current_candidates[path]:
+            if not isinstance(hit, dict):
+                return fallback("unrecognized-current-source-candidate")
             rid = hit.get("rule_id")
             if rid in scopes:
                 owners.add(rid)
