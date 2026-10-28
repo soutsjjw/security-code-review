@@ -181,6 +181,19 @@ class AuthoritativeDiagnosisTests(unittest.TestCase):
         other = summarize([message], required_recheck_rules=["AC-01"])
         self.assertNotEqual(result["blocker_signature"], other["blocker_signature"])
 
+    def test_diagnose_uses_recheck_file_even_if_message_contains_examples(self):
+        from review_blockers import diagnose
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            ledger = root / "reports/security-code-review/analysis/recheck-required.json"
+            _write(ledger, {"rule_ids": ["AU-09"]})
+            with patch("adversarial_recheck.first_pass_issues",
+                       return_value=["第一輪：來源異動後仍有待重新查核規則：AC-01、AU-09"]):
+                result = diagnose(root, {"checks": []})
+        self.assertEqual(result["recheck_rule_ids"], ["AU-09"])
+        self.assertEqual(result["blockers"][0]["rule_ids"], ["AU-09"])
+
     def test_diagnostic_preview_does_not_attribute_untrusted_ids(self):
         message = "其他錯誤範例：AC-01、AU-09"
         self.assertEqual(summarize([message])["recheck_rule_ids"], [])
