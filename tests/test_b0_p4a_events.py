@@ -25,9 +25,11 @@ class B0Tests(unittest.TestCase):
 
     def test_median_only_uses_comparable_runs(self):
         log = {"run_id": "r", "status": "completed", "commands": 5}
-        a = observation(log, "a", "a" * 40)
+        meta = {"environment_fingerprint": "b" * 64, "ruleset_version": "2.0.0",
+                "dataset_sha256": "c" * 64, "executor": "Codex"}
+        a = observation(log, "a", "a" * 40, **meta)
         log["commands"] = 7
-        b = observation(log, "b", "a" * 40)
+        b = observation(log, "b", "a" * 40, **meta)
         c = observation(log, "c")
         result = summary([a, b, c])
         self.assertEqual(result["runs"], 2)
