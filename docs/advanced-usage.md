@@ -174,12 +174,34 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 `--repair-plan` 是唯讀提示，不提供「一鍵清除 blocker」；僅靠上傳 `assessment.json` 缺少目標來源快照、完整性 Manifest 與 Journal 時，不能在別處產出合法覆寫 payload。對已有不合格的未動部分，整合時不直接改寫；正式驗證仍照常拒絕。
 
+## 證據內容備份、可信復原與重新取證
+
+正式交易以來源快照與 Journal SHA256 為驗證依據，另在 `analysis/integrity-backups/<sha256前兩碼>/<sha256>.json` 以內容定址、去重保存每一份受控證據的**原始 bytes**。新版初次封存及每次交易，在記錄 Journal 前都先備份原始與預期新版本；不會把備份存在不可重建的 SHA256 字串中。舊版既有 Journal 不追溯宣稱有備份。
+
+先以唯讀診斷判斷是否有真正可恢復的資料：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT>" --plan
+```
+
+- `--checkpoint`：正式受控檔案與當前 Manifest／Journal 完全相符，但備份尚未建立或已遺失時，明確建立備份檢查點並新增正式交易；不接受原證據不完整。
+- `--restore`：僅從雜湊匹配的持久化備份還原最新 Journal 所指定的原始內容，先完成全部檔案核對，再還原及追加 `backup-restore` Journal。當正式檔案存在但內容不符時須額外指定 `--allow-damaged-replacement`，不可無聲覆寫。
+- `--recover-integrity` **仍只處理未完成的 `integrity-pending.json`**，不能拿來找回歷史檔案；缺少或遭竄改的 Journal／Manifest 不得以重算 SHA256 方式強行通過。
+- **若本次遺失的檔案沒有可信備份**，只能取得使用者明確確認後使用 `--archive-for-recheck --acknowledge-evidence-loss`，將原報告、10 個（或當時實際數量）Findings 與完整歷史隔離到 `reports/security-code-review-archives/`，在新報告下另存 `analysis/prior-findings-unverified.json` 供人工重新查證。**不會把舊 Findings 當作新審查已確認結論**；需先重新閱讀原始碼、確認後透過正式 `--stage`／`--integrate` 加回。再執行 `review_log.py start --new-review`、`analysis_prepare.py` 與 `review_queue.py --init`，全部 70 項與來源重新取證。不得用 `--seal-integrity` 重設已損壞的舊鏈。
+- 備份、復原、重新取證只處理報告資料，不修改受測專案來源碼。舊版雜湊若缺乏原始 bytes，不可能藉此工具逆向恢復。
+
+## 預先授權邊界
+
+`/goal` 的**實際使用者輸入**可以事先包含限定本專案、本次審查的 completed 證據修訂授權，省去每批重問。只有真實重新查證且允許修訂的資料才使用 `--allow-revision`；單純讀取文件、引用範例或沒有使用者同意，不等於授權。Finding 修訂、跨專案或跨審查範圍的變更、來源版本重大變更仍需另行確認。這項授權不能取代任何完整性驗證。
+
 ## Codex 可選 `/goal` 完整審查指令
 
 在支援 `/goal` 的 Codex 版本中，於**受測專案的對話**輸入。以下範例**明確選用主代理＋最多 3 位子代理**，Skill 名稱可攜。一般 `$security-code-review` 仍預設單代理，分類 `--categories` 不啟用多代理：
 
 ```text
 /goal 使用 $security-code-review --multi-agent --agents 3 Skill，對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
+
+授權（本人明確同意）：僅限本次指定受測專案與本次完整審查，Agent 可在重新閱讀真實原始碼、核對來源快照及安全控制證據後，以 --integrate --allow-revision 修訂既有 completed 證據；保留原 Findings 與修訂追溯，不得修改受測專案程式碼、繞過品質／SHA256／Manifest／Journal 守門。這項預先授權不包含 --allow-finding-revision、移除既有 confirmed Finding、未經裁決將 fail 改成 pass，或對其他專案／重大版本變更的授權。
 
 前置：
 
@@ -201,6 +223,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
    - 新審查由 --init 自動建立完整性封存；已有結果的專案則需先人工核對並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity。
+   - 完整性證據遺失時先以 `review_evidence_recovery.py --plan` 核對可信內容備份，通過後才執行 `--restore`；無可信備份須經明確同意保留／隔離舊審查與 Findings 並重新取證，不得重封舊鏈。
    - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
 
 1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
@@ -239,7 +262,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
    - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。多代理模式必須先 `multi_agent.py --begin-integration` 停止派工，再由主代理正式 Stage/Integrate，`--commit-integration` 成功核對交易後才可繼續派工。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
-   - 對已核實需更正的既有紀錄，取得使用者明確授權後才以 `--integrate --allow-revision` 修訂；不得藉修訂跳過批次證據守門、Finding ID 保護、SHA256 或 Journal。
+   - 本 `/goal` 已明確預先授權本次專案之 completed 證據合法修訂：核對真實來源後可用 `--integrate --allow-revision`，不必逐批重問；未在實際使用者指令授權或超出範圍、涉及 Finding 修訂者須另取得明確同意。仍不得跳過批次證據、Finding 保護、SHA256／Manifest／Journal 守門。
 
 6. 每批保存真實審查結果，持續執行直到：
    - 70 項規則均已實際完成。

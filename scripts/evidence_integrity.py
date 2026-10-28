@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,8 @@ INDEX = ANALYSIS / "structure-index.json"
 MANIFEST = ANALYSIS / "integrity-manifest.json"
 PENDING = ANALYSIS / "integrity-pending.json"
 JOURNAL = ANALYSIS / "integrity-journal"
+BACKUPS = ANALYSIS / "integrity-backups"
+BACKUP_MODE = "content-addressed-v1"
 SNAPSHOT = ANALYSIS / "review-snapshot.json"
 VERSION = 1
 # 只有此清單中正式由整合器寫入的資料可以由交易提交。
@@ -72,6 +76,190 @@ def _hashes(target: Path) -> dict[str, str | None]:
     return {name: _hash_file(_path(target, name)) for name in TRACKED}
 
 
+
+def _backup_path(target: Path, sha: str) -> Path:
+    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha):
+        raise ValueError("備份 SHA256 格式無效")
+    return target.resolve() / BACKUPS / sha[:2] / (sha + ".json")
+
+
+def _backup_bytes(target: Path, sha: str) -> bytes:
+    path = _backup_path(target, sha)
+    if any(p.is_symlink() for p in (path, path.parent, path.parent.parent, path.parent.parent.parent)):
+        raise ValueError("完整性備份路徑包含 symbolic link")
+    if not path.is_file():
+        raise ValueError(f"找不到 SHA256={sha} 的可信證據內容備份")
+    raw = path.read_bytes()
+    if digest(raw) != sha:
+        raise ValueError(f"證據內容備份 SHA256 不符：{sha}")
+    return raw
+
+
+def _store_backup(target: Path, raw: bytes) -> str:
+    sha = digest(raw)
+    path = _backup_path(target, sha)
+    if path.is_file():
+        _backup_bytes(target, sha)
+        return sha
+    if any(p.is_symlink() for p in (path, path.parent, path.parent.parent, path.parent.parent.parent)):
+        raise ValueError("完整性備份路徑包含 symbolic link")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".pending")
+    if temporary.is_symlink():
+        raise ValueError("備份暫存檔為 symbolic link")
+    if temporary.is_file():
+        if digest(temporary.read_bytes()) != sha:
+            raise ValueError("備份暫存不完整或內容衝突，須人工核對")
+    else:
+        with temporary.open("xb") as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+    if path.exists() or path.is_symlink():
+        _backup_bytes(target, sha)
+        temporary.unlink(missing_ok=True)
+    else:
+        temporary.replace(path)
+    return sha
+
+
+def _backup_present_state(target: Path, updates: dict[str, Any] | None = None) -> None:
+    """先保護所有未變及將更新的正式證據，再允許 Journal 交易開始。"""
+    for name in TRACKED:
+        path = _path(target, name)
+        if path.is_symlink():
+            raise ValueError(f"正式證據路徑包含 symbolic link：{name}")
+        if path.is_file():
+            _store_backup(target, path.read_bytes())
+    for name, value in (updates or {}).items():
+        if value is not None:
+            _store_backup(target, _json_bytes(value))
+
+
+def _backup_errors(target: Path, hashes: dict[str, str | None]) -> list[str]:
+    issues = []
+    for name, sha in hashes.items():
+        if sha is None:
+            continue
+        try:
+            _backup_bytes(target, sha)
+        except ValueError as exc:
+            issues.append(f"資料完整性：{name} 的持久化備份不合格：{exc}")
+    return issues
+
+
+def backup_status(target: Path) -> dict:
+    """唯讀查詢最新封存證據是否有可信內容備份。"""
+    if not enabled(target):
+        return {"ready": False, "errors": ["目前索引未啟用審查交易完整性"]}
+    failures = errors(target, verify_files=False, verify_backups=False)
+    if failures:
+        return {"ready": False, "errors": failures}
+    manifest = _read(target / MANIFEST)
+    journal = _read(_entry_path(target, manifest["sequence"]))
+    problems = _backup_errors(target, journal["file_hashes"])
+    return {"ready": not problems, "backup_mode": journal.get("backup_mode", "legacy-hash-only"),
+            "errors": problems, "tracked_file_count": sum(v is not None for v in journal["file_hashes"].values())}
+
+
+def repair_backups(target: Path) -> dict:
+    """僅在全部正式證據吻合現有鏈時，將舊版或遺失的備份補齊。"""
+    if not enabled(target):
+        raise ValueError("目前索引未啟用審查交易完整性")
+    troubles = errors(target, verify_backups=False)
+    if troubles:
+        raise ValueError("備份修補遭拒：先修復正式證據／Journal：" + "；".join(troubles))
+    # 只在受控正式檔完全吻合 Journal 時，才可依其 bytes 重建損毀備份。
+    # 舊損毀檔先隔離保留供事故鑑識，不能直接覆蓋或當作可信證據。
+    for name in TRACKED:
+        formal = _path(target, name)
+        if not formal.is_file():
+            continue
+        raw = formal.read_bytes()
+        backed = _backup_path(target, digest(raw))
+        if any(p.is_symlink() for p in (backed, backed.parent, backed.parent.parent, backed.parent.parent.parent)):
+            raise ValueError(f"{name}: 備份路徑包含 symbolic link，拒絕修補")
+        if backed.is_file() and digest(backed.read_bytes()) != digest(raw):
+            damaged = backed.read_bytes()
+            incident = target / ANALYSIS / "integrity-incidents" / (
+                "corrupt-backup-" + backed.stem + "-" + digest(damaged) + ".damaged")
+            incident.parent.mkdir(parents=True, exist_ok=True)
+            if incident.exists():
+                if incident.is_symlink() or incident.read_bytes() != damaged:
+                    raise ValueError(f"{name}: 事故備份內容衝突，拒絕覆蓋")
+                backed.unlink()
+            else:
+                backed.rename(incident)
+    _backup_present_state(target)
+    return commit(target, {}, event="backup-checkpoint")
+
+
+def restore_backups(target: Path, *, allow_replace: bool = False) -> dict:
+    """經明確呼叫，只恢復最新可信 Journal 指紋對應的原始 bytes。"""
+    target = target.resolve()
+    if not enabled(target):
+        raise ValueError("目前索引未啟用審查交易完整性")
+    troubles = errors(target, verify_files=False, verify_backups=False)
+    if troubles:
+        raise ValueError("備份復原遭拒：完整性交易鏈不可信：" + "；".join(troubles))
+    manifest = _read(target / MANIFEST)
+    journal = _read(_entry_path(target, manifest["sequence"]))
+    expected = journal["file_hashes"]
+    changed = [name for name, sha in expected.items()
+               if _hash_file(_path(target, name)) != sha]
+    if not changed:
+        raise ValueError("目前正式證據與 Journal 完全一致，無需復原")
+    payloads = {}
+    for name in changed:
+        sha = expected[name]
+        path = _path(target, name)
+        if sha is None:
+            raise ValueError(f"{name}: Journal 預期不存在，不允許以復原操作刪除檔案")
+        if path.is_symlink() or any(parent.is_symlink() for parent in (path.parent, path.parent.parent)):
+            raise ValueError(f"{name}: 復原路徑包含 symbolic link")
+        if path.exists() and not allow_replace:
+            raise ValueError(f"{name}: 現存內容與 Journal 不同，須明確指定 --allow-damaged-replacement")
+        payloads[name] = _backup_bytes(target, sha)
+    # 所有備份與覆蓋衝突皆先檢查，再寫入任何正式證據。
+    # 現存受損檔案保留原始 bytes 作事故線索，不混入可信 SHA256 證據庫。
+    for name in payloads:
+        current_path = _path(target, name)
+        if current_path.is_file():
+            original = current_path.read_bytes()
+            damaged_sha = digest(original)
+            incident = target / ANALYSIS / "integrity-incidents" / (
+                name.replace("/", "__") + "." + damaged_sha + ".damaged")
+            incident.parent.mkdir(parents=True, exist_ok=True)
+            if incident.exists():
+                if incident.is_symlink() or incident.read_bytes() != original:
+                    raise ValueError(f"{name}: 已有內容不同的事故備份，拒絕覆寫")
+            else:
+                with incident.open("xb") as stream:
+                    stream.write(original)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+    for name, raw in payloads.items():
+        path = _path(target, name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(path.name + ".restore-pending")
+        if temporary.exists() or temporary.is_symlink():
+            raise ValueError(f"{name}: 復原暫存已存在，須人工核對")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(raw)
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    troubles = errors(target)
+    if troubles:
+        raise ValueError("證據恢復後仍有完整性問題：" + "；".join(troubles))
+    commit_result = commit(target, {}, event="backup-restore")
+    return {"restored_paths": changed, "sequence": commit_result["sequence"],
+            "head": commit_result["head"]}
+
+
 def _entry_path(target: Path, seq: int) -> Path:
     return target / JOURNAL / f"{seq:08d}.json"
 
@@ -117,9 +305,11 @@ def initialize(target: Path, *, explicit: bool = False) -> dict:
             for c in assessment.get("checks", []) if isinstance(c, dict))):
         raise ValueError("既有審查結果不可自動信任；請先核對來源與 Finding，再明確 --seal-integrity")
     hashes = _hashes(target)
+    _backup_present_state(target)
     payload = {"schema_version": VERSION, "sequence": 0, "previous": None,
                "event": "initial-seal", "snapshot_fingerprint": _fp(snapshot),
-               "file_hashes": hashes, "staged_sha256": {}}
+               "file_hashes": hashes, "staged_sha256": {},
+               "backup_mode": BACKUP_MODE}
     record = _entry(payload)
     _write(_entry_path(target, 0), record)
     _write(target / MANIFEST, {"schema_version": VERSION, "sequence": 0,
@@ -127,7 +317,7 @@ def initialize(target: Path, *, explicit: bool = False) -> dict:
     return {"initialized": True, "sequence": 0, "head": record["entry_hash"]}
 
 
-def errors(target: Path) -> list[str]:
+def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = True) -> list[str]:
     if not enabled(target):
         return []
     target = target.resolve()
@@ -160,11 +350,16 @@ def errors(target: Path) -> list[str]:
     if last is None:
         return ["資料完整性：找不到完整交易"]
     snapshot = _read(target / SNAPSHOT)
-    if not isinstance(snapshot, dict) or last["snapshot_fingerprint"] != _fp(snapshot):
+    if verify_files and (not isinstance(snapshot, dict) or last["snapshot_fingerprint"] != _fp(snapshot)):
         return ["資料完整性：已封存來源快照與目前不一致"]
-    now = _hashes(target)
-    return [f"資料完整性：{p} 與交易日誌的 SHA256 不一致，禁止直接覆寫"
-            for p in TRACKED if now[p] != last["file_hashes"][p]]
+    issues = []
+    if verify_files:
+        now = _hashes(target)
+        issues.extend(f"資料完整性：{p} 與交易日誌的 SHA256 不一致，禁止直接覆寫"
+                      for p in TRACKED if now[p] != last["file_hashes"][p])
+    if verify_backups and last.get("backup_mode") == BACKUP_MODE:
+        issues.extend(_backup_errors(target, last["file_hashes"]))
+    return issues
 
 
 def commit(target: Path, updates: dict[str, Any], *, event: str,
@@ -191,6 +386,7 @@ def commit(target: Path, updates: dict[str, Any], *, event: str,
         if not p.is_relative_to(folder) or not p.is_file() or p.suffix != ".json":
             raise ValueError("交易暫存路徑不在指定 staged 目錄")
         staged[p.name] = _hash_file(p)
+    _backup_present_state(target, updates)
     current_snapshot = new_snapshot if new_snapshot is not None else _read(target / SNAPSHOT)
     if not isinstance(current_snapshot, dict):
         raise ValueError("交易快照不存在")
@@ -200,6 +396,7 @@ def commit(target: Path, updates: dict[str, Any], *, event: str,
         "event": event, "snapshot_fingerprint": _fp(current_snapshot),
         "before_hashes": prior["file_hashes"], "after_hashes": after_hashes,
         "updates": updates, "staged_sha256": staged,
+        "backup_mode": BACKUP_MODE,
     }
     _write(target / PENDING, pending)
     return recover(target)
@@ -227,10 +424,16 @@ def recover(target: Path) -> dict:
             or _entry({k: v for k, v in previous.items()
                        if k != "entry_hash"})["entry_hash"] != previous.get("entry_hash")):
         raise ValueError("復原遭拒：先前交易鏈與 SHA256 不一致")
-    row = _entry({"schema_version": VERSION, "sequence": pending["sequence"],
-                  "previous": pending["previous"], "event": pending["event"],
-                  "snapshot_fingerprint": pending["snapshot_fingerprint"],
-                  "file_hashes": after, "staged_sha256": pending["staged_sha256"]})
+    record_data = {"schema_version": VERSION, "sequence": pending["sequence"],
+                   "previous": pending["previous"], "event": pending["event"],
+                   "snapshot_fingerprint": pending["snapshot_fingerprint"],
+                   "file_hashes": after, "staged_sha256": pending["staged_sha256"]}
+    if pending.get("backup_mode") == BACKUP_MODE:
+        record_data["backup_mode"] = BACKUP_MODE
+        issues = _backup_errors(target, after)
+        if issues:
+            raise ValueError("復原遭拒：交易內容備份不完整：" + "；".join(issues))
+    row = _entry(record_data)
     committed = (manifest.get("sequence") == pending["sequence"]
                  and manifest.get("head") == row["entry_hash"])
     if not committed and (pending.get("previous") != manifest.get("head")

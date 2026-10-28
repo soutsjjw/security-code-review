@@ -51,7 +51,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 | 完整模式正式報告驗證／交付前 | [正式報告及自動摘要](docs/report-handoff.md) |
 | 選用批次 Skeleton／唯讀分工／快取時 | [效能診斷與分工約束](docs/review-performance.md)；啟用 `--multi-agent` 必讀 [受控多代理與原生 Codex 調度契約](docs/multi-agent-review.md) |
 
-**必讀文件缺失或無法解析時，不得宣稱已執行其規範；須明確回報阻塞或尚未完成的項目。** 文件可在同一工作階段按版本快取；每條規則仍需獨立驗證適用性與程式碼證據。並非每次查詢都必須重新載入所有詳細指南。
+**必讀文件缺失或無法解析時須回報阻塞，不得宣稱完成。** 已讀文件可按版本快取，但每條規則仍須核對適用性與真實證據。
 
 ## 審查安全底線（兩種模式均適用）
 
@@ -94,13 +94,15 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
 
 
+**證據與授權**：本次 `/goal` 明確授權後，可重查 completed 並用 `--integrate --allow-revision`；Finding 修訂需另授權，不得繞過 SHA256／Manifest／Journal。證據遺失先 `review_evidence_recovery.py --plan`，可信備份用 `--restore`；無備份須確認後封存重審，不可重封。詳見 [證據完整性](docs/evidence-integrity.md) 與 [授權](docs/advanced-usage.md#預先授權邊界)。
+
 ## 正式完整模式執行與交付
 
 先讀 [完整審查迴圈](docs/full-review-workflow.md)，從已固定的 Python 執行器執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`，再 `review_safety.py --plan`。重跑只有符合索引／SHA256 契約才能用 `--mode incremental`；不要自動重置既有 Findings 或審查進度。
 
 Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對每項再用 `--detail-id` 取具體查核契約，實際閱讀來源、驗證控制及跨檔依賴，分批 `--stage`、`--integrate`，依真實結果記錄 checkpoint 並繼續；不能在 70/70 僅為狀態數或 1～3 個 Finding 時停止。`stalled`／退出碼 3 必須停止重試，保存原有證據，查明阻塞後才能明確開啟新 run。
 
-第一輪遇到大量逐檔無關證據、重複模板或未驗證關聯時，先使用 `review_queue.py --diagnose-first-pass` 確認權威阻擋，再以唯讀 `review_queue.py --repair-plan` 按檔案及規則定向補查。`--integrate` 會提前拒絕本批新增的無效完成證據；已完成紀錄需要修訂時，須取得明確授權後才能使用 `--allow-revision`，且不得刪除原 Finding、偽造來源或跳過完整性守門。詳細流程見 [進階操作](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
+第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證。completed 修訂須重新查證並取得授權，保留 Finding／完整性守門。見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
 第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準與分層抽樣計畫，再使用 `second_pass_layers.py --target "<TARGET_ROOT>"` 取得下一批原始證據錨點及抽樣檔案。第二輪逐條推翻式驗證並提交抽樣證據與矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
 
