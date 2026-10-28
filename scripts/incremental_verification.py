@@ -81,20 +81,21 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
                 "affected_rules": all_rules, "sample_rules": []}
     if not isinstance(changes, dict):
         return all_scope("invalid-change-contract")
-    allowed = {"changed_paths", "changed_rule_ids", "changed_artifacts"}
+    allowed = {"changed_paths", "changed_rule_ids", "changed_artifacts", "recently_repaired_rule_ids"}
     if set(changes) - allowed:
         return all_scope("unknown-change-dimension")
     path_changes = changes.get("changed_paths") or []
     rule_changes = changes.get("changed_rule_ids") or []
     artifacts = changes.get("changed_artifacts") or []
-    if any(not isinstance(x, list) for x in (path_changes, rule_changes, artifacts)):
+    recent_changes = changes.get("recently_repaired_rule_ids") or []
+    if any(not isinstance(x, list) for x in (path_changes, rule_changes, artifacts, recent_changes)):
         return all_scope("invalid-change-list")
-    if any(not isinstance(x, str) for x in (*path_changes, *rule_changes, *artifacts)):
+    if any(not isinstance(x, str) for x in (*path_changes, *rule_changes, *artifacts, *recent_changes)):
         return all_scope("invalid-change-entry")
     paths, rules = set(path_changes), set(rule_changes)
     if not paths and not rules and not artifacts:
         return all_scope("missing-proven-change")
-    if not rules <= set(all_rules):
+    if not rules <= set(all_rules) or not set(recent_changes) <= set(all_rules):
         return all_scope("unknown-rule")
     # No formal per-artifact diff receipt exists yet. Even a known sidecar can
     # affect a rule outside the declared list, so always broaden to all rules.
@@ -208,14 +209,23 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
         return all_scope("path-without-verified-rule-owner")
     # High-risk-biased deterministic independent full comparison sample.
     pool = set(all_rules) - affected
+    trace_rules = {rid for rid, closure in closures.items()
+                   if isinstance(closure, dict) and isinstance(closure.get("control_trace"), dict)
+                   and (closure["control_trace"].get("nodes") or [])}
+    repaired = set(recent_changes)
+    shared_fanout = {rid: sum(max(0, len(owners[p]) - 1) for p in linked)
+                     for rid, linked in rule_paths.items()}
     rank = lambda rid: (0 if rid.split("-")[0] in HIGH_RISK else 1,
-                        -len(rule_paths.get(rid, set())),
+                        0 if rid in repaired else 1,
+                        0 if rid in trace_rules else 1,
+                        -shared_fanout.get(rid, 0),
                         hashlib.sha256((seed + rid).encode("utf-8")).hexdigest())
     sample = sorted(pool, key=rank)[:max(0, sample_count)]
     return {**base, "full_recheck": len(affected) == len(all_rules),
             "reason": "tracked-evidence-and-callgraph",
             "affected_rules": sorted(affected), "affected_paths": sorted(affected_paths),
             "sample_rules": sample, "sample_seed": seed,
+            "sample_policy": "high-risk, recently-repaired, trace endpoints, shared-source fanout",
             "sampling_note": "sample is a diagnostic cross-check, never substitutes for final full gate"}
 
 def full_comparison(target: Path, plan_data: dict, *, selected_blocker_ids: list[str] | None = None):
@@ -225,6 +235,16 @@ def full_comparison(target: Path, plan_data: dict, *, selected_blocker_ids: list
             or plan_data.get("full_recheck") is not False):
         return {"incremental_clean": False, "full_gate_passed": False,
                 "ready_for_second_pass": False, "reason": "requires-full-recheck"}
+    current_contract = contract_fingerprint(Path(__file__).resolve().parents[1],
+                                            plan_data.get("boundary_level", "INVALID"))
+    current_snapshot = _load(target / BASE / "analysis/review-snapshot.json", {})
+    hashes = current_snapshot.get("source_hashes") if isinstance(current_snapshot, dict) else None
+    current_source = (_sha(json.dumps(hashes, sort_keys=True).encode("utf-8"))
+                      if isinstance(hashes, dict) else None)
+    if (plan_data.get("contract_fingerprint") != current_contract
+            or current_source != plan_data.get("source_fingerprint")):
+        return {"incremental_clean": False, "full_gate_passed": False,
+                "ready_for_second_pass": False, "reason": "incremental-cache-invalidated"}
     assessment = _load(target / BASE / "assessment.json")
     if not isinstance(assessment, dict):
         raise ValueError("正式 assessment 不存在")
