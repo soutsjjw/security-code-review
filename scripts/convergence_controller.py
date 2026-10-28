@@ -142,6 +142,7 @@ def record_attempt(state: dict, *, category: str, group_key: str, strategy_id: s
     attempts = {k: list(v) for k, v in state["attempts"].items()}
     attempts.setdefault(group_key, []).append(option["signature"])
     updated["attempts"] = attempts
+    updated["status"] = "strategy_changed"
     updated["strategy_history"] = list(state.get("strategy_history") or []) + [{
         "group_key": group_key, "category": category,
         "strategy_signature": option["signature"],
