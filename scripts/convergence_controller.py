@@ -136,7 +136,7 @@ def record_attempt(state: dict, *, category: str, group_key: str, strategy_id: s
     if len(matches) != 1:
         raise ValueError("策略群組版本已變更；須重新診斷")
     option = next((o for o in matches[0]["remaining_strategies"] if o["id"] == strategy_id), None)
-    if option is None:
+    if option is None or option["signature"] in set(state.get("attempts", {}).get(group_key, [])):
         raise ValueError("同一簽章策略已嘗試或不受支援")
     updated = dict(state)
     attempts = {k: list(v) for k, v in state["attempts"].items()}
