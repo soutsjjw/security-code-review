@@ -31,7 +31,7 @@ $security-code-review /path/to/project
 $security-code-review --multi-agent --agents 3
 ```
 
-主代理可以使用可用的 Codex 子代理**唯讀平行閱讀**，但需先按 [受控多代理 受控多代理](docs/multi-agent-review.md) 完成真實執行器試跑、證據契約驗證與權限確認；未符合時自動退回單代理。Worker 不得寫正式 assessment、Manifest／Journal 或自行判定 Pass。完整 70 項、100% 來源及第二輪正式守門不變；分類模式不開放多代理。這不是保證能加速或降低 Token 的功能。
+主代理可以使用可用的 Codex 子代理**唯讀平行閱讀**，但需先按 [受控多代理契約](docs/multi-agent-review.md) 完成真實執行器試跑、證據契約驗證與權限確認；未符合時自動退回單代理。Worker 不得寫正式 assessment、Manifest／Journal 或自行判定 Pass。完整 70 項、100% 來源及第二輪正式守門不變；分類模式不開放多代理。這不是保證能加速或降低 Token 的功能。
 
 
 ### Codex App 指定分類審查
@@ -121,9 +121,9 @@ Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼
 
 索引前置命令由 Skill 自動呼叫；進階參數及限制請見 [進階使用說明](docs/advanced-usage.md)。
 
-## 單代理安全審查完整性守門
+## 受控唯讀多代理與資安審查完整性守門
 
-本次強化仍採用**單代理逐檔審查**，沒有加入子代理分工或平行處理。現有 Roslyn／CodeGraph 來源索引新增 DI、Middleware、組態、Endpoint 與跨專案候選；70 項規則都要檢查，跨檔與全專案規則另需完成控制鏈與責任結案。
+完整模式預設單代理；明確指定 `--multi-agent --agents N` 時，只有 Codex 原生委派、實際強制唯讀隔離與能力試跑合格，才會真正建立唯讀子代理；`multi_agent.py` 和 `file_review_skeleton.py --workers N` 本身都不會啟動模型代理。**受測專案不是 Git repo 不能單獨作為降級理由**：仍以來源 SHA256 快照驗證，並明示 Git Revision 不可得。現有 Roslyn／CodeGraph 來源索引新增 DI、Middleware、組態、Endpoint 與跨專案候選；70 項規則都要檢查，跨檔與全專案規則另需完成控制鏈與責任結案。
 
 `analysis_prepare.py` 建立 Git／SHA256 固定來源快照。審查中結果透過 `review_safety.py` 獨立暫存、整合與衝突檢查；只在來源快照一致、跨檔與全專案補查已結案、既有逐檔覆蓋和規則證據驗證都通過後，才交付正式報告。現有 `assessment.json` 與 HTML／JSON 格式不變；既有 Findings 不得被新結果覆蓋或清除。
 
@@ -133,9 +133,9 @@ Agent 會自動操作新增工具。詳細的恢復方式、結案格式及指�
 
 審查資料的跨檔整合使用 SHA256 交易日誌，偵測未經流程的 JSON／Finding 更新，中斷時可用 `review_safety.py --recover-integrity` 核對後復原。新審查自動封存起點；既有審查資料須人工核對後執行 `--seal-integrity`。此機制不是數位簽章。詳見 [審查證據完整性](docs/evidence-integrity.md)。
 
-## 單代理第二輪反向複核
+## 第二輪反向複核
 
-第一輪完成 70 項、100% 來源檢閱與安全控制／外部證據查核後，先執行 `review_safety.py --begin-second-pass` 固定第一輪判定與快照，再由同一代理重新閱讀程式碼、尋找反例及紀錄矛盾裁決。第二輪須覆核全部 70 項，未完成不得交付正式報告；此程序不等於真正獨立代理審查。詳見 [單代理反向複核指引](docs/adversarial-second-pass.md)。
+第一輪完成 70 項、100% 來源檢閱與安全控制／外部證據查核後，先執行 `review_safety.py --begin-second-pass` 固定第一輪判定與快照，再由主代理重新閱讀程式碼、尋找反例及紀錄矛盾裁決。若有經隔離驗證的子代理，可安排不同於第一輪的唯讀攻擊假設挑戰；正式判定仍須主代理親自複核。第二輪須覆核全部 70 項，未完成不得交付正式報告；共享第一輪結論不算獨立盲審。詳見 [第二輪反向複核指引](docs/adversarial-second-pass.md)。
 
 ## 真實審查品質驗收與跨版本比較
 
