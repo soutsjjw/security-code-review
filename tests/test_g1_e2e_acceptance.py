@@ -9,6 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import flow_acceptance as gate
+from control_effectiveness import snapshot_fingerprint
 
 class FlowAcceptanceTests(unittest.TestCase):
     def setUp(self):
@@ -21,8 +22,10 @@ class FlowAcceptanceTests(unittest.TestCase):
         self.shadow_old = self.root / "shadow-old.json"
         self.shadow_new = self.root / "shadow-new.json"
         self.finding = {"id": "F-1", "title": "verified finding"}
+        catalog = json.loads((ROOT / "rules.json").read_text(encoding="utf-8"))
+        self.checks = [{"id": r["id"]} for r in catalog["rules"]]
         self.write(self.target / "reports/security-code-review/assessment.json",
-                   {"findings": [self.finding], "checks": []})
+                   {"findings": [self.finding], "checks": self.checks})
         self.write(self.legacy / "reports/security-code-review/assessment.json",
                    {"findings": [self.finding]})
         self.write(self.before, {"findings": [self.finding]})
@@ -30,8 +33,11 @@ class FlowAcceptanceTests(unittest.TestCase):
                   "missing_source_file_count": 0, "recheck_rule_ids": [], "blockers": []}
         self.write(self.shadow_old, shadow)
         self.write(self.shadow_new, shadow)
+        snapshot = {"git_revision": "test-revision", "source_hashes": {"Api.cs": "a"*64}}
+        self.write(self.target / "reports/security-code-review/analysis/review-snapshot.json", snapshot)
         self.write(self.target / "reports/security-code-review/analysis/first-pass-baseline.json",
-                   {"schema_version": 1})
+                   {"schema_version": 1, "snapshot_fingerprint": snapshot_fingerprint(snapshot),
+                    "checks": {x["id"]: {"status": "review", "digest": "a"*64} for x in self.checks}})
         self.write(self.target / "reports/security-code-review/logs/latest.json",
                    {"run_id": "20261028-100000-abcd1234"})
         self.write(self.target / "reports/security-code-review/logs/boundary-baselines/"
