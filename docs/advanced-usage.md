@@ -467,3 +467,8 @@ P4-A 事件驗證：`scripts/execution_boundary_events.py --target <TARGET_ROOT>
 執行邊界前置：`scripts/execution_boundary.py --target <TARGET_ROOT> --begin` 必須在 Log start 後呼叫，且同一 Run 不能覆寫原始基準。新版交易要在執行環境明確設定 `SECURITY_CODE_REVIEW_EXECUTION_MODE=optimized`；既有預設 legacy 續跑方式不受影響。L3 僅事後偵測 `analysis/` 可辨識的腳本變動；無可信完整能力清單時，禁止宣稱達成 L2。
 
 新程式不得在 `analysis/` 臨時建立 `.py`、`.sh` 或 `.js` 修復器；既有舊腳本僅保留並等待可信的依賴審核，不直接刪除。其餘正式來源查核、Manifest／Journal 與第二輪完整性守門不變。
+
+
+## 增量補查、收斂診斷與灰度／端到端驗收
+
+選用的增量查核只規畫受影響範圍，不會自行標記正式 Pass 或准許進入第二輪；收斂診斷記錄 Blocker 指紋及有限策略，不以重試次數停止整個 Skill。小型專案灰度與 E2E 都需要真實工件才能通過，詳細命令及安全限制見 [增量驗證及正式驗收](incremental-convergence-acceptance.md)。
