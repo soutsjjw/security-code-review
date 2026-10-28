@@ -4,11 +4,11 @@
 
 ## 增量驗證（修復循環內）
 
-在來源快照與工具版本完全一致、已有完整的逐檔／規則責任記錄時，可用 `incremental_verification.py` 提出工作範圍；其結果**永遠不宣稱 `full_gate_passed=true` 或 `ready_for_second_pass=true`**。
+在前次來源快照指紋、目前來源快照與工具版本完全一致、已有完整的逐檔／規則責任記錄時，可用 `incremental_verification.py` 提出工作範圍；其結果**永遠不宣稱 `full_gate_passed=true` 或 `ready_for_second_pass=true`**。
 
 ```bash
-python <SKILL_ROOT>/scripts/incremental_verification.py --target <TARGET_ROOT> --changes <VERIFIED_CHANGES_JSON> --previous-contract <PREVIOUS_CONTRACT_SHA256>
-python <SKILL_ROOT>/scripts/incremental_verification.py --target <TARGET_ROOT> --changes <VERIFIED_CHANGES_JSON> --previous-contract <PREVIOUS_CONTRACT_SHA256> --compare-full
+python <SKILL_ROOT>/scripts/incremental_verification.py --target <TARGET_ROOT> --changes <VERIFIED_CHANGES_JSON> --previous-contract <PREVIOUS_CONTRACT_SHA256> --previous-snapshot <PREVIOUS_SNAPSHOT_FINGERPRINT>
+python <SKILL_ROOT>/scripts/incremental_verification.py --target <TARGET_ROOT> --changes <VERIFIED_CHANGES_JSON> --previous-contract <PREVIOUS_CONTRACT_SHA256> --previous-snapshot <PREVIOUS_SNAPSHOT_FINGERPRINT> --compare-full
 ```
 
 變更描述 JSON 可含 `changed_paths`、`changed_rule_ids`、`changed_artifacts`。僅有工具／代理自行宣稱的變更範圍不是可信證據。當變更觸及共用工件、版本指紋、索引、依賴圖或來源範圍不明確時，工具回傳 `full_recheck=true`，不得縮小查核。此版本未具備正式交易的逐欄差異收據，因此 `changed_artifacts` 一律要求全量重驗。
