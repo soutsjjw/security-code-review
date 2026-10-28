@@ -105,19 +105,21 @@ def _store_backup(target: Path, raw: bytes) -> str:
         raise ValueError("完整性備份路徑包含 symbolic link")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".pending")
-    if temporary.exists() or temporary.is_symlink():
-        raise ValueError("備份暫存檔已存在，須先核對")
-    try:
+    if temporary.is_symlink():
+        raise ValueError("備份暫存檔為 symbolic link")
+    if temporary.is_file():
+        if digest(temporary.read_bytes()) != sha:
+            raise ValueError("備份暫存不完整或內容衝突，須人工核對")
+    else:
         with temporary.open("xb") as stream:
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        if path.exists() or path.is_symlink():
-            _backup_bytes(target, sha)
-        else:
-            temporary.replace(path)
-    finally:
+    if path.exists() or path.is_symlink():
+        _backup_bytes(target, sha)
         temporary.unlink(missing_ok=True)
+    else:
+        temporary.replace(path)
     return sha
 
 
@@ -148,6 +150,8 @@ def _backup_errors(target: Path, hashes: dict[str, str | None]) -> list[str]:
 
 def backup_status(target: Path) -> dict:
     """唯讀查詢最新封存證據是否有可信內容備份。"""
+    if not enabled(target):
+        return {"ready": False, "errors": ["目前索引未啟用審查交易完整性"]}
     failures = errors(target, verify_files=False, verify_backups=False)
     if failures:
         return {"ready": False, "errors": failures}
@@ -160,6 +164,8 @@ def backup_status(target: Path) -> dict:
 
 def repair_backups(target: Path) -> dict:
     """僅在全部正式證據吻合現有鏈時，將舊版或遺失的備份補齊。"""
+    if not enabled(target):
+        raise ValueError("目前索引未啟用審查交易完整性")
     troubles = errors(target, verify_backups=False)
     if troubles:
         raise ValueError("備份修補遭拒：先修復正式證據／Journal：" + "；".join(troubles))
@@ -170,6 +176,8 @@ def repair_backups(target: Path) -> dict:
 def restore_backups(target: Path, *, allow_replace: bool = False) -> dict:
     """經明確呼叫，只恢復最新可信 Journal 指紋對應的原始 bytes。"""
     target = target.resolve()
+    if not enabled(target):
+        raise ValueError("目前索引未啟用審查交易完整性")
     troubles = errors(target, verify_files=False, verify_backups=False)
     if troubles:
         raise ValueError("備份復原遭拒：完整性交易鏈不可信：" + "；".join(troubles))
@@ -192,6 +200,23 @@ def restore_backups(target: Path, *, allow_replace: bool = False) -> dict:
             raise ValueError(f"{name}: 現存內容與 Journal 不同，須明確指定 --allow-damaged-replacement")
         payloads[name] = _backup_bytes(target, sha)
     # 所有備份與覆蓋衝突皆先檢查，再寫入任何正式證據。
+    # 現存受損檔案保留原始 bytes 作事故線索，不混入可信 SHA256 證據庫。
+    for name in payloads:
+        current_path = _path(target, name)
+        if current_path.is_file():
+            original = current_path.read_bytes()
+            damaged_sha = digest(original)
+            incident = target / ANALYSIS / "integrity-incidents" / (
+                name.replace("/", "__") + "." + damaged_sha + ".damaged")
+            incident.parent.mkdir(parents=True, exist_ok=True)
+            if incident.exists():
+                if incident.is_symlink() or incident.read_bytes() != original:
+                    raise ValueError(f"{name}: 已有內容不同的事故備份，拒絕覆寫")
+            else:
+                with incident.open("xb") as stream:
+                    stream.write(original)
+                    stream.flush()
+                    os.fsync(stream.fileno())
     for name, raw in payloads.items():
         path = _path(target, name)
         path.parent.mkdir(parents=True, exist_ok=True)
