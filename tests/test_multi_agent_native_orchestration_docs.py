@@ -42,6 +42,8 @@ class NativeCodexOrchestrationDocsTests(unittest.TestCase):
         self.assertIn("不得宣稱盲審", ADVANCED)
         self.assertIn("不得稱獨立盲審", NATIVE)
         self.assertIn("只有主代理可正式 Stage/Integrate", SKILL)
+        self.assertIn("非 Git 專案不得直接降級", SKILL)
+        self.assertIn("不是 Git repo 本身不構成降級理由", NATIVE)
 
 
 if __name__ == "__main__":
