@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -55,6 +56,20 @@ def main() -> int:
     if not within(target, out) or within(SKILL_ROOT, out):
         print('ERROR: 輸出目錄必須位於受測專案內', file=sys.stderr)
         return 2
+    if os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized":
+        try:
+            from review_log import _load, _paths
+            from execution_boundary_events import verify_run
+            state = _load(_paths(target)[1])
+            if not state or not state.get("run_id"):
+                raise ValueError("缺少有效執行紀錄")
+            boundary = verify_run(target, state["run_id"])
+            if boundary["blocked_batches"]:
+                raise ValueError("仍有待覆核／已維持的 block 級違規：" +
+                                 ", ".join(boundary["blocked_batches"][:12]))
+        except (ValueError, OSError, KeyError) as exc:
+            print(f"ERROR: P0 執行邊界未通過，禁止正式報告交付：{exc}", file=sys.stderr)
+            return 2
     assessment = out / 'assessment.json'
     project = out / 'project.json'
     presentation = out / 'presentation.json'
