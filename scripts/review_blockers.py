@@ -58,14 +58,18 @@ def classify(message: str) -> str:
 
 def summarize(
     messages: list[str], *, link_diagnostics: dict[str, Any] | None = None,
+    required_recheck_rules: list[str] | None = None,
 ) -> dict[str, Any]:
     """Deterministic diagnostic summary; no automatic verdicts or repairs."""
     unique = sorted(set(messages))
     links = link_diagnostics if isinstance(link_diagnostics, dict) else {}
     link_rules = sorted((links.get("by_rule") or {}).keys())
+    authoritative_rechecks = sorted({rid for rid in (required_recheck_rules or [])
+                                    if isinstance(rid, str) and RULE_ID.fullmatch(rid)})
     signature_input = {
         "errors": unique,
         "unverified_links_fingerprint": links.get("fingerprint", ""),
+        "required_recheck_rules": authoritative_rechecks,
     }
     signature = hashlib.sha256(
         json.dumps(signature_input, ensure_ascii=False, sort_keys=True,
@@ -80,7 +84,9 @@ def summarize(
             r"^(?:[^:\n]{1,500}:\s*)?((?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}):",
             message,
         )
-        rules = ([owner.group(1)] if owner else
+        rules = (authoritative_rechecks
+                 if message.startswith("第一輪：來源異動後仍有待重新查核規則：")
+                 else [owner.group(1)] if owner else
                  link_rules if "未經逐檔驗證的 inspected_paths" in message else [])
         ids.update(rules)
         category = classify(message)
@@ -119,7 +125,11 @@ def diagnose(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
                      and (c.get("execution") or {}).get("state") != "completed")
     if pending:
         messages.append(f"第一輪：尚有 {len(pending)} 項規則未完成")
-    result = summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"))
+    recheck_path = target / "reports/security-code-review/analysis/recheck-required.json"
+    recheck = json.loads(recheck_path.read_text(encoding="utf-8")) if recheck_path.exists() else {}
+    authoritative = recheck.get("rule_ids") or [] if isinstance(recheck, dict) else []
+    result = summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"),
+                       required_recheck_rules=authoritative)
     result["pending_rule_count"] = len(pending)
     result["pending_rule_ids"] = pending
     result["missing_source_file_count"] = details.get("missing_source_file_count", 0)
