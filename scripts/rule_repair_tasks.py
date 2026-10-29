@@ -251,6 +251,9 @@ def compare_rule_repair_diagnostics(before: dict[str, Any], after: dict[str, Any
     additions = sorted(current - earlier)
     old_categories = {str(b.get("category", "other")) for b in old}
     new_categories = sorted({str(b.get("category", "other")) for b in new} - old_categories)
+    old_work_items = {classify_repair_work(str(b.get("message", ""))) for b in old}
+    new_work_items = sorted({classify_repair_work(str(b.get("message", "")))
+                             for b in new} - old_work_items)
     unknown = sorted({str(b.get("message", "")) for b in new
                       if classify_repair_work(str(b.get("message", ""))) == "unclassified"})
     integrity = sorted({str(b.get("message", "")) for b in new
@@ -258,7 +261,7 @@ def compare_rule_repair_diagnostics(before: dict[str, Any], after: dict[str, Any
                             x in str(b.get("message", ""))
                             for x in ("Journal", "Manifest", "快照已變更", "SHA256 不一致"))})
     reasons = []
-    if new_categories:
+    if new_categories or new_work_items:
         reasons.append("新增阻塞類型")
     if len(additions) > max_new_blockers:
         reasons.append(f"新增阻塞超過 {max_new_blockers} 筆")
@@ -272,6 +275,7 @@ def compare_rule_repair_diagnostics(before: dict[str, Any], after: dict[str, Any
         "new_blocker_count": len(additions),
         "removed_blocker_count": len(earlier - current),
         "new_categories": new_categories,
+        "new_work_items": new_work_items,
         "unknown_messages": unknown,
         "integrity_messages": integrity,
         "pause_reasons": reasons,
