@@ -237,23 +237,47 @@ def _blocker_keys(diagnostic: dict) -> set[tuple[str, tuple[str, ...]]]:
 
 def _sample_policy(changed: list[str], mandatory: list[str], initial_signature: str,
                    assessment: dict) -> dict:
-    """Risk-first, seeded and deterministic, with mandatory cases never sampled away."""
+    """Seeded risk-stratified selection; force all material control changes."""
     rules = sorted(set(changed))
     force = sorted(set(mandatory) & set(rules))
-    count = min(len(rules), max(5, math.ceil(len(rules) * 0.1))) if rules else 0
+    minimum = min(len(rules), max(5, math.ceil(len(rules) * 0.1))) if rules else 0
     checks = {c.get("id"): c for c in assessment.get("checks", []) if isinstance(c, dict)}
-    def rank(rule_id: str) -> tuple:
-        entry = checks.get(rule_id, {})
-        score = int(entry.get("status") == "fail") * 5
-        score += int(rule_id[:2] in RISK_PREFIXES) * 2
-        return (-score, hashlib.sha256((initial_signature + ":" + rule_id).encode()).hexdigest())
-    selected = sorted(set(force) | set(sorted((r for r in rules if r not in force),
-                                               key=rank)[:max(0, count - len(force))]))
-    return {"rule_count": len(rules), "minimum_sample_count": count,
-            "mandatory_rules": force, "selected_rules": selected,
-            "selection": "all-high-risk-plus-deterministic-risk-strata",
+
+    def tier(rule_id: str) -> str:
+        check = checks.get(rule_id, {})
+        prefix = rule_id.split("-", 1)[0]
+        if check.get("status") == "fail" or prefix in {"AC", "AU", "CR"}:
+            return "high"
+        if check.get("status") == "review" or prefix in {"DP", "IN"}:
+            return "medium"
+        return "low"
+
+    strata = {name: [rid for rid in rules if tier(rid) == name]
+              for name in ("high", "medium", "low")}
+    def tie(rid: str) -> str:
+        return hashlib.sha256((initial_signature + ":" + rid).encode()).hexdigest()
+
+    selected = set(force)
+    # Coverage across nonempty strata, even when mandatory checks consume the
+    # minimum budget. This can legitimately exceed the nominal 10%.
+    for values in strata.values():
+        if values and not selected.intersection(values):
+            selected.add(min(values, key=tie))
+    for name in ("high", "medium", "low"):
+        if len(selected) >= minimum:
+            break
+        for rid in sorted(strata[name], key=tie):
+            if len(selected) >= minimum:
+                break
+            selected.add(rid)
+    return {"rule_count": len(rules), "minimum_sample_count": minimum,
+            "mandatory_rules": force, "selected_rules": sorted(selected),
+            "strata_population": {name: len(rows) for name, rows in strata.items()},
+            "strata_selected": {name: len(selected.intersection(rows))
+                                for name, rows in strata.items()},
+            "selection": "mandatory-plus-seeded-stratified-risk",
             "seed_binding": initial_signature,
-            "limitations": "抽樣紀錄需人工實際核對；並非獨立代理身分或來源真實性的自動證明"}
+            "limitations": "僅產生具代表性工作清單；真實人工核查與代理獨立性需另行驗證"}
 
 
 def _result(state: dict, *, include_plan: bool = False) -> dict:
@@ -561,6 +585,20 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
     source_text, _ = read_source_text(candidate)
     if end > len(source_text.splitlines()):
         raise ValueError("抽樣證據超出實際來源行號")
+    assessment = _assessment(target)
+    check = next((r for r in assessment.get("checks", [])
+                  if isinstance(r, dict) and r.get("id") == rule), None)
+    anchors = set()
+    if isinstance(check, dict):
+        anchors.update(p for p in (check.get("execution") or {}).get("inspected_paths", [])
+                       if isinstance(p, str))
+        anchors.update(e.get("path") for e in check.get("evidence", [])
+                       if isinstance(e, dict) and isinstance(e.get("path"), str))
+    for row in assessment.get("file_reviews") or []:
+        if isinstance(row, dict) and rule in _rule_ids_from_file(row):
+            anchors.add(row.get("path"))
+    if path not in anchors:
+        raise ValueError("抽樣路徑未與本規則正式來源證據建立關聯")
     state["sample_records"][rule] = {"reviewer": receipt["reviewer"],
                                      "reviewed_on": reviewed_on, "outcome": "verified",
                                      "receipt_sha256": _digest(receipt),
