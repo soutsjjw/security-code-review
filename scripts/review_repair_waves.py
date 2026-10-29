@@ -206,6 +206,11 @@ def _load_state(target: Path) -> dict:
 
 
 def _assert_state_current(target: Path, state: dict) -> None:
+    if state.get("inflight"):
+        raise ValueError("存在待對帳的正式交易；禁止重放，先執行 --reconcile")
+    from review_waves_contracts import verify_sample_chain
+    if state.get("sample_chain") is not None:
+        verify_sample_chain(state["sample_chain"])
     current = _evidence_state(target)
     if current != state.get("last_evidence"):
         raise ValueError("正式資料或來源快照已在協調器外變更；停止並人工核對")
@@ -319,6 +324,7 @@ def start(target: Path) -> dict:
              "batches": batches, "tasks": plan["rule_repair_tasks"],
              "completed_batches": [],
              "changed_rules": [], "mandatory_rules": [], "sample_records": {},
+             "sample_chain": None, "inflight": None,
              "paused": False, "pause_reasons": []}
     _write_state(target / STATE, state)
     return _result(state, include_plan=True)
@@ -430,6 +436,13 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     if not payload:
         raise ValueError("未提供實際已查核證據")
     from review_safety import stage, integrate
+    state["inflight"] = {
+        "phase": "first_pass", "batch_id": batch_id,
+        "payload_sha256": _file_sha(payload_path),
+        "prior_evidence": state["last_evidence"],
+        "prior_fingerprints": state["formal_fingerprints"],
+    }
+    _write_state(target / STATE, state)
     # A stage failure leaves existing formal data intact. A successful stage
     # followed by integration failure is intentionally left for manual repair.
     stage(target, payload_path)
@@ -459,6 +472,7 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     state["observed_diagnostic"] = updated
     state["observed_signature"] = updated["blocker_signature"]
     state["last_evidence"] = _evidence_state(target)
+    state["inflight"] = None
     if _all_completed(state) and not state["paused"]:
         if updated.get("ready_for_second_pass"):
             state["phase"] = "sample"
@@ -603,6 +617,12 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
             anchors.add(row.get("path"))
     if path not in anchors:
         raise ValueError("抽樣路徑未與本規則正式來源證據建立關聯")
+    from review_waves_contracts import sample_chain_append
+    receipt_binding = {"rule_id": rule, "reviewer": receipt["reviewer"],
+                       "source_sha256": source_hash, "receipt": receipt}
+    state["sample_chain"] = sample_chain_append(
+        state.get("sample_chain"), receipt_binding,
+        expected_manifest_sha256=state["last_evidence"].get("manifest_sha256"))
     state["sample_records"][rule] = {"reviewer": receipt["reviewer"],
                                      "reviewed_on": reviewed_on, "outcome": "verified",
                                      "receipt_sha256": _digest(receipt),
@@ -624,6 +644,15 @@ def begin_second_pass(target: Path) -> dict:
     policy = state.get("sample_policy")
     if not isinstance(policy, dict) or set(policy["selected_rules"]) != set(state["sample_records"]):
         raise ValueError("人工風險抽樣未全部完成，不得進入第二輪")
+    from review_waves_contracts import verify_sample_chain
+    chain = state.get("sample_chain")
+    if chain is not None:
+        verify_sample_chain(chain)
+    if policy["selected_rules"] and (not chain or
+            set(entry["rule_id"] for entry in chain["entries"]) !=
+            set(policy["selected_rules"]) or
+            chain["base_manifest_sha256"] != state["last_evidence"].get("manifest_sha256")):
+        raise ValueError("抽樣收據鏈未完整綁定目前 Manifest；不可啟動第二輪")
     from review_blockers import diagnose
     assessment = _assessment(target)
     current = diagnose(target, assessment)
@@ -681,6 +710,13 @@ def apply_second_pass(target: Path, payload_path: Path, *,
                    allow_finding_revision=allow_finding_revision,
                    previous=prior)
     from review_safety import stage, integrate
+    state["inflight"] = {
+        "phase": "second_pass", "batch_id": "second-pass",
+        "payload_sha256": _file_sha(payload_path),
+        "prior_evidence": state["last_evidence"],
+        "prior_fingerprints": state["formal_fingerprints"],
+    }
+    _write_state(target / STATE, state)
     stage(target, payload_path)
     outcome = integrate(target, allow_revision=allow_revision,
                         allow_finding_revision=allow_finding_revision)
@@ -688,6 +724,7 @@ def apply_second_pass(target: Path, payload_path: Path, *,
         raise ValueError("第二輪正式交易未整合任何紀錄")
     state["last_evidence"] = _evidence_state(target)
     state["formal_fingerprints"] = _formal_fingerprints(target)
+    state["inflight"] = None
     _write_state(target / STATE, state)
     updated = worklist(target)
     return {"phase": "second_pass", "formal_integration": outcome,
