@@ -117,6 +117,26 @@ class WaveLifecycleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "超出批次授權"):
                 reconcile(self.root, acknowledged=True)
 
+    def test_interrupted_baseline_can_only_reconcile_real_formal_commit(self):
+        old = {**self.fingerprints, "first_pass_baseline": None}
+        new = {**old, "first_pass_baseline": "a" * 64}
+        state = dict(self.state, phase="sample",
+                     formal_fingerprints=old,
+                     inflight={"phase": "baseline", "batch_id": "first-pass-baseline",
+                               "prior_evidence": self.evidence,
+                               "prior_fingerprints": old})
+        with patch("review_repair_waves._load_state", return_value=state), \
+             patch("review_repair_waves._evidence_state", return_value=self.evidence), \
+             patch("review_repair_waves._formal_fingerprints", return_value=new), \
+             patch("second_pass_layers.worklist",
+                   return_value={"ready": True, "rules_total": 70, "rules_pending": 70}), \
+             patch("review_repair_waves._write_state") as save:
+            result = reconcile(self.root, acknowledged=True)
+        self.assertTrue(result["baseline_reconciled"])
+        self.assertEqual(state["phase"], "second_pass")
+        self.assertIsNone(state["inflight"])
+        save.assert_called_once()
+
     def test_final_report_needs_completed_second_pass(self):
         state = dict(self.state, phase="second_pass", inflight=None, sample_policy={
             "selected_rules": []})
