@@ -181,8 +181,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
             status="pass", decision_reason="已檢查實際授權與逾時處理分支",
             evidence=[{"kind": "source", "path": "Program.cs", "line_start": 3, "line_end": 3}],
             execution={"state": "completed", "methods": ["read_source"],
-                       "summary": "已查核實際控制執行與需要的來源關聯。",
-                       "inspected_paths": ["Program.cs"]},
+                       "summary": "已查核實際控制執行與需要的來源關聯。"},
         )
         draft = self.report / "completion-no-closure.json"
         _write(draft, {"checks": [check]})
@@ -201,7 +200,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
         check.update(
             status="pass",
             execution={"state": "completed", "methods": ["read_source"],
-                       "summary": "已核對入口與來源控制分支", "inspected_paths": ["Program.cs"]},
+                       "summary": "已核對入口與來源控制分支"},
         )
         closure = {"status": "pass", "summary": "已核對所有入口與組態間的控制責任",
                    "examined_paths": ["Program.cs"], "control_owner": "Authentication",
