@@ -638,6 +638,61 @@ def begin_second_pass(target: Path) -> dict:
             "claim": "已呼叫正式固定第一輪錨點；未宣稱已完成反向覆核或獨立盲審"}
 
 
+def apply_second_pass(target: Path, payload_path: Path, *,
+                      allow_revision: bool = False,
+                      allow_finding_revision: bool = False) -> dict:
+    """Wave 4: accept real targeted adversarial evidence via formal transaction.
+
+    This is NOT an L1/L2 agent and cannot generate findings or judgments.
+    """
+    state = _load_state(target)
+    if state["phase"] != "second_pass" or state.get("paused"):
+        raise ValueError("第二輪未正式啟動或已暫停")
+    _assert_state_current(target, state)
+    _stage_clean(target)
+    from second_pass_layers import worklist
+    available = worklist(target)
+    if not available.get("ready"):
+        raise ValueError("第二輪正式工作清單尚未建立或無效")
+    allowed_rules = {t["rule_id"] for t in available.get("rule_tasks", [])}
+    allowed_paths = {t["path"] for t in available.get("sample_tasks", [])}
+    payload = _read(payload_path)
+    if not payload:
+        raise ValueError("第二輪必須提供已查核的正式證據")
+    if set(payload) - {"adversarial_reviews", "second_pass_samples", "checks",
+                       "findings", "finding_revisions", "closures",
+                       "control_verifications", "decision_audits"}:
+        raise ValueError("第二輪含不支援的證據欄位")
+    if not (payload.get("adversarial_reviews") or payload.get("second_pass_samples")):
+        raise ValueError("缺少反向複核或正式來源抽樣紀錄")
+    for field, allowed in (("adversarial_reviews", allowed_rules),
+                           ("second_pass_samples", allowed_paths)):
+        items = payload.get(field) or {}
+        if not isinstance(items, dict) or not set(items) <= allowed:
+            raise ValueError(f"{field} 不在目前第二輪工作批次")
+    prior = _assessment(target)
+    _payload_scope({k: v for k, v in payload.items()
+                    if k not in {"adversarial_reviews", "second_pass_samples"}},
+                   {"rule_ids": sorted(allowed_rules)},
+                   allow_finding_revision=allow_finding_revision,
+                   previous=prior)
+    from review_safety import stage, integrate
+    stage(target, payload_path)
+    outcome = integrate(target, allow_revision=allow_revision,
+                        allow_finding_revision=allow_finding_revision)
+    if not outcome.get("applied"):
+        raise ValueError("第二輪正式交易未整合任何紀錄")
+    state["last_evidence"] = _evidence_state(target)
+    state["formal_fingerprints"] = _formal_fingerprints(target)
+    _write_state(target / STATE, state)
+    updated = worklist(target)
+    return {"phase": "second_pass", "formal_integration": outcome,
+            "rules_pending": updated.get("rules_pending"),
+            "samples_pending": updated.get("samples_pending"),
+            "ready_for_report": False,
+            "limitations": "第二輪完成狀態以正式 Journal／驗證器為準；不會自動改判、補證或核准交付"}
+
+
 def verify_second_pass(target: Path) -> dict:
     """Observe actual formal adversarial records; never marks rules completed."""
     state = _load_state(target)
@@ -665,6 +720,7 @@ def main(argv: list[str] | None = None) -> int:
     for flag in ("start", "next", "resume", "sample-plan", "begin-second-pass", "verify-second-pass"):
         operations.add_argument("--" + flag, action="store_true")
     operations.add_argument("--apply-batch", metavar="BATCH_ID")
+    operations.add_argument("--apply-second-pass", action="store_true")
     operations.add_argument("--record-sample", type=Path, metavar="RECEIPT_JSON")
     parser.add_argument("--payload", type=Path)
     parser.add_argument("--allow-revision", action="store_true")
@@ -675,7 +731,8 @@ def main(argv: list[str] | None = None) -> int:
     if not target.is_dir():
         parser.error("受測目錄不存在")
     try:
-        if args.start or args.apply_batch or args.record_sample or args.sample_plan or args.begin_second_pass or args.resume:
+        if (args.start or args.apply_batch or args.apply_second_pass or args.record_sample
+                or args.sample_plan or args.begin_second_pass or args.resume):
             with _single_writer(target):
                 if args.start:
                     result = start(target)
@@ -688,6 +745,12 @@ def main(argv: list[str] | None = None) -> int:
                     result = apply_batch(target, args.apply_batch, args.payload,
                                          allow_revision=args.allow_revision,
                                          allow_finding_revision=args.allow_finding_revision)
+                elif args.apply_second_pass:
+                    if not args.payload:
+                        raise ValueError("--apply-second-pass 必須提供 --payload")
+                    result = apply_second_pass(
+                        target, args.payload, allow_revision=args.allow_revision,
+                        allow_finding_revision=args.allow_finding_revision)
                 elif args.record_sample:
                     result = record_sample(target, args.record_sample)
                 elif args.sample_plan:
