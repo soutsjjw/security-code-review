@@ -361,8 +361,18 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     state["last_evidence"] = evidence
     state["paused"] = False
     state["pause_reasons"] = []
-    # Recheck previously completed batches against the newly observed errors.
-    # Never silently mark a pending batch complete based on mere acknowledgement.
+    # Reconcile pending tasks only against actual authoritative disappearance
+    # of their original blocker identities. A mere acknowledgement clears none.
+    present = _blocker_keys(current)
+    completed = set(state["completed_batches"])
+    for batch in state["batches"]:
+        if batch["batch_id"] in completed:
+            continue
+        if (set(batch["depends_on_batch_ids"]) <= completed
+                and not (_batch_blockers(batch, state["tasks"]) & present)):
+            completed.add(batch["batch_id"])
+    state["completed_batches"] = [b["batch_id"] for b in state["batches"]
+                                  if b["batch_id"] in completed]
     if _all_completed(state):
         if current.get("ready_for_second_pass"):
             state["phase"] = "sample"
