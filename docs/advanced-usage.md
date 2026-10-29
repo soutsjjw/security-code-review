@@ -178,6 +178,20 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 `--repair-plan` 是唯讀提示，不提供「一鍵清除 blocker」；僅靠上傳 `assessment.json` 缺少目標來源快照、完整性 Manifest 與 Journal 時，不能在別處產出合法覆寫 payload。對已有不合格的未動部分，整合時不直接改寫；正式驗證仍照常拒絕。
 
+### 規則層級第一輪修復排程（唯讀，不代替正式證據）
+
+`--repair-plan` 除了原本的 `priority_files`，也輸出 `rule_repair_tasks`、`rule_work_matrix`、`rule_repair_batches`、`work_counts`、`task_coverage`。`candidate_repair_file_count=0` 不代表沒有規則層級的修復工作。每項任務有 `task_id`、`rule_id`／`rule_ids`、`blocker_indexes`（在同一份權威 `blockers` 陣列中的 **0-based** 索引）、`artifact`、`priority`、`depends_on`、`status=pending`、`requires_source_verification=true`；`blocker_signature` 固定計畫所屬診斷版本。規則矩陣列出規則與工作項目的交叉關係；每批最多 8 條規則，該規則的 P2/P3 工作放在同一批。**批次僅協助來源重讀；正式寫入仍由單一主代理透過 `--stage`／`--integrate` 依序完成。**
+
+工作分類為專用且互斥的 **P0 正式 Check 證據、P1 Q2 控制鏈／候選、P2 Closure 結案、P3 控制有效性、P4 外部責任與靜態來源裁決、P5 檢核摘要**；與工具內部同名品質契約是不同層次。優先序由明確錯誤訊息首個符合條件決定；無法辨識、缺少合法規則歸屬或診斷筆數不一致者保留在 `unclassified` 並使 `task_coverage.valid=false`。**不能為了湊齊清單而推導證據、合併掉錯誤、改判 Pass 或關閉 Findings**。同一規則可有多個不同工作項目，阻塞筆數不能與規則數相加。
+
+依賴是**同一條規則**的前置條件：P4 須先完成 P0 的真實證據；P2／P3 需先查明其 P0／P1 缺口，但不同規則可以平行唯讀追查。P5 低成本摘要可先處理，須基於已完成的真實核對。每批補證前先檢查權威 `--diagnose-first-pass` 與 `review_evidence_recovery.py --plan`，並以 `hash_audit.py --target <TARGET_ROOT>` 另外核對實際來源 bytes 的 SHA256／相容性差異（不能以自動更新雜湊代替重新閱讀）。正式修訂仍須明確授權 `--allow-revision`；Finding 修訂另須獨立授權。既有 Manifest／Journal、內容定址備份與事故復原路徑保持原狀，`--restore` 不表示可以任意回溯歷史版本。
+
+進度以 blocker index 集合與新診斷簽章對帳；若來源／Journal 失配、Finding 遺失、出現**新增阻塞類型**或新增超過 3 筆不同阻塞，暫停後續批次，調查、合法補證及重新診斷，不能因阻塞總數下降就放行。已合法提交但判定有誤須重新取證並受控修訂，不可強行回滾可信 Journal。人工證據抽樣以全案本次修訂的**不同規則數**為母體，取 `min(N, max(5, ceil(0.1*N)))`（N=0 時為 0），採風險分層與固定種子；Finding 修改、Fail 判定變更、重大控制責任變更逐筆查核，不以抽樣代替。
+
+NuGet 漏洞掃描是額外排障工作，**不計入診斷中的 blocker 數**。`ready_for_report` 目前無獨立檢查 `dotnet list ... --vulnerable` 退出碼，但 DP-01（hybrid）仍須符合判定矩陣、實際來源與外部掃描／責任裁決的正式證據契約；Restore 失敗不得宣稱無漏洞，失敗命令與細節須保留。第二輪仍須依 70 項反向複核與既定風險分層抽樣完成；同一代理自審應揭露為 **L0 非獨立複核**，額外其他代理抽樣為 L1、獨立人員核對為 L2，L1/L2 為可選加強，不能假裝是 `ready_for_report` 的既有硬性守門。
+
+本次診斷指紋 `902cf1859a4df9415b6431f2eff70144de11d1072d5e0c031513e58bb62f95dd` 有 155 筆阻塞，唯讀回歸測試預期 P0/P1/P2/P3/P4/P5 為 **9／9／67／53／8／9**、70 條規則、9 個 8 條上限的規則批次。上述固定數字**只適用該指紋的回歸測試**，一般診斷只要求每筆阻塞唯一歸屬、無未知類別與無循環依賴，不使用常數作為正式放行條件。
+
 ## 證據內容備份、可信復原與重新取證
 
 正式交易以來源快照與 Journal SHA256 為驗證依據，另在 `analysis/integrity-backups/<sha256前兩碼>/<sha256>.json` 以內容定址、去重保存每一份受控證據的**原始 bytes**。新版初次封存及每次交易，在記錄 Journal 前都先備份原始與預期新版本；不會把備份存在不可重建的 SHA256 字串中。舊版既有 Journal 不追溯宣稱有備份。
