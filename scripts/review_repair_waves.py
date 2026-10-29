@@ -440,9 +440,10 @@ def verify_second_pass(target: Path) -> dict:
     return {"phase": "second_pass", "formal_second_pass": work,
             "safety_valid": not problems,
             "safety_errors": problems[:30],
-            "ready_for_report": bool(work.get("ready") and
-                                     work.get("rules_pending") == 0 and
-                                     work.get("samples_pending") == 0 and not problems),
+            "second_pass_worklist_complete": bool(work.get("ready") and
+                                                    work.get("rules_pending") == 0 and
+                                                    work.get("samples_pending") == 0 and not problems),
+            "ready_for_report": False,
             "limitations": "只表示第二輪工作與安全驗證狀態；正式交付仍須非精簡完整佇列 ready_for_report=true 及 complete_review.py"}
 
 
