@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from review_completion import _template
-from rule_repair_tasks import build_rule_repair_tasks
+from rule_repair_tasks import build_rule_repair_tasks, compare_rule_repair_diagnostics
 
 REPORT = Path("reports/security-code-review/assessment.json")
 RULE_ID = r"(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}"
@@ -181,6 +181,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="唯讀排定第一輪審查證據修復順序")
     parser.add_argument("--target", type=Path, default=Path.cwd())
     parser.add_argument("--limit", type=int, default=30)
+    parser.add_argument("--previous-diagnostics", type=Path,
+                        help="上一批 --diagnose-first-pass 的 JSON，執行唯讀阻塞回歸比較")
     args = parser.parse_args()
     try:
         target = args.target.resolve()
@@ -188,11 +190,14 @@ def main() -> int:
         from review_blockers import diagnose
         diag = diagnose(target, assessment)
         result = repair_plan(assessment, diag, limit=args.limit)
+        if args.previous_diagnostics is not None:
+            prior = json.loads(args.previous_diagnostics.read_text(encoding="utf-8"))
+            result["batch_regression"] = compare_rule_repair_diagnostics(prior, diag)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False))
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 3 if result.get("batch_regression", {}).get("should_pause") else 0
 
 
 if __name__ == "__main__":
