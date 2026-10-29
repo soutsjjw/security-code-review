@@ -45,6 +45,21 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
     evidence = _evidence_state(target)
     if evidence["source_snapshot_sha256"] != intent["prior_evidence"]["source_snapshot_sha256"]:
         raise ValueError("來源快照已改變，須重新定義審查基準")
+    before_tracks = intent["prior_evidence"].get("tracked_sha256") or {}
+    after_tracks = evidence.get("tracked_sha256") or {}
+    modified_tracks = {key for key in set(before_tracks) | set(after_tracks)
+                       if before_tracks.get(key) != after_tracks.get(key)}
+    scopes = {
+        "first_pass": {"assessment.json", "analysis/rule-closures.json",
+                       "analysis/control-verifications.json", "analysis/decision-audits.json",
+                       "analysis/recheck-required.json"},
+        "baseline": {"analysis/first-pass-baseline.json", "analysis/adversarial-reviews.json"},
+        "second_pass": {"assessment.json", "analysis/rule-closures.json",
+                        "analysis/control-verifications.json", "analysis/decision-audits.json",
+                        "analysis/adversarial-reviews.json"},
+    }
+    if modified_tracks - scopes.get(intent.get("phase"), set()):
+        raise ValueError("正式工件異動超出本次交易允許範圍，禁止自動對帳")
     current_fps = _formal_fingerprints(target)
     prior = intent["prior_fingerprints"]
     if current_fps == prior:
