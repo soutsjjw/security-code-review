@@ -77,6 +77,10 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 **注意**：`review_queue.py` 只負責初始化、呈現下一批規則及進度計數，不會自行完成原始碼的 70 項判斷。Agent 必須實際使用程式碼／設定證據逐項分析；不得把佇列已列出 70 個 ID 當作審查完成。
 
 
+## 既有正式證據的受控修復波次（選用）
+
+第一輪檢查已產生可追溯 blocker、需要重查 completed 證據時，可選用 [受控修復波次](review-repair-waves.md) 的 Wave 0～4 協調器。它只凍結工作、依真實證據進行既有正式 Stage／Integrate、監測新增阻塞、固定人工風險抽樣並在第一輪驗證通過後接入第二輪；沒有真實來源與人工授權不得自動生成修訂內容。使用 `execution_batches` 的拓樸順序，不能把原規則分組當成安全的實際執行順序。第二輪複核仍需依正式 Baseline、70 項反向核查及來源固定樣本提交。
+
 ## 實驗性 B0／P4-A／P0 執行流程（非預設）
 
 B0 只記錄有來源的效能指標；P4-A 只驗證追加式邊界事件的結構與雜湊；P0 opt-in 透過 L3 檔案差異檢查保護當批 Stage／Integrate。這不是 L1/L2 Sandbox，不代表已完成 P1～P4-B 的重構。
