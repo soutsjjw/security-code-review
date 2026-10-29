@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from review_completion import _template
+from rule_repair_tasks import build_rule_repair_tasks
 
 REPORT = Path("reports/security-code-review/assessment.json")
 RULE_ID = r"(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}"
@@ -142,6 +143,7 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
     ))
     category_counts = Counter(b.get("category", "other") for b in diagnostics.get("blockers", []))
     return {
+        **build_rule_repair_tasks(diagnostics),
         "ready_for_second_pass": bool(diagnostics.get("ready_for_second_pass")),
         "blocker_signature": diagnostics.get("blocker_signature"),
         "blocked_count": diagnostics.get("blocked_count"),
