@@ -101,7 +101,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 先讀 [完整審查迴圈](docs/full-review-workflow.md)，從已固定的 Python 執行器執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`，再 `review_safety.py --plan`。重跑只有符合索引／SHA256 契約才能用 `--mode incremental`；不要自動重置既有 Findings 或審查進度。
 
-Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對每項再用 `--detail-id` 取具體查核契約，實際閱讀來源、驗證控制及跨檔依賴，分批 `--stage`、`--integrate`，依真實結果記錄 checkpoint 並繼續；不能在 70/70 僅為狀態數或 1～3 個 Finding 時停止。`stalled`／退出碼 3 必須停止重試，保存原有證據，查明阻塞後才能明確開啟新 run。
+Agent 依 `--compact` 與 `--detail-id` 逐條讀取真實來源並查證，分批 Stage／Integrate；未完成不能聲稱 Pass。`stalled` 必須停止空跑、保留進度，查明後才續行。
 
 第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證。completed 修訂須重新查證並取得授權，保留 Finding／完整性守門。見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
