@@ -34,6 +34,14 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 
 無進展、來源快照異動、新增權威阻塞類型、4 筆以上新 blocker、完整性損壞或其他既有交易拒絕時，保持 `blocked`／退出碼 2、或 `paused`／退出碼 3，禁止自動 rollback、重建 Manifest、刪 Finding 或循環重試。**整合成功但 checkpoint 寫入失敗**是需要人工核對的事故，不能自動再套用同一 payload。
 
+暫停後不能直接忽略舊結果。只有人工查明問題、合法完成額外的正式證據交易，且來源快照維持一致、權威阻塞指紋確實改變、未產生新增的拒絕條件時，才可明確續跑：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --resume --acknowledge-investigation
+```
+
+續跑會重新診斷、核對原始錯誤是否真正消失，再恢復仍待處理的批次；口頭確認不能取代正式 evidence、Journal 或來源驗證。
+
 第一輪所有批次完成、`ready_for_second_pass=true` 後進行風險抽樣：
 
 ```powershell
