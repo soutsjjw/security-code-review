@@ -122,6 +122,70 @@ def _validate_staged(target: Path, state: dict, intent: dict,
     return {"file_sha256": _file_sha(staged), "payload_digest": _digest(record["payload"])}
 
 
+
+def inspect_uncommitted(target: Path, batch_id: str, *,
+                        payload_path: Path | None = None) -> dict:
+    """Read-only verification of a failed Stage before requesting cancellation.
+
+    Never creates quarantine directories or changes a checkpoint. A legacy
+    inflight may be well-formed yet unabortable until its exact source payload
+    bytes are supplied.
+    """
+    from review_repair_waves import REPORT, _load_state, _file_sha
+    from review_safety import STAGED
+    target = target.resolve()
+    state = _load_state(target)
+    intent = state.get("inflight")
+    if not isinstance(intent, dict):
+        raise ValueError("不存在可核對的 inflight 交易")
+    _check_original(target, state, intent, batch_id)
+    manifest, evidence = _verify_official_unchanged(target, state, intent)
+    staging = target / REPORT / STAGED
+    if staging.is_symlink() or not staging.is_dir():
+        raise ValueError("正式 staged 目錄不存在或包含 symbolic link")
+    files = list(staging.iterdir())
+    if len(files) != 1 or files[0].suffix != ".json":
+        raise ValueError("需要唯一的 JSON staged；不得混入其他暫存")
+    stage = files[0]
+    needs_original = payload_path is None and intent.get("payload_digest") is None
+    # Verify all non-payload properties even when legacy raw bytes are missing;
+    # this cannot authorize cancellation until the raw payload is supplied.
+    if needs_original:
+        from review_repair_waves import _read
+        from review_safety import SNAPSHOT
+        from review_repair_waves import _digest
+        record = _read(stage)
+        if (stage.is_symlink() or not stage.is_file()
+                or set(record) != {"snapshot_git_revision", "source_hashes",
+                                   "payload", "integrity_head"}):
+            raise ValueError("staged 的結構或檔案型別無效")
+        serialization = json.dumps(record, ensure_ascii=False, sort_keys=True)
+        if stage.name != hashlib.sha256(serialization.encode("utf-8")).hexdigest()[:24] + ".json":
+            raise ValueError("staged 的檔名與內容指紋不同")
+        snapshot = _read(target / REPORT / SNAPSHOT)
+        if (record["integrity_head"] != manifest["head"]
+                or record["snapshot_git_revision"] != snapshot["git_revision"]
+                or record["source_hashes"] != snapshot["source_hashes"]):
+            raise ValueError("staged 的 Manifest head／來源快照不吻合")
+    else:
+        _validate_staged(target, state, intent, stage, payload_path, manifest)
+    # Must not create any files during inspection. If an aborted intent exists,
+    # a separate cancellation invocation reconciles it after SHA verification.
+    return {"status": "ready_to_abort" if not needs_original else "needs_original_payload",
+            "batch_id": batch_id, "manifest_sequence": manifest["sequence"],
+            "manifest_head": manifest["head"],
+            "manifest_sha256": evidence["manifest_sha256"],
+            "staged_count": 1, "staged_file": stage.relative_to(target).as_posix(),
+            "staged_sha256": _file_sha(stage),
+            "inflight_payload_sha256": intent["payload_sha256"],
+            "requires_original_payload": needs_original,
+            "can_abort": not needs_original,
+            "read_only": True,
+            "note": ("舊版 checkpoint 無法從 staged 還原原始 JSON bytes；"
+                     "必須找到原始 payload，否則保留 blocked" if needs_original
+                     else "只完成唯讀對帳；實際隔離仍需明確 --acknowledge-investigation")}
+
+
 def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None = None,
                       acknowledged: bool = False) -> dict:
     """Explicit and idempotent quarantine, with no official Journal updates.
