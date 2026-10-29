@@ -180,33 +180,31 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 ### 規則層級第一輪修復排程（唯讀，不代替正式證據）
 
-`--repair-plan` 除了原本的 `priority_files`，也輸出 `rule_repair_tasks`、`rule_work_matrix`、`rule_repair_batches`、`work_counts`、`task_coverage`。`candidate_repair_file_count=0` 不代表沒有規則層級的修復工作。每項任務有 `task_id`、`rule_id`／`rule_ids`、`blocker_indexes`（在同一份權威 `blockers` 陣列中的 **0-based** 索引）、`artifact`、`priority`、`depends_on`、`status=pending`、`requires_source_verification=true`；`blocker_signature` 固定計畫所屬診斷版本。規則矩陣列出規則與工作項目的交叉關係；每批最多 8 條規則，該規則的 P2/P3 工作放在同一批。**批次僅協助來源重讀；正式寫入仍由單一主代理透過 `--stage`／`--integrate` 依序完成。**
+`--repair-plan` 除了原本的 `priority_files`，也提供 `rule_repair_tasks`、`rule_work_matrix` 與 `task_coverage`。`candidate_repair_file_count=0` 不代表沒有規則層級缺口。每筆任務包含 `task_id`、`rule_id`／`rule_ids`、`blocker_indexes`、`blocker_details`（原始訊息、權威類別與規則）、`artifact`、`priority`、`depends_on`、`status=pending` 及 `requires_source_verification=true`；以 `blocker_signature` 對帳同一份診斷的原始索引。
 
-工作分類為專用且互斥的 **P0 正式 Check 證據、P1 Q2 控制鏈／候選、P2 Closure 結案、P3 控制有效性、P4 外部責任與靜態來源裁決、P5 檢核摘要**；與工具內部同名品質契約是不同層次。優先序由明確錯誤訊息首個符合條件決定；無法辨識、缺少合法規則歸屬或診斷筆數不一致者保留在 `unclassified` 並使 `task_coverage.valid=false`。**不能為了湊齊清單而推導證據、合併掉錯誤、改判 Pass 或關閉 Findings**。同一規則可有多個不同工作項目，阻塞筆數不能與規則數相加。
+工作類型依序為：**正式檢核來源證據、跨檔控制鏈／候選關聯、規則結案、控制有效性、外部責任與靜態來源裁決、檢核摘要**。內部機器代碼只在 JSON 中使用；使用文件不以開發階段名稱描述功能。每筆阻塞只歸屬一種修復工作；不認得的訊息、缺少合法規則歸屬、錯誤筆數不符都保留並使 `task_coverage.valid=false`，不得產生推測的安全結論。
 
-依賴是**同一條規則**的前置條件：P4 須先完成 P0 的真實證據；P2／P3 需先查明其 P0／P1 缺口，但不同規則可以平行唯讀追查。P5 低成本摘要可先處理，須基於已完成的真實核對。每批補證前先檢查權威 `--diagnose-first-pass` 與 `review_evidence_recovery.py --plan`，並以 `hash_audit.py --target <TARGET_ROOT>` 另外核對實際來源 bytes 的 SHA256／相容性差異（不能以自動更新雜湊代替重新閱讀）。正式修訂仍須明確授權 `--allow-revision`；Finding 修訂另須獨立授權。既有 Manifest／Journal、內容定址備份與事故復原路徑保持原狀，`--restore` 不表示可以任意回溯歷史版本。
+**執行時只能依 `execution_batches` 的順序進行。** 每批都有 `batch_id`、`rule_ids`、`task_ids` 與 `depends_on_batch_ids`，前置工作必須位於更早的執行批次。每批最多涉及 8 條規則；同規則的「規則結案」與「控制有效性」在同批安排。跨規則共用任務只執行一次，且在相依工作之前；若任何任務缺少批次、被排入兩次、跨批次依賴逆序、存在依賴循環或超過批次上限，`task_coverage.execution.valid=false` 且總體 `task_coverage.valid=false`。輸出中的 `rule_repair_batches` 與 `shared_rule_repair_batches` **僅是按規則分組的輔助檢視，不具執行順序**，不可直接依它們的陣列次序整合。
 
-進度以 blocker index 集合與新診斷簽章對帳；若來源／Journal 失配、Finding 遺失、出現**新增阻塞類型**或新增超過 3 筆不同阻塞，暫停後續批次，調查、合法補證及重新診斷，不能因阻塞總數下降就放行。已合法提交但判定有誤須重新取證並受控修訂，不可強行回滾可信 Journal。人工證據抽樣以全案本次修訂的**不同規則數**為母體，取 `min(N, max(5, ceil(0.1*N)))`（N=0 時為 0），採風險分層與固定種子；Finding 修改、Fail 判定變更、重大控制責任變更逐筆查核，不以抽樣代替。
+工作依賴按**同一條規則**建立：規則結案／有效性須先查明其來源證據與控制鏈缺口；外部責任及靜態來源裁決須先取得該規則的正式來源證據。跨規則任務的依賴同樣納入批次拓樸檢查。不同規則可以同時進行**唯讀查證**，但正式寫入必須由單一主代理按 `--stage`／`--integrate --allow-revision` 依序完成；未經另行授權不得修訂 Finding。
 
-NuGet 漏洞掃描是額外排障工作，**不計入診斷中的 blocker 數**。`ready_for_report` 目前無獨立檢查 `dotnet list ... --vulnerable` 退出碼，但 DP-01（hybrid）仍須符合判定矩陣、實際來源與外部掃描／責任裁決的正式證據契約；Restore 失敗不得宣稱無漏洞，失敗命令與細節須保留。第二輪仍須依 70 項反向複核與既定風險分層抽樣完成；同一代理自審應揭露為 **L0 非獨立複核**，額外其他代理抽樣為 L1、獨立人員核對為 L2，L1/L2 為可選加強，不能假裝是 `ready_for_report` 的既有硬性守門。
+### 批次回歸、證據抽樣與停止條件
 
-本次診斷指紋 `902cf1859a4df9415b6431f2eff70144de11d1072d5e0c031513e58bb62f95dd` 有 155 筆阻塞，唯讀回歸測試預期 P0/P1/P2/P3/P4/P5 為 **9／9／67／53／8／9**、70 條規則、9 個 8 條上限的規則批次。上述固定數字**只適用該指紋的回歸測試**，一般診斷只要求每筆阻塞唯一歸屬、無未知類別與無循環依賴，不使用常數作為正式放行條件。
-
-### PR #73 補強：任務與批次雙重對帳
-
-規則排程同時驗證 **每一筆 blocker index 必須恰好出現一次**、**每項 task_id 必須恰好排入一個批次**、依賴不得缺失或形成循環，且單批不得超過 8 條規則。對涉及多條規則的共用 blocker，另列 `shared_rule_repair_batches`（每個共用任務只排一次）；共用任務超出單批上限時保留在 `task_coverage.unscheduled_task_ids` 並標記 `valid=false`，不以分裂或重複記帳掩蓋缺失。每項工作附 `blocker_details`（原始訊息、類別、rule_ids 與對應 index），不必憑無上下文的 index 猜測問題。依賴核對包含同規則多個前置任務，不能只保留最後一個。
-
-每批整合前保存權威診斷 JSON；整合後重新診斷，直接用以下**唯讀比較**檢查回歸：
+先保存權威診斷 JSON，經來源實際重讀與合法整合後，使用唯讀比較取得新增／消失的阻塞與停止建議：
 
 ```powershell
 python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --diagnose-first-pass > "<BEFORE_DIAGNOSTICS>.json"
-# 人工閱讀來源、合法 stage/integrate 後：
+# 來源查證、合法 stage/integrate 後：
 python "<SKILL_ROOT>/scripts/first_pass_repair.py" --target "<TARGET_ROOT>" --previous-diagnostics "<BEFORE_DIAGNOSTICS>.json"
 ```
 
-`batch_regression.should_pause=true` 時退出碼 **3**，必須停止後續批次、比對新增錯誤、完成真實證據核對再繼續；來源雜湊／Journal 與 Finding 完整性仍需正式驗證，不得僅依比較結果宣稱安全。當出現新增權威錯誤類別、4 筆以上新增不同阻塞、未知錯誤或完整性錯誤時均應暫停。這項比較不自動更改任何正式資料，且沒有實作任意歷史回退。
+若 `batch_regression.should_pause=true`，回傳退出碼 **3**；新增權威阻塞類型、新修復工作類型、4 筆以上新增不同阻塞、未知訊息或來源／完整性錯誤均須暫停。執行者還必須核對新增／刪除的 Findings、實際來源 SHA256、Manifest／Journal 及合法備份；唯讀比較**不**取代正式驗證與復原，也不能任意回溯舊版 Journal。證據失配時先執行 `review_evidence_recovery.py --plan` 與 `hash_audit.py --target "<TARGET_ROOT>"`；不得自動重算雜湊或清除既有 Finding。
 
-**實作範圍區分：** 本 PR 有實作任務排程、批次覆蓋、阻塞對帳與上述唯讀暫停判定；人工風險分層抽樣、L1／L2 獨立審查、NuGet 環境修復，以及 HTML／JSON 報告的 L0／L1／L2 欄位**尚未自動化**，維持人工驗收／後續獨立實作項目。現有第二輪僅能在實際同代理流程下標示 L0，不得在最終報告宣稱已有獨立複核。
+人工抽樣以本次全案實際修訂的不同規則數 N 為母體，至少 `min(N, max(5, ceil(0.1*N)))` 條（N=0 時 0），採可重現的風險分層抽樣；Finding 修訂、Fail 判定異動及重大控制責任變更須全部核對。**抽樣與簽認尚屬人工程序，不是此唯讀排程器已完成的動作。**
+
+NuGet 漏洞掃描失敗不是 `ready_for_report` 的獨立退出碼守門，但依賴套件規則仍須符合真實來源、外部掃描失敗詳情與正式判定證據；Restore 失敗不能宣稱不存在漏洞。第二輪仍須完成 70 條規則的反向核查與既定高風險來源抽樣。同一代理重審為非獨立複核，其他代理或人員的獨立驗證須如實揭露；獨立性報告欄位與 NuGet 排障不在本次排程器的自動化範圍內。
+
+本次回歸快照（`blocker_signature=902cf1859a4df9415b6431f2eff70144de11d1072d5e0c031513e58bb62f95dd`）共 155 筆阻塞，按上述六種工作類型依序為 **9／9／67／53／8／9**，涵蓋 70 條規則，原始規則分組為 9 批。固定數字僅限這份指紋的回歸測試；一般診斷不能以這些常數作為放行條件。
 
 ## 證據內容備份、可信復原與重新取證
 
