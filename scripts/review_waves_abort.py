@@ -89,7 +89,9 @@ def _check_original(target: Path, state: dict, intent: dict, batch_id: str) -> N
 
 
 def _validate_staged(target: Path, state: dict, intent: dict,
-                     staged: Path, payload_path: Path | None, manifest: dict) -> dict:
+                     staged: Path, payload_path: Path | None, manifest: dict,
+                     *, expected_staged_sha256: str | None = None,
+                     allow_unbound_legacy: bool = False) -> dict:
     from review_repair_waves import REPORT, _read, _file_sha, _digest
     from review_safety import STAGED, SNAPSHOT
     source = target / REPORT / STAGED
@@ -113,18 +115,29 @@ def _validate_staged(target: Path, state: dict, intent: dict,
     if expected_semantic is not None and expected_semantic != _digest(record["payload"]):
         raise ValueError("staged payload 與 inflight 內容指紋不一致")
     if payload_path is None and expected_semantic is None:
-        raise ValueError("舊版 inflight 必須提供原始 --payload 以核對 SHA256")
+        if not allow_unbound_legacy:
+            raise ValueError("舊版 inflight 必須提供原始 --payload 以核對 SHA256；或額外明確授權 staged-only 隔離")
+        if (not isinstance(expected_staged_sha256, str)
+                or len(expected_staged_sha256) != 64
+                or any(c not in "0123456789abcdef" for c in expected_staged_sha256)
+                or _file_sha(staged) != expected_staged_sha256):
+            raise ValueError("staged-only 需要與唯一暫存檔完全一致的 64 字 SHA256")
     if payload_path is not None:
         if (payload_path.is_symlink() or not payload_path.is_file()
                 or _file_sha(payload_path) != intent["payload_sha256"]
                 or _read(payload_path) != record["payload"]):
             raise ValueError("原始 payload SHA256／內容與 staged 或 inflight 不一致")
-    return {"file_sha256": _file_sha(staged), "payload_digest": _digest(record["payload"])}
+    return {"file_sha256": _file_sha(staged),
+            "payload_digest": _digest(record["payload"]),
+            "raw_payload_verified": payload_path is not None,
+            "legacy_unbound": payload_path is None and expected_semantic is None}
 
 
 
 def inspect_uncommitted(target: Path, batch_id: str, *,
-                        payload_path: Path | None = None) -> dict:
+                        payload_path: Path | None = None,
+                        expected_staged_sha256: str | None = None,
+                        allow_unbound_legacy: bool = False) -> dict:
     """Read-only verification of a failed Stage before requesting cancellation.
 
     Never creates quarantine directories or changes a checkpoint. A legacy
@@ -148,9 +161,11 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
         raise ValueError("需要唯一的 JSON staged；不得混入其他暫存")
     stage = files[0]
     needs_original = payload_path is None and intent.get("payload_digest") is None
+    legacy_authorized = bool(needs_original and allow_unbound_legacy
+                             and expected_staged_sha256 is not None)
     # Verify all non-payload properties even when legacy raw bytes are missing;
     # this cannot authorize cancellation until the raw payload is supplied.
-    if needs_original:
+    if needs_original and not legacy_authorized:
         from review_repair_waves import _read
         from review_safety import SNAPSHOT
         from review_repair_waves import _digest
@@ -168,26 +183,38 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
                 or record["source_hashes"] != snapshot["source_hashes"]):
             raise ValueError("staged 的 Manifest head／來源快照不吻合")
     else:
-        _validate_staged(target, state, intent, stage, payload_path, manifest)
+        _validate_staged(target, state, intent, stage, payload_path, manifest,
+                         expected_staged_sha256=expected_staged_sha256,
+                         allow_unbound_legacy=allow_unbound_legacy)
     # Must not create any files during inspection. If an aborted intent exists,
     # a separate cancellation invocation reconciles it after SHA verification.
-    return {"status": "ready_to_abort" if not needs_original else "needs_original_payload",
+    ready = not needs_original or legacy_authorized
+    return {"status": ("needs_original_payload" if not ready else
+                       "ready_to_abort_unbound" if legacy_authorized else "ready_to_abort"),
             "batch_id": batch_id, "manifest_sequence": manifest["sequence"],
             "manifest_head": manifest["head"],
             "manifest_sha256": evidence["manifest_sha256"],
             "staged_count": 1, "staged_file": stage.relative_to(target).as_posix(),
             "staged_sha256": _file_sha(stage),
             "inflight_payload_sha256": intent["payload_sha256"],
-            "requires_original_payload": needs_original,
-            "can_abort": not needs_original,
+            "requires_original_payload": needs_original and not legacy_authorized,
+            "raw_payload_verified": payload_path is not None,
+            "legacy_unbound_staged_only": legacy_authorized,
+            "can_abort": ready,
             "read_only": True,
-            "note": ("舊版 checkpoint 無法從 staged 還原原始 JSON bytes；"
-                     "必須找到原始 payload，否則保留 blocked" if needs_original
-                     else "只完成唯讀對帳；實際隔離仍需明確 --acknowledge-investigation")}
+            "note": ("此 staged-only 例外只能證實唯一暫存檔的 SHA256，"
+                     "不能證明它與 inflight 原始 payload bytes 相同；仍需正式授權"
+                     if legacy_authorized else
+                     "舊版 checkpoint 無法從 staged 還原原始 JSON bytes；"
+                     "請提供原始 payload 或另行明確授權 staged-only 隔離"
+                     if needs_original else
+                     "只完成唯讀對帳；實際隔離仍需明確 --acknowledge-investigation")}
 
 
 def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None = None,
-                      acknowledged: bool = False) -> dict:
+                      acknowledged: bool = False,
+                      expected_staged_sha256: str | None = None,
+                      allow_unbound_legacy: bool = False) -> dict:
     """Explicit and idempotent quarantine, with no official Journal updates.
 
     Crashes after quarantine creation/rename are recoverable by re-invocation.
@@ -259,10 +286,15 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
             raise ValueError("隔離紀錄不完整且已包含檔案，需人工調查")
         if len(staged) != 1:
             raise ValueError("缺少唯一待取消的 staged；不能解除 inflight")
-        info = _validate_staged(target, state, intent, staged[0], payload_path, manifest)
+        info = _validate_staged(
+            target, state, intent, staged[0], payload_path, manifest,
+            expected_staged_sha256=expected_staged_sha256,
+            allow_unbound_legacy=allow_unbound_legacy)
         prepared = {"schema_version": RECEIPT_VERSION, "identity": identity,
                     "staged_name": staged[0].name, "staged_sha256": info["file_sha256"],
                     "payload_digest": info["payload_digest"],
+                    "raw_payload_verified": info["raw_payload_verified"],
+                    "legacy_unbound": info["legacy_unbound"],
                     "manifest_sequence": manifest["sequence"],
                     "manifest_head": manifest["head"],
                     "checkpoint_sha256": _digest(state)}
@@ -306,6 +338,8 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
                    "manifest_sha256": evidence["manifest_sha256"],
                    "staged_sha256": prepared["staged_sha256"],
                    "payload_sha256": intent["payload_sha256"],
+                   "raw_payload_verified": prepared.get("raw_payload_verified", False),
+                   "legacy_unbound": prepared.get("legacy_unbound", False),
                    "archived": archived.relative_to(target).as_posix(),
                    "recorded_at": datetime.now(timezone.utc).isoformat(),
                    "not_formal_journal": True}
@@ -319,6 +353,8 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
             or receipt.get("manifest_head") != manifest["head"]
             or receipt.get("manifest_sequence") != manifest["sequence"]
             or receipt.get("manifest_sha256") != evidence["manifest_sha256"]
+            or receipt.get("legacy_unbound") != prepared.get("legacy_unbound", False)
+            or receipt.get("raw_payload_verified") != prepared.get("raw_payload_verified", False)
             or receipt.get("archived") != archived.relative_to(target).as_posix()
             or receipt.get("not_formal_journal") is not True):
         raise ValueError("隔離收據與實際封存檔不一致")
@@ -340,4 +376,5 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
             "archive": receipt["archived"],
             "receipt": receipt_path.relative_to(target).as_posix(),
             "staged_sha256": prepared["staged_sha256"],
+            "legacy_unbound_staged_only": prepared.get("legacy_unbound", False),
             "notice": "僅隔離未入 Journal 的 staged，未寫正式證據；重查原批次後才能重新整合"}
