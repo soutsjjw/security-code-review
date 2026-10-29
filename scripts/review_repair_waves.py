@@ -790,6 +790,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-revision", action="store_true")
     parser.add_argument("--allow-finding-revision", action="store_true")
     parser.add_argument("--acknowledge-investigation", action="store_true")
+    parser.add_argument("--expected-staged-sha256")
+    parser.add_argument("--allow-unbound-legacy-stage", action="store_true")
     args = parser.parse_args(argv)
     target = args.target.resolve()
     if not target.is_dir():
@@ -806,7 +808,9 @@ def main(argv: list[str] | None = None) -> int:
                     result = abort_uncommitted(
                         target, args.abort_uncommitted,
                         payload_path=args.payload,
-                        acknowledged=args.acknowledge_investigation)
+                        acknowledged=args.acknowledge_investigation,
+                        expected_staged_sha256=args.expected_staged_sha256,
+                        allow_unbound_legacy=args.allow_unbound_legacy_stage)
                 elif args.reconcile:
                     from review_waves_lifecycle import reconcile
                     result = reconcile(target, acknowledged=args.acknowledge_investigation)
@@ -837,7 +841,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.inspect_uncommitted:
             from review_waves_abort import inspect_uncommitted
             result = inspect_uncommitted(
-                target, args.inspect_uncommitted, payload_path=args.payload)
+                target, args.inspect_uncommitted, payload_path=args.payload,
+                expected_staged_sha256=args.expected_staged_sha256,
+                allow_unbound_legacy=args.allow_unbound_legacy_stage)
         elif args.next:
             result = next_work(target)
         elif args.agent_next:
