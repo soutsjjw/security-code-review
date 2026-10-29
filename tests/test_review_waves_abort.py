@@ -11,7 +11,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from review_repair_waves import REPORT, SNAPSHOT, STATE, _read, _write_state
+from review_repair_waves import REPORT, STATE, _read, _write_state
+from review_safety import SNAPSHOT
 from review_waves_abort import abort_uncommitted
 
 
