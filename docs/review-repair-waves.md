@@ -14,6 +14,34 @@
 
 `scripts/review_repair_waves.py` 維持非正式操作 checkpoint：`<TARGET_ROOT>/reports/security-code-review/logs/repair-waves/state.json`。**它不是 Manifest／Journal 保護的正式資料**，也不能據此宣稱防竄改、審查已 Pass 或已有可信獨立覆核。遇到外部變動、舊鎖／未完成的暫存或衝突，應人工調查，不可刪除正式歷史強行重啟。
 
+## 後續補強：P0～P2 實際執行及交付
+
+以下為主代理可機器讀取的執行工作封包。**本腳本不能直接啟動 Codex 原生子代理**；主代理必須真的使用執行器提供的原生派工、等待與回收工具，且須按 [受控多代理契約](multi-agent-review.md) 進行可信唯讀能力試跑。環境無此能力或無法證明來源隔離時，依 `fallback=single-main-agent-actual-source-review` 降級主代理查證，**不得虛構 Agent ID／trace**。
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --agent-next
+```
+
+`task_digest` 綁定本次工作規則、權威阻塞與來源／assessment SHA256；任務封包只提供待驗證範圍，不代表修復已完成。主代理仍須實際閱讀來源、形成合法 Stage payload，再逐批完成正式交易。若存在待對帳的交易意圖，任何 `--next`／`--agent-next` 都會拒絕重複套用。
+
+正式 Stage／Integrate 前先保存非正式 `inflight` 意圖；意外中斷後必須對照 Journal、來源快照及正式證據，不能直接重放舊 payload：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --reconcile --acknowledge-investigation
+```
+
+只有確實觀察到合法的正式變更、且原始阻塞消失或相應第二輪工作仍有效，才會結案該交易意圖；正式工件沒有變動、來源快照不同或規則變更超出本批授權，必須拒收並人工調查。此流程**不呼叫 Stage／Integrate 重試**。若需額外證據，先依既有交易復原規範處理。
+
+抽樣紀錄另有以 `manifest_sha256` 為起點的本機 SHA256 事件鏈；順序、內容或 head 不符須拒收。但鏈與收據仍存於非正式 checkpoint，**不是完整 Journal 綁定或防惡意竄改的可信身分證明**。身分與第二輪 L1／L2 獨立性須有執行器實際證據；否則交付獨立性標示固定為不獨立的 L0。
+
+第二輪透過 `--agent-next` 領取新的反例／來源抽樣工作，主代理使用 `--apply-second-pass` 提交合法核查證據。所有正式驗證通過後，可**明確呼叫**：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --finalize
+```
+
+此命令先驗證完整第二輪 70 項、固定來源抽樣、非精簡 `review_queue.py` 的 `ready_for_report=true` 與 `review_safety.safety_errors`，再呼叫原有 `complete_review.py`；正式工具成功且 HTML／JSON 實際存在才建立非正式交付旁錄（SHA256、保守 L0、限制）。**不能**以旁錄取代正式 Journal、交付者身分或原有報告驗證。
+
 ## 操作順序
 
 先執行 `analysis_prepare.py`、`review_queue.py --diagnose-first-pass` 取得真實審查狀態。當有可修復的既有 blocker，使用：
