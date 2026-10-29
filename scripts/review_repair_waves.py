@@ -284,6 +284,8 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     changed.update(set(payload.get("control_verifications") or {}))
     changed.update(set(payload.get("decision_audits") or {}))
     changed.update(set(payload.get("recheck_proof") or {}))
+    if payload.get("file_reviews"):
+        changed.update(expected["rule_ids"])
     for row in payload.get("file_reviews") or []:
         for review in row.get("rule_reviews") or []:
             if isinstance(review, dict) and isinstance(review.get("rule_id"), str):
@@ -328,6 +330,49 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     return {**_result(state), "formal_integration": outcome,
             "regression": regression, "original_blockers_remaining": len(remaining),
             "batch_completed": batch_id in state["completed_batches"]}
+
+
+
+def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
+    """Resume a paused checkpoint only after genuinely changed formal evidence.
+
+    Never ignores new blockers, changed source snapshots, or an unchanged
+    diagnostic. This is not an override of the safety or Journal guards.
+    """
+    if not acknowledged:
+        raise ValueError("續跑須明確確認已調查阻塞原因")
+    state = _load_state(target)
+    if state["phase"] != "first_pass" or not state.get("paused"):
+        raise ValueError("目前沒有可續跑的第一輪暫停狀態")
+    evidence = _evidence_state(target)
+    if evidence["source_snapshot_sha256"] != state["last_evidence"]["source_snapshot_sha256"]:
+        raise ValueError("來源快照版本變動，不能沿用舊的修復批次")
+    from review_blockers import diagnose
+    from rule_repair_tasks import compare_rule_repair_diagnostics
+    current = diagnose(target, _assessment(target))
+    regression = compare_rule_repair_diagnostics(state["observed_diagnostic"], current)
+    if regression["should_pause"]:
+        raise ValueError("調查後仍有新阻塞／完整性問題：" +
+                         "；".join(regression["pause_reasons"]))
+    if current["blocker_signature"] == state["observed_signature"]:
+        raise ValueError("權威阻塞指紋未改變，不能無條件解除暫停")
+    state["observed_signature"] = current["blocker_signature"]
+    state["observed_diagnostic"] = current
+    state["last_evidence"] = evidence
+    state["paused"] = False
+    state["pause_reasons"] = []
+    # Recheck previously completed batches against the newly observed errors.
+    # Never silently mark a pending batch complete based on mere acknowledgement.
+    if _all_completed(state):
+        if current.get("ready_for_second_pass"):
+            state["phase"] = "sample"
+        else:
+            state["paused"] = True
+            state["pause_reasons"] = ["原始任務已完，但權威診斷仍存在缺口"]
+    _write_state(target / STATE, state)
+    return {**_result(state), "regression": regression,
+            "note": "已在完整性核對及權威診斷改變後續跑；不構成新的安全結論"}
+
 
 
 def sample_plan(target: Path) -> dict:
@@ -451,22 +496,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="受控 Wave 0–4 資安補查協調器，不自動生成證據")
     parser.add_argument("--target", type=Path, default=Path.cwd())
     operations = parser.add_mutually_exclusive_group(required=True)
-    for flag in ("start", "next", "sample-plan", "begin-second-pass", "verify-second-pass"):
+    for flag in ("start", "next", "resume", "sample-plan", "begin-second-pass", "verify-second-pass"):
         operations.add_argument("--" + flag, action="store_true")
     operations.add_argument("--apply-batch", metavar="BATCH_ID")
     operations.add_argument("--record-sample", type=Path, metavar="RECEIPT_JSON")
     parser.add_argument("--payload", type=Path)
     parser.add_argument("--allow-revision", action="store_true")
     parser.add_argument("--allow-finding-revision", action="store_true")
+    parser.add_argument("--acknowledge-investigation", action="store_true")
     args = parser.parse_args(argv)
     target = args.target.resolve()
     if not target.is_dir():
         parser.error("受測目錄不存在")
     try:
-        if args.start or args.apply_batch or args.record_sample or args.sample_plan or args.begin_second_pass:
+        if args.start or args.apply_batch or args.record_sample or args.sample_plan or args.begin_second_pass or args.resume:
             with _single_writer(target):
                 if args.start:
                     result = start(target)
+                elif args.resume:
+                    result = resume_after_investigation(
+                        target, acknowledged=args.acknowledge_investigation)
                 elif args.apply_batch:
                     if not args.payload:
                         raise ValueError("--apply-batch 必須提供 --payload")
