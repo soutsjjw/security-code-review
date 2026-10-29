@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from rule_repair_tasks import classify_repair_work
+
 RULE_ID = re.compile(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b")
 ASSESSMENT = Path("reports/security-code-review/assessment.json")
 FIXES: dict[str, str] = {
@@ -93,6 +95,7 @@ def summarize(
         blockers.append({
             "rule_ids": rules,
             "category": category,
+            "repair_work_item": classify_repair_work(message),
             "message": message,
             "required_action": FIXES[category],
         })
