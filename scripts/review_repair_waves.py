@@ -46,7 +46,7 @@ def _assessment(target: Path) -> dict[str, Any]:
     return _read(target / REPORT / "assessment.json")
 
 
-def _evidence_state(target: Path) -> dict[str, str]:
+def _evidence_state(target: Path) -> dict[str, Any]:
     from review_safety import snapshot_errors
     from evidence_integrity import errors as integrity_errors
     failures = snapshot_errors(target) + integrity_errors(target)
@@ -57,8 +57,97 @@ def _evidence_state(target: Path) -> dict[str, str]:
     snap_path = target / REPORT / FORMAL_SNAPSHOT
     if not assessment.is_file() or not snap_path.is_file():
         raise ValueError("缺少正式 assessment 或來源快照")
+    from evidence_integrity import TRACKED, MANIFEST
+    manifest = target / MANIFEST
+    # The integrity validator above is authoritative. These raw hashes serve
+    # only to invalidate stale operational checkpoints after legitimate writes.
+    tracked = {relative: (_file_sha(target / REPORT / relative)
+                          if (target / REPORT / relative).is_file() else None)
+               for relative in TRACKED}
     return {"assessment_sha256": _file_sha(assessment),
-            "source_snapshot_sha256": _file_sha(snap_path)}
+            "source_snapshot_sha256": _file_sha(snap_path),
+            "tracked_sha256": tracked,
+            "manifest_sha256": _file_sha(manifest) if manifest.is_file() else None}
+
+
+def _rule_ids_from_file(row: dict) -> set[str]:
+    """Collect owners without assigning rules from generic path heuristics."""
+    owners = {rr.get("rule_id") for rr in row.get("rule_reviews", [])
+              if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
+    screening = row.get("category_screening")
+    if isinstance(screening, list):
+        for item in screening:
+            if isinstance(item, dict):
+                owners.update(r for r in item.get("rule_ids", [])
+                              if isinstance(r, str))
+    elif isinstance(screening, dict):
+        for item in screening.values():
+            if isinstance(item, dict):
+                owners.update(r for r in item.get("rule_ids", [])
+                              if isinstance(r, str))
+    return owners
+
+
+def _formal_fingerprints(target: Path) -> dict[str, Any]:
+    """Digests of real formal records; checkpoint is not itself formal proof."""
+    assessment = _assessment(target)
+    analysis = target / REPORT / "analysis"
+    snapshots: dict[str, Any] = {}
+    for section, filename in (("closures", "rule-closures.json"),
+                              ("control_verifications", "control-verifications.json"),
+                              ("decision_audits", "decision-audits.json")):
+        file = analysis / filename
+        rows = _read(file) if file.is_file() else {}
+        if not isinstance(rows, dict):
+            raise ValueError(f"{filename} 必須是物件")
+        snapshots[section] = {rid: _digest(item) for rid, item in rows.items()}
+    checks = assessment.get("checks") or []
+    files = assessment.get("file_reviews") or []
+    findings = assessment.get("findings") or []
+    if not all(isinstance(x, dict) for x in checks + files + findings):
+        raise ValueError("正式 assessment 紀錄格式錯誤")
+    snapshots["checks"] = {c["id"]: {"digest": _digest(c), "status": c.get("status")}
+                           for c in checks}
+    snapshots["file_reviews"] = {f["path"]: {"digest": _digest(f),
+                                             "owners": sorted(_rule_ids_from_file(f))}
+                                  for f in files}
+    snapshots["findings"] = {f["id"]: {"digest": _digest(f),
+                                       "owners": sorted(set(f.get("check_ids") or []))}
+                              for f in findings}
+    return snapshots
+
+
+def _formal_diff(previous: dict, current: dict) -> tuple[set[str], set[str]]:
+    """Conservatively include externally changed evidence in sampling."""
+    changed: set[str] = set()
+    mandatory: set[str] = set()
+    all_rules = set(previous["checks"]) | set(current["checks"])
+    for section in ("checks", "closures", "control_verifications", "decision_audits"):
+        old, new = previous[section], current[section]
+        for rid in set(old) | set(new):
+            if old.get(rid) == new.get(rid):
+                continue
+            changed.add(rid)
+            if section in {"closures", "decision_audits", "control_verifications"}:
+                mandatory.add(rid)
+            if section == "checks":
+                a = (old.get(rid) or {}).get("status")
+                b = (new.get(rid) or {}).get("status")
+                if a != b and "fail" in (a, b):
+                    mandatory.add(rid)
+    for section in ("file_reviews", "findings"):
+        old, new = previous[section], current[section]
+        for key in set(old) | set(new):
+            if old.get(key) == new.get(key):
+                continue
+            owners = set((old.get(key) or {}).get("owners") or []) | set(
+                (new.get(key) or {}).get("owners") or [])
+            if not owners:
+                owners = all_rules  # unknown scope must not silently disappear
+            changed.update(owners)
+            if section == "findings":
+                mandatory.update(owners)
+    return changed, mandatory
 
 
 def _stage_clean(target: Path) -> None:
@@ -200,6 +289,7 @@ def start(target: Path) -> dict:
              "observed_signature": diag["blocker_signature"],
              "observed_diagnostic": diag,
              "last_evidence": evidence,
+             "formal_fingerprints": _formal_fingerprints(target),
              "batches": batches, "tasks": plan["rule_repair_tasks"],
              "completed_batches": [],
              "changed_rules": [], "mandatory_rules": [], "sample_records": {},
@@ -259,6 +349,7 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     current = state["observed_diagnostic"]
     from review_blockers import diagnose
     before = _assessment(target)
+    before_fingerprints = state["formal_fingerprints"]
     diag = diagnose(target, before)
     if diag["blocker_signature"] != state["observed_signature"]:
         raise ValueError("診斷指紋已變更，禁止套用舊批次")
@@ -276,37 +367,11 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     updated = diagnose(target, after)
     from rule_repair_tasks import compare_rule_repair_diagnostics
     regression = compare_rule_repair_diagnostics(current, updated)
-    before_checks = {c["id"]: c for c in before.get("checks", [])}
-    after_checks = {c["id"]: c for c in after.get("checks", [])}
-    changed = {rid for rid in after_checks if before_checks.get(rid) != after_checks[rid]}
-    # Non-check formal proof is still real changed work and needs sampling.
-    changed.update(set(payload.get("closures") or {}))
-    changed.update(set(payload.get("control_verifications") or {}))
-    changed.update(set(payload.get("decision_audits") or {}))
-    changed.update(set(payload.get("recheck_proof") or {}))
-    if payload.get("file_reviews"):
-        changed.update(expected["rule_ids"])
-    for row in payload.get("file_reviews") or []:
-        for review in row.get("rule_reviews") or []:
-            if isinstance(review, dict) and isinstance(review.get("rule_id"), str):
-                changed.add(review["rule_id"])
-    state["changed_rules"] = sorted(set(state["changed_rules"]) | changed)
-    mandatory = set(state["mandatory_rules"])
-    old_findings = {f["id"]: f for f in before.get("findings", [])}
-    new_findings = {f["id"]: f for f in after.get("findings", [])}
-    if any(old_findings.get(fid) != f for fid, f in new_findings.items()):
-        for f in new_findings.values():
-            if old_findings.get(f["id"]) != f:
-                mandatory.update(f.get("check_ids") or [])
-    for rid in changed:
-        old_status = (before_checks.get(rid) or {}).get("status")
-        new_status = (after_checks.get(rid) or {}).get("status")
-        if old_status != new_status and "fail" in (old_status, new_status):
-            mandatory.add(rid)
-    mandatory.update(payload.get("closures") or {})
-    mandatory.update(payload.get("decision_audits") or {})
-    state["changed_rules"] = sorted(set(state["changed_rules"]) | mandatory)
-    state["mandatory_rules"] = sorted(mandatory)
+    after_fingerprints = _formal_fingerprints(target)
+    changed, mandatory = _formal_diff(before_fingerprints, after_fingerprints)
+    state["changed_rules"] = sorted(set(state["changed_rules"]) | changed | mandatory)
+    state["mandatory_rules"] = sorted(set(state["mandatory_rules"]) | mandatory)
+    state["formal_fingerprints"] = after_fingerprints
     remaining = _batch_blockers(expected, state["tasks"]) & _blocker_keys(updated)
     no_progress = current["blocker_signature"] == updated["blocker_signature"]
     reasons = list(regression["pause_reasons"])
@@ -350,6 +415,9 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     from review_blockers import diagnose
     from rule_repair_tasks import compare_rule_repair_diagnostics
     current = diagnose(target, _assessment(target))
+    current_fingerprints = _formal_fingerprints(target)
+    external_changed, external_mandatory = _formal_diff(
+        state["formal_fingerprints"], current_fingerprints)
     regression = compare_rule_repair_diagnostics(state["observed_diagnostic"], current)
     if regression["should_pause"]:
         raise ValueError("調查後仍有新阻塞／完整性問題：" +
@@ -359,6 +427,10 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     state["observed_signature"] = current["blocker_signature"]
     state["observed_diagnostic"] = current
     state["last_evidence"] = evidence
+    state["formal_fingerprints"] = current_fingerprints
+    state["changed_rules"] = sorted(set(state["changed_rules"]) |
+                                  external_changed | external_mandatory)
+    state["mandatory_rules"] = sorted(set(state["mandatory_rules"]) | external_mandatory)
     state["paused"] = False
     state["pause_reasons"] = []
     # Reconcile pending tasks only against actual authoritative disappearance
