@@ -48,11 +48,20 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --inspect-uncommitted execution-01 --payload "<ORIGINAL_PAYLOAD>.json"
 ```
 
-只在 `can_abort=true`，且審查者明確授權，才可呼叫下方 `--abort-uncommitted`；若原始檔已遺失，**不能由 staged 反推原始檔案 bytes 或以重建 JSON 假冒**，應繼續 blocked。已提交正式交易則走 `--reconcile`，不是取消。
+只在 `can_abort=true`，且審查者明確授權，才可呼叫下方 `--abort-uncommitted`。**原始 payload 遺失時，不能由 staged 反推原始 JSON bytes 或假冒 SHA256 相符。** 若唯一 staged 原檔、來源快照及所有正式工件均可驗證，且另獲針對本次交易的**明確 staged-only 例外授權**，可使用原始 staged 的完整 SHA256 作為**隔離對象鎖定**（不是原始 payload 指紋）： 
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --inspect-uncommitted execution-01 --expected-staged-sha256 "<STAGED_SHA256>" --allow-unbound-legacy-stage
+
+# 只限人工逐項核對並明確授權後：
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --abort-uncommitted execution-01 --expected-staged-sha256 "<STAGED_SHA256>" --allow-unbound-legacy-stage --acknowledge-investigation
+```
+
+此例外只能保證**將指定 SHA256 的 staged 隔離保留，不改寫正式工件**，不能保證 staged 原本就是 inflight 的原始 payload。封存收據必須記錄 `legacy_unbound=true` 與 `raw_payload_verified=false`，供後續稽核辨識。缺乏獨立確認的 staged SHA256、正式工件不一致或未明確授權者仍維持 blocked；若已提交正式交易則走 `--reconcile`，不是取消。
 
 若 `inflight` 仍存在，且唯一 `analysis/staged/*.json` 未入正式 Journal，先唯讀核對是否確實沒有正式交易提交。**不得直接刪除 staged、清空 inflight 或重建 Manifest／Journal**。
 
-舊版 Wave checkpoint 僅保留原始 payload 的**檔案 SHA256**，故必須提供當初 Stage 所讀取的原始 JSON 檔，以同時核對原始 bytes 與暫存的 JSON 語意內容（勿傳入別的重建檔案）。新版 checkpoint 另綁定 payload 語意指紋；有需要仍可提供原始檔再核對：
+舊版 Wave checkpoint 僅保留原始 payload 的**檔案 SHA256**，一般取消路徑須提供當初 Stage 讀取的原始 JSON，核對 bytes 與暫存 JSON 語意（勿傳重建檔）。若確實遺失原始檔，可按下述**額外明確授權的 staged-only 例外**辦理；新版 checkpoint 另綁定 payload 語意指紋：
 
 ```powershell
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --abort-uncommitted execution-01 --payload "<ORIGINAL_PAYLOAD>.json" --acknowledge-investigation
