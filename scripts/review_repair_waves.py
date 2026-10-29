@@ -313,6 +313,8 @@ def start(target: Path) -> dict:
         raise ValueError("已有 checkpoint；使用 --next 續跑，禁止重新初始化覆蓋")
     _stage_clean(target)
     evidence = _evidence_state(target)
+    if not isinstance(evidence.get("manifest_sha256"), str) or len(evidence["manifest_sha256"]) != 64:
+        raise ValueError("Wave 0 必須先建立並驗證正式 Manifest／Journal；不得使用未封存來源")
     diag, plan = _diagnose_and_plan(target)
     if not plan["task_coverage"]["valid"]:
         raise ValueError("權威阻塞無法完整排程，禁止啟動：" +
@@ -669,11 +671,19 @@ def begin_second_pass(target: Path) -> dict:
             or not current["ready_for_second_pass"]):
         raise ValueError("權威第一輪守門尚未通過")
     from adversarial_recheck import begin_second_pass as formal_begin
+    state["inflight"] = {
+        "phase": "baseline", "batch_id": "first-pass-baseline",
+        "prior_evidence": state["last_evidence"],
+        "prior_fingerprints": state["formal_fingerprints"],
+    }
+    _write_state(target / STATE, state)
     result = formal_begin(target, assessment)
     # Baseline and fixed sampling are formal Journal-protected data; this local
     # sidecar is not. It only records the handoff.
     state["phase"] = "second_pass"
     state["last_evidence"] = _evidence_state(target)
+    state["formal_fingerprints"] = _formal_fingerprints(target)
+    state["inflight"] = None
     _write_state(target / STATE, state)
     from second_pass_layers import worklist
     return {"formal_baseline": result, "second_pass": worklist(target),
