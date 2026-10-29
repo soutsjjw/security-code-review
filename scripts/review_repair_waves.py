@@ -22,7 +22,7 @@ from typing import Any
 REPORT = Path("reports/security-code-review")
 STATE = REPORT / "logs/repair-waves/state.json"
 SNAPSHOT = REPORT / "analysis/source-snapshot.json"
-VERSION = 1
+VERSION = 2
 RISK_PREFIXES = ("AC", "AU", "CR", "DP", "IN")
 
 
@@ -307,7 +307,9 @@ def start(target: Path) -> dict:
         raise ValueError("權威阻塞無法完整排程，禁止啟動：" +
                          json.dumps(plan["task_coverage"], ensure_ascii=False)[:1500])
     batches = plan["execution_batches"]
-    initial_phase = "sample" if not batches and diag.get("ready_for_second_pass") else "first_pass"
+    if not batches and not diag.get("ready_for_second_pass"):
+        raise ValueError("第一輪仍有阻塞但沒有可執行任務；需要人工處理未知缺口")
+    initial_phase = "sample" if not batches else "first_pass"
     state = {"schema_version": VERSION, "phase": initial_phase,
              "initial_signature": diag["blocker_signature"],
              "observed_signature": diag["blocker_signature"],
@@ -660,7 +662,7 @@ def apply_second_pass(target: Path, payload_path: Path, *,
     if not payload:
         raise ValueError("第二輪必須提供已查核的正式證據")
     if set(payload) - {"adversarial_reviews", "second_pass_samples", "checks",
-                       "findings", "finding_revisions", "closures",
+                       "file_reviews", "findings", "finding_revisions", "closures",
                        "control_verifications", "decision_audits"}:
         raise ValueError("第二輪含不支援的證據欄位")
     if not (payload.get("adversarial_reviews") or payload.get("second_pass_samples")):
