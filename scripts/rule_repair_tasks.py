@@ -93,10 +93,33 @@ def _execution_batches(tasks: list[dict[str, Any]], rule_batch_size: int
     A cross-rule bundle may execute once, before every dependent rule batch.
     All dependencies must be completed in *earlier* batches, not just listed.
     """
+    # A shared control task and a single-rule control task may concern the
+    # same rule. Group all overlapping closure/effectiveness tasks into atomic
+    # components so none can silently split across execution batches.
+    control_tasks = [t for t in tasks if t["priority"] in {"P2", "P3"}]
+    parents = {t["task_id"]: t["task_id"] for t in control_tasks}
+
+    def root(task_id: str) -> str:
+        while parents[task_id] != task_id:
+            task_id = parents[task_id]
+        return task_id
+
+    owner_control: dict[str, str] = {}
+    for task in control_tasks:
+        task_id = task["task_id"]
+        for owner in task["rule_ids"]:
+            previous = owner_control.setdefault(owner, task_id)
+            parents[root(task_id)] = root(previous)
+    components: dict[str, list[str]] = defaultdict(list)
+    for task in control_tasks:
+        components[root(task["task_id"])].append(task["task_id"])
+    component_keys = {task_id: tuple(sorted(group))
+                      for group in components.values() for task_id in group}
+
     bundles: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
     for task in tasks:
-        owners = tuple(task["rule_ids"])
-        key = (("control_pair", owners) if task["priority"] in {"P2", "P3"}
+        key = (("control_component", component_keys[task["task_id"]])
+               if task["priority"] in {"P2", "P3"}
                else ("single_task", task["task_id"]))
         bundles[key].append(task)
 
@@ -166,13 +189,16 @@ def _execution_batches(tasks: list[dict[str, Any]], rule_batch_size: int
             dep_batch = scheduled_task_to_batch.get(dependency)
             if dep_batch is None or batch_positions[dep_batch] >= batch_positions[batch_id]:
                 forward_edges.append(f"{dependency}->{task['task_id']}")
-    pairs: dict[tuple[str, ...], set[str]] = defaultdict(set)
-    for task in tasks:
-        if task["priority"] in {"P2", "P3"}:
-            pairs[tuple(task["rule_ids"])].add(task["task_id"])
-    for owners, pair in pairs.items():
-        if len(pair) > 1 and len({scheduled_task_to_batch.get(t) for t in pair}) != 1:
-            pair_split.append(",".join(owners))
+    by_owner_control: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for task in control_tasks:
+        for owner in task["rule_ids"]:
+            by_owner_control[owner].append(task)
+    for owner, relevant in by_owner_control.items():
+        kinds = {t["priority"] for t in relevant}
+        if {"P2", "P3"} <= kinds and len({
+            scheduled_task_to_batch.get(t["task_id"]) for t in relevant
+        }) != 1:
+            pair_split.append(owner)
     over_limit = [b["batch_id"] for b in batches if len(b["rule_ids"]) > rule_batch_size]
     return batches, {
         "scheduled_task_count": len(emitted),
