@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from review_repair_waves import (
     STATE, _batch_blockers, _payload_scope, _sample_policy, _write_state,
     _load_state, _next_batch, start, next_work, apply_batch, sample_plan,
-    record_sample, begin_second_pass, verify_second_pass,
+    record_sample, resume_after_investigation, begin_second_pass, verify_second_pass,
 )
 
 
@@ -122,6 +122,20 @@ class RepairWavesTests(unittest.TestCase):
             result = apply_batch(self.root, "execution-01", payload, allow_revision=True)
         self.assertTrue(result["paused"])
         self.assertEqual(result["completed_batch_count"], 0)
+
+    def test_resume_needs_explicit_confirmation_and_new_authoritative_diagnosis(self):
+        self._start()
+        state = _load_state(self.root)
+        state["paused"] = True
+        _write_state(self.root / STATE, state)
+        with self.assertRaises(ValueError):
+            resume_after_investigation(self.root, acknowledged=False)
+        with patch("review_repair_waves._evidence_state", return_value=self.audit), \
+             patch("review_repair_waves._assessment", return_value={"checks": []}), \
+             patch("review_blockers.diagnose", return_value=self.last):
+            result = resume_after_investigation(self.root, acknowledged=True)
+        self.assertEqual(result["phase"], "sample")
+        self.assertEqual(result["completed_batch_count"], 1)
 
     def test_sample_selection_minimum_and_mandatory_high_risk(self):
         checks = [{"id": f"AC-{i:02d}", "status": "review"} for i in range(1, 21)]
