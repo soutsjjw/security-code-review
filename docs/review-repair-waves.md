@@ -34,6 +34,22 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 
 ### Stage 成功但 Integrate 拒絕：僅取消「確定未提交」的單一批次
 
+**先確認本機 Skill 已更新**：此功能首見於 PR #75；只合併 GitHub `develop`、重新啟動 Codex，不會自動更新 `C:\\Users\\souts\\.agents\\skills\\security-code-review`。在 Codex 實際使用的 `SKILL_ROOT`，先檢查 `scripts/review_repair_waves.py --help` 列出 `--inspect-uncommitted` 與 `--abort-uncommitted`；若沒有，**先更新本機 Skill，再重查**，不得假稱沒有安全介面。
+
+使用唯讀預檢，**不改正式資料、不建立隔離檔案、也不用取消授權**：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --inspect-uncommitted execution-01
+```
+
+預檢結果 `needs_original_payload` 表示舊版 checkpoint 缺少語意內容指紋；尚不能取消。找到當初 `--apply-batch` 使用的原始 JSON 後，重新預檢：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --inspect-uncommitted execution-01 --payload "<ORIGINAL_PAYLOAD>.json"
+```
+
+只在 `can_abort=true`，且審查者明確授權，才可呼叫下方 `--abort-uncommitted`；若原始檔已遺失，**不能由 staged 反推原始檔案 bytes 或以重建 JSON 假冒**，應繼續 blocked。已提交正式交易則走 `--reconcile`，不是取消。
+
 若 `inflight` 仍存在，且唯一 `analysis/staged/*.json` 未入正式 Journal，先唯讀核對是否確實沒有正式交易提交。**不得直接刪除 staged、清空 inflight 或重建 Manifest／Journal**。
 
 舊版 Wave checkpoint 僅保留原始 payload 的**檔案 SHA256**，故必須提供當初 Stage 所讀取的原始 JSON 檔，以同時核對原始 bytes 與暫存的 JSON 語意內容（勿傳入別的重建檔案）。新版 checkpoint 另綁定 payload 語意指紋；有需要仍可提供原始檔再核對：
