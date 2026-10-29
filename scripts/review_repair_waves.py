@@ -308,7 +308,8 @@ def next_work(target: Path) -> dict:
     return _result(state, include_plan=True)
 
 
-def _payload_scope(payload: dict, batch: dict, *, allow_finding_revision: bool) -> None:
+def _payload_scope(payload: dict, batch: dict, *, allow_finding_revision: bool,
+                   previous: dict) -> None:
     """Only current batch's declared rule owners; never invent missing evidence."""
     allowed = set(batch["rule_ids"])
     mappings = {"checks": "id", "closures": None, "control_verifications": None,
@@ -320,6 +321,50 @@ def _payload_scope(payload: dict, batch: dict, *, allow_finding_revision: bool) 
         ids = {item.get(key) for item in rows if isinstance(item, dict)} if key else set(rows)
         if not ids <= allowed or (key and len(ids) != len(rows)):
             raise ValueError(f"{section} 包含非本批規則或重複規則")
+    # A whole file_review replaces the record in the formal integrator.
+    # Compare its per-rule evidence against the original; unchanged external
+    # rules may be carried along, but must not be silently rewritten.
+    existing_files = {row["path"]: row for row in previous.get("file_reviews", [])}
+    submitted = payload.get("file_reviews", [])
+    if not isinstance(submitted, list):
+        raise ValueError("file_reviews 必須是陣列")
+    paths: set[str] = set()
+    for row in submitted:
+        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+            raise ValueError("file_reviews 缺少合法來源路徑")
+        path = row["path"]
+        if path in paths:
+            raise ValueError("本批 file_reviews 來源路徑重複")
+        paths.add(path)
+        old = existing_files.get(path, {})
+        old_reviews = {rr["rule_id"]: rr for rr in old.get("rule_reviews", [])
+                       if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
+        new_reviews = {rr["rule_id"]: rr for rr in row.get("rule_reviews", [])
+                       if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
+        if len(new_reviews) != len(row.get("rule_reviews", [])):
+            raise ValueError("file_reviews.rule_reviews 缺少規則歸屬或重複")
+        modified = {rid for rid in set(old_reviews) | set(new_reviews)
+                    if old_reviews.get(rid) != new_reviews.get(rid)}
+        if not modified <= allowed:
+            raise ValueError("file_reviews 包含跨批次的逐條檢核變更")
+        # Category screening is a file-wide claim: changing it can affect any
+        # rule. Restrict changes when the file has external rule owners.
+        if row.get("category_screening") != old.get("category_screening"):
+            screening_owners = _rule_ids_from_file(row) | _rule_ids_from_file(old)
+            if not screening_owners or not screening_owners <= allowed:
+                raise ValueError("跨批次 category_screening 變更須分開授權及核對")
+        # File-level metadata (including hashes and general summary) cannot be
+        # rewritten while carrying other owners' already completed evidence.
+        all_owners = _rule_ids_from_file(row) | _rule_ids_from_file(old)
+        external_owners = all_owners - allowed
+        external_columns = {"rule_reviews", "category_screening"}
+        if external_owners and any(
+            row.get(k) != old.get(k)
+            for k in set(row) | set(old) if k not in external_columns
+        ):
+            raise ValueError("外部規則共用逐檔紀錄的來源／摘要欄位不可跨批次改寫")
+        if not modified and row == old:
+            raise ValueError("file_reviews 未提供實質變更")
     prohibited = set(payload) & {"adversarial_reviews", "second_pass_samples"}
     if prohibited:
         raise ValueError("第一輪修復不可夾帶第二輪紀錄")
@@ -344,11 +389,12 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     if not expected or expected["batch_id"] != batch_id:
         raise ValueError("指定批次不符合依賴或順序")
     _stage_clean(target)
+    before = _assessment(target)
     payload = _read(payload_path)
-    _payload_scope(payload, expected, allow_finding_revision=allow_finding_revision)
+    _payload_scope(payload, expected, allow_finding_revision=allow_finding_revision,
+                   previous=before)
     current = state["observed_diagnostic"]
     from review_blockers import diagnose
-    before = _assessment(target)
     before_fingerprints = state["formal_fingerprints"]
     diag = diagnose(target, before)
     if diag["blocker_signature"] != state["observed_signature"]:
