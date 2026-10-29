@@ -20,6 +20,11 @@ ARTIFACTS = {
     "P5": "assessment.json",
     "unclassified": None,
 }
+PREREQUISITES = {
+    "P2": ("P0", "P1"),
+    "P3": ("P0", "P1"),
+    "P4": ("P0",),
+}
 
 
 def classify_repair_work(message: str) -> str:
@@ -43,19 +48,45 @@ def classify_repair_work(message: str) -> str:
 
 
 def _owners(blocker: dict[str, Any]) -> tuple[str, ...]:
-    raw = blocker.get("rule_ids") or []
-    if not isinstance(raw, list):
+    raw = blocker.get("rule_ids")
+    if not isinstance(raw, list) or not raw or not all(
+        isinstance(r, str) and RULE_ID.fullmatch(r) for r in raw
+    ):
         return ()
-    return tuple(sorted({r for r in raw if isinstance(r, str) and RULE_ID.fullmatch(r)}))
+    return tuple(sorted(set(raw)))
+
+
+def _dependency_errors(tasks: list[dict[str, Any]]) -> list[str]:
+    """Verify dependency references and detect cycles, including shared tasks."""
+    lookup = {t["task_id"]: t for t in tasks}
+    errors = []
+    if len(lookup) != len(tasks):
+        errors.append("duplicate_task_ids")
+    states: dict[str, int] = {}
+
+    def visit(task_id: str) -> None:
+        state = states.get(task_id, 0)
+        if state == 1:
+            errors.append(f"dependency_cycle:{task_id}")
+            return
+        if state == 2:
+            return
+        states[task_id] = 1
+        for dep in lookup[task_id]["depends_on"]:
+            if dep not in lookup:
+                errors.append(f"missing_dependency:{task_id}:{dep}")
+            else:
+                visit(dep)
+        states[task_id] = 2
+
+    for key in sorted(lookup):
+        visit(key)
+    return sorted(set(errors))
 
 
 def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
                             rule_batch_size: int = 8) -> dict[str, Any]:
-    """Cover every blocker index exactly once, with dependency-safe tasks.
-
-    Task status is a read-only *work suggestion*; only fresh authoritative
-    diagnosis and staged evidence can verify a repair.
-    """
+    """One owner per blocker index, every task scheduled or explicitly invalid."""
     if not 1 <= rule_batch_size <= 8:
         raise ValueError("rule_batch_size 必須介於 1 至 8")
     blockers = diagnostics.get("blockers", [])
@@ -72,32 +103,40 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
             raise ValueError(f"blockers[{index}].message 必須是字串")
         work = classify_repair_work(message)
         owners = _owners(blocker)
-        # Invalid or unknown owner must never be silently assigned to a rule.
-        if not owners or (blocker.get("rule_ids") or []) != list(owners):
+        if not owners:
             work = "unclassified"
         grouped[(work, owners)].append(index)
         categories[work] += 1
         owners_union.update(owners)
 
     ids = {(work, owners): (
-        owners[0] if len(owners) == 1 else "multi:" + ",".join(owners) if owners else "unscoped"
+        owners[0] if len(owners) == 1 else
+        "multi:" + ",".join(owners) if owners else "unscoped"
     ) + ":" + work for work, owners in grouped}
-    task_ids = set(ids.values())
+    by_rule_work: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for (work, owners), task_id in ids.items():
+        for rid in owners:
+            by_rule_work[(rid, work)].add(task_id)
     tasks = []
     for (work, owners), indexes in sorted(grouped.items(), key=lambda x: (
         WORK_ORDER.index(x[0][0]), x[0][1], x[1][0]
     )):
-        deps = []
-        if len(owners) == 1:
-            rid = owners[0]
-            required = {"P2": ("P0", "P1"), "P3": ("P0", "P1"),
-                        "P4": ("P0",)}.get(work, ())
-            deps = [f"{rid}:{p}" for p in required if f"{rid}:{p}" in task_ids]
+        deps = sorted({
+            prerequisite_task
+            for rid in owners for prerequisite in PREREQUISITES.get(work, ())
+            for prerequisite_task in by_rule_work.get((rid, prerequisite), ())
+        })
         tasks.append({
             "task_id": ids[(work, owners)],
             "rule_id": owners[0] if len(owners) == 1 else None,
             "rule_ids": list(owners),
             "blocker_indexes": indexes,
+            "blocker_details": [
+                {"index": index, "message": blockers[index]["message"],
+                 "category": blockers[index].get("category", "other"),
+                 "rule_ids": list(blockers[index].get("rule_ids") or [])}
+                for index in indexes
+            ],
             "artifact": ARTIFACTS[work],
             "priority": work,
             "depends_on": deps,
@@ -114,12 +153,13 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
             "blocker_count": sum(len(t["blocker_indexes"]) for t in related),
         })
 
-    # Coalesce every P2/P3 task for a rule into the same batch, including
-    # P0/P1/P4/P5 tasks for that rule. Single-writer integration is separate.
+    # Rule batches contain only single-rule tasks. Cross-rule tasks appear in
+    # *one* dedicated shared batch, never duplicated in each owner's batch.
+    # Oversized cross-rule scope is reported as unschedulable (fail closed).
     batches = []
     rules = sorted(owners_union, key=lambda rid: (
         min((WORK_ORDER.index(t["priority"]) for t in tasks
-             if t["rule_id"] == rid), default=len(WORK_ORDER)), rid
+             if rid in t["rule_ids"]), default=len(WORK_ORDER)), rid
     ))
     for offset in range(0, len(rules), rule_batch_size):
         members = rules[offset:offset + rule_batch_size]
@@ -130,33 +170,64 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
                          if t["rule_id"] == rid],
             "status": "pending",
         })
+    shared_batches = []
+    for task in tasks:
+        if len(task["rule_ids"]) <= 1 or len(task["rule_ids"]) > rule_batch_size:
+            continue
+        shared_batches.append({
+            "batch_id": f"shared-{len(shared_batches) + 1:02d}",
+            "rule_ids": list(task["rule_ids"]),
+            "task_ids": [task["task_id"]],
+            "status": "pending",
+            "type": "cross_rule",
+        })
 
     assigned = [i for t in tasks for i in t["blocker_indexes"]]
     expected = set(range(len(blockers)))
-    observed = set(assigned)
     duplicates = sorted(i for i, count in Counter(assigned).items() if count != 1)
     unknown = sorted(i for t in tasks if t["priority"] == "unclassified"
                      for i in t["blocker_indexes"])
+    batch_task_ids = [task_id for b in batches + shared_batches for task_id in b["task_ids"]]
+    batch_task_counts = Counter(batch_task_ids)
+    unscheduled = sorted(t["task_id"] for t in tasks
+                         if batch_task_counts[t["task_id"]] == 0)
+    duplicated_batch_tasks = sorted(t for t, count in batch_task_counts.items() if count > 1)
+    foreign_batch_tasks = sorted(set(batch_task_ids) - {t["task_id"] for t in tasks})
+    over_limit = sorted(b["batch_id"] for b in batches + shared_batches
+                        if len(b["rule_ids"]) > rule_batch_size)
+    dependency_errors = _dependency_errors(tasks)
     count_matches = diagnostics.get("blocked_count", len(blockers)) == len(blockers)
+    coverage_valid = not (
+        expected - set(assigned) or duplicates or unknown or not count_matches
+        or unscheduled or duplicated_batch_tasks or foreign_batch_tasks
+        or over_limit or dependency_errors
+    )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "blocker_signature": diagnostics.get("blocker_signature"),
         "work_counts": {p: categories[p] for p in WORK_ORDER},
         "rule_repair_tasks": tasks,
         "rule_work_matrix": matrix,
         "rule_repair_batches": batches,
+        "shared_rule_repair_batches": shared_batches,
         "rule_batch_size": rule_batch_size,
-        "unscoped_task_ids": [t["task_id"] for t in tasks if t["rule_id"] is None],
+        "unscoped_task_ids": [t["task_id"] for t in tasks if not t["rule_ids"]],
         "task_coverage": {
             "blocker_total": len(blockers),
             "assigned_count": len(assigned),
-            "missing_indexes": sorted(expected - observed),
+            "missing_indexes": sorted(expected - set(assigned)),
             "duplicate_indexes": duplicates,
             "unclassified_indexes": unknown,
             "count_matches_diagnostic": count_matches,
             "affected_rule_count": len(owners_union),
             "task_count": len(tasks),
-            "valid": not (expected - observed or duplicates or unknown or not count_matches),
+            "scheduled_task_count": len(batch_task_ids),
+            "unscheduled_task_ids": unscheduled,
+            "duplicate_batch_task_ids": duplicated_batch_tasks,
+            "foreign_batch_task_ids": foreign_batch_tasks,
+            "over_limit_batch_ids": over_limit,
+            "dependency_errors": dependency_errors,
+            "valid": coverage_valid,
         },
         "read_only": True,
         "note": "任務僅依權威 blocker 分類，不代表來源已查核、控制有效或准許整合；未知錯誤不可放行。",
