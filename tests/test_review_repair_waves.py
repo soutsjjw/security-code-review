@@ -48,7 +48,7 @@ class RepairWavesTests(unittest.TestCase):
 
     def _start(self):
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._stage_clean"), \
              patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._diagnose_and_plan",
                    return_value=(self.first, self.plan)):
@@ -64,7 +64,7 @@ class RepairWavesTests(unittest.TestCase):
     def test_start_rejects_invalid_task_coverage(self):
         self.plan["task_coverage"]["valid"] = False
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._stage_clean"), \
              patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._diagnose_and_plan",
                    return_value=(self.first, self.plan)):
@@ -75,7 +75,7 @@ class RepairWavesTests(unittest.TestCase):
     def test_initially_clear_diagnostics_go_directly_to_sampling(self):
         self.plan["execution_batches"] = []
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._stage_clean"), \
              patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._diagnose_and_plan",
                    return_value=(self.last, self.plan)):
@@ -103,10 +103,9 @@ class RepairWavesTests(unittest.TestCase):
         before = {"checks": [{"id": "AC-01", "status": "review"}], "findings": []}
         after = {"checks": [{"id": "AC-01", "status": "pass"}], "findings": []}
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._stage_clean"), \
              patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
-             patch("review_repair_waves._assessment", side_effect=[before, after]),
-             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp),
+             patch("review_repair_waves._assessment", side_effect=[before, after]), \
              patch("review_repair_waves._formal_fingerprints", return_value=self.updated_fp), \
              patch("review_blockers.diagnose", side_effect=[self.first, self.last]), \
              patch("review_safety.stage", return_value="staged.json") as stage_mock, \
@@ -126,7 +125,7 @@ class RepairWavesTests(unittest.TestCase):
         before = {"checks": [{"id": "AC-01", "status": "review"}], "findings": []}
         after = dict(before)
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._stage_clean"), \
              patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._assessment", side_effect=[before, after]), \
              patch("review_blockers.diagnose", side_effect=[self.first, self.first]), \
