@@ -146,6 +146,8 @@ class RuleRepairTasksTests(unittest.TestCase):
         self.assertFalse(p["task_coverage"]["valid"])
         self.assertEqual(p["task_coverage"]["scheduled_task_count"], 0)
         self.assertEqual(len(p["task_coverage"]["unscheduled_task_ids"]), 1)
+        self.assertFalse(p["task_coverage"]["execution"]["valid"])
+        self.assertEqual(len(p["task_coverage"]["execution"]["unscheduled_task_ids"]), 1)
         self.assertTrue(all(len(b["rule_ids"]) <= 8 for b in p["rule_repair_batches"]))
 
     def test_blocker_details_exactly_match_origin_diagnostics(self):
@@ -167,6 +169,93 @@ class RuleRepairTasksTests(unittest.TestCase):
         errors = _dependency_errors(tasks)
         self.assertTrue(any(x.startswith("dependency_cycle:") for x in errors))
         self.assertIn("missing_dependency:b:missing", errors)
+
+    def assert_execution_batches_safe(self, plan):
+        batches = plan["execution_batches"]
+        task_map = {task["task_id"]: task for task in plan["rule_repair_tasks"]}
+        task_batch = {}
+        batch_index = {batch["batch_id"]: index for index, batch in enumerate(batches)}
+        for index, batch in enumerate(batches):
+            self.assertLessEqual(len(batch["rule_ids"]), 8)
+            self.assertEqual(batch["depends_on_batch_ids"],
+                             sorted(batch["depends_on_batch_ids"],
+                                    key=lambda bid: batch_index[bid]))
+            for dep_batch in batch["depends_on_batch_ids"]:
+                self.assertLess(batch_index[dep_batch], index)
+            for task_id in batch["task_ids"]:
+                self.assertNotIn(task_id, task_batch)
+                task_batch[task_id] = batch["batch_id"]
+                self.assertTrue(set(task_map[task_id]["rule_ids"]).issubset(
+                    set(batch["rule_ids"])))
+        for task_id, task in task_map.items():
+            self.assertIn(task_id, task_batch)
+            for dependency in task["depends_on"]:
+                self.assertLess(batch_index[task_batch[dependency]],
+                                batch_index[task_batch[task_id]])
+                self.assertIn(task_batch[dependency],
+                              batches[batch_index[task_batch[task_id]]]["depends_on_batch_ids"])
+        for task in task_map.values():
+            if task["priority"] != "P2":
+                continue
+            for related in task_map.values():
+                if related["priority"] == "P3" and related["rule_ids"] == task["rule_ids"]:
+                    self.assertEqual(task_batch[task["task_id"]],
+                                     task_batch[related["task_id"]])
+        self.assertTrue(plan["task_coverage"]["execution"]["valid"])
+
+    def test_cross_rule_control_chain_precedes_dependent_rule_closure(self):
+        diagnostic = {"blocked_count": 4, "blockers": [
+            block("AC-01: Q2 控制鏈不完整", "AC-01", "AC-02"),
+            block("AC-01: 缺少 project 規則整合／控制責任結案紀錄", "AC-01"),
+            block("AC-01: Q3 缺少與 pass 判定相符的控制有效性／繞過路徑證據", "AC-01"),
+            block("AC-02: 缺少 project 規則整合／控制責任結案紀錄", "AC-02"),
+        ]}
+        plan = build_rule_repair_tasks(diagnostic)
+        self.assertTrue(plan["task_coverage"]["valid"])
+        self.assert_execution_batches_safe(plan)
+        positions = {task_id: i for i, b in enumerate(plan["execution_batches"])
+                     for task_id in b["task_ids"]}
+        self.assertLess(positions["multi:AC-01,AC-02:P1"], positions["AC-01:P2"])
+        self.assertLess(positions["multi:AC-01,AC-02:P1"], positions["AC-02:P2"])
+        self.assertEqual(positions["AC-01:P2"], positions["AC-01:P3"])
+
+    def test_cross_rule_closure_waits_for_both_owners_source_prerequisites(self):
+        diagnostic = {"blocked_count": 3, "blockers": [
+            block("AC-01: review 缺少具體可追溯的檢核證據", "AC-01"),
+            block("AC-02: Q2 控制鏈不完整", "AC-02"),
+            block("AC-01: 缺少 project 規則整合／控制責任結案紀錄", "AC-01", "AC-02"),
+        ]}
+        plan = build_rule_repair_tasks(diagnostic)
+        self.assert_execution_batches_safe(plan)
+        by_id = {t["task_id"]: t for t in plan["rule_repair_tasks"]}
+        self.assertEqual(by_id["multi:AC-01,AC-02:P2"]["depends_on"],
+                         ["AC-01:P0", "AC-02:P1"])
+
+    def test_repair_plan_execution_order_deterministic_under_blocker_permutation(self):
+        blockers = [
+            block("AU-04: review 缺少具體可追溯的檢核證據", "AU-04"),
+            block("AC-01: Q2 控制鏈不完整", "AC-01", "AC-02"),
+            block("AU-04: 缺少 project 規則整合／控制責任結案紀錄", "AU-04"),
+            block("AC-01: 缺少 project 規則整合／控制責任結案紀錄", "AC-01"),
+            block("AC-01: Q3 缺少與 fail 判定相符的控制有效性／繞過路徑證據", "AC-01"),
+            block("AC-01: P3 必須核對儲存庫來源與實際控制責任", "AC-01"),
+        ]
+        first = build_rule_repair_tasks({"blocked_count": len(blockers), "blockers": blockers})
+        reversed_plan = build_rule_repair_tasks({
+            "blocked_count": len(blockers), "blockers": list(reversed(blockers))
+        })
+        self.assert_execution_batches_safe(first)
+        self.assert_execution_batches_safe(reversed_plan)
+        self.assertEqual(first["execution_batches"], reversed_plan["execution_batches"])
+
+    def test_original_155_snapshot_has_safe_execution_order(self):
+        fixture = Path(__file__).resolve().parent / "fixtures" / "first_pass_155_snapshot.json.gz.b64"
+        diagnostic = json.loads(gzip.decompress(base64.b64decode(fixture.read_bytes())))
+        plan = build_rule_repair_tasks(diagnostic)
+        self.assert_execution_batches_safe(plan)
+        self.assertEqual(plan["task_coverage"]["execution"]["scheduled_task_count"],
+                         len(plan["rule_repair_tasks"]))
+        self.assertEqual(plan["task_coverage"]["execution"]["forward_dependency_edges"], [])
 
     def test_diagnostic_comparison_stops_on_new_categories_and_growth(self):
         b = {"blocker_signature": "old", "blockers": [
