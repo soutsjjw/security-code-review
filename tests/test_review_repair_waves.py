@@ -178,7 +178,7 @@ class RepairWavesTests(unittest.TestCase):
         receipt.write_text(json.dumps({
             "rule_id": "AC-01", "reviewer": "Human Reviewer",
             "reviewed_on": date.today().isoformat(), "outcome": "verified",
-            "review_summary": "逐行核對已提交的控制邏輯，重讀實際來源、可能繞過路徑，並確認此項沒有新增弱點。",
+            "review_summary": "逐行核對已提交的控制邏輯，重讀實際來源、可能繞過路徑與設定覆寫，並確認此項沒有新增弱點。",
             "evidence": {"path": "Service.cs", "line_start": 1, "line_end": 1}
         }, ensure_ascii=False), encoding="utf-8")
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
