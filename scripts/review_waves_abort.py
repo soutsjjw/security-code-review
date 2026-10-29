@@ -139,15 +139,33 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
     state = _load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
-        # This branch is deliberately read-only; a duplicate CLI call cannot
-        # quarantine any new staged data.
+        # Retries are read-only, and must still verify the archived bytes,
+        # immutable receipt, and current formal integrity.
         matching = [x for x in state.get("aborted_transactions", [])
                     if x.get("batch_id") == batch_id]
-        if matching:
-            return {"status": "already_aborted", "batch_id": batch_id,
-                    "archive": matching[-1]["archive"],
-                    "notice": "沒有重複移動或清除正式資料"}
-        raise ValueError("沒有可取消的 inflight 交易")
+        if not matching:
+            raise ValueError("沒有可取消的 inflight 交易")
+        from review_repair_waves import _assert_state_current
+        _assert_state_current(target, state)
+        last = matching[-1]
+        event_id = last.get("event_id")
+        if (not isinstance(event_id, str) or len(event_id) != 32
+                or any(c not in "0123456789abcdef" for c in event_id)):
+            raise ValueError("取消紀錄的交易識別碼無效")
+        archive_dir = _safe_folder(target) / event_id
+        archive = archive_dir / "staged.json"
+        receipt = _read_record(archive_dir / "receipt.json")
+        if (archive_dir.is_symlink() or archive.is_symlink() or not archive.is_file()
+                or _file_sha(archive) != last.get("staged_sha256")
+                or receipt.get("event_id") != event_id
+                or receipt.get("staged_sha256") != last.get("staged_sha256")
+                or receipt.get("batch_id") != batch_id
+                or receipt.get("archived") != last.get("archive")
+                or receipt.get("not_formal_journal") is not True):
+            raise ValueError("既有隔離封存或稽核收據無法驗證")
+        return {"status": "already_aborted", "batch_id": batch_id,
+                "archive": last["archive"],
+                "notice": "已核對現存封存內容與正式證據，未重複移動"}
     _check_original(target, state, intent, batch_id)
     manifest, evidence = _verify_official_unchanged(target, state, intent)
     quarantine = _safe_folder(target)
@@ -195,7 +213,8 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
             or prepared.get("checkpoint_sha256") != _digest(state)):
         raise ValueError("隔離意圖與目前正式交易或 checkpoint 不一致")
     if (not isinstance(prepared.get("staged_name"), str)
-            or len(prepared.get("staged_sha256", "")) != 64):
+            or not isinstance(prepared.get("staged_sha256"), str)
+            or len(prepared["staged_sha256"]) != 64):
         raise ValueError("隔離意圖缺少可信 staged 指紋")
     if len(staged) == 1:
         if archived.exists() or archived.is_symlink():
@@ -228,9 +247,14 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
                    "not_formal_journal": True}
         _write_new(receipt_path, receipt)
     receipt = _read_record(receipt_path)
-    if (receipt.get("event_id") != event_id or receipt.get("batch_id") != batch_id
+    if (receipt.get("schema_version") != RECEIPT_VERSION
+            or receipt.get("event") != "wave2-uncommitted-stage-quarantined"
+            or receipt.get("event_id") != event_id or receipt.get("batch_id") != batch_id
             or receipt.get("staged_sha256") != prepared["staged_sha256"]
+            or receipt.get("payload_sha256") != intent["payload_sha256"]
             or receipt.get("manifest_head") != manifest["head"]
+            or receipt.get("manifest_sequence") != manifest["sequence"]
+            or receipt.get("manifest_sha256") != evidence["manifest_sha256"]
             or receipt.get("archived") != archived.relative_to(target).as_posix()
             or receipt.get("not_formal_journal") is not True):
         raise ValueError("隔離收據與實際封存檔不一致")
