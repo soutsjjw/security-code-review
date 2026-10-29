@@ -165,6 +165,25 @@ class AbortWave2Tests(unittest.TestCase):
                            allow_unbound_legacy=True)
         self.assertTrue(self.staged_path.exists())
 
+    def test_staged_only_crash_recovery_requires_same_explicit_sha(self):
+        original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
+        with self.verified():
+            with patch("review_repair_waves._write_state", side_effect=RuntimeError("crash")):
+                with self.assertRaisesRegex(RuntimeError, "crash"):
+                    self.abort(payload_path=None, allow_unbound_legacy=True,
+                               expected_staged_sha256=original_sha)
+            self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+            with self.assertRaisesRegex(ValueError, "staged-only 例外"):
+                self.abort(payload_path=None, expected_staged_sha256=original_sha)
+            with self.assertRaisesRegex(ValueError, "staged-only 例外"):
+                self.abort(payload_path=None, allow_unbound_legacy=True,
+                           expected_staged_sha256="0" * 64)
+            result = self.abort(payload_path=None, allow_unbound_legacy=True,
+                                expected_staged_sha256=original_sha)
+        self.assertEqual(result["status"], "aborted_uncommitted")
+        self.assertTrue(result["legacy_unbound_staged_only"])
+        self.assertIsNone(_read(self.target / STATE)["inflight"])
+
     def test_staged_only_cli_requires_both_explicit_legacy_flags(self):
         from review_repair_waves import main
         original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
