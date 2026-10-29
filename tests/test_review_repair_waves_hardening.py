@@ -55,6 +55,13 @@ class RepairWavesSecurityTests(unittest.TestCase):
             _payload_scope(row, {"rule_ids": ["AC-01"]},
                            allow_finding_revision=False, previous={"file_reviews": []})
 
+    def test_unattributed_file_review_is_not_a_batch_repair(self):
+        payload = {"file_reviews": [{"path": "New.cs", "rule_reviews": []}]}
+        with self.assertRaisesRegex(ValueError, "缺少可核對的規則歸屬"):
+            _payload_scope(payload, {"rule_ids": ["AC-01"]},
+                           allow_finding_revision=False,
+                           previous={"file_reviews": []})
+
     def test_external_control_and_finding_revisions_force_sampling(self):
         prior = fingerprints()
         after = json.loads(json.dumps(prior))
