@@ -447,6 +447,7 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     state["inflight"] = {
         "phase": "first_pass", "batch_id": batch_id,
         "payload_sha256": _file_sha(payload_path),
+        "payload_digest": _digest(payload),
         "prior_evidence": state["last_evidence"],
         "prior_fingerprints": state["formal_fingerprints"],
     }
@@ -781,6 +782,7 @@ def main(argv: list[str] | None = None) -> int:
                  "begin-second-pass", "verify-second-pass"):
         operations.add_argument("--" + flag, action="store_true")
     operations.add_argument("--apply-batch", metavar="BATCH_ID")
+    operations.add_argument("--abort-uncommitted", metavar="BATCH_ID")
     operations.add_argument("--apply-second-pass", action="store_true")
     operations.add_argument("--record-sample", type=Path, metavar="RECEIPT_JSON")
     parser.add_argument("--payload", type=Path)
@@ -794,10 +796,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if (args.start or args.apply_batch or args.apply_second_pass or args.record_sample
                 or args.sample_plan or args.begin_second_pass or args.resume
-                or args.reconcile or args.finalize):
+                or args.reconcile or args.finalize or args.abort_uncommitted):
             with _single_writer(target):
                 if args.start:
                     result = start(target)
+                elif args.abort_uncommitted:
+                    from review_waves_abort import abort_uncommitted
+                    result = abort_uncommitted(
+                        target, args.abort_uncommitted,
+                        payload_path=args.payload,
+                        acknowledged=args.acknowledge_investigation)
                 elif args.reconcile:
                     from review_waves_lifecycle import reconcile
                     result = reconcile(target, acknowledged=args.acknowledge_investigation)
