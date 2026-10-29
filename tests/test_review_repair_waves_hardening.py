@@ -112,7 +112,9 @@ class RepairWavesSecurityTests(unittest.TestCase):
         stack = ExitStack()
         self.addCleanup(stack.close)
         stack.enter_context(patch("review_repair_waves._load_state",
-                                  return_value={"phase": "second_pass", "paused": False}))
+                                  return_value={"phase": "second_pass", "paused": False,
+                                                "last_evidence": {"manifest_sha256": None},
+                                                "formal_fingerprints": fingerprints()}))
         stack.enter_context(patch("review_repair_waves._assert_state_current"))
         stack.enter_context(patch("review_repair_waves._stage_clean"))
         stack.enter_context(patch("second_pass_layers.worklist", return_value=worklist))
