@@ -1,7 +1,11 @@
 """P0–P3 定向修復方案與逐批守門的正反向測試。"""
 import copy
+import io
+import json
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -213,6 +217,34 @@ class BatchGateTests(unittest.TestCase):
                               changed_paths={"src/Handler.cs"}, snapshot_paths={"src/Handler.cs"})
         self.assertEqual(problems, [])
         verifier.assert_not_called()
+
+
+
+class RepairPlanCliTests(unittest.TestCase):
+    def test_previous_diagnostics_triggers_exit_three_on_new_blocker_type(self):
+        from first_pass_repair import main as repair_main
+        with tempfile.TemporaryDirectory() as base:
+            target = Path(base)
+            report = target / "reports/security-code-review"
+            report.mkdir(parents=True)
+            (report / "assessment.json").write_text(
+                json.dumps({"checks": [], "file_reviews": []}), encoding="utf-8")
+            previous = target / "before.json"
+            previous.write_text(json.dumps({"blockers": [], "blocker_signature": "before"}),
+                                encoding="utf-8")
+            latest = {"blocker_signature": "after", "blocked_count": 1, "blockers": [
+                {"rule_ids": ["BC-02"], "category": "other",
+                 "message": "BC-02: 缺少具體檢核摘要（至少 15 字）"}]}
+            stdout = io.StringIO()
+            with patch("sys.argv", ["first_pass_repair.py", "--target", str(target),
+                                    "--previous-diagnostics", str(previous)]):
+                with patch("review_blockers.diagnose", return_value=latest):
+                    with redirect_stdout(stdout):
+                        code = repair_main()
+            self.assertEqual(code, 3)
+            output = json.loads(stdout.getvalue())
+            self.assertTrue(output["batch_regression"]["should_pause"])
+            self.assertEqual(output["batch_regression"]["new_work_items"], ["P5"])
 
 
 if __name__ == "__main__":
