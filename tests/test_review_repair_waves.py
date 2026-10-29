@@ -28,7 +28,7 @@ class RepairWavesTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.audit = {"assessment_sha256": "a" * 64, "source_snapshot_sha256": "b" * 64}
+        self.audit = {"assessment_sha256": "a" * 64, "source_snapshot_sha256": "b" * 64, "manifest_sha256": "c" * 64}
         self.base_fp = {"checks": {"AC-01": {"digest": "old", "status": "review"}},
                         "file_reviews": {}, "findings": {}, "closures": {},
                         "control_verifications": {}, "decision_audits": {}}
