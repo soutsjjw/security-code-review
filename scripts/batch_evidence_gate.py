@@ -169,11 +169,14 @@ def completion_transition_errors(
         "新完成規則證據未通過守門：" + e
         for e in issues(after, transitions, after_closures, after_verifications, after_audits)
     ] if transitions else []
-    if legacy_revisions:
-        old_errors = set(issues(before, legacy_revisions, before_closures,
-                                before_verifications, before_audits))
-        new_errors = set(issues(after, legacy_revisions, after_closures,
-                                after_verifications, after_audits))
-        errors.extend("既有 completed 證據修訂新增阻塞：" + e
-                      for e in sorted(new_errors - old_errors))
+    for rid in sorted(legacy_revisions):
+        # Legacy incomplete evidence needs multi-batch repair. A newly supplied
+        # closure may expose deeper Q2/P2/Q3 gaps; do not mistake that for a
+        # regression. Still protect a previously valid rule from degradation.
+        old_errors = issues(before, {rid}, before_closures,
+                            before_verifications, before_audits)
+        if not old_errors:
+            errors.extend("既有 completed 證據修訂新增阻塞：" + e
+                          for e in issues(after, {rid}, after_closures,
+                                          after_verifications, after_audits))
     return errors
