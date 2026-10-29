@@ -8,7 +8,10 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from rule_repair_tasks import build_rule_repair_tasks, classify_repair_work
+from rule_repair_tasks import (
+    build_rule_repair_tasks, classify_repair_work,
+    compare_rule_repair_diagnostics, _dependency_errors,
+)
 
 
 def block(message, *rules):
@@ -82,7 +85,10 @@ class RuleRepairTasksTests(unittest.TestCase):
         self.assertEqual(p["task_coverage"]["assigned_count"], 1)
         self.assertEqual(p["task_coverage"]["duplicate_indexes"], [])
         self.assertEqual(len(p["rule_repair_tasks"]), 1)
-        self.assertEqual(p["unscoped_task_ids"], ["multi:AC-01,AC-02:P1"])
+        self.assertEqual(p["unscoped_task_ids"], [])
+        self.assertEqual(p["shared_rule_repair_batches"][0]["task_ids"], ["multi:AC-01,AC-02:P1"])
+        self.assertTrue(p["task_coverage"]["valid"])
+        self.assertEqual(p["task_coverage"]["unscheduled_task_ids"], [])
 
     def test_real_155_snapshot_regression(self):
         fixture = Path(__file__).resolve().parent / "fixtures" / "first_pass_155_snapshot.json.gz.b64"
@@ -107,6 +113,88 @@ class RuleRepairTasksTests(unittest.TestCase):
         self.assertEqual(matrix["BC-03"], ["P2", "P5"])
         self.assertEqual(matrix["AC-01"], ["P1", "P3"])
         self.assertEqual(matrix["DP-01"], ["P0", "P2", "P3", "P4"])
+
+    def test_multi_rule_dependency_is_included_in_single_rule_task(self):
+        d = {"blocked_count": 2, "blockers": [
+            block("AC-01: Q2 控制鏈不完整", "AC-01", "AC-02"),
+            block("AC-02: 缺少 project 規則整合／控制責任結案紀錄", "AC-02"),
+        ]}
+        p = build_rule_repair_tasks(d)
+        by_id = {t["task_id"]: t for t in p["rule_repair_tasks"]}
+        self.assertIn("multi:AC-01,AC-02:P1", by_id["AC-02:P2"]["depends_on"])
+        self.assertTrue(p["task_coverage"]["valid"])
+
+    def test_multiple_same_rule_prerequisite_tasks_are_not_overwritten(self):
+        d = {"blocked_count": 3, "blockers": [
+            block("AC-01: Q2 控制鏈不完整", "AC-01"),
+            block("AC-01: Q2 控制鏈不完整（跨規則）", "AC-01", "AC-02"),
+            block("AC-01: 缺少 project 規則整合／控制責任結案紀錄", "AC-01"),
+        ]}
+        p = build_rule_repair_tasks(d)
+        by_id = {t["task_id"]: t for t in p["rule_repair_tasks"]}
+        self.assertEqual(by_id["AC-01:P2"]["depends_on"],
+                         ["AC-01:P1", "multi:AC-01,AC-02:P1"])
+
+    def test_oversized_shared_scope_remains_unbatchable_and_invalid(self):
+        rules = [f"AU-{i:02d}" for i in range(1, 10)]
+        p = build_rule_repair_tasks({"blocked_count": 1, "blockers": [
+            block("AU-01: Q2 控制鏈不完整", *rules),
+        ]})
+        self.assertFalse(p["task_coverage"]["valid"])
+        self.assertEqual(p["task_coverage"]["scheduled_task_count"], 0)
+        self.assertEqual(len(p["task_coverage"]["unscheduled_task_ids"]), 1)
+        self.assertTrue(all(len(b["rule_ids"]) <= 8 for b in p["rule_repair_batches"]))
+
+    def test_blocker_details_exactly_match_origin_diagnostics(self):
+        d = {"blocked_count": 2, "blockers": [
+            block("AC-01: Q2 控制鏈不完整", "AC-01"),
+            block("AC-01: Q2 控制鏈節點[0]", "AC-01"),
+        ]}
+        p = build_rule_repair_tasks(d)
+        task = p["rule_repair_tasks"][0]
+        self.assertEqual(task["blocker_indexes"], [0, 1])
+        self.assertEqual([x["message"] for x in task["blocker_details"]],
+                         [b["message"] for b in d["blockers"]])
+
+    def test_dependency_validator_detects_missing_edges_and_cycles(self):
+        tasks = [
+            {"task_id": "a", "depends_on": ["b"]},
+            {"task_id": "b", "depends_on": ["a", "missing"]},
+        ]
+        errors = _dependency_errors(tasks)
+        self.assertTrue(any(x.startswith("dependency_cycle:") for x in errors))
+        self.assertIn("missing_dependency:b:missing", errors)
+
+    def test_diagnostic_comparison_stops_on_new_categories_and_growth(self):
+        b = {"blocker_signature": "old", "blockers": [
+            {**block("BC-03: 缺少具體檢核摘要（至少 15 字）", "BC-03"),
+             "category": "other"},
+        ]}
+        after = {"blocker_signature": "new", "blockers": [
+            {**block(f"BC-0{i}: 缺少具體檢核摘要（至少 15 字）", f"BC-0{i}"),
+             "category": "control_trace"} for i in range(2, 7)
+        ]}
+        result = compare_rule_repair_diagnostics(b, after)
+        self.assertTrue(result["should_pause"])
+        self.assertEqual(result["new_blocker_count"], 4)
+        self.assertIn("control_trace", result["new_categories"])
+        self.assertEqual(b["blocker_signature"], "old")
+
+    def test_diagnostic_comparison_stops_on_integrity_or_unknown(self):
+        previous = {"blockers": []}
+        for message, category in [
+            ("來源 Journal 校驗失敗", "integrity"),
+            ("不認識的新格式", "other"),
+        ]:
+            result = compare_rule_repair_diagnostics(previous, {
+                "blockers": [{**block(message, "BC-01"), "category": category}]})
+            self.assertTrue(result["should_pause"])
+
+    def test_diagnostic_comparison_allows_reduced_known_blockers(self):
+        prior = {"blockers": [block("BC-02: 缺少具體檢核摘要（至少 15 字）", "BC-02")]}
+        result = compare_rule_repair_diagnostics(prior, {"blockers": []})
+        self.assertFalse(result["should_pause"])
+        self.assertEqual(result["removed_blocker_count"], 1)
 
     def test_batch_size_validation(self):
         for size in (0, 9, -1):
