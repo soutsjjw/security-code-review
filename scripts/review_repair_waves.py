@@ -194,7 +194,8 @@ def start(target: Path) -> dict:
         raise ValueError("權威阻塞無法完整排程，禁止啟動：" +
                          json.dumps(plan["task_coverage"], ensure_ascii=False)[:1500])
     batches = plan["execution_batches"]
-    state = {"schema_version": VERSION, "phase": "first_pass",
+    initial_phase = "sample" if not batches and diag.get("ready_for_second_pass") else "first_pass"
+    state = {"schema_version": VERSION, "phase": initial_phase,
              "initial_signature": diag["blocker_signature"],
              "observed_signature": diag["blocker_signature"],
              "observed_diagnostic": diag,
@@ -233,7 +234,8 @@ def _payload_scope(payload: dict, batch: dict, *, allow_finding_revision: bool) 
     if prohibited:
         raise ValueError("第一輪修復不可夾帶第二輪紀錄")
     for finding in payload.get("findings", []):
-        if not isinstance(finding, dict) or not set(finding.get("check_ids") or []) <= allowed:
+        if (not isinstance(finding, dict) or not finding.get("check_ids")
+                or not set(finding.get("check_ids") or []) <= allowed):
             raise ValueError("Finding 必須關聯本批規則")
     if payload.get("finding_revisions") and not allow_finding_revision:
         raise ValueError("Finding 修訂須另行明確授權")
@@ -282,6 +284,10 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     changed.update(set(payload.get("control_verifications") or {}))
     changed.update(set(payload.get("decision_audits") or {}))
     changed.update(set(payload.get("recheck_proof") or {}))
+    for row in payload.get("file_reviews") or []:
+        for review in row.get("rule_reviews") or []:
+            if isinstance(review, dict) and isinstance(review.get("rule_id"), str):
+                changed.add(review["rule_id"])
     state["changed_rules"] = sorted(set(state["changed_rules"]) | changed)
     mandatory = set(state["mandatory_rules"])
     old_findings = {f["id"]: f for f in before.get("findings", [])}
@@ -297,6 +303,7 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
             mandatory.add(rid)
     mandatory.update(payload.get("closures") or {})
     mandatory.update(payload.get("decision_audits") or {})
+    state["changed_rules"] = sorted(set(state["changed_rules"]) | mandatory)
     state["mandatory_rules"] = sorted(mandatory)
     remaining = _batch_blockers(expected, state["tasks"]) & _blocker_keys(updated)
     no_progress = current["blocker_signature"] == updated["blocker_signature"]
