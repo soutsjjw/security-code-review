@@ -79,6 +79,14 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
         result = {"batch_id": intent["batch_id"],
                   "original_blockers_remaining": len(remaining),
                   "phase": state["phase"]}
+    elif intent["phase"] == "baseline":
+        from second_pass_layers import worklist
+        work = worklist(target)
+        if not work.get("ready") or work.get("rules_total") != 70:
+            raise ValueError("中斷後沒有合法的正式第二輪 Baseline／70 項計畫")
+        state["phase"] = "second_pass"
+        result = {"phase": "second_pass", "baseline_reconciled": True,
+                  "rules_pending": work.get("rules_pending")}
     elif intent["phase"] == "second_pass":
         from second_pass_layers import worklist
         work = worklist(target)
