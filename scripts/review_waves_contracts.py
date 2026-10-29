@@ -25,6 +25,9 @@ def work_contract(target: Path, state: dict, *, second_pass: dict | None = None)
     Provider identity and actual permission probe are intentionally not
     inferred from a string passed by the user.
     """
+    if state.get("phase") == "sample":
+        return {"ready": False, "phase": "sample",
+                "reason": "第一輪修訂完成，須先固定並實際完成風險抽樣"}
     second = state.get("phase") == "second_pass"
     if second:
         if not isinstance(second_pass, dict) or not second_pass.get("ready"):
