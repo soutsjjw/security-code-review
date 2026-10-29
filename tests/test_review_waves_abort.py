@@ -13,7 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from review_repair_waves import REPORT, STATE, _read, _write_state
 from review_safety import SNAPSHOT
-from review_waves_abort import abort_uncommitted
+from review_waves_abort import abort_uncommitted, inspect_uncommitted
 
 
 class AbortWave2Tests(unittest.TestCase):
@@ -79,6 +79,53 @@ class AbortWave2Tests(unittest.TestCase):
         return abort_uncommitted(self.target, "execution-01",
                                  payload_path=kwargs.pop("payload_path", self.payload_path),
                                  acknowledged=kwargs.pop("acknowledged", True), **kwargs)
+
+    def test_read_only_preflight_identifies_missing_legacy_payload(self):
+        with self.verified():
+            result = inspect_uncommitted(self.target, "execution-01")
+        self.assertEqual(result["status"], "needs_original_payload")
+        self.assertFalse(result["can_abort"])
+        self.assertTrue(result["read_only"])
+        self.assertEqual(result["manifest_sequence"], 90)
+        self.assertTrue(self.staged_path.is_file())
+        self.assertFalse((self.target / REPORT / "logs/repair-waves/aborted").exists())
+        self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+
+    def test_read_only_preflight_proves_exact_original_payload(self):
+        with self.verified():
+            result = inspect_uncommitted(
+                self.target, "execution-01", payload_path=self.payload_path)
+        self.assertEqual(result["status"], "ready_to_abort")
+        self.assertTrue(result["can_abort"])
+        self.assertEqual(result["staged_count"], 1)
+        self.assertEqual(result["inflight_payload_sha256"],
+                         self.state["inflight"]["payload_sha256"])
+        self.assertFalse((self.target / REPORT / "logs/repair-waves/aborted").exists())
+
+    def test_preflight_rejects_bad_original_payload_without_changes(self):
+        self.payload_path.write_text('{"checks":[]}', encoding="utf-8")
+        with self.verified():
+            with self.assertRaisesRegex(ValueError, "SHA256"):
+                inspect_uncommitted(self.target, "execution-01",
+                                    payload_path=self.payload_path)
+        self.assertTrue(self.staged_path.exists())
+
+    def test_preflight_rejects_committed_manifest(self):
+        altered = dict(self.evidence, manifest_sha256="f" * 64)
+        with self.verified(evidence=altered):
+            with self.assertRaisesRegex(ValueError, "Manifest"):
+                inspect_uncommitted(self.target, "execution-01",
+                                    payload_path=self.payload_path)
+        self.assertTrue(self.staged_path.exists())
+
+    def test_preflight_cli_needs_no_mutating_authorization(self):
+        from review_repair_waves import main
+        with self.verified():
+            status = main(["--target", str(self.target),
+                           "--inspect-uncommitted", "execution-01"])
+            self.assertEqual(status, 0)
+        self.assertTrue(self.staged_path.exists())
+        self.assertIsNotNone(_read(self.target / STATE)["inflight"])
 
     def test_requires_explicit_acknowledgement(self):
         with self.assertRaisesRegex(ValueError, "acknowledge-investigation"):
