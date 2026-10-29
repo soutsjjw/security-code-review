@@ -163,7 +163,9 @@ def scope_tasks(target: Path) -> list[dict]:
 def closure_errors(target: Path, assessment: dict, *, index_override: dict | None = None,
                    snapshot_override: dict | None = None,
                    closures_override: dict | None = None,
-                   diagnostics: dict[str, dict] | None = None) -> list[str]:
+                   diagnostics: dict[str, dict] | None = None,
+                   verifications_override: dict | None = None,
+                   audits_override: dict | None = None) -> list[str]:
     """明確記錄人工查證的邊界及全專案責任；不以索引候選冒充結論。"""
     if snapshot_override is None and not (report_dir(target) / SNAPSHOT).exists():
         return []
@@ -293,7 +295,11 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
         elif closure["open_issues"]:
             errors.append(f"{rid}: 仍有未關閉的跨檔／全專案補查任務")
         if q2:
-            errors.extend(trace_errors(target, index, snapshot, check, closure, scopes[rid]))
+            errors.extend(trace_errors(
+                target, index, snapshot, check, closure, scopes[rid],
+                verifications_override=verifications_override,
+                audits_override=audits_override,
+            ))
         if scopes[rid] == "cross_file" and isinstance(paths, list) and len(paths) == 1:
             # 合法的單檔實作仍可結案，但需說明如何排除其他呼叫端／設定。
             note = closure.get("single_file_justification")
@@ -411,6 +417,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
     control_verifications = _read(report_dir(target) / CONTROL_VERIFICATIONS, {}) or {}
     decision_audits = _read(report_dir(target) / DECISION_AUDITS, {}) or {}
     adversarial_reviews = _read(report_dir(target) / ADVERSARIAL_REVIEWS, {}) or {}
+    # Keep pre-integration sidecars for delta validation of existing completed evidence.
+    previous_closures = json.loads(json.dumps(closures, ensure_ascii=False))
+    previous_verifications = json.loads(json.dumps(control_verifications, ensure_ascii=False))
+    previous_audits = json.loads(json.dumps(decision_audits, ensure_ascii=False))
     known_fingerprints = {_fingerprint(f): fid for fid, f in findings.items()}
     new_files: set[str] = set()
     changed_file_evidence: set[str] = set()
@@ -638,6 +648,18 @@ def integrate(target: Path, *, allow_revision: bool = False,
         target, previous_assessment, data,
         changed_paths=changed_file_evidence | newly_completed_paths,
         snapshot_paths=set(snapshot["source_hashes"]),
+    )
+    if defects:
+        raise ValueError("；".join(defects[:12]))
+    # Validate newly completed rules against the merged assessment and sidecars,
+    # not the old on-disk evidence. Incremental repairs must not regress existing
+    # completed rules; unrelated historical gaps remain subject to full validation.
+    from batch_evidence_gate import completion_transition_errors
+    defects = completion_transition_errors(
+        target, previous_assessment, data,
+        before_closures=previous_closures, after_closures=closures,
+        before_verifications=previous_verifications, after_verifications=control_verifications,
+        before_audits=previous_audits, after_audits=decision_audits,
     )
     if defects:
         raise ValueError("；".join(defects[:12]))
