@@ -382,6 +382,8 @@ def _payload_scope(payload: dict, batch: dict, *, allow_finding_revision: bool,
         # File-level metadata (including hashes and general summary) cannot be
         # rewritten while carrying other owners' already completed evidence.
         all_owners = _rule_ids_from_file(row) | _rule_ids_from_file(old)
+        if row != old and not all_owners:
+            raise ValueError("file_reviews 缺少可核對的規則歸屬，禁止跨批次寫入")
         external_owners = all_owners - allowed
         external_columns = {"rule_reviews", "category_screening"}
         if external_owners and any(
