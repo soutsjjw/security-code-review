@@ -6,10 +6,10 @@
 
 | 波次 | 自動化 | 必須由 Agent／審查者完成 |
 | --- | --- | --- |
-| Wave 0 前置檢查 | 原始來源／完整性驗證、拒絕舊暫存或錯誤排程、建立不可覆寫的操作 checkpoint | 確認受測範圍、正式資料與來源真實性 |
+| Wave 0 前置檢查 | 原始來源／完整性驗證、比對完整正式追蹤工件 SHA256 與 Manifest、拒絕舊暫存或錯誤排程、建立不可覆寫的操作 checkpoint | 確認受測範圍、正式資料與來源真實性 |
 | Wave 1 凍結工作 | 固定來源診斷簽章、任務與 `execution_batches` 拓樸順序 | 查核所有仍未分類的阻塞，不得擅自放寬守門 |
 | Wave 2 批次證據修訂 | 驗證本批 ID／規則歸屬，轉交既有正式 `stage/integrate`，比較前後 blocker 並在新錯誤／無進展時停止 | 逐檔重讀真實來源、產生本批審查 JSON、明確取得 `--allow-revision` 授權；Finding 修訂另行授權 |
-| Wave 3 風險抽樣 | 根據本次實際修訂規則自動固定抽樣集合；Finding、Fail 變更及控制責任修改全部強制納入 | 人工重新閱讀來源，提供具姓名、日期、檔案、行號及摘要的抽樣紀錄；身分仍非可信驗證 |
+| Wave 3 風險抽樣 | 根據真實修訂（含暫停期間的外部合法修訂）自動固定高／中／低風險分層樣本；Finding、Fail、控制有效性與責任變更全部強制納入 | 人工重新閱讀來源，提供具姓名、日期、檔案、行號及摘要的抽樣紀錄；身分仍非可信驗證 |
 | Wave 4 第二輪 | 重查權威第一輪診斷、抽樣是否完成，正式固定第一輪 Baseline，提供分層工作清單／讀取正式結果 | 70 條規則反向核查、高風險來源樣本、矛盾裁決與合法證據整合；沒有真實原生隔離不得宣稱獨立盲審 |
 
 `scripts/review_repair_waves.py` 維持非正式操作 checkpoint：`<TARGET_ROOT>/reports/security-code-review/logs/repair-waves/state.json`。**它不是 Manifest／Journal 保護的正式資料**，也不能據此宣稱防竄改、審查已 Pass 或已有可信獨立覆核。遇到外部變動、舊鎖／未完成的暫存或衝突，應人工調查，不可刪除正式歷史強行重啟。
@@ -49,7 +49,7 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --record-sample "<SAMPLE_RECEIPT>.json"
 ```
 
-抽樣母體為**本次真實修訂過的不同規則數** N，最小數量為 `N=0 ? 0 : min(N,max(5,ceil(0.1*N)))`；加上 Finding、Fail 異動、重大結案／責任變更全部強制核對，可能超出抽樣數。紀錄格式：
+抽樣母體為**本次真實修訂過的不同規則數** N，最小數量為 `N=0 ? 0 : min(N,max(5,ceil(0.1*N)))`；高／中／低風險分層各至少一個代表（若該層存在），Finding、Fail 異動、控制有效性與重大責任／裁決變更全部強制核對，可能超出抽樣數。抽樣憑證路徑除了需有可信 SHA256，還必須出現在該規則正式檢核證據、inspected_paths 或相關逐檔檢核紀錄中。紀錄格式：
 
 ```json
 {
@@ -72,6 +72,11 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --verify-second-pass
 ```
 
-這些動作**不自動填入** `adversarial_reviews` 或固定高風險來源的 `second_pass_samples`。Agent 必須依 `second_pass_layers.py` 真實閱讀來源、以 `review_safety.py --stage/--integrate` 提交；若採用子代理，先依 [多代理可信能力契約](multi-agent-review.md) 完成實測與原生工具隔離。L0 表示同代理且**不獨立**；L1／L2 只有可驗證的不同代理／獨立人員實際查核才可主張，不能以 Prompt 或自填字串推定。
+這些動作**不自動填入** `adversarial_reviews` 或固定高風險來源的 `second_pass_samples`。Agent 應依 `--next` 回傳的正式 `rule_tasks`、`sample_tasks` 實際閱讀原始碼，並可使用下列入口提交**自己已查證**、且只涉及當前第二輪批次的證據：
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --apply-second-pass --payload "<SECOND_PASS_PAYLOAD>.json"
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --next
+```
+若第二輪需要改寫已 completed 規則或 Finding，須另外明確授權 `--allow-revision`（Finding 另加 `--allow-finding-revision`）；正式 `review_safety.py` 與 Journal 的安全守門不變。純反向複核／抽樣仍需逐筆核對來源、繞過假設與矛盾，不得填固定樣板。若採用子代理，若採用子代理，先依 [多代理可信能力契約](multi-agent-review.md) 完成實測與原生工具隔離。L0 表示同代理且**不獨立**；L1／L2 只有可驗證的不同代理／獨立人員實際查核才可主張，不能以 Prompt 或自填字串推定。
 
 最後仍須執行 `review_safety.py --validate`、不帶 `--compact` 的 `review_queue.py`，確認 `ready_for_report=true`，再用 `complete_review.py` 產生並驗證 HTML／JSON 報告。協調器自己的 `ready_for_report` 僅是工作完成提示，**不是最終交付授權**。
