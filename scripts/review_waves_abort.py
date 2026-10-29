@@ -312,6 +312,10 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
             or not isinstance(prepared.get("staged_sha256"), str)
             or len(prepared["staged_sha256"]) != 64):
         raise ValueError("隔離意圖缺少可信 staged 指紋")
+    if prepared.get("legacy_unbound", False):
+        if (not allow_unbound_legacy
+                or expected_staged_sha256 != prepared["staged_sha256"]):
+            raise ValueError("既有 staged-only 例外在中斷恢復時仍須提供相同 SHA256 與明確例外授權")
     if len(staged) == 1:
         if archived.exists() or archived.is_symlink():
             raise ValueError("staged 與封存檔同時存在，禁止取消")
