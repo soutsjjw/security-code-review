@@ -105,6 +105,22 @@ class WaveLifecycleTests(unittest.TestCase):
         save.assert_called_once()
         stage.assert_not_called()
 
+    def test_reconcile_rejects_unrelated_formal_artifact_changes(self):
+        before = dict(self.evidence, tracked_sha256={
+            "assessment.json": "a" * 64,
+            "analysis/first-pass-baseline.json": None,
+        })
+        after = dict(before, tracked_sha256={
+            "assessment.json": "a" * 64,
+            "analysis/first-pass-baseline.json": "b" * 64,
+        })
+        state = dict(self.state, inflight={**self.state["inflight"],
+                                           "prior_evidence": before})
+        with patch("review_repair_waves._load_state", return_value=state), \
+             patch("review_repair_waves._evidence_state", return_value=after):
+            with self.assertRaisesRegex(ValueError, "正式工件異動超出"):
+                reconcile(self.root, acknowledged=True)
+
     def test_reconcile_rejects_out_of_scope_formal_changes(self):
         updated = {**self.latest,
                    "checks": {"AC-01": {"digest": "new", "status": "pass"},
