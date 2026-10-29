@@ -168,6 +168,29 @@ class AbortWave2Tests(unittest.TestCase):
                                   payload_path=self.payload_path, acknowledged=True)
         self.assertTrue(self.staged_path.exists())
 
+    def test_idempotent_retry_rejects_tampered_archive(self):
+        with self.verified():
+            result = self.abort()
+            archived = self.target / result["archive"]
+            archived.write_text('{"tampered": true}', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "隔離封存"):
+                self.abort()
+
+    def test_cli_requires_acknowledgement_and_selects_only_requested_batch(self):
+        from review_repair_waves import main
+        with self.verified():
+            status = main(["--target", str(self.target),
+                           "--abort-uncommitted", "execution-01",
+                           "--payload", str(self.payload_path)])
+            self.assertEqual(status, 2)
+            self.assertTrue(self.staged_path.exists())
+            status = main(["--target", str(self.target),
+                           "--abort-uncommitted", "execution-01",
+                           "--payload", str(self.payload_path),
+                           "--acknowledge-investigation"])
+            self.assertEqual(status, 0)
+            self.assertFalse(self.staged_path.exists())
+
     def test_restart_after_move_but_before_checkpoint_write(self):
         from review_repair_waves import _write_state as real_write
         with self.verified():
