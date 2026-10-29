@@ -188,7 +188,7 @@ python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --repair-
 
 工作依賴按**同一條規則**建立：規則結案／有效性須先查明其來源證據與控制鏈缺口；外部責任及靜態來源裁決須先取得該規則的正式來源證據。跨規則任務的依賴同樣納入批次拓樸檢查。不同規則可以同時進行**唯讀查證**，但正式寫入必須由單一主代理按 `--stage`／`--integrate --allow-revision` 依序完成；未經另行授權不得修訂 Finding。
 
-正式完整模式若需自動協調既有證據的實際修訂與抽樣，可使用 [受控修復波次（Wave 0～4）](review-repair-waves.md)。其正式交易仍須 Agent 提供真實來源證據、明確授權，不能僅根據排程或錯誤字串補寫結果。
+正式完整模式若需自動協調既有證據的實際修訂與抽樣，可使用 [受控修復波次（Wave 0～4）](review-repair-waves.md)。其正式交易仍須 Agent 提供真實來源證據、明確授權，不能僅根據排程或錯誤字串補寫結果。遇到 Wave 2 `inflight` 與 staged 未提交且無法 `--reconcile` 時，依 [單筆未提交交易唯讀預檢／受控隔離](review-repair-waves.md#stage-成功但-integrate-拒絕僅取消確定未提交的單一批次) 操作，先確認本機 Skill 已更新；嚴禁重送、改 checkpoint 或刪除原始 staged。
 
 ### 批次回歸、證據抽樣與停止條件
 
