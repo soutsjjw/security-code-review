@@ -84,6 +84,110 @@ def _dependency_errors(tasks: list[dict[str, Any]]) -> list[str]:
     return sorted(set(errors))
 
 
+
+def _execution_batches(tasks: list[dict[str, Any]], rule_batch_size: int
+                       ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Topologically ordered execution batches, not merely grouped work views.
+
+    Same-owner control-closure and effectiveness tasks form one atomic bundle.
+    A cross-rule bundle may execute once, before every dependent rule batch.
+    All dependencies must be completed in *earlier* batches, not just listed.
+    """
+    bundles: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
+    for task in tasks:
+        owners = tuple(task["rule_ids"])
+        key = (("control_pair", owners) if task["priority"] in {"P2", "P3"}
+               else ("single_task", task["task_id"]))
+        bundles[key].append(task)
+
+    def bundle_sort_key(key: tuple) -> tuple:
+        group = bundles[key]
+        return (min(WORK_ORDER.index(t["priority"]) for t in group),
+                tuple(sorted({r for t in group for r in t["rule_ids"]})),
+                tuple(sorted(t["task_id"] for t in group)))
+
+    remaining = set(bundles)
+    scheduled_task_to_batch: dict[str, str] = {}
+    batches: list[dict[str, Any]] = []
+    while remaining:
+        # A task is ready only when all external dependencies were completed
+        # in an earlier execution batch. Never waive a missing prerequisite.
+        ready = sorted((
+            key for key in remaining
+            if all(dep in scheduled_task_to_batch
+                   for task in bundles[key] for dep in task["depends_on"])
+        ), key=bundle_sort_key)
+        selected: list[tuple] = []
+        member_rules: set[str] = set()
+        for key in ready:
+            owners = {rid for t in bundles[key] for rid in t["rule_ids"]}
+            if len(member_rules | owners) > rule_batch_size:
+                continue
+            selected.append(key)
+            member_rules.update(owners)
+        if not selected:
+            # Cycle, missing dependency, or a bundle that cannot fit. Fail closed.
+            break
+        task_items = sorted((task for key in selected for task in bundles[key]),
+                            key=lambda t: (WORK_ORDER.index(t["priority"]),
+                                           tuple(t["rule_ids"]), t["task_id"]))
+        dependencies = sorted({
+            scheduled_task_to_batch[dep]
+            for task in task_items for dep in task["depends_on"]
+        }, key=lambda b: int(b.split("-")[-1]))
+        batch_id = f"execution-{len(batches) + 1:02d}"
+        batches.append({
+            "batch_id": batch_id,
+            "rule_ids": sorted(member_rules),
+            "task_ids": [t["task_id"] for t in task_items],
+            "depends_on_batch_ids": dependencies,
+            "status": "pending",
+            "type": ("cross_rule" if any(len(t["rule_ids"]) > 1
+                                         for t in task_items) else "rules"),
+        })
+        for task in task_items:
+            scheduled_task_to_batch[task["task_id"]] = batch_id
+        remaining.difference_update(selected)
+
+    all_task_ids = {task["task_id"] for task in tasks}
+    emitted = [task_id for batch in batches for task_id in batch["task_ids"]]
+    emitted_count = Counter(emitted)
+    unscheduled = sorted(all_task_ids - set(emitted))
+    duplicate_tasks = sorted(t for t, count in emitted_count.items() if count != 1)
+    foreign_tasks = sorted(set(emitted) - all_task_ids)
+    forward_edges: list[str] = []
+    pair_split: list[str] = []
+    batch_positions = {batch["batch_id"]: i for i, batch in enumerate(batches)}
+    for task in tasks:
+        batch_id = scheduled_task_to_batch.get(task["task_id"])
+        if batch_id is None:
+            continue
+        for dependency in task["depends_on"]:
+            dep_batch = scheduled_task_to_batch.get(dependency)
+            if dep_batch is None or batch_positions[dep_batch] >= batch_positions[batch_id]:
+                forward_edges.append(f"{dependency}->{task['task_id']}")
+    pairs: dict[tuple[str, ...], set[str]] = defaultdict(set)
+    for task in tasks:
+        if task["priority"] in {"P2", "P3"}:
+            pairs[tuple(task["rule_ids"])].add(task["task_id"])
+    for owners, pair in pairs.items():
+        if len(pair) > 1 and len({scheduled_task_to_batch.get(t) for t in pair}) != 1:
+            pair_split.append(",".join(owners))
+    over_limit = [b["batch_id"] for b in batches if len(b["rule_ids"]) > rule_batch_size]
+    return batches, {
+        "scheduled_task_count": len(emitted),
+        "unscheduled_task_ids": unscheduled,
+        "duplicate_task_ids": duplicate_tasks,
+        "foreign_task_ids": foreign_tasks,
+        "forward_dependency_edges": sorted(set(forward_edges)),
+        "split_control_pair_rules": sorted(pair_split),
+        "over_limit_batch_ids": over_limit,
+        "valid": not (unscheduled or duplicate_tasks or foreign_tasks
+                      or forward_edges or pair_split or over_limit),
+    }
+
+
+
 def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
                             rule_batch_size: int = 8) -> dict[str, Any]:
     """One owner per blocker index, every task scheduled or explicitly invalid."""
@@ -196,11 +300,12 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
     over_limit = sorted(b["batch_id"] for b in batches + shared_batches
                         if len(b["rule_ids"]) > rule_batch_size)
     dependency_errors = _dependency_errors(tasks)
+    execution_batches, execution_coverage = _execution_batches(tasks, rule_batch_size)
     count_matches = diagnostics.get("blocked_count", len(blockers)) == len(blockers)
     coverage_valid = not (
         expected - set(assigned) or duplicates or unknown or not count_matches
         or unscheduled or duplicated_batch_tasks or foreign_batch_tasks
-        or over_limit or dependency_errors
+        or over_limit or dependency_errors or not execution_coverage["valid"]
     )
     return {
         "schema_version": 2,
@@ -210,6 +315,7 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
         "rule_work_matrix": matrix,
         "rule_repair_batches": batches,
         "shared_rule_repair_batches": shared_batches,
+        "execution_batches": execution_batches,
         "rule_batch_size": rule_batch_size,
         "unscoped_task_ids": [t["task_id"] for t in tasks if not t["rule_ids"]],
         "task_coverage": {
@@ -227,10 +333,11 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
             "foreign_batch_task_ids": foreign_batch_tasks,
             "over_limit_batch_ids": over_limit,
             "dependency_errors": dependency_errors,
+            "execution": execution_coverage,
             "valid": coverage_valid,
         },
         "read_only": True,
-        "note": "任務僅依權威 blocker 分類，不代表來源已查核、控制有效或准許整合；未知錯誤不可放行。",
+        "note": "僅 execution_batches 是具前置依賴順序的執行清單；rule_repair_batches／shared_rule_repair_batches 僅為工作分組。任務不代表來源已查核或准許整合。",
     }
 
 def compare_rule_repair_diagnostics(before: dict[str, Any], after: dict[str, Any], *,
