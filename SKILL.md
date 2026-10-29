@@ -44,7 +44,6 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 | 解析模式與 Python 前置 | [Python 固定程序](docs/python-runtime.md)；指定分類另讀 [分類審查](docs/category-review.md) |
 | 完整模式正式初始化前 | [完整審查迴圈及 Log／技術前置](docs/full-review-workflow.md)；只載入本模式，分類不得套用 |
 | **第一條規則判定之前，兩種模式** | [共同判定細則與 Review 自檢](docs/review-decision-contract.md) |
-| 選用既有證據受控修復波次時（只限完整模式） | [Wave 0～4 自動協調與人工證據邊界](docs/review-repair-waves.md)；不得取代真實來源審查與既有正式守門 |
 | 完整模式第一批逐檔檢核前 | [逐檔／跨檔審查細則](docs/source-review-guidance.md)、[逐檔資料契約](docs/file-review-contract.md) |
 | 跨檔與寫入階段（完整模式） | [完整性與單一寫入者](docs/review-integrity-guards.md)、[證據交易復原](docs/evidence-integrity.md) |
 | 控制有效性、Pass／Fail／Review 裁決時 | [安全控制及繞過](docs/control-effectiveness-review.md)、[外部證據裁決](docs/review-decision-adjudication.md)；須於對應規則判定前讀取 |
