@@ -114,6 +114,12 @@ def _formal_fingerprints(target: Path) -> dict[str, Any]:
     snapshots["findings"] = {f["id"]: {"digest": _digest(f),
                                        "owners": sorted(set(f.get("check_ids") or []))}
                               for f in findings}
+    # Capture second-pass-only formal commits as well. Without these hashes,
+    # an interrupted adversarial-review transaction appears to have no effect.
+    for key, filename in (("adversarial_reviews", "adversarial-reviews.json"),
+                          ("first_pass_baseline", "first-pass-baseline.json")):
+        path = analysis / filename
+        snapshots[key] = _file_sha(path) if path.is_file() else None
     return snapshots
 
 
@@ -495,6 +501,8 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     if not acknowledged:
         raise ValueError("續跑須明確確認已調查阻塞原因")
     state = _load_state(target)
+    if state.get("inflight") is not None:
+        raise ValueError("待完成正式交易必須先執行 --reconcile，不能 --resume")
     if state["phase"] != "first_pass" or not state.get("paused"):
         raise ValueError("目前沒有可續跑的第一輪暫停狀態")
     evidence = _evidence_state(target)
