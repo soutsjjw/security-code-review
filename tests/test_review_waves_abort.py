@@ -127,6 +127,61 @@ class AbortWave2Tests(unittest.TestCase):
         self.assertTrue(self.staged_path.exists())
         self.assertIsNotNone(_read(self.target / STATE)["inflight"])
 
+    def test_legacy_staged_only_requires_independent_explicit_sha(self):
+        original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
+        with self.verified():
+            with self.assertRaisesRegex(ValueError, "舊版 inflight"):
+                self.abort(payload_path=None, expected_staged_sha256=original_sha)
+            with self.assertRaisesRegex(ValueError, "64 字 SHA256"):
+                self.abort(payload_path=None, expected_staged_sha256="0" * 64,
+                           allow_unbound_legacy=True)
+            self.assertTrue(self.staged_path.exists())
+            self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+
+    def test_explicit_sha_bound_staged_only_quarantine_is_audited(self):
+        original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
+        with self.verified():
+            inspected = inspect_uncommitted(
+                self.target, "execution-01", expected_staged_sha256=original_sha,
+                allow_unbound_legacy=True)
+            self.assertTrue(inspected["can_abort"])
+            self.assertEqual(inspected["status"], "ready_to_abort_unbound")
+            self.assertFalse(inspected["raw_payload_verified"])
+            result = self.abort(payload_path=None, expected_staged_sha256=original_sha,
+                                allow_unbound_legacy=True)
+        self.assertTrue(result["legacy_unbound_staged_only"])
+        self.assertFalse(self.staged_path.exists())
+        receipt = _read(self.target / result["receipt"])
+        self.assertTrue(receipt["legacy_unbound"])
+        self.assertFalse(receipt["raw_payload_verified"])
+        self.assertIsNone(_read(self.target / STATE)["inflight"])
+
+    def test_staged_only_refuses_changed_formal_journal_even_with_exact_sha(self):
+        original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
+        modified = dict(self.evidence, manifest_sha256="0" * 64)
+        with self.verified(evidence=modified):
+            with self.assertRaisesRegex(ValueError, "Manifest"):
+                self.abort(payload_path=None, expected_staged_sha256=original_sha,
+                           allow_unbound_legacy=True)
+        self.assertTrue(self.staged_path.exists())
+
+    def test_staged_only_cli_requires_both_explicit_legacy_flags(self):
+        from review_repair_waves import main
+        original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
+        with self.verified():
+            fail = main(["--target", str(self.target),
+                         "--abort-uncommitted", "execution-01",
+                         "--expected-staged-sha256", original_sha,
+                         "--acknowledge-investigation"])
+            self.assertEqual(fail, 2)
+            result = main(["--target", str(self.target),
+                           "--abort-uncommitted", "execution-01",
+                           "--expected-staged-sha256", original_sha,
+                           "--allow-unbound-legacy-stage",
+                           "--acknowledge-investigation"])
+            self.assertEqual(result, 0)
+        self.assertFalse(self.staged_path.exists())
+
     def test_requires_explicit_acknowledgement(self):
         with self.assertRaisesRegex(ValueError, "acknowledge-investigation"):
             self.abort(acknowledged=False)
