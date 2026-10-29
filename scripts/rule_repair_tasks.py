@@ -232,3 +232,50 @@ def build_rule_repair_tasks(diagnostics: dict[str, Any], *,
         "read_only": True,
         "note": "任務僅依權威 blocker 分類，不代表來源已查核、控制有效或准許整合；未知錯誤不可放行。",
     }
+
+def compare_rule_repair_diagnostics(before: dict[str, Any], after: dict[str, Any], *,
+                                    max_new_blockers: int = 3) -> dict[str, Any]:
+    """Read-only regression gate; caller must stop subsequent batches on pause."""
+    if max_new_blockers < 0:
+        raise ValueError("max_new_blockers 不可小於零")
+    old = before.get("blockers", [])
+    new = after.get("blockers", [])
+    if not isinstance(old, list) or not isinstance(new, list):
+        raise ValueError("blockers 必須是陣列")
+
+    def key(b: dict) -> tuple:
+        return (str(b.get("message", "")), tuple(sorted(b.get("rule_ids") or [])))
+
+    earlier = {key(b) for b in old}
+    current = {key(b) for b in new}
+    additions = sorted(current - earlier)
+    old_categories = {str(b.get("category", "other")) for b in old}
+    new_categories = sorted({str(b.get("category", "other")) for b in new} - old_categories)
+    unknown = sorted({str(b.get("message", "")) for b in new
+                      if classify_repair_work(str(b.get("message", ""))) == "unclassified"})
+    integrity = sorted({str(b.get("message", "")) for b in new
+                        if b.get("category") == "integrity" or any(
+                            x in str(b.get("message", ""))
+                            for x in ("Journal", "Manifest", "快照已變更", "SHA256 不一致"))})
+    reasons = []
+    if new_categories:
+        reasons.append("新增阻塞類型")
+    if len(additions) > max_new_blockers:
+        reasons.append(f"新增阻塞超過 {max_new_blockers} 筆")
+    if unknown:
+        reasons.append("含無法辨識的阻塞訊息")
+    if integrity:
+        reasons.append("出現完整性／來源快照錯誤")
+    return {
+        "before_signature": before.get("blocker_signature"),
+        "after_signature": after.get("blocker_signature"),
+        "new_blocker_count": len(additions),
+        "removed_blocker_count": len(earlier - current),
+        "new_categories": new_categories,
+        "unknown_messages": unknown,
+        "integrity_messages": integrity,
+        "pause_reasons": reasons,
+        "should_pause": bool(reasons),
+        "read_only": True,
+        "note": "還須人工核對 Findings、來源 SHA256、Manifest/Journal；本函式不自動回退或放行。",
+    }
