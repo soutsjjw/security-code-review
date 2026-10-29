@@ -154,6 +154,40 @@ class WaveLifecycleTests(unittest.TestCase):
         self.assertIsNone(state["inflight"])
         save.assert_called_once()
 
+    def test_finalization_calls_official_report_after_full_gate(self):
+        state = dict(self.state, phase="second_pass", inflight=None,
+                     sample_policy={"selected_rules": []})
+        report_dir = self.root / "reports/security-code-review"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        (report_dir / "report.json").write_text("{}", encoding="utf-8")
+        (report_dir / "CodeReview_20261029.html").write_text(
+            "<html>validated fixture</html>", encoding="utf-8")
+        with patch("review_repair_waves._load_state", return_value=state), \
+             patch("review_repair_waves._assert_state_current"), \
+             patch("second_pass_layers.worklist", return_value={
+                 "ready": True, "rules_total": 70, "rules_pending": 0,
+                 "samples_pending": 0}), \
+             patch("review_repair_waves._assessment",
+                   return_value={"assessment_date": "2026-10-29", "checks": []}), \
+             patch("review_queue.load_rules", return_value=({}, [])), \
+             patch("review_queue.build_queue", return_value={"ready_for_report": True}), \
+             patch("review_safety.safety_errors", return_value=[]), \
+             patch("review_repair_waves._stage_clean"), \
+             patch("subprocess.run") as official:
+            official.return_value.returncode = 0
+            result = finalize(self.root)
+        self.assertEqual(result["status"], "validated")
+        self.assertEqual(result["independence"]["assurance_level"], "L0")
+        self.assertFalse(result["independence"]["independent"])
+        official.assert_called_once()
+
+    def test_inflight_state_rejects_new_agent_work(self):
+        from review_repair_waves import _assert_state_current
+        with patch("review_repair_waves._evidence_state",
+                   return_value=self.evidence):
+            with self.assertRaisesRegex(ValueError, "待對帳"):
+                _assert_state_current(self.root, self.state)
+
     def test_formal_report_requires_full_ready_queue(self):
         state = dict(self.state, phase="second_pass", inflight=None, sample_policy={
             "selected_rules": []})
