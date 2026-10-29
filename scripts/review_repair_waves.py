@@ -318,8 +318,12 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     state["observed_diagnostic"] = updated
     state["observed_signature"] = updated["blocker_signature"]
     state["last_evidence"] = _evidence_state(target)
-    if _all_completed(state) and updated.get("ready_for_second_pass") and not state["paused"]:
-        state["phase"] = "sample"
+    if _all_completed(state) and not state["paused"]:
+        if updated.get("ready_for_second_pass"):
+            state["phase"] = "sample"
+        else:
+            state["paused"] = True
+            state["pause_reasons"] = ["所有原始批次已完成，但權威第一輪仍未通過"]
     _write_state(target / STATE, state)
     return {**_result(state), "formal_integration": outcome,
             "regression": regression, "original_blockers_remaining": len(remaining),
@@ -370,10 +374,12 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
     snapshot = _read(target / REPORT / FORMAL_SNAPSHOT)
     path = proof["path"]
     source_hash = (snapshot.get("source_hashes") or {}).get(path)
-    candidate = (target / path).resolve()
-    if (not source_hash or not candidate.is_relative_to(target.resolve())
-            or not candidate.is_file() or candidate.is_symlink()
-            or _file_sha(candidate) != source_hash):
+    original = target / path
+    candidate = original.resolve()
+    from source_reader import digest_matches
+    if (not source_hash or original.is_symlink()
+            or not candidate.is_relative_to(target.resolve())
+            or not candidate.is_file() or not digest_matches(source_hash, candidate.read_bytes())):
         raise ValueError("抽樣來源不在可信快照內或 SHA256 不符")
     start, end = proof.get("line_start"), proof.get("line_end")
     if type(start) is not int or type(end) is not int or start < 1 or end < start:
