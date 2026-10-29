@@ -54,7 +54,9 @@ def _point_errors(root: Path, point: Any, known: set[str],
 
 
 def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
-                 closure: dict, scope: str) -> list[str]:
+                 closure: dict, scope: str, *,
+                 verifications_override: dict | None = None,
+                 audits_override: dict | None = None) -> list[str]:
     """只針對新版索引：偽造的路徑或一律排除呼叫點不得構成結案證據。"""
     if index.get("cross_file_evidence_version") != CONTRACT_VERSION:
         return []
@@ -74,6 +76,8 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             audits = json.loads(file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             audits = {}
+        if audits_override is not None:
+            audits = audits_override
         audit = audits.get(rid) if isinstance(audits, dict) else None
         if (isinstance(audit, dict) and audit.get("status") == "review"
                 and audit.get("static_result") == DELEGATED_RESULT
@@ -89,6 +93,8 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             records = json.loads(file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             records = {}
+        if verifications_override is not None:
+            records = verifications_override
         proof = records.get(rid) if isinstance(records, dict) else None
         if (isinstance(proof, dict) and proof.get("control_proof_mode") == "external_verified"
                 and not _external_pass_errors(target, check, proof,
