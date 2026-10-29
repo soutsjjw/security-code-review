@@ -783,6 +783,7 @@ def main(argv: list[str] | None = None) -> int:
         operations.add_argument("--" + flag, action="store_true")
     operations.add_argument("--apply-batch", metavar="BATCH_ID")
     operations.add_argument("--abort-uncommitted", metavar="BATCH_ID")
+    operations.add_argument("--inspect-uncommitted", metavar="BATCH_ID")
     operations.add_argument("--apply-second-pass", action="store_true")
     operations.add_argument("--record-sample", type=Path, metavar="RECEIPT_JSON")
     parser.add_argument("--payload", type=Path)
@@ -833,6 +834,10 @@ def main(argv: list[str] | None = None) -> int:
                     result = sample_plan(target)
                 else:
                     result = begin_second_pass(target)
+        elif args.inspect_uncommitted:
+            from review_waves_abort import inspect_uncommitted
+            result = inspect_uncommitted(
+                target, args.inspect_uncommitted, payload_path=args.payload)
         elif args.next:
             result = next_work(target)
         elif args.agent_next:
