@@ -192,6 +192,22 @@ NuGet 漏洞掃描是額外排障工作，**不計入診斷中的 blocker 數**�
 
 本次診斷指紋 `902cf1859a4df9415b6431f2eff70144de11d1072d5e0c031513e58bb62f95dd` 有 155 筆阻塞，唯讀回歸測試預期 P0/P1/P2/P3/P4/P5 為 **9／9／67／53／8／9**、70 條規則、9 個 8 條上限的規則批次。上述固定數字**只適用該指紋的回歸測試**，一般診斷只要求每筆阻塞唯一歸屬、無未知類別與無循環依賴，不使用常數作為正式放行條件。
 
+### PR #73 補強：任務與批次雙重對帳
+
+規則排程同時驗證 **每一筆 blocker index 必須恰好出現一次**、**每項 task_id 必須恰好排入一個批次**、依賴不得缺失或形成循環，且單批不得超過 8 條規則。對涉及多條規則的共用 blocker，另列 `shared_rule_repair_batches`（每個共用任務只排一次）；共用任務超出單批上限時保留在 `task_coverage.unscheduled_task_ids` 並標記 `valid=false`，不以分裂或重複記帳掩蓋缺失。每項工作附 `blocker_details`（原始訊息、類別、rule_ids 與對應 index），不必憑無上下文的 index 猜測問題。依賴核對包含同規則多個前置任務，不能只保留最後一個。
+
+每批整合前保存權威診斷 JSON；整合後重新診斷，直接用以下**唯讀比較**檢查回歸：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --diagnose-first-pass > "<BEFORE_DIAGNOSTICS>.json"
+# 人工閱讀來源、合法 stage/integrate 後：
+python "<SKILL_ROOT>/scripts/first_pass_repair.py" --target "<TARGET_ROOT>" --previous-diagnostics "<BEFORE_DIAGNOSTICS>.json"
+```
+
+`batch_regression.should_pause=true` 時退出碼 **3**，必須停止後續批次、比對新增錯誤、完成真實證據核對再繼續；來源雜湊／Journal 與 Finding 完整性仍需正式驗證，不得僅依比較結果宣稱安全。當出現新增權威錯誤類別、4 筆以上新增不同阻塞、未知錯誤或完整性錯誤時均應暫停。這項比較不自動更改任何正式資料，且沒有實作任意歷史回退。
+
+**實作範圍區分：** 本 PR 有實作任務排程、批次覆蓋、阻塞對帳與上述唯讀暫停判定；人工風險分層抽樣、L1／L2 獨立審查、NuGet 環境修復，以及 HTML／JSON 報告的 L0／L1／L2 欄位**尚未自動化**，維持人工驗收／後續獨立實作項目。現有第二輪僅能在實際同代理流程下標示 L0，不得在最終報告宣稱已有獨立複核。
+
 ## 證據內容備份、可信復原與重新取證
 
 正式交易以來源快照與 Journal SHA256 為驗證依據，另在 `analysis/integrity-backups/<sha256前兩碼>/<sha256>.json` 以內容定址、去重保存每一份受控證據的**原始 bytes**。新版初次封存及每次交易，在記錄 Journal 前都先備份原始與預期新版本；不會把備份存在不可重建的 SHA256 字串中。舊版既有 Journal 不追溯宣稱有備份。
