@@ -32,6 +32,25 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 
 只有確實觀察到合法的正式變更、且原始阻塞消失或相應第二輪工作仍有效，才會結案該交易意圖；正式工件沒有變動、來源快照不同或規則變更超出本批授權，必須拒收並人工調查。此流程**不呼叫 Stage／Integrate 重試**。若需額外證據，先依既有交易復原規範處理。
 
+### Stage 成功但 Integrate 拒絕：僅取消「確定未提交」的單一批次
+
+若 `inflight` 仍存在，且唯一 `analysis/staged/*.json` 未入正式 Journal，先唯讀核對是否確實沒有正式交易提交。**不得直接刪除 staged、清空 inflight 或重建 Manifest／Journal**。
+
+舊版 Wave checkpoint 僅保留原始 payload 的**檔案 SHA256**，故必須提供當初 Stage 所讀取的原始 JSON 檔，以同時核對原始 bytes 與暫存的 JSON 語意內容（勿傳入別的重建檔案）。新版 checkpoint 另綁定 payload 語意指紋；有需要仍可提供原始檔再核對：
+
+```powershell
+python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --abort-uncommitted execution-01 --payload "<ORIGINAL_PAYLOAD>.json" --acknowledge-investigation
+```
+
+只允許原本 `inflight` 中仍待辦的 **Wave 2 第一輪批次**，且需全部通過：
+
+- 已由審查者查明確實沒有成功整合，且本次明確授權隔離；正式 `integrity-pending.json` 不存在，Manifest sequence/head、Journal 鏈、全部正式追蹤工件及逐條證據指紋**與交易前完全一致**。
+- staged 目錄**恰有一筆** JSON、沒有其他暫存；檔名與 Stage 正規化 SHA256 對得上，`integrity_head`、來源快照、原始 payload SHA256 與內容都吻合。未知／多筆 staged、版本異動、原始檔缺失、提交狀態不明一律維持 blocked。
+- 先在 `reports/security-code-review/logs/repair-waves/aborted/<EVENT_ID>/` 以不可覆寫的 `intent.json` 記錄交易與原始暫存 SHA256，之後才把原始 staged **移動並保留**為 `staged.json`，寫入 `receipt.json`；重新檢查正式資料未變更後，才清除 checkpoint 的 `inflight`。原工作批次**不標記 completed**、不重送原 payload。
+- 介於封存與 checkpoint 寫入的中斷可用**同一指令**核對已存在的意圖、收據、封存 SHA 後繼續；衝突或 `state.json.pending` 殘留仍須人工鑑識，不會自動刪檔。所有隔離紀錄均為**非正式**操作日誌，不能冒稱防惡意竄改的 Journal 交易。
+
+取消後必須**重新查核導致 Integrate 失敗的原因**，使用新、真實且合格的來源證據產生新 payload 才能重做該批；不能將上述隔離當作解除第一輪安全阻塞。
+
 抽樣紀錄另有以 `manifest_sha256` 為起點的本機 SHA256 事件鏈；順序、內容或 head 不符須拒收。但鏈與收據仍存於非正式 checkpoint，**不是完整 Journal 綁定或防惡意竄改的可信身分證明**。身分與第二輪 L1／L2 獨立性須有執行器實際證據；否則交付獨立性標示固定為不獨立的 L0。
 
 第二輪透過 `--agent-next` 領取新的反例／來源抽樣工作，主代理使用 `--apply-second-pass` 提交合法核查證據。所有正式驗證通過後，可**明確呼叫**：
