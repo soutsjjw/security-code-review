@@ -231,6 +231,36 @@ class RuleRepairTasksTests(unittest.TestCase):
         self.assertEqual(by_id["multi:AC-01,AC-02:P2"]["depends_on"],
                          ["AC-01:P0", "AC-02:P1"])
 
+    def test_overlapping_shared_control_and_single_rule_control_stay_together(self):
+        diagnostic = {"blocked_count": 4, "blockers": [
+            block("AC-01: Q2 控制鏈節點[0]", "AC-01", "AC-02"),
+            block("AC-01: 缺少 project 規則整合／控制責任結案紀錄", "AC-01"),
+            block("AC-01: Q3 缺少與 fail 判定相符的控制有效性／繞過路徑證據",
+                  "AC-01", "AC-02"),
+            block("AC-02: 缺少 project 規則整合／控制責任結案紀錄", "AC-02"),
+        ]}
+        plan = build_rule_repair_tasks(diagnostic)
+        self.assert_execution_batches_safe(plan)
+        batch_for = {task_id: batch["batch_id"] for batch in plan["execution_batches"]
+                     for task_id in batch["task_ids"]}
+        self.assertEqual(batch_for["AC-01:P2"],
+                         batch_for["multi:AC-01,AC-02:P3"])
+        self.assertEqual(batch_for["AC-02:P2"],
+                         batch_for["multi:AC-01,AC-02:P3"])
+
+    def test_transitively_shared_control_work_exceeding_rule_limit_fails_closed(self):
+        blockers = [
+            block(f"AU-{i:02d}: 缺少 project 規則整合／控制責任結案紀錄",
+                  f"AU-{i:02d}", f"AU-{i + 1:02d}")
+            for i in range(1, 9)
+        ]
+        plan = build_rule_repair_tasks({
+            "blocked_count": len(blockers), "blockers": blockers
+        })
+        self.assertFalse(plan["task_coverage"]["execution"]["valid"])
+        self.assertFalse(plan["task_coverage"]["valid"])
+        self.assertTrue(plan["task_coverage"]["execution"]["unscheduled_task_ids"])
+
     def test_repair_plan_execution_order_deterministic_under_blocker_permutation(self):
         blockers = [
             block("AU-04: review 缺少具體可追溯的檢核證據", "AU-04"),
