@@ -104,6 +104,9 @@ class RuleRepairTasksTests(unittest.TestCase):
         self.assertEqual(plan["task_coverage"]["blocker_total"], 155)
         self.assertEqual(plan["task_coverage"]["affected_rule_count"], 70)
         self.assertEqual(len(plan["rule_repair_batches"]), 9)
+        self.assertEqual(plan["task_coverage"]["scheduled_task_count"],
+                         plan["task_coverage"]["task_count"])
+        self.assertEqual(plan["shared_rule_repair_batches"], [])
         self.assertTrue(all(len(b["rule_ids"]) <= 8 for b in plan["rule_repair_batches"]))
         matrix = {row["rule_id"]: row["work_items"] for row in plan["rule_work_matrix"]}
         p2 = {r for r, w in matrix.items() if "P2" in w}
@@ -189,6 +192,17 @@ class RuleRepairTasksTests(unittest.TestCase):
             result = compare_rule_repair_diagnostics(previous, {
                 "blockers": [{**block(message, "BC-01"), "category": category}]})
             self.assertTrue(result["should_pause"])
+
+    def test_diagnostic_comparison_detects_new_work_type_even_under_other(self):
+        prior = {"blockers": [block("BC-02: 缺少具體檢核摘要（至少 15 字）", "BC-02")]}
+        after = {"blockers": [
+            block("BC-02: 缺少具體檢核摘要（至少 15 字）", "BC-02"),
+            block("BC-02: 缺少 project 規則整合／控制責任結案紀錄", "BC-02"),
+        ]}
+        result = compare_rule_repair_diagnostics(prior, after)
+        self.assertTrue(result["should_pause"])
+        self.assertEqual(result["new_categories"], [])
+        self.assertEqual(result["new_work_items"], ["P2"])
 
     def test_diagnostic_comparison_allows_reduced_known_blockers(self):
         prior = {"blockers": [block("BC-02: 缺少具體檢核摘要（至少 15 字）", "BC-02")]}
