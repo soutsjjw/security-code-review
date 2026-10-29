@@ -29,6 +29,11 @@ class RepairWavesTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.audit = {"assessment_sha256": "a" * 64, "source_snapshot_sha256": "b" * 64}
+        self.base_fp = {"checks": {"AC-01": {"digest": "old", "status": "review"}},
+                        "file_reviews": {}, "findings": {}, "closures": {},
+                        "control_verifications": {}, "decision_audits": {}}
+        self.updated_fp = {**self.base_fp, "checks":
+                           {"AC-01": {"digest": "new", "status": "pass"}}}
         self.first = {"blocker_signature": "first", "blocked_count": 1,
                       "ready_for_second_pass": False, "blockers": [
                           b("AC-01: Q2 控制鏈不完整")]}
@@ -43,7 +48,8 @@ class RepairWavesTests(unittest.TestCase):
 
     def _start(self):
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"), \
+             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._diagnose_and_plan",
                    return_value=(self.first, self.plan)):
             return start(self.root)
@@ -58,7 +64,8 @@ class RepairWavesTests(unittest.TestCase):
     def test_start_rejects_invalid_task_coverage(self):
         self.plan["task_coverage"]["valid"] = False
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"), \
+             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._diagnose_and_plan",
                    return_value=(self.first, self.plan)):
             with self.assertRaisesRegex(ValueError, "無法完整排程"):
@@ -68,7 +75,8 @@ class RepairWavesTests(unittest.TestCase):
     def test_initially_clear_diagnostics_go_directly_to_sampling(self):
         self.plan["execution_batches"] = []
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"), \
+             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._diagnose_and_plan",
                    return_value=(self.last, self.plan)):
             result = start(self.root)
@@ -78,7 +86,8 @@ class RepairWavesTests(unittest.TestCase):
         self._start()
         payload = self.root / "candidate.json"
         payload.write_text(json.dumps({"checks": [{"id": "AU-01"}]}), encoding="utf-8")
-        with patch("review_repair_waves._evidence_state", return_value=self.audit):
+        with patch("review_repair_waves._evidence_state", return_value=self.audit), \
+             patch("review_repair_waves._assessment", return_value={"checks": [], "file_reviews": []}):
             with self.assertRaisesRegex(ValueError, "順序"):
                 apply_batch(self.root, "execution-02", payload, allow_revision=True)
             with self.assertRaisesRegex(ValueError, "非本批規則"):
@@ -94,8 +103,11 @@ class RepairWavesTests(unittest.TestCase):
         before = {"checks": [{"id": "AC-01", "status": "review"}], "findings": []}
         after = {"checks": [{"id": "AC-01", "status": "pass"}], "findings": []}
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"), \
-             patch("review_repair_waves._assessment", side_effect=[before, after]), \
+             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
+             patch("review_repair_waves._assessment", side_effect=[before, after]),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.updated_fp), \
              patch("review_blockers.diagnose", side_effect=[self.first, self.last]), \
              patch("review_safety.stage", return_value="staged.json") as stage_mock, \
              patch("review_safety.integrate", return_value={"applied": 1}) as integrate_mock:
@@ -114,7 +126,8 @@ class RepairWavesTests(unittest.TestCase):
         before = {"checks": [{"id": "AC-01", "status": "review"}], "findings": []}
         after = dict(before)
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
-             patch("review_repair_waves._stage_clean"), \
+             patch("review_repair_waves._stage_clean"),
+             patch("review_repair_waves._formal_fingerprints", return_value=self.base_fp), \
              patch("review_repair_waves._assessment", side_effect=[before, after]), \
              patch("review_blockers.diagnose", side_effect=[self.first, self.first]), \
              patch("review_safety.stage"), \
@@ -132,6 +145,7 @@ class RepairWavesTests(unittest.TestCase):
             resume_after_investigation(self.root, acknowledged=False)
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
              patch("review_repair_waves._assessment", return_value={"checks": []}), \
+             patch("review_repair_waves._formal_fingerprints", return_value=self.updated_fp), \
              patch("review_blockers.diagnose", return_value=self.last):
             result = resume_after_investigation(self.root, acknowledged=True)
         self.assertEqual(result["phase"], "sample")
