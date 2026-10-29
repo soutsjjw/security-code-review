@@ -67,6 +67,8 @@ def work_contract(target: Path, state: dict, *, second_pass: dict | None = None)
 def sample_chain_append(chain: dict | None, record: dict, *,
                         expected_manifest_sha256: str | None) -> dict:
     """A detectable local hash chain, explicitly NOT a signed official Journal."""
+    if not isinstance(expected_manifest_sha256, str) or not SHA.fullmatch(expected_manifest_sha256):
+        raise ValueError("抽樣收據必須綁定已驗證的正式 Manifest SHA256")
     if chain is None:
         chain = {"schema_version": 1, "base_manifest_sha256": expected_manifest_sha256,
                  "entries": [], "head": None}
