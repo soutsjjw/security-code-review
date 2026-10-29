@@ -211,6 +211,9 @@ class RepairWavesTests(unittest.TestCase):
         }, ensure_ascii=False), encoding="utf-8")
         with patch("review_repair_waves._evidence_state", return_value=self.audit), \
              patch("review_safety.SNAPSHOT", Path("analysis/source-snapshot.json")), \
+             patch("review_repair_waves._assessment", return_value={
+                 "checks": [{"id": "AC-01", "execution": {
+                     "inspected_paths": ["Service.cs"]}}], "file_reviews": []}), \
              patch("source_reader.read_source_text", return_value=("public class Service {}", "utf-8")):
             result = record_sample(self.root, receipt)
         self.assertEqual(result["remaining_rules"], [])
