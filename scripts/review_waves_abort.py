@@ -90,8 +90,8 @@ def _check_original(target: Path, state: dict, intent: dict, batch_id: str) -> N
 
 def _validate_staged(target: Path, state: dict, intent: dict,
                      staged: Path, payload_path: Path | None, manifest: dict) -> dict:
-    from review_repair_waves import REPORT, SNAPSHOT, _read, _file_sha, _digest
-    from review_safety import STAGED
+    from review_repair_waves import REPORT, _read, _file_sha, _digest
+    from review_safety import STAGED, SNAPSHOT
     source = target / REPORT / STAGED
     if source.is_symlink() or staged.is_symlink() or not staged.is_file():
         raise ValueError("staged 不是可信的一般檔案")
