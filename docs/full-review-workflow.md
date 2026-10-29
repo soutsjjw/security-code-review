@@ -79,6 +79,8 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 
 ## 既有正式證據的受控修復波次（選用）
 
+**若既有完整模式已出現 `logs/repair-waves/state.json` 的 `inflight`，並保留 `analysis/staged`，須先讀 [Wave 2 未提交交易受控取消](review-repair-waves.md#stage-成功但-integrate-拒絕僅取消確定未提交的單一批次)，核對目前**安裝的** `review_repair_waves.py --help` 是否提供 `--inspect-uncommitted`／`--abort-uncommitted`。先唯讀預檢；沒有新版介面或找不到原始 payload，應保持 blocked 並提供診斷，不可直接刪暫存、改 checkpoint 或反覆重試 `--reconcile`。
+
 第一輪檢查已產生可追溯 blocker、需要重查 completed 證據時，可選用 [受控修復波次](review-repair-waves.md) 的 Wave 0～4 協調器。它只凍結工作、依真實證據進行既有正式 Stage／Integrate、監測新增阻塞、固定人工風險抽樣並在第一輪驗證通過後接入第二輪；沒有真實來源與人工授權不得自動生成修訂內容。使用 `execution_batches` 的拓樸順序，不能把原規則分組當成安全的實際執行順序。第二輪複核仍需依正式 Baseline、70 項反向核查及來源固定樣本提交。
 
 ## 實驗性 B0／P4-A／P0 執行流程（非預設）
