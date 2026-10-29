@@ -46,7 +46,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 | **第一條規則判定之前，兩種模式** | [共同判定細則與 Review 自檢](docs/review-decision-contract.md) |
 | 完整模式第一批逐檔檢核前 | [逐檔／跨檔審查細則](docs/source-review-guidance.md)、[逐檔資料契約](docs/file-review-contract.md) |
 | 跨檔與寫入階段（完整模式） | [完整性與單一寫入者](docs/review-integrity-guards.md)、[證據交易復原](docs/evidence-integrity.md) |
-| **完整模式 Wave 2 出現 `inflight`／staged 阻塞時** | **必讀** [Wave 2 未提交交易的唯讀預檢與受控取消](docs/review-repair-waves.md#stage-成功但-integrate-拒絕僅取消確定未提交的單一批次)；先驗證**本機已安裝**腳本 `review_repair_waves.py --help` 確有 `--inspect-uncommitted`／`--abort-uncommitted`，未安裝則維持 blocked，不能靠重啟 Codex 代替更新 Skill |
+| Wave 2 staged／inflight 阻塞 | **必讀** [唯讀預檢與受控取消](docs/review-repair-waves.md#stage-成功但-integrate-拒絕僅取消確定未提交的單一批次)；核對本機腳本 `--help`，禁止直接改證據 |
 | 控制有效性、Pass／Fail／Review 裁決時 | [安全控制及繞過](docs/control-effectiveness-review.md)、[外部證據裁決](docs/review-decision-adjudication.md)；須於對應規則判定前讀取 |
 | 第一輪全數完成、開始第二輪之前 | [反向複核與矛盾裁決](docs/adversarial-second-pass.md)；分類模式同時遵守分類契約 |
 | 完整模式正式報告驗證／交付前 | [正式報告及自動摘要](docs/report-handoff.md) |
@@ -105,7 +105,7 @@ Agent 依序取得 `--compact` 的 `next_checks` 與 `next_source_paths`，對�
 
 第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證。completed 修訂須重新查證並取得授權，保留 Finding／完整性守門。見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
-**Wave 2 中斷優先於續跑**：若 `logs/repair-waves/state.json` 有 `inflight` 且留有 staged，禁止先執行 `--next`、`--resume`、`--integrate` 或重新 `--start`；先依 [未提交交易契約](docs/review-repair-waves.md#stage-成功但-integrate-拒絕僅取消確定未提交的單一批次) 唯讀 `--inspect-uncommitted`，已提交的走 `--reconcile`，確定未提交且明確授權才可 `--abort-uncommitted`。不修改 Manifest／Journal 或 Finding。
+
 
 第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準與分層抽樣計畫，再使用 `second_pass_layers.py --target "<TARGET_ROOT>"` 取得下一批原始證據錨點及抽樣檔案。第二輪逐條推翻式驗證並提交抽樣證據與矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
 
