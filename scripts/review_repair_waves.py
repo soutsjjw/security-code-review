@@ -618,10 +618,8 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
     if path not in anchors:
         raise ValueError("抽樣路徑未與本規則正式來源證據建立關聯")
     from review_waves_contracts import sample_chain_append
-    receipt_binding = {"rule_id": rule, "reviewer": receipt["reviewer"],
-                       "source_sha256": source_hash, "receipt": receipt}
     state["sample_chain"] = sample_chain_append(
-        state.get("sample_chain"), receipt_binding,
+        state.get("sample_chain"), receipt,
         expected_manifest_sha256=state["last_evidence"].get("manifest_sha256"))
     state["sample_records"][rule] = {"reviewer": receipt["reviewer"],
                                      "reviewed_on": reviewed_on, "outcome": "verified",
@@ -651,7 +649,10 @@ def begin_second_pass(target: Path) -> dict:
     if policy["selected_rules"] and (not chain or
             set(entry["rule_id"] for entry in chain["entries"]) !=
             set(policy["selected_rules"]) or
-            chain["base_manifest_sha256"] != state["last_evidence"].get("manifest_sha256")):
+            chain["base_manifest_sha256"] != state["last_evidence"].get("manifest_sha256") or
+            any(entry["receipt_sha256"] !=
+                state["sample_records"][entry["rule_id"]]["receipt_sha256"]
+                for entry in chain["entries"])):
         raise ValueError("抽樣收據鏈未完整綁定目前 Manifest；不可啟動第二輪")
     from review_blockers import diagnose
     assessment = _assessment(target)
