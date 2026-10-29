@@ -127,6 +127,33 @@ class WaveLifecycleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "反向複核"):
                 finalize(self.root)
 
+    def test_agent_work_contract_does_not_skip_sampling(self):
+        state = dict(self.state, phase="sample", inflight=None)
+        result = work_contract(self.root, state)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["phase"], "sample")
+
+    def test_second_pass_only_formal_commit_can_be_reconciled(self):
+        old = {**self.fingerprints, "adversarial_reviews": None}
+        new = {**old, "adversarial_reviews": "a" * 64}
+        state = dict(self.state, phase="second_pass",
+                     formal_fingerprints=old,
+                     inflight={"phase": "second_pass", "batch_id": "second-pass",
+                               "prior_evidence": self.evidence,
+                               "prior_fingerprints": old})
+        with patch("review_repair_waves._load_state", return_value=state), \
+             patch("review_repair_waves._evidence_state", return_value=self.evidence), \
+             patch("review_repair_waves._formal_fingerprints", return_value=new), \
+             patch("second_pass_layers.worklist",
+                   return_value={"ready": True, "rules_pending": 1,
+                                 "samples_pending": 1}), \
+             patch("review_repair_waves._write_state") as save:
+            result = reconcile(self.root, acknowledged=True)
+        self.assertEqual(result["phase"], "second_pass")
+        self.assertEqual(result["status"], "reconciled")
+        self.assertIsNone(state["inflight"])
+        save.assert_called_once()
+
     def test_formal_report_requires_full_ready_queue(self):
         state = dict(self.state, phase="second_pass", inflight=None, sample_policy={
             "selected_rules": []})
