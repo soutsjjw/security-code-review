@@ -758,7 +758,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="受控 Wave 0–4 資安補查協調器，不自動生成證據")
     parser.add_argument("--target", type=Path, default=Path.cwd())
     operations = parser.add_mutually_exclusive_group(required=True)
-    for flag in ("start", "next", "resume", "sample-plan", "begin-second-pass", "verify-second-pass"):
+    for flag in ("start", "next", "agent-next", "reconcile", "finalize", "resume", "sample-plan",
+                 "begin-second-pass", "verify-second-pass"):
         operations.add_argument("--" + flag, action="store_true")
     operations.add_argument("--apply-batch", metavar="BATCH_ID")
     operations.add_argument("--apply-second-pass", action="store_true")
@@ -773,10 +774,17 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("受測目錄不存在")
     try:
         if (args.start or args.apply_batch or args.apply_second_pass or args.record_sample
-                or args.sample_plan or args.begin_second_pass or args.resume):
+                or args.sample_plan or args.begin_second_pass or args.resume
+                or args.reconcile or args.finalize):
             with _single_writer(target):
                 if args.start:
                     result = start(target)
+                elif args.reconcile:
+                    from review_waves_lifecycle import reconcile
+                    result = reconcile(target, acknowledged=args.acknowledge_investigation)
+                elif args.finalize:
+                    from review_waves_lifecycle import finalize
+                    result = finalize(target)
                 elif args.resume:
                     result = resume_after_investigation(
                         target, acknowledged=args.acknowledge_investigation)
@@ -800,6 +808,9 @@ def main(argv: list[str] | None = None) -> int:
                     result = begin_second_pass(target)
         elif args.next:
             result = next_work(target)
+        elif args.agent_next:
+            from review_waves_lifecycle import agent_next
+            result = agent_next(target)
         else:
             result = verify_second_pass(target)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
