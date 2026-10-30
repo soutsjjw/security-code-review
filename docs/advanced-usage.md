@@ -339,10 +339,119 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 在所有條件真正完成前，不得以 70/70 completed、100% 檔案覆蓋率或 JSON Schema 驗證通過，直接宣稱已完成實質資安審查。
 ```
 
-若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。
+若環境不支援 `/goal`，正常使用 `$security-code-review` 即可。Claude Code（含 Claude Desktop Code 分頁）請改用下方 [Claude Code 完整審查指令](#claude-code含-claude-desktop-code-分頁完整審查指令)。
 
 **本 `/goal` 範例已預選 `--multi-agent --agents 3`。** 若要維持單代理，首句改為 `/goal 使用 $security-code-review Skill` 並移除上方多代理自動執行段落。分類審查仍僅用 `--categories`，不可混用多代理。原生調度和 Fail Closed 規範見 [受控多代理自動調度](multi-agent-review.md#原生-codex-子代理自動調度完整模式)；Worker JSON 驗證成功不等於 70 項審查完成。
 單次執行能否完整完成仍受 Agent 實際可用工具與資源限制影響。
+
+## Claude Code（含 Claude Desktop Code 分頁）完整審查指令
+
+Claude Code 沒有 Codex 的 `/goal`，直接在**受測專案的工作階段**送出下方訊息即可。Claude Desktop 須使用 **Code 分頁**，Skill 安裝於 `~/.claude/skills/security-code-review/`；一般聊天上傳 Zip 的 Skill 在雲端沙箱執行，讀不到本機受測專案，無法完成完整審查。
+
+此範本固定**單代理**：多代理能力試跑綁定 `codex --version`，Claude Code 環境無法通過，故不使用 `--multi-agent`、子代理派工與 `--renew-budget`／`--renew-probe`。其餘判定、授權與完成條件與上方 Codex 範本相同。
+
+```text
+/security-code-review 對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
+
+授權（本人明確同意）：本次為長時間無人值守執行，僅限本次指定受測專案與本次完整審查，以下操作全部預先授權，Agent 不必逐批或逐項重問；每項仍須先重新閱讀真實原始碼、核對來源快照及安全控制證據，並通過該工具自身的唯讀預檢：
+- 以 --integrate --allow-revision 修訂既有 completed 證據。
+- 經重新閱讀證明須更正時，以 --allow-finding-revision 更正既有 Finding（保留 finding_amendments 舊全文與修訂追溯）。
+- 重新查證確認為誤判的 fail，附來源反證後以 --allow-revision --allow-fail-withdrawal 受控撤回，原 Finding 全文保留於撤回紀錄。
+- 完整性證據遺失時依 review_evidence_recovery.py --plan 核對後 --restore（必要時含 --allow-damaged-replacement）；無可信備份時以 --archive-for-recheck --acknowledge-evidence-loss 封存舊審查後重新取證。
+- 未提交 Wave 批次在 --inspect-uncommitted 回報 can_abort=true 時以 --abort-uncommitted --acknowledge-investigation 受控取消，含符合全部條件的 staged-only 例外。
+- Agent 自行核對交易狀態與正式工件後執行 --recover-integrity／--seal-integrity；來源異動時依 snapshot-refresh 與重查機制重新取證。
+仍不得修改受測專案程式碼、繞過品質／SHA256／Manifest／Journal 守門、未經來源反證移除既有 confirmed Finding、未經裁決將 fail 改成 pass，也不涵蓋其他專案。
+
+前置：
+
+- 使用目前安裝的 SKILL.md，判定一律遵循其中「共同證據與結果判定」的判定階梯；如果目前安裝的 SKILL.md 缺少該段，先回報版本不一致，不得沿用舊判定規則完成報告。
+- 於 Agent 實際執行環境透過 `run-python.sh`／`run-python.cmd --resolve`、`--check` 確認 Python 3.10+ 與相依套件，並固定 `SECURITY_CODE_REVIEW_PYTHON_PINNED`。即使命令名稱不可見也要搜尋既有安裝位置；失敗時分辨 PATH、版本／套件與沙箱問題，不得自行繞過或安裝。
+- 本次為單代理審查：不建立子代理、不執行 multi_agent.py；所有讀碼、判定與寫入由主代理完成。
+- 報告 presentation.reviewer 記為 Claude Code。
+
+完成條件：
+
+0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
+   - 新審查由 --init 自動建立完整性封存；已有結果的專案則由 Agent 先核對既有結果並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity（兩者均已由授權段落預先授權）。
+   - 完整性證據遺失時先以 `review_evidence_recovery.py --plan` 核對可信內容備份，通過後才執行 `--restore`；無可信備份須經明確同意（本指令授權段落已預先同意）保留／隔離舊審查與 Findings 並重新取證，不得重封舊鏈。
+   - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
+
+1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
+
+2. 逐檔實際閱讀程式碼，依 rules.json 的全部 70 條規則判斷適用性：
+   - 不得只依檔名、關鍵字或 Regex 判定完成。
+   - 不得只取第一個命中的檢核項目。
+   - 不得預設使用 XX-01 或 SI-01。
+   - 追蹤適用的程式碼、呼叫鏈、資料流及設定。
+   - 一個檔案可關聯多條適用規則，但不得為增加數量而建立無依據的關聯。
+   - 每個檔案完成十類適用性篩選；無直接適用項目仍須提出已核對的控制責任及理由，不得制式填入「無直接適用」。
+   - 每批完成後使用 `--repair-plan` 唯讀檢查已保存的第一輪證據及未建檔來源；尚有 pending 規則也要回報已完成規則的品質缺口。優先修正重複模板與高扇出檔案；不得等到第二輪前才一次處理整體缺口。
+
+3. 對每項適用規則實際執行靜態安全分析：
+   - 驗證安全控制的實作及有效性。
+   - 檢查可能的攻擊路徑、繞過條件與弱點。
+   - 記錄具體來源路徑、行號、檢查內容、證據及判定理由。
+   - 搜尋或關鍵字命中只能作為分析線索，不能視為已完成檢核。
+   - 追查跨檔／全專案規則的必要控制鏈、組態覆寫及責任元件；補查任務未完成時，不得提前標記 completed。
+
+4. 依實際證據判定結果（遵循 SKILL.md「判定階梯」，先判斷可證實的缺陷）：
+   - pass：控制已由實際控制邏輯、設定與呼叫鏈證實有效，且符合該規則 pass_condition。
+   - fail：來源、設定或呼叫鏈已證實缺陷、規則間矛盾、不安全預設值，或儲存庫中應有的控制不存在（須記錄搜尋範圍及責任分析）；建立 Finding。
+   - review：僅限部署拓撲、營運與制度紀錄、儲存庫外平台設定、manual_boundary 確實阻斷結論的事項，或已嘗試執行但因環境失敗而無法取得的必要掃描結果。decision_reason 須先寫程式碼已判定的部分，再以「待確認：」指名具體工件與缺口，並依規定填寫 review_kind。
+   - na：有具體證據及理由確認不適用，且已核對控制責任歸屬。
+   - 下列情形不得標 review：缺測試（含重放、邊界、整合、授權測試）；缺角色或 ownership 矩陣（須自行讀碼建立）；自承尚未完成的資料流或 Handler 盤點；decision_reason 已寫出缺陷或矛盾。
+   - 靜態控制成立但缺測試／文件時，依控制實際情形判 pass 或 fail，於 decision_reason 說明缺口；不得因此 review。
+   - 標記 review 前須通過 SKILL.md 的三題自檢。review 比例超過 40% 須逐條重審，不能以比例機械改判。
+   - 對 completed+review 建立 decision_audits：依證據模式核對實際 static_evidence 或可追溯的外部控制責任證據、searched_paths、manual_boundary、外部工件及 blocking_question；open_static_questions 必須為空。只有缺非必要動態測試不得 review，且不能將未完成的程式碼追查列為 static_done_external_pending。
+   - 控制由外部平台實施時，依外部控制責任證據契約核對真實責任歸屬及控制有效性。缺 Workflow、Runner、掃描輸出或程式碼行號本身不是委外證據；不得虛構本地控制執行點。
+   - 不得預設所有檢核為 review，也不得僅因未執行動態測試就把靜態可判定項目設為 review。
+
+5. 保留既有 assessment.json、file_reviews、Findings 及所有證據。
+   - 對缺乏實質分析的既有 completed 紀錄重新查核。
+   - 既有 status=review 的項目，一律依新版判定階梯重新判定；能改為 pass 或 fail 者須更新 status、decision_reason 與必要 Finding，保留原有證據，不得刪除。
+   - 不得使用固定模板、批次填入理由或製造檢核結果。
+   - 不得修改受測專案原始碼，也不要求先修復弱點。
+   - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
+   - 本指令已明確預先授權本次專案之 completed 證據合法修訂：核對真實來源後可用 `--integrate --allow-revision`，不必逐批重問；Finding 更正、誤判 fail 受控撤回（`--allow-fail-withdrawal`，原 Finding 全文保留）、證據還原／封存重審與 Wave 受控取消亦依上方授權段落辦理；未在實際使用者指令授權或超出範圍者須另取得明確同意。仍不得跳過批次證據、Finding 保護、SHA256／Manifest／Journal 守門。
+
+6. 每批保存真實審查結果，持續執行直到：
+   - 70 項規則均已實際完成。
+   - source_coverage.missing_source_file_count = 0。
+   - review_integrity_errors 與 rule_integrity_errors 均為空。
+   - assessment.file_reviews 與 execution.inspected_paths 一致。
+   - 第一輪以 `--diagnose-first-pass` 的 `ready_for_second_pass=true` 作為建立 baseline 的前置判斷；**不得在第二輪完成之前要求正式 `review_safety.py --validate` 通過**。
+   - `analysis/decision-audits.json` 與正式 review_kind／decision_reason、Git Revision 及來源快照一致，所有外部缺口確實會影響結論。
+   - 每批均可執行 `--diagnose-first-pass` 與 `--repair-plan`：`pending_rule_ids` 表示未完成規則，`missing_source_paths` 表示尚未通過逐檔驗證的來源，診斷仍需回報已完成規則的證據問題。第一輪 70/70 且 `ready_for_second_pass=true` 才可執行 `--begin-second-pass`。
+   - 第二輪採定向反例、不能重掃整棵來源樹：由主代理依 `second_pass.pending_ids` 逐項重讀來源、追查反例並正式儲存 `adversarial_reviews`，須完成所有 70 項及矛盾裁決；不得宣稱盲審。
+   - 診斷中的 `inspected_paths_diagnostic` 僅彙整**已被正式逐檔驗證拒絕**的規則／檔案關聯：`by_rule` 按規則計數，`by_reason` 區分缺少逐檔紀錄、缺少規則審查及逐檔紀錄驗證失敗；不是新增檔案數或可自動修補清單。`cross_file_candidates` 列出完整未查證關聯 ID；必須核實來源後逐項處理，不能批次核准。
+   - 跨檔／全專案規則的結案紀錄完整，沒有未追查或未排除的關聯候選與 open_issues。
+   - Git Revision、來源 SHA256 與分析索引一致；來源異動後須依 snapshot-refresh 與重查機制處理，不能直接沿用舊 completed。
+   - **完成第二輪之後**才執行 `review_safety.py --validate`，接著執行不帶 `--compact`／`--detail-id` 的 `review_queue.py`，確認正式結果 `ready_for_report=true`。
+   - 所有完成判定均有足夠的真實檢核依據。
+
+7. 正式交付前再次檢查：
+   - 是否存在大量無差別 review。
+   - 是否存在大量複製的檢核理由或摘要。
+   - 是否存在只有關鍵字分類、沒有實質分析的紀錄。
+   - 是否有已知弱點未建立 Finding。
+   - 是否有已標記 completed 但沒有足夠查核證據的規則。
+   - 是否有 decision_reason 同時描述缺陷或矛盾卻標為 review。
+   - 是否有 review 理由只是「缺測試」或「缺矩陣」。
+   - 是否有 review 未以「待確認：」指名具體工件。
+   - 是否有全專案控制缺席、版本不一致、跨檔證據或 Finding 衝突仍未處理。
+   發現上述問題時，必須重新執行相關檢核，不得只修改 JSON 以通過驗證。
+
+8. 只有第一輪診斷通過、第二輪完整、`review_safety.py --validate` 成功且正式 `ready_for_report=true`，才執行 complete_review.py，產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論，並維持相關規範及附件的獨立查證要求。
+
+9. 僅遇不可恢復的執行／資源限制、需要超出上方授權段落範圍的操作（例如其他專案）、無法取得且不能合法替代的必要證據時才可停止；授權段落已涵蓋的操作不得作為停止或等待詢問的理由。停止前保留已完成診斷、blocker_signature、來源與 Findings、完整性交易鏈及明確續跑條件，不得宣稱審查已完成。
+
+在所有條件真正完成前，不得以 70/70 completed、100% 檔案覆蓋率或 JSON Schema 驗證通過，直接宣稱已完成實質資安審查。
+```
+
+無人值守注意事項：
+
+- **授權段落不會解除 Claude Code 的工具權限確認**，它只授權 Skill 內部的修訂、撤回等流程。長時間執行前，請改用較寬鬆的權限模式，或在受測專案 `.claude/settings.json` 允許 `sh "<SKILL_ROOT>/scripts/run-python.sh" *` 等命令；否則每次 Bash 呼叫都可能停下等待確認。
+- 對話過長時 Claude Code 會自動摘要並繼續。真的中斷時，在同一受測專案再次送出相同訊息即可續跑：`review_id` 沿用，只補做尚未完成的項目。
 
 ## 完整模式第二輪的分層式工作清單
 
