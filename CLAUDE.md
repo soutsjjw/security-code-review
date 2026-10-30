@@ -3,6 +3,7 @@
 ## Build & Test Commands
 - Check Environment: `sh scripts/run-python.sh --check`
 - Validate Rules Package (rules.json / rules.yaml / schema consistency): `sh scripts/run-python.sh scripts/validate_package.py`
+- Regenerate Rule Docs: `python scripts/render_rules_markdown.py --write` after changing `rules.json`; `docs/70-rules-standardized.md` is generated, so never edit it by hand (`validate_package.py` fails when they drift).
 - Refresh Package Checksums: `python scripts/package_manifest.py --write` (after `git add` of new files; `--check` verifies, and `validate_package.py` fails on a stale `SHA256SUMS.txt`)
 - Run Unit Tests: `python -m unittest discover -s tests -v`
   - The full suite takes ~6 minutes. JSON and `ERROR:` lines in the output are printed by CLI paths under test (blocked / aborted / stalled cases), not failures; check the final `OK` / `FAILED` summary.
