@@ -19,6 +19,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from review_core import canonical_digest as _digest, file_sha256 as _file_sha
+
 REPORT = Path("reports/security-code-review")
 STATE = REPORT / "logs/repair-waves/state.json"
 SNAPSHOT = REPORT / "analysis/source-snapshot.json"
@@ -31,15 +33,6 @@ def _read(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{path.name}: 必須是 JSON 物件")
     return data
-
-
-def _digest(data: Any) -> str:
-    return hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True,
-                                     separators=(",", ":")).encode("utf-8")).hexdigest()
-
-
-def _file_sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _assessment(target: Path) -> dict[str, Any]:
@@ -494,7 +487,6 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
             "batch_completed": batch_id in state["completed_batches"]}
 
 
-
 def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     """Resume a paused checkpoint only after genuinely changed formal evidence.
 
@@ -553,7 +545,6 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     _write_state(target / STATE, state)
     return {**_result(state), "regression": regression,
             "note": "已在完整性核對及權威診斷改變後續跑；不構成新的安全結論"}
-
 
 
 def sample_plan(target: Path) -> dict:

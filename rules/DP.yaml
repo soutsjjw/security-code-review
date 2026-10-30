@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - SBOM/套件鎖定檔
     - SCA/CVE 受影響情況
@@ -126,6 +127,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - Redis/DB/Cache 預設憑證
     - 外部產品初始化/輪替
@@ -216,6 +218,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 主機與容器監聽埠
     - 必要性與防火牆規則
@@ -306,6 +309,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 支援生命週期/EOL
     - 修補計畫及套件版本

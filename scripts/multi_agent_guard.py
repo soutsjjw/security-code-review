@@ -2,7 +2,6 @@
 """Security boundaries for untrusted review workers; metadata is not a sandbox."""
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -10,6 +9,11 @@ import subprocess
 import time
 from pathlib import Path
 from source_reader import read_source_text
+from review_core import canonical_digest as digest, sha256_bytes as sha
+
+CHECKS = ("parallel_dispatch", "independent_context", "single_layer",
+          "enforced_read_only", "structured_result", "failure_recovery",
+          "first_pass_result_isolation")
 
 REPORT = Path("reports/security-code-review")
 PROBE_TTL_SECONDS = 24 * 3600
@@ -39,9 +43,6 @@ def exclusive_ledger(function):
     return guarded
 
 
-def sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
 def runtime_binding() -> str | None:
     # A host without a verifiable Codex executable must use the single-agent path.
     try:
@@ -55,8 +56,6 @@ def probe_errors(root: Path, probe: dict, *, required: bool = True) -> list[str]
     errors = []
     if not isinstance(probe, dict) or probe.get("verified") is not True:
         return ["沒有已核實的 Codex 唯讀能力試跑"] if required else []
-    from multi_agent_contract import digest
-    from multi_agent import CHECKS
     if any(probe.get("checks", {}).get(k) is not True for k in CHECKS):
         errors.append("能力試跑條件不完整")
     observed = runtime_binding()

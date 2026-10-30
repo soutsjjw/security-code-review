@@ -179,6 +179,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "Session/Cookie/JWT 過期時間",
           "逾時後重新鑑別測試"
@@ -311,6 +312,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "登出與撤銷流程",
           "舊 Token/Session 重放"
@@ -436,6 +438,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "管理路由與身分管理",
           "VPN/零信任/Proxy/來源政策"
@@ -562,6 +565,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "角色權限矩陣",
           "服務帳號權限",
@@ -687,6 +691,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "AppPool/Container/Service 執行身分",
           "主機權限與部署帳號"
@@ -802,6 +807,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "外部 API 保護鏈",
           "來源/身分/用途限制"
@@ -927,6 +933,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "Static File/Directory Browsing",
           "Web Server 靜態檔案設定"
@@ -1051,6 +1058,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "路由識別碼與資源歸屬",
           "Repository/SQL 查詢隔離",
@@ -1174,6 +1182,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "密碼建立/更改政策",
           "長度及封鎖已洩漏密碼措施"
@@ -1304,6 +1313,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "密碼更換條件",
           "憑證洩漏應變",
@@ -1417,6 +1427,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "猜密碼與憑證填充保護",
           "節流/封鎖/風險式偵測"
@@ -1540,6 +1551,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "登入與 Token 傳輸",
           "TLS 端到端設定"
@@ -1664,6 +1676,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "匿名/申請/驗證碼端點",
           "限速、Bot 偵測或 CAPTCHA 等效控制"
@@ -1778,6 +1791,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "找回密碼/重設流程",
           "單次 Token、有效期限與身分綁定"
@@ -1892,6 +1906,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "認證錯誤回應",
           "使用者列舉與秘密輸出測試"
@@ -2004,6 +2019,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "密碼散列函式與 Salt",
           "API Key 類型與熵值、儲存策略"
@@ -2118,6 +2134,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "高敏感操作的認證強度",
           "IdP MFA/claims 實際設定"
@@ -2230,6 +2247,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "來源可信度與 Proxy 設定",
           "風險存取決策與稽核"
@@ -2353,6 +2371,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "原生 SQL/ORM 查詢",
           "不可信輸入到資料庫的流向"
@@ -2476,6 +2495,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "HTML/JS 上下文編碼",
           "CSV/試算表公式起始字元"
@@ -2619,6 +2639,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "Cookie 自動隨附的變更請求",
           "CSRF Token/SameSite/Origin 驗證"
@@ -2743,6 +2764,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "Process/Shell 呼叫點",
           "命令字元與參數資料流"
@@ -2866,6 +2888,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "Endpoint/DTO 伺服端驗證",
           "資料型別/長度/狀態機驗證"
@@ -2989,6 +3012,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "檔案型別/大小/內容驗證",
           "儲存隔離、掃毒與處理流程"
@@ -3114,6 +3138,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "路徑合成與檔案操作",
           "Zip Slip/符號連結/絕對路徑"
@@ -3237,6 +3262,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "HTTP 目的地與 DNS 解析",
           "URL allowlist、私網與重導向"
@@ -3359,6 +3385,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "外部 TLS 與反向 Proxy",
           "資料庫/內部 API/SMTP 加密"
@@ -3492,6 +3519,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "加密演算法與操作模式",
           "金鑰長度、IV/nonce、隨機數"
@@ -3618,6 +3646,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "秘密來源、權限及輪替",
           "Git 與日誌中的秘密暴露"
@@ -3743,6 +3772,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "敏感資料庫及備份",
           "金鑰管理、加密範圍及權限"
@@ -3866,6 +3896,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "HSTS/CSP/CORS 等標頭",
           "正式環境 HTTP 回應實證"
@@ -3998,6 +4029,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "Secure/HttpOnly/SameSite",
           "Cookie 範圍/期限/前綴"
@@ -4140,6 +4172,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "Exception Filter/Middleware",
           "意外錯誤回應與堆疊追蹤"
@@ -4262,6 +4295,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "全域例外路由",
           "失效時的預設拒絕模式"
@@ -4385,6 +4419,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "local",
         "search_targets": [
           "Stream/Connection/資源釋放",
           "例外與取消流程"
@@ -4510,6 +4545,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "異常告警規則",
           "重大事件接收/值班與演練證據"
@@ -4623,6 +4659,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "正式環境 debug/swagger 設定",
           "錯誤畫面與 log level"
@@ -4747,6 +4784,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "預設帳密/範例組態",
           "部署時的基線變更"
@@ -4862,6 +4900,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "登入/授權/拒絕事件",
           "稽核涵蓋範圍"
@@ -4994,6 +5033,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "管理高權限操作",
           "讀取個資與敏感資料事件"
@@ -5118,6 +5158,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "事件時間/對象/來源/結果",
           "TraceId/CorrelationId"
@@ -5244,6 +5285,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "結構化欄位與時區",
           "日誌集中平台解析"
@@ -5365,6 +5407,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "輪替/保留/容量策略",
           "告警與實際儲存限制"
@@ -5488,6 +5531,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "UTC/時區轉換",
           "NTP 同步及誤差證據"
@@ -5610,6 +5654,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "日誌權限/完整性",
           "遠端傳送/備份/存留"
@@ -5742,6 +5787,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "PII/密碼/Token/金鑰遮蔽",
           "敏感日誌測試"
@@ -5864,6 +5910,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "日誌服務故障",
           "佇列溢位、降級與告警"
@@ -5988,6 +6035,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "資料/紀錄完整性機制",
           "適用要求與偵測能力"
@@ -6101,6 +6149,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "SBOM/套件鎖定檔",
           "SCA/CVE 受影響情況"
@@ -6233,6 +6282,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "Redis/DB/Cache 預設憑證",
           "外部產品初始化/輪替"
@@ -6347,6 +6397,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "主機與容器監聽埠",
           "必要性與防火牆規則"
@@ -6461,6 +6512,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "支援生命週期/EOL",
           "修補計畫及套件版本"
@@ -6585,6 +6637,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "資料蒐集目的/法律依據",
           "告知及合法例外條件"
@@ -6692,6 +6745,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "回應 DTO 與畫面欄位",
           "最小化/遮罩與目的限制"
@@ -6809,6 +6863,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "個資傳輸鏈路",
           "外部/內部/批次服務 TLS"
@@ -6931,6 +6986,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "個資讀取/下載/變更事件",
           "稽核權限、留存與防竄改"
@@ -7048,6 +7104,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "個資庫/快取/備份",
           "加密/隔離/權限等效措施與核定"
@@ -7172,6 +7229,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "個資 API 身分與授權",
           "來源、目的與存取頻率控管"
@@ -7281,6 +7339,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "資料保存期限/刪除流程",
           "法律保存例外與刪除證據"
@@ -7397,6 +7456,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "事故通報流程與責任人",
           "通報演練、紀錄、法定期限現行版"
@@ -7504,6 +7564,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "DB/檔案/金鑰備份",
           "還原演練與 RPO/RTO"
@@ -7612,6 +7673,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "dev/test/prod 環境隔離",
           "機敏資料與金鑰共用"
@@ -7720,6 +7782,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "SLA 與可用性要求",
           "單點故障/備援架構"
@@ -7827,6 +7890,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "系統/部署/營運/安全文件",
           "版本、責任人與更新"
@@ -7935,6 +7999,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "Git/代管平台備份",
           "原始碼還原演練"
@@ -8041,6 +8106,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "審查/簽核/變更紀錄",
           "PR/CI 追溯性"
@@ -8149,6 +8215,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "容災啟動演練",
           "切換時間、成功率與缺失追蹤"
@@ -8255,6 +8322,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "CI workflow 權限",
           "Action/套件固定版及秘密",
@@ -8372,6 +8440,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "project",
         "search_targets": [
           "遠端 CDN JS/CSS 載入",
           "SRI 或受控替代方式"
@@ -8487,6 +8556,7 @@
         "no_evidence": "review"
       },
       "inspection": {
+        "review_scope": "cross_file",
         "search_targets": [
           "JSON/XML/Binary 反序列化",
           "允許型別與執行副作用"

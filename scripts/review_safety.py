@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from snapshot_impact import affected_rules, source_delta
+from review_core import snapshot_fingerprint
 
 RELATIVE = Path("reports/security-code-review")
 SNAPSHOT = Path("analysis/review-snapshot.json")
@@ -26,19 +27,7 @@ INDEX = Path("analysis/structure-index.json")
 CONTROL_VERIFICATIONS = Path("analysis/control-verifications.json")
 DECISION_AUDITS = Path("analysis/decision-audits.json")
 ADVERSARIAL_REVIEWS = Path("analysis/adversarial-reviews.json")
-
-# 全專案責任檢查即使沒有任何檔案命中也必須執行。
-PROJECT_RULES = frozenset((
-    "AC-03 AC-05 AC-07 AU-04 CR-01 CR-03 CR-05 EH-04 EH-05 EH-06 "
-    "LG-03 LG-04 LG-05 LG-06 LG-07 LG-09 DP-01 DP-02 DP-03 DP-04 "
-    "PD-01 PD-08 BC-01 BC-02 BC-03 BC-04 BC-05 BC-06 BC-07 SI-01 SI-02"
-).split())
-CROSS_FILE_RULES = frozenset((
-    "AC-01 AC-02 AC-04 AC-06 AC-08 AU-01 AU-02 AU-03 AU-05 AU-06 "
-    "AU-07 AU-08 AU-09 AU-10 IN-01 IN-02 IN-03 IN-04 IN-05 IN-06 "
-    "IN-07 IN-08 CR-02 CR-04 CR-06 EH-01 EH-02 LG-01 LG-02 LG-08 "
-    "LG-10 PD-02 PD-03 PD-04 PD-05 PD-06 PD-07 SI-03"
-).split())
+REVIEW_SCOPES = ("local", "cross_file", "project")
 
 
 def report_dir(target: Path) -> Path:
@@ -64,13 +53,17 @@ def _revision(target: Path) -> str:
 
 
 def rule_scopes() -> dict[str, str]:
+    """規則檢核範圍以 rules.json 的 inspection.review_scope 為唯一來源。
+
+    project 為全專案責任檢查，即使沒有任何檔案命中也必須執行。
+    """
     master = Path(__file__).resolve().parents[1] / "rules.json"
-    ids = {r["id"] for r in json.loads(master.read_text(encoding="utf-8"))["rules"]}
-    if PROJECT_RULES & CROSS_FILE_RULES or (PROJECT_RULES | CROSS_FILE_RULES) - ids:
-        raise ValueError("規則檢核範圍定義重複或包含未知 ID")
-    return {rid: ("project" if rid in PROJECT_RULES else
-                  "cross_file" if rid in CROSS_FILE_RULES else "local")
-            for rid in sorted(ids)}
+    scopes = {r["id"]: r.get("inspection", {}).get("review_scope")
+              for r in json.loads(master.read_text(encoding="utf-8"))["rules"]}
+    invalid = sorted(rid for rid, scope in scopes.items() if scope not in REVIEW_SCOPES)
+    if invalid:
+        raise ValueError(f"規則缺少有效的 inspection.review_scope：{', '.join(invalid)}")
+    return dict(sorted(scopes.items()))
 
 
 def current_hashes(target: Path, exclusions: list[str]) -> dict[str, str]:
@@ -527,7 +520,6 @@ def integrate(target: Path, *, allow_revision: bool = False,
                     raise ValueError(f"{rid}: 來源異動後重新完成須附實際分析證據及方法")
                 if recheck.get("schema_version") == 2:
                     # Replayed completed checks cannot clear a new version obligation.
-                    from control_effectiveness import snapshot_fingerprint
                     proof = (part.get("recheck_proof") or {}).get(rid)
                     changed_paths = recheck.get("changed_source_paths") or []
                     expected = {p: snapshot["source_hashes"][p] for p in changed_paths
@@ -760,7 +752,6 @@ def refresh_snapshot(target: Path) -> None:
         if baseline_path.is_file():
             raise ValueError("第二輪 baseline 已建立；不可僅更新 Git 錨點，"
                              "須先確認來源版本並使用正式第二輪重啟流程")
-        from control_effectiveness import snapshot_fingerprint
         old_fp = snapshot_fingerprint(old)
         new_fp = snapshot_fingerprint(updated_snapshot)
         for sidecar in (CONTROL_VERIFICATIONS, DECISION_AUDITS):

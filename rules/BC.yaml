@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - DB/檔案/金鑰備份
     - 還原演練與 RPO/RTO
@@ -110,6 +111,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - dev/test/prod 環境隔離
     - 機敏資料與金鑰共用
@@ -197,6 +199,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - SLA 與可用性要求
     - 單點故障/備援架構
@@ -283,6 +286,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 系統/部署/營運/安全文件
     - 版本、責任人與更新
@@ -370,6 +374,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - Git/代管平台備份
     - 原始碼還原演練
@@ -455,6 +460,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 審查/簽核/變更紀錄
     - PR/CI 追溯性
@@ -542,6 +548,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 容災啟動演練
     - 切換時間、成功率與缺失追蹤

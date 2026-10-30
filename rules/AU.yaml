@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 密碼建立/更改政策
     - 長度及封鎖已洩漏密碼措施
@@ -124,6 +125,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 密碼更換條件
     - 憑證洩漏應變
@@ -213,6 +215,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 猜密碼與憑證填充保護
     - 節流/封鎖/風險式偵測
@@ -309,6 +312,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 登入與 Token 傳輸
     - TLS 端到端設定
@@ -406,6 +410,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 匿名/申請/驗證碼端點
     - 限速、Bot 偵測或 CAPTCHA 等效控制
@@ -496,6 +501,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 找回密碼/重設流程
     - 單次 Token、有效期限與身分綁定
@@ -586,6 +592,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 認證錯誤回應
     - 使用者列舉與秘密輸出測試
@@ -674,6 +681,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 密碼散列函式與 Salt
     - API Key 類型與熵值、儲存策略
@@ -764,6 +772,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 高敏感操作的認證強度
     - IdP MFA/claims 實際設定
@@ -852,6 +861,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 來源可信度與 Proxy 設定
     - 風險存取決策與稽核

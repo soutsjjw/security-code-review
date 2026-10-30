@@ -4,63 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
-# 不排除 .github 等 CI 設定。
-EXCLUDED_DIRS = {
-    ".git": "Git 內部資料",
-    "node_modules": "第三方相依套件",
-    "vendor": "第三方相依套件",
-    "bin": "建置輸出",
-    "obj": "建置輸出",
-    "dist": "建置輸出",
-    "build": "建置輸出",
-    "target": "建置輸出",
-    ".venv": "虛擬環境",
-    "venv": "虛擬環境",
-    ".pytest_cache": "測試快取",
-    "__pycache__": "測試快取",
-    "reports": "產出報告",
-    ".codegraph": "CodeGraph 索引",
-}
-
-
-def relative_path(root: Path, raw: str, *, root_allowed: bool = False, directory: bool = False) -> str:
-    """檢查相對路徑、存在性與 symlink 越界，回傳 POSIX 路徑。"""
-    if not isinstance(raw, str) or not raw.strip():
-        raise ValueError(f"無效的審查範圍路徑：{raw!r}")
-    value = raw.replace("\\", "/")
-    if value.startswith("/") or re.match(r"^[A-Za-z]:", value) or "\x00" in value:
-        raise ValueError(f"審查範圍不得使用絕對路徑：{raw!r}")
-    parts = [part for part in value.split("/") if part not in ("", ".")]
-    if ".." in parts:
-        raise ValueError(f"審查範圍路徑不可跨出受測目錄：{raw!r}")
-    if not parts and not root_allowed:
-        raise ValueError(f"審查範圍路徑不可為空：{raw!r}")
-    clean = "/".join(parts) if parts else "."
-    actual = (root / clean).resolve()
-    if not actual.is_relative_to(root):
-        raise ValueError(f"審查範圍路徑跨出受測目錄：{raw!r}")
-    if directory and not actual.is_dir():
-        raise ValueError(f"專案目錄不存在：{raw!r}")
-    if not directory and not root_allowed and not actual.is_file():
-        raise ValueError(f"審查檔案不存在：{raw!r}")
-    return clean
-
-
-def _default_rule(path: str) -> tuple[str, str] | None:
-    parts = path.split("/")
-    for i, part in enumerate(parts[:-1]):
-        if part.startswith(".codegraph-"):
-            return "**/.codegraph-*/", "CodeGraph 平台索引"
-        if part in EXCLUDED_DIRS:
-            return "**/" + part + "/", EXCLUDED_DIRS[part]
-        if i + 1 < len(parts) - 1 and part in (".agents", ".claude") and parts[i + 1] == "skills":
-            return "**/" + part + "/skills/", "Agent Skill 套件"
-    return None
+import source_coverage
+from scope_paths import EXCLUDED_DIRS, _default_rule, relative_path
 
 
 def _in_project(path: str, project_path: str) -> bool:
@@ -117,8 +66,7 @@ def build_scope_inventory(
 
     # 只有 verified file_reviews 可出現在正式「實際審查檔案清單」；
     # 即使 inspected_paths 把數百個檔案掛在一個規則，也不得灌水。
-    from source_coverage import build_source_coverage
-    coverage = build_source_coverage(assessment, root, ignored_artifacts=ignored_artifacts)
+    coverage = source_coverage.build_source_coverage(assessment, root, ignored_artifacts=ignored_artifacts)
     if coverage["review_integrity_errors"]:
         raise ValueError("逐檔檢核紀錄驗證失敗：" + coverage["review_integrity_errors"][0])
     inspected: dict[str, set[str]] = defaultdict(set)

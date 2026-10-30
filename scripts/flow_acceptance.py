@@ -16,6 +16,7 @@ from evidence_integrity import errors as integrity_errors
 from review_safety import snapshot_errors
 from quality_gate import measure as quality_measure
 from execution_boundary_events import verify_run
+from review_core import snapshot_fingerprint
 
 REPORT = Path("reports/security-code-review")
 KEYS = ("ready_for_second_pass", "pending_rule_ids", "missing_source_file_count",
@@ -99,7 +100,6 @@ def g1(target, *, before_path, shadow_legacy, shadow_optimized, legacy_target,
         check("full_gate_passed", False, str(exc)[:250])
     # Must match the formal checkpoint contract, not merely an arbitrary JSON file.
     try:
-        from control_effectiveness import snapshot_fingerprint
         checkpoint = read(target / REPORT / "analysis/first-pass-baseline.json")
         snapshot = read(target / REPORT / "analysis/review-snapshot.json")
         from review_queue import load_rules

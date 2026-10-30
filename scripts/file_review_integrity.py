@@ -13,7 +13,7 @@ from source_reader import digest_matches, read_source_text
 from analysis_candidates import (candidate_hits, has_executable_control,
                                  meaningful_source_excerpt, source_relevant_to_rule)
 from review_completion import _template
-from scope_inventory import relative_path
+from scope_paths import relative_path
 
 CATEGORIES = ("AC", "AU", "IN", "CR", "EH", "LG", "DP", "PD", "BC", "SI")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")

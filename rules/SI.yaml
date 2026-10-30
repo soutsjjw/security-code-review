@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - CI workflow 權限
     - Action/套件固定版及秘密
@@ -116,6 +117,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 遠端 CDN JS/CSS 載入
     - SRI 或受控替代方式
@@ -207,6 +209,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - JSON/XML/Binary 反序列化
     - 允許型別與執行副作用

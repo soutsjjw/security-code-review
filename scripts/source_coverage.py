@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
-from scope_inventory import _default_rule, relative_path
+from scope_paths import _default_rule, relative_path
 from file_review_integrity import (CATEGORIES, verified_file_rule_reviews,
                                    verified_na_inspection_links)
 

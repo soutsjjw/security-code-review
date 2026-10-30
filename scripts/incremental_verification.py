@@ -14,6 +14,7 @@ from typing import Any
 
 from review_safety import rule_scopes
 from review_blockers import diagnose
+from review_core import sha256_bytes as _sha, snapshot_fingerprint
 
 BASE = Path("reports/security-code-review")
 HIGH_RISK = frozenset(("AC", "AU", "IN", "CR"))
@@ -29,8 +30,6 @@ def _load(path: Path, fallback=None):
         raise ValueError("增量驗證不接受 symbolic link")
     return json.loads(path.read_text("utf-8")) if path.is_file() else fallback
 
-def _sha(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
 
 def contract_fingerprint(skill_root: Path, boundary_level: str) -> str:
     """Rule/feature/schema/analyser/boundary changes all invalidate an earlier plan."""
@@ -104,7 +103,6 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
         return all_scope("unproven-artifact-impact")
     if previous_contract is None or previous_contract != contract:
         return all_scope("contract-or-boundary-version-changed")
-    from control_effectiveness import snapshot_fingerprint
     if (not isinstance(snapshot, dict) or previous_snapshot is None
             or previous_snapshot != snapshot_fingerprint(snapshot)):
         return all_scope("source-snapshot-version-changed")

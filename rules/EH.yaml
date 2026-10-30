@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - Exception Filter/Middleware
     - 意外錯誤回應與堆疊追蹤
@@ -118,6 +119,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 全域例外路由
     - 失效時的預設拒絕模式
@@ -214,6 +216,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: local
     search_targets:
     - Stream/Connection/資源釋放
     - 例外與取消流程
@@ -312,6 +315,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 異常告警規則
     - 重大事件接收/值班與演練證據
@@ -401,6 +405,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 正式環境 debug/swagger 設定
     - 錯誤畫面與 log level
@@ -498,6 +503,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 預設帳密/範例組態
     - 部署時的基線變更

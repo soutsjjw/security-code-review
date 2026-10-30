@@ -23,17 +23,13 @@ from source_reader import read_source_text
 from analysis_candidates import candidate_hits
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
+from review_core import canonical_digest as _digest
 
 STAGED_FILE = Path("analysis/staged/pending.json")
 SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
 EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
                            "adversarial_reviews"})
 WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"}) | EVIDENCE_KEYS
-
-
-def _digest(value: Any) -> str:
-    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
-                                      separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def _load(path: Path) -> Any:

@@ -11,11 +11,12 @@ import sys
 import time
 from pathlib import Path
 
-from multi_agent_contract import VERSION, digest, validate_worker_result, finding_key
-from multi_agent_guard import (runtime_binding, probe_errors, protected_report_digest, challenges_for, exclusive_ledger)
+from multi_agent_contract import SECRET, VERSION, digest, validate_worker_result, finding_key
+from multi_agent_guard import (CHECKS, challenges_for, exclusive_ledger, probe_errors,
+                               proof_line_hash, protected_report_digest, runtime_binding, sha)
 from source_reader import source_digest
 from source_coverage import expected_paths
-from scope_inventory import relative_path
+from scope_paths import relative_path
 
 ANALYSIS = Path("reports/security-code-review/analysis")
 LEDGER = ANALYSIS / "multi-agent/ledger.json"
@@ -26,9 +27,6 @@ REPORT = Path("reports/security-code-review")
 HIGH_RISK = re.compile(r"auth|identity|session|credential|permission|access|"
                        r"controller|endpoint|request|input|upload|serializ|"
                        r"deserializ|middleware|token|password|config", re.I)
-CHECKS = ("parallel_dispatch", "independent_context", "single_layer",
-          "enforced_read_only", "structured_result", "failure_recovery",
-          "first_pass_result_isolation")
 RETRY_LIMIT = 2
 
 
@@ -135,7 +133,6 @@ def record_probe(root: Path, submitted: dict) -> dict:
     if all(checks.values()) and (
             not current_runtime or submitted["codex_version"] != current_runtime):
         raise ValueError("Codex 實際執行器版本無法核實或與 probe 不符")
-    from multi_agent_guard import sha
     try:
         trace_file = Path(trace).resolve(strict=True) if isinstance(trace, str) else None
         if (not trace_file or not trace_file.is_file() or trace_file.is_symlink()
@@ -151,7 +148,6 @@ def record_probe(root: Path, submitted: dict) -> dict:
     safe.update(trace_path=str(trace_file) if trace_sha else None,
                 trace_sha256=trace_sha, verified_at=time.time())
     raw = json.dumps(safe, ensure_ascii=False)
-    from multi_agent_contract import SECRET
     if SECRET.search(raw):
         raise ValueError("試跑紀錄疑似包含機敏資訊")
     safe["verified"] = all(checks.values())
@@ -519,7 +515,6 @@ def accept_stdin(root: Path, raw: str) -> dict:
     """Validate a worker message before any local write."""
     if len(raw.encode("utf-8")) > 2_000_000:
         raise ValueError("Worker 資料超出限制，拒絕保存")
-    from multi_agent_contract import SECRET
     if SECRET.search(raw):
         raise ValueError("Worker 資料疑似包含憑證，尚未落地即拒絕")
     return _accept_payload(root, json.loads(raw))
@@ -540,7 +535,6 @@ def _accept_payload(root: Path, result: dict) -> dict:
         raise ValueError("已完成分片的內容與既有結果衝突")
     if row["status"] != "running":
         raise ValueError("必須先由主代理 claim 分片")
-    from multi_agent_guard import proof_line_hash
     challenge_hashes = {path: {str(n): proof_line_hash(root, path, n) for n in positions}
                         for path, positions in row.get("challenges", {}).items()}
     errors = validate_worker_result(root, row["task"], result, snap["source_hashes"],
@@ -570,7 +564,6 @@ def _accept_payload(root: Path, result: dict) -> dict:
     state["window_tokens"] = state.get("window_tokens", 0) + result["tokens_used"]
     state["window_charged"] = state.get("window_charged", 0) + max(
         result["tokens_used"], row["task"]["estimated_tokens"])
-    from multi_agent_contract import SECRET
     if SECRET.search(json.dumps(result, ensure_ascii=False)):
         raise ValueError("含機敏資訊的 Worker 資料不可保存")
     destination = root / ANALYSIS / "multi-agent/results" / (task_id + ".json")
@@ -627,7 +620,6 @@ def accept_followup(root: Path, path: Path) -> dict:
 def accept_followup_stdin(root: Path, raw: str) -> dict:
     if len(raw.encode("utf-8")) > 2_000_000:
         raise ValueError("跨檔補查資料過大，尚未落地即拒絕")
-    from multi_agent_contract import SECRET
     if SECRET.search(raw):
         raise ValueError("跨檔補查疑似包含機敏資訊，尚未落地即拒絕")
     return _accept_followup_payload(root, json.loads(raw))
@@ -653,10 +645,8 @@ def _accept_followup_payload(root: Path, data: dict) -> dict:
     resolved = data["resolved"]
     if not isinstance(resolved, list):
         raise ValueError("補查結果必須是陣列")
-    from multi_agent_contract import SECRET
     if SECRET.search(json.dumps(data, ensure_ascii=False)):
         raise ValueError("補查結果包含疑似機敏資訊")
-    from multi_agent_guard import proof_line_hash
     index = _read(root / INDEX)
     unresolved_ids = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
     seen = set()
@@ -720,7 +710,6 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
     document = _read(evidence_path)
     if not isinstance(document, dict) or set(document) != {"task_id", "resolved", "manifest_head"}:
         raise ValueError("主代理結案證據欄位不完整")
-    from multi_agent_contract import SECRET
     if SECRET.search(json.dumps(document, ensure_ascii=False)):
         raise ValueError("主代理結案證據含疑似機敏資訊")
     from evidence_integrity import errors as integrity_errors, MANIFEST
@@ -736,7 +725,6 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
         raise ValueError("resolved 必須為陣列")
     expected = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
     observed: set[tuple] = set()
-    from multi_agent_guard import proof_line_hash
     index = _read(root / INDEX)
     for item in document["resolved"]:
         if not isinstance(item, dict) or set(item) != {

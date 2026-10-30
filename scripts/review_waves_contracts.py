@@ -5,18 +5,13 @@ Only the host's real agent tools can execute a work contract; Python never
 pretends to create, isolate or authenticate a model executor.
 """
 from __future__ import annotations
-import hashlib
-import json
 import re
 from pathlib import Path
 
+from review_core import canonical_digest as digest
+
 ALLOWED_INDEPENDENCE = ("L0", "L1", "L2")
 SHA = re.compile(r"^[0-9a-f]{64}$")
-
-
-def digest(value: object) -> str:
-    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
-                                      separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def work_contract(target: Path, state: dict, *, second_pass: dict | None = None) -> dict:

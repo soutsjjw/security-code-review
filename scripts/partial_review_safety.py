@@ -15,11 +15,12 @@ from review_completion import completion_errors
 from review_decision import decision_quality_errors
 from source_coverage import build_source_coverage
 from review_safety import closure_errors, rule_scopes
-from control_effectiveness import verification_errors, snapshot_fingerprint
+from control_effectiveness import verification_errors
 from decision_adjudication import adjudication_errors
 from adversarial_recheck import second_pass_errors, digest
 from partial_review import (_artifact, _category_dir, _category_rules, _load, _atomic,
                             _digest, _snapshot, read_category, STAGED_FILE)
+from review_core import snapshot_fingerprint
 
 STRUCTURE = PARTIAL_ROOT / "_shared/analysis/structure-index.json"
 INDEX_SEAL = PARTIAL_ROOT / "_shared/analysis/index-integrity.json"

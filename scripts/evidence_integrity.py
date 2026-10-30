@@ -6,12 +6,13 @@
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 from pathlib import Path
 from typing import Any
+
+from review_core import read_json as _read, sha256_bytes as digest, snapshot_fingerprint
 
 RELATIVE = Path("reports/security-code-review")
 ANALYSIS = RELATIVE / "analysis"
@@ -40,16 +41,8 @@ def _json_bytes(value: Any) -> bytes:
     return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
-def digest(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
-
-
 def _value_hash(value: Any) -> str | None:
     return None if value is None else digest(_json_bytes(value))
-
-
-def _read(path: Path, default: Any = None) -> Any:
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 
 
 def _write(path: Path, value: Any) -> None:
@@ -74,7 +67,6 @@ def _path(target: Path, relative: str) -> Path:
 
 def _hashes(target: Path) -> dict[str, str | None]:
     return {name: _hash_file(_path(target, name)) for name in TRACKED}
-
 
 
 def _backup_path(target: Path, sha: str) -> Path:
@@ -272,7 +264,6 @@ def _entry(payload: dict) -> dict:
 
 
 def _fp(snapshot: dict) -> str:
-    from control_effectiveness import snapshot_fingerprint
     return snapshot_fingerprint(snapshot)
 
 

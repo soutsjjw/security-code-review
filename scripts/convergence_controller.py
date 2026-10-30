@@ -8,12 +8,12 @@ group only as a diagnosis; the Run and unrelated work remain executable.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
 from review_blockers import FIXES, diagnose
 import review_log
+from review_core import canonical_digest as _digest
 
 # Each strategy changes the actual type/verification of evidence; none fabricates evidence.
 STRATEGIES = {
@@ -60,9 +60,6 @@ STRATEGIES = {
     ],
 }
 
-def _digest(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
-                                    separators=(",", ":")).encode("utf-8")).hexdigest()
 
 def strategy_signature(category, evidence_kind, steps, scope_rules):
     if category not in FIXES or not isinstance(steps, (tuple, list)):

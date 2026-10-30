@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 登入/授權/拒絕事件
     - 稽核涵蓋範圍
@@ -126,6 +127,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 管理高權限操作
     - 讀取個資與敏感資料事件
@@ -223,6 +225,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 事件時間/對象/來源/結果
     - TraceId/CorrelationId
@@ -322,6 +325,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 結構化欄位與時區
     - 日誌集中平台解析
@@ -416,6 +420,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 輪替/保留/容量策略
     - 告警與實際儲存限制
@@ -512,6 +517,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - UTC/時區轉換
     - NTP 同步及誤差證據
@@ -607,6 +613,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 日誌權限/完整性
     - 遠端傳送/備份/存留
@@ -710,6 +717,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - PII/密碼/Token/金鑰遮蔽
     - 敏感日誌測試
@@ -805,6 +813,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 日誌服務故障
     - 佇列溢位、降級與告警
@@ -902,6 +911,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 資料/紀錄完整性機制
     - 適用要求與偵測能力

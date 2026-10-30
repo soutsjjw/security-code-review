@@ -18,7 +18,7 @@ from source_reader import source_digest
 from source_reader import read_source_text
 from review_relationships import build_relationships
 from review_safety import initialize_snapshot
-from scope_inventory import EXCLUDED_DIRS, _default_rule, relative_path
+from scope_paths import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 
 INDEX_VERSION = 10

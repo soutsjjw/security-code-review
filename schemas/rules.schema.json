@@ -64,7 +64,19 @@
             "type": "object"
           },
           "inspection": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "review_scope"
+            ],
+            "properties": {
+              "review_scope": {
+                "enum": [
+                  "local",
+                  "cross_file",
+                  "project"
+                ]
+              }
+            }
           },
           "assessment": {
             "type": "object"

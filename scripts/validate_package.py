@@ -167,6 +167,9 @@ if not any('unsafe-inline' in v and 'unsafe-eval' in v for v in csp.get('impleme
 # P5：文件拆分後仍須確保 Skill 能按 --detail-id 找到每個標準的查核指引。
 from validate_skill_docs import documentation_errors
 errors.extend(documentation_errors(ROOT))
+# 套件雜湊清單須涵蓋全部發布檔且與目前內容一致，避免過期清單造成已校驗的錯覺。
+from package_manifest import manifest_errors
+errors.extend(manifest_errors(ROOT))
 
 print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")
 if errors:

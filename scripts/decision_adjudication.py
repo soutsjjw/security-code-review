@@ -2,14 +2,13 @@
 """P3 待確認裁決守門：只核對人工證據的可追溯性，不自動改判 pass/fail/review。"""
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 from typing import Any
 
-from control_effectiveness import snapshot_fingerprint
 from review_decision import load_decision_matrix, _is_weak_source_evidence
 from source_reader import read_source_text
+from review_core import read_json as _read_json, snapshot_fingerprint
 
 RELATIVE = Path("reports/security-code-review/analysis")
 INDEX = RELATIVE / "structure-index.json"
@@ -210,10 +209,6 @@ def guidance(rule_id: str) -> dict[str, Any]:
                                "policy_binding（organization_policy 必填）"],
         "note": "審查紀錄不構成自動合格判定；靜態弱點須 fail + Finding",
     }
-
-
-def _read_json(path: Path, default: Any) -> Any:
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 
 
 def adjudication_errors(target: Path, checks: list[dict], *,

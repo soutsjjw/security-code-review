@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 外部 TLS 與反向 Proxy
     - 資料庫/內部 API/SMTP 加密
@@ -127,6 +128,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 加密演算法與操作模式
     - 金鑰長度、IV/nonce、隨機數
@@ -226,6 +228,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - 秘密來源、權限及輪替
     - Git 與日誌中的秘密暴露
@@ -324,6 +327,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 敏感資料庫及備份
     - 金鑰管理、加密範圍及權限
@@ -420,6 +424,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: project
     search_targets:
     - HSTS/CSP/CORS 等標頭
     - 正式環境 HTTP 回應實證
@@ -523,6 +528,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - Secure/HttpOnly/SameSite
     - Cookie 範圍/期限/前綴

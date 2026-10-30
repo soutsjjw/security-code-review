@@ -2,13 +2,12 @@
 """單代理第二輪反向複核：固定第一輪結果，核對真實反例及矛盾裁決。"""
 from __future__ import annotations
 
-import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
-from control_effectiveness import snapshot_fingerprint, _location_errors
+from control_proofs import _location_errors
 from review_decision import _is_weak_source_evidence, load_decision_matrix
+from review_core import canonical_digest as digest, read_json as _read, snapshot_fingerprint
 
 CONTRACT_VERSION = 1
 RELATIVE = Path("reports/security-code-review/analysis")
@@ -23,16 +22,6 @@ HIGH_RISK_RULES = frozenset({
     "IN-01", "IN-02", "IN-03", "IN-04", "IN-06", "IN-07", "IN-08",
     "CR-01", "CR-02", "CR-03", "CR-05", "CR-06", "PD-02", "PD-06",
 })
-
-
-def _read(path: Path, default: Any = None) -> Any:
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
-
-
-def digest(value: Any) -> str:
-    encoded = json.dumps(value, sort_keys=True, ensure_ascii=False,
-                         separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def guidance(rule_id: str) -> dict[str, Any]:

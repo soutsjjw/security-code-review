@@ -23,6 +23,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 原生 SQL/ORM 查詢
     - 不可信輸入到資料庫的流向
@@ -119,6 +120,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - HTML/JS 上下文編碼
     - CSV/試算表公式起始字元
@@ -228,6 +230,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - Cookie 自動隨附的變更請求
     - CSRF Token/SameSite/Origin 驗證
@@ -325,6 +328,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - Process/Shell 呼叫點
     - 命令字元與參數資料流
@@ -421,6 +425,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - Endpoint/DTO 伺服端驗證
     - 資料型別/長度/狀態機驗證
@@ -517,6 +522,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 檔案型別/大小/內容驗證
     - 儲存隔離、掃毒與處理流程
@@ -615,6 +621,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - 路徑合成與檔案操作
     - Zip Slip/符號連結/絕對路徑
@@ -711,6 +718,7 @@ rules:
     level_selection: 由專案 Profile + 核准矩陣決定；不可由框架或 AI 自動推定
     no_evidence: review
   inspection:
+    review_scope: cross_file
     search_targets:
     - HTTP 目的地與 DNS 解析
     - URL allowlist、私網與重導向

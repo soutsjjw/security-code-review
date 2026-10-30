@@ -2,7 +2,6 @@
 """Untrusted, read-only worker result verifier. Never writes official review evidence."""
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -10,6 +9,8 @@ from typing import Any
 
 from source_reader import read_source_text, source_digest
 from file_review_integrity import CATEGORIES
+from multi_agent_guard import proof_line_hash
+from review_core import canonical_digest as digest
 
 VERSION = 1
 SHA = re.compile(r"^[0-9a-f]{64}$")
@@ -35,11 +36,6 @@ ALLOWED_FINDING = {"rule_id", "path", "line_start", "line_end",
 ALLOWED_PROOF = {"path", "line_start", "line_end", "summary", "line_hash"}
 
 
-def digest(obj: Any) -> str:
-    return hashlib.sha256(json.dumps(obj, ensure_ascii=False, sort_keys=True,
-                                     separators=(",", ":")).encode("utf-8")).hexdigest()
-
-
 def _text(value: Any, minimum: int = 1, maximum: int = 2000) -> bool:
     return isinstance(value, str) and minimum <= len(value.strip()) <= maximum
 
@@ -57,7 +53,6 @@ def _proof(root: Path, value: Any, hashes: dict, lines: dict[str, int],
     path = value.get("path")
     if not isinstance(path, str) or path not in hashes or (anchored is not None and path != anchored):
         return False
-    from multi_agent_guard import proof_line_hash
     return (type(value.get("line_start")) is int
             and type(value.get("line_end")) is int
             and 1 <= value["line_start"] <= value["line_end"] <= lines[path]
@@ -220,7 +215,6 @@ def validate_worker_result(root: Path, task: dict, result: Any,
                     or not 1 <= finding["line_start"] <= finding["line_end"] <= count):
                 errors.append(f"{path}: Finding 行號無效")
             else:
-                from multi_agent_guard import proof_line_hash
                 if finding.get("line_hash") != proof_line_hash(
                         root, path, finding["line_start"]):
                     errors.append(f"{path}: Finding 來源行 SHA256 不一致")

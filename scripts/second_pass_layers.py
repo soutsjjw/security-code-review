@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from review_core import read_json as _read
+
 VERSION = 1
 RESERVED = "__layered__"
 RELATIVE = Path("reports/security-code-review/analysis")
@@ -25,10 +27,6 @@ RISK_PATTERNS = (
 def _hash(data: Any) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False,
                                       separators=(",", ":")).encode("utf-8")).hexdigest()
-
-
-def _read(path: Path, default: Any = None) -> Any:
-    return json.loads(path.read_text("utf-8")) if path.is_file() else default
 
 
 def _anchors(check: dict, known: set[str]) -> list[dict]:

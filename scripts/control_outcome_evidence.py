@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from decision_adjudication import DELEGATED_KIND, DELEGATED_RESULT, external_responsibility_errors
-from control_effectiveness import (_proofs, REQUIRED_SCENARIOS,
-                                   snapshot_fingerprint)
+from control_proofs import _proofs, REQUIRED_SCENARIOS
+from review_core import snapshot_fingerprint
 from review_decision import _is_weak_source_evidence, load_decision_matrix
 
 VERSION = 1
