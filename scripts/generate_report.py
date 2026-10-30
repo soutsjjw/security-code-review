@@ -19,6 +19,7 @@ from system_baseline import build_system_baseline, review_from_report
 from web_guide import build_web_guide_index
 from web_appendix1 import build_appendix1, review_from_report as appendix_review_from_report
 from web_headers import build_appendix3, review_from_report as header_review_from_report
+from review_core import write_json_atomic
 
 
 def parse_args():
@@ -185,7 +186,7 @@ def main() -> int:
             raise ValueError('輸出路徑不得覆寫輸入資料、規則、Schema 或模板')
         if a.save_report:
             a.save_report.parent.mkdir(parents=True, exist_ok=True)
-            a.save_report.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+            write_json_atomic(a.save_report, data)
             print('SAVED:', a.save_report)
         a.output.parent.mkdir(parents=True, exist_ok=True)
         a.output.write_text(html, encoding='utf-8')

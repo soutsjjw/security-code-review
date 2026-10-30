@@ -16,7 +16,7 @@ from evidence_integrity import errors as integrity_errors
 from review_safety import snapshot_errors
 from quality_gate import measure as quality_measure
 from execution_boundary_events import verify_run
-from review_core import snapshot_fingerprint
+from review_core import snapshot_fingerprint, write_json_atomic
 
 REPORT = Path("reports/security-code-review")
 KEYS = ("ready_for_second_pass", "pending_rule_ids", "missing_source_file_count",
@@ -207,7 +207,7 @@ def main():
                          if a.previous_quality else None)
         if a.output:
             a.output.parent.mkdir(parents=True, exist_ok=True)
-            a.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            write_json_atomic(a.output, report)
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0 if report["accepted"] else 1
     except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:

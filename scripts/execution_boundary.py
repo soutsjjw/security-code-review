@@ -8,10 +8,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 
 from execution_boundary_events import append_violation, verify_run, fingerprint, snapshot_run_summary
+from review_core import write_json_exclusive
 
 REPORT = Path("reports/security-code-review")
 SCRIPT_EXT = {".py", ".sh", ".js", ".ps1", ".cmd", ".bat", ".exe", ".dll"}
@@ -50,9 +50,7 @@ def begin(target):
     path.parent.mkdir(parents=True, exist_ok=True)
     baseline = {"schema_version": 1, "run_id": run_id, "inventory": inventory(target),
                 "scripts": scripts(target), "legacy_cleanup_allowed": False}
-    with path.open("x", encoding="utf-8") as output:
-        json.dump(baseline, output, ensure_ascii=False, sort_keys=True, indent=2)
-        output.write("\n")
+    write_json_exclusive(path, baseline, sort_keys=True)
     return baseline
 
 def inspect(target, *, batch_id, stage="first_pass", record=False):

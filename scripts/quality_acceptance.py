@@ -14,6 +14,7 @@ from typing import Any
 from quality_baseline import (DEFAULT_CATALOG, PROJECT_FILE, assessment_predictions,
                               evaluate, load_catalog)
 from review_queue import build_queue, load_rules
+from review_core import write_json_atomic
 
 VERSION = 1
 REPORT_DIR = Path("reports/security-code-review")
@@ -268,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         result = measure(args.workspace, previous=previous, token_run_id=args.token_run_id)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            write_json_atomic(args.output, result)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["quality_gate_passed"] else 1
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:

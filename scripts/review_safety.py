@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from snapshot_impact import affected_rules, source_delta
-from review_core import snapshot_fingerprint
+from review_core import snapshot_fingerprint, write_json_atomic as _write
 
 RELATIVE = Path("reports/security-code-review")
 SNAPSHOT = Path("analysis/review-snapshot.json")
@@ -36,14 +36,6 @@ def report_dir(target: Path) -> Path:
 
 def _read(path: Path, default: Any = None) -> Any:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
-
-
-def _write(path: Path, value: Any) -> None:
-    """僅以同目錄 replace 原子替換單一檔案，避免中途留下截斷 JSON。"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temp.replace(path)
 
 
 def _revision(target: Path) -> str:

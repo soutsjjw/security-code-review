@@ -17,6 +17,7 @@ from multi_agent_guard import (CHECKS, challenges_for, exclusive_ledger, probe_e
 from source_reader import source_digest
 from source_coverage import expected_paths
 from scope_paths import relative_path
+from review_core import write_json_atomic
 
 ANALYSIS = Path("reports/security-code-review/analysis")
 LEDGER = ANALYSIS / "multi-agent/ledger.json"
@@ -39,18 +40,9 @@ def _read(path: Path) -> dict:
 
 def _write(path: Path, data: dict) -> None:
     # Main-agent-only metadata. Do not use this for assessment/Manifest/Journal.
-    import os
-    import uuid
-    path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_symlink() or path.parent.is_symlink():
         raise ValueError("狀態路徑不可為符號連結")
-    temp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
-    try:
-        temp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-                        encoding="utf-8")
-        os.replace(temp, path)
-    finally:
-        temp.unlink(missing_ok=True)
+    write_json_atomic(path, data)
 
 
 def _git_state(root: Path) -> dict:

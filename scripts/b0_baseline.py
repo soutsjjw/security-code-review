@@ -4,6 +4,7 @@ import argparse
 import json
 import statistics
 from pathlib import Path
+from review_core import write_json_atomic
 
 def observation(latest, label, commit=None, *, environment_fingerprint=None,
                 ruleset_version=None, dataset_sha256=None, executor=None):
@@ -72,7 +73,7 @@ def main():
     else:
         obj = summary([json.loads(f.read_text("utf-8")) for f in args.aggregate])
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    write_json_atomic(args.output, obj)
     return 0
 
 if __name__ == "__main__":

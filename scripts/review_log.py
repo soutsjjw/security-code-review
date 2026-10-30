@@ -12,6 +12,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from review_core import write_json_atomic as _atomic
 
 REPORT = Path("reports/security-code-review")
 PHASES = ("initialization", "structure_index", "queue", "first_pass",
@@ -31,16 +32,6 @@ def _clock() -> float:
 
 def _iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
-
-
-def _atomic(path: Path, obj: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
-    try:
-        tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        os.replace(tmp, path)
-    finally:
-        tmp.unlink(missing_ok=True)
 
 
 def _load(path: Path) -> dict | None:
@@ -212,7 +203,6 @@ def finish(target: Path, status: str) -> dict:
             elapsed_seconds=state["elapsed_seconds"])
     _save(folder, state)
     return state
-
 
 
 def observe_blockers(target: Path, diagnostics: dict) -> dict:

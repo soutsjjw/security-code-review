@@ -17,6 +17,7 @@ from quality_acceptance import report_artifact_errors
 from review_decision import load_decision_matrix
 from review_queue import build_queue, load_rules
 from review_safety import rule_scopes
+from review_core import write_json_atomic
 
 VERSION = 1
 REPORT_DIR = Path("reports/security-code-review")
@@ -260,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
         result = contract_matrix() if args.matrix_only else measure(args.target, previous=previous)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            write_json_atomic(args.output, result)
         visible = result
         if args.matrix_only and args.output:
             visible = {

@@ -19,7 +19,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from review_core import canonical_digest as _digest, file_sha256 as _file_sha
+from review_core import canonical_digest as _digest, file_sha256 as _file_sha, write_json_exclusive
 
 REPORT = Path("reports/security-code-review")
 STATE = REPORT / "logs/repair-waves/state.json"
@@ -172,10 +172,7 @@ def _write_state(path: Path, state: dict) -> None:
     temp = path.with_name(path.name + ".pending")
     if temp.exists() or temp.is_symlink():
         raise ValueError("發現未完成的 checkpoint 暫存；需先人工排除")
-    with temp.open("x", encoding="utf-8") as fp:
-        json.dump(state, fp, ensure_ascii=False, sort_keys=True, indent=2)
-        fp.flush()
-        os.fsync(fp.fileno())
+    write_json_exclusive(temp, state, sort_keys=True)
     os.replace(temp, path)
 
 

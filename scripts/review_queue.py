@@ -28,6 +28,7 @@ from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
 from source_reader import read_source_text
 from review_safety import safety_errors, scope_tasks
+from review_core import write_json_atomic
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
@@ -116,10 +117,10 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
             "scope_details": {"projects": detect_projects(target)},
             "findings": []
         }
-        assessment_path.write_text(json.dumps(assessment, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_json_atomic(assessment_path, assessment)
     if not project_path.exists():
         project = {"name": target.name, "language_framework": detect_language_framework(target)}
-        project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_json_atomic(project_path, project)
     # 新建的第一輪審查從空白 pending 直接封存。既有資料不可自行信任，
     # 必須由使用者核對後明確執行 --seal-integrity。
     if new_review:

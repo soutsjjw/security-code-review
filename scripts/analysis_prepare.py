@@ -20,6 +20,7 @@ from review_relationships import build_relationships
 from review_safety import initialize_snapshot
 from scope_paths import EXCLUDED_DIRS, _default_rule, relative_path
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
+from review_core import write_json_atomic
 
 INDEX_VERSION = 10
 ROSLYN_VERSION = "roslyn-symbol-candidates-v4"
@@ -365,10 +366,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     }
     # 工作樹快照固定單次審查所使用的完整來源版本，禁止混用舊證據。
     initialize_snapshot(root, source, excluded)
-    index.parent.mkdir(parents=True, exist_ok=True)
-    temp_index = index.with_suffix(".tmp")
-    temp_index.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temp_index.replace(index)
+    write_json_atomic(index, payload)
     return {
         "adapter": adapter.name, "projects": detection["projects"],
         "source_file_count": len(source), "csharp_file_count": len(csharp),

@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from review_core import read_json as _read, sha256_bytes as digest, snapshot_fingerprint
+from review_core import json_bytes as _json_bytes, read_json as _read, sha256_bytes as digest, snapshot_fingerprint, write_json_atomic as _write
 
 RELATIVE = Path("reports/security-code-review")
 ANALYSIS = RELATIVE / "analysis"
@@ -37,19 +37,8 @@ TRACKED = (
 )
 
 
-def _json_bytes(value: Any) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-
-
 def _value_hash(value: Any) -> str | None:
     return None if value is None else digest(_json_bytes(value))
-
-
-def _write(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_bytes(_json_bytes(value))
-    tmp.replace(path)
 
 
 def _hash_file(path: Path) -> str | None:

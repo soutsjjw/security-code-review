@@ -8,6 +8,7 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
+from review_core import write_json_atomic
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG = ROOT / "tests/fixtures/p0-quality-baseline/cases.json"
@@ -265,7 +266,7 @@ def main(argv: list[str] | None = None) -> int:
             code = 0 if result["all_passed"] else 1
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            write_json_atomic(args.output, result)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return code
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:

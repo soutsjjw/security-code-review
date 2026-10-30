@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 import subprocess
-import tempfile
 from datetime import date
 from typing import Any
 
@@ -23,7 +21,7 @@ from source_reader import read_source_text
 from analysis_candidates import candidate_hits
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
-from review_core import canonical_digest as _digest
+from review_core import canonical_digest as _digest, write_json_atomic as _atomic, write_json_exclusive
 
 STAGED_FILE = Path("analysis/staged/pending.json")
 SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
@@ -34,21 +32,6 @@ WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"}) | EVIDENCE_KEYS
 
 def _load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _atomic(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, name = tempfile.mkstemp(prefix=".partial-", suffix=".tmp", dir=path.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(name, path)
-    finally:
-        if os.path.exists(name):
-            os.unlink(name)
 
 
 def _git_revision(root: Path) -> str:
@@ -268,9 +251,7 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     body = {"category": category, "base_sha256": _digest(current),
             "evidence_sha256": evidence_sha,
             "snapshot_sha256": current["source_snapshot_sha256"], "payload": payload}
-    with pending.open("x", encoding="utf-8") as handle:
-        json.dump(body, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
+    write_json_exclusive(pending, body)
     return pending
 
 
