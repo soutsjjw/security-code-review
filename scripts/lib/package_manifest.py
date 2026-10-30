@@ -12,7 +12,7 @@ from pathlib import Path
 
 from review_core import file_sha256 as _sha256
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = "SHA256SUMS.txt"
 
 

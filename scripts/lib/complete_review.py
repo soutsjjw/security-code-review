@@ -12,8 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+SKILL_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(SKILL_ROOT / 'scripts' / 'lib'))
 from source_coverage import build_source_coverage
 from assessment_consistency import project_placeholder_errors
 

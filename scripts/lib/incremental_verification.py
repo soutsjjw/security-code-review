@@ -20,8 +20,8 @@ BASE = Path("reports/security-code-review")
 HIGH_RISK = frozenset(("AC", "AU", "IN", "CR"))
 CONTRACT_FILES = (
     "rules.json", "policies/review-decision-matrix.json",
-    "schemas/assessment.schema.json", "scripts/analysis_prepare.py",
-    "scripts/snapshot_impact.py",
+    "schemas/assessment.schema.json", "scripts/lib/analysis_prepare.py",
+    "scripts/lib/snapshot_impact.py",
     "policies/evidence-relevance-features.json",
 )
 
@@ -67,7 +67,7 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
     index = _load(target / BASE / "analysis/structure-index.json", {})
     assessment = _load(target / BASE / "assessment.json", {})
     closures = _load(target / BASE / "analysis/rule-closures.json", {})
-    contract = contract_fingerprint(Path(__file__).resolve().parents[1], boundary_level)
+    contract = contract_fingerprint(Path(__file__).resolve().parents[2], boundary_level)
     base = {
         "schema_version": 1, "verification_kind": "incremental-plan",
         "incremental_clean": False, "full_gate_passed": False,
@@ -238,7 +238,7 @@ def full_comparison(target: Path, plan_data: dict, *, selected_blocker_ids: list
             or plan_data.get("full_recheck") is not False):
         return {"incremental_clean": False, "full_gate_passed": False,
                 "ready_for_second_pass": False, "reason": "requires-full-recheck"}
-    current_contract = contract_fingerprint(Path(__file__).resolve().parents[1],
+    current_contract = contract_fingerprint(Path(__file__).resolve().parents[2],
                                             plan_data.get("boundary_level", "INVALID"))
     current_snapshot = _load(target / BASE / "analysis/review-snapshot.json", {})
     hashes = current_snapshot.get("source_hashes") if isinstance(current_snapshot, dict) else None

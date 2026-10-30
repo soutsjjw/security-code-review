@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 from second_pass_layers import RESERVED, build_plan, layered_errors, record_errors, worklist
 from adversarial_recheck import digest
 from control_effectiveness import snapshot_fingerprint

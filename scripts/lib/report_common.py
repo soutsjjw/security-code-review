@@ -23,7 +23,7 @@ from review_decision import decision_quality_errors
 from scope_inventory import build_scope_inventory
 from source_coverage import build_source_coverage
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SLOT_RE = re.compile(r'(<script\s+id="report-data"\s+type="application/json">)(.*?)(</script>)', re.DOTALL)
 RULE_COUNTS = {'AC': 8, 'AU': 10, 'IN': 8, 'CR': 6, 'EH': 6, 'LG': 10, 'DP': 4, 'PD': 8, 'BC': 7, 'SI': 3}
 SAFE_ID_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_-]*$')

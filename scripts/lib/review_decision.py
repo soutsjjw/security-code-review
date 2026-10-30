@@ -12,7 +12,7 @@ from typing import Any
 
 from source_reader import read_source_text
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DECISION_MATRIX = ROOT / "policies" / "review-decision-matrix.json"
 EXTERNAL_KINDS = frozenset({"deployment", "operating_record", "policy", "scan", "test", "interview"})
 CODE_SUFFIXES = frozenset({".cs", ".razor", ".cshtml", ".js", ".jsx", ".ts", ".tsx", ".vue", ".vb", ".fs", ".py"})

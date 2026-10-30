@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/lib"))
 from review_waves_state import REPORT, STATE, _read, _write_state
 from review_snapshot import SNAPSHOT
 from review_waves_abort import abort_uncommitted, inspect_uncommitted

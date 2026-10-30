@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = Path(__file__).resolve().parents[2]
 TACERT_V2_FILE = SKILL_ROOT / "standards" / "tacert-v2-checklist.yaml"
 OWASP_2025_FILE = SKILL_ROOT / "standards" / "owasp-top10-2025.yaml"
 

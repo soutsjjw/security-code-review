@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 from web_headers import (
     HEADERS, load_headers, header_review_hints,
     build_appendix3, validate_appendix3, review_from_report,

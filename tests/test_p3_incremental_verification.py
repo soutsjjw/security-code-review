@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 import incremental_verification as p3
 from control_effectiveness import snapshot_fingerprint
 
@@ -54,7 +54,7 @@ class IncrementalTests(unittest.TestCase):
     def invoke(self, changes, prior=True, **kwargs):
         fingerprint = p3.contract_fingerprint(ROOT, "L3") if prior else "old"
         with patch.object(p3, "rule_scopes", return_value=self.scopes), \
-             patch.object(p3, "__file__", str(ROOT / "scripts/incremental_verification.py")):
+             patch.object(p3, "__file__", str(ROOT / "scripts/lib/incremental_verification.py")):
             return p3.plan(self.root, changes, previous_contract=fingerprint,
                            previous_snapshot=snapshot_fingerprint(self.snapshot), **kwargs)
 

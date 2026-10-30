@@ -10,7 +10,7 @@ from datetime import date
 from pathlib import Path
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "standards" / "nics-web-v3.2-appendix1.yaml"
 LEVELS = ("普", "中", "高")
 VERIFIED_STATES = ("pass", "fail", "review", "na")

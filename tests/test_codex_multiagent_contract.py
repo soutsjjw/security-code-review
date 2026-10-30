@@ -33,7 +33,7 @@ class CodexNativeSubagentContractTests(unittest.TestCase):
         self.assertNotIn("維持單代理執行，不啟動子代理", section)
 
     def test_gitless_not_auto_disabled_in_runtime_plan(self):
-        script = read("scripts/multi_agent.py")
+        script = read("scripts/lib/multi_agent.py")
         self.assertIn("enabled = not probe_errors(root, probe)", script)
         self.assertNotIn('and _git_state(root)["head"] is not None', script)
         self.assertIn('return {"head": None, "worktree_digest": None}', script)

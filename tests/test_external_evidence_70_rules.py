@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from control_effectiveness import REQUIRED_SCENARIOS, _external_pass_errors, snapshot_fingerprint
 from cross_file_evidence import trace_errors

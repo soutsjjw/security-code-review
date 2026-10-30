@@ -111,7 +111,7 @@ def documentation_errors(root: Path) -> list[str]:
 
 if __name__ == "__main__":
     import sys
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     errors = documentation_errors(root)
     for error in errors:
         print("ERROR:", error, file=sys.stderr)

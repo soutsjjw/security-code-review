@@ -6,7 +6,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/lib"))
 from review_waves_contracts import work_contract, sample_chain_append, verify_sample_chain, independence_metadata
 from review_waves_lifecycle import agent_next, reconcile, finalize
 

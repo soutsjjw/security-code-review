@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "standards" / "nics-web-guide-v3.2.yaml"
 EXPECTED_DOMAINS = {"4.1": 3, "4.2": 6, "4.3": 2, "4.4": 5, "4.5": 8, "4.6": 2, "4.7": 3}
 

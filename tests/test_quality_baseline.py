@@ -20,7 +20,7 @@ def run_utf8_process(command: list[str], **kwargs) -> subprocess.CompletedProces
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from analysis_adapters import ModernDotNetAdapter
 from quality_baseline import (assessment_predictions, evaluate, load_catalog, main,

@@ -33,7 +33,7 @@ report.json
 ## 機關資通安全責任等級
 
 - 依《資通安全責任等級分級辦法》（115 年 1 月 7 日修正）第 2 至 10 條，機關依業務與維運責任區分 A～E 級；同時符合多個等級者依第 9 條以最高等級為原則，實際核定／調整程序依第 3、10 條辦理。
-- 執行 70 項審查時自動初判：Agent 檢查已讀取的程式碼、設定、權限控管及業務文件，寫入 `project.security_level_assessment`；缺少資料時記錄未能判定原因，不中斷審查。若 Agent 未填，`scripts/security_level.py` 依 completed 的 `inspected_paths` 自動擷取明確的角色／權限程式碼作 C 級技術線索；無證據顯示待確認，不以 absence 推定 D／E 級。
+- 執行 70 項審查時自動初判：Agent 檢查已讀取的程式碼、設定、權限控管及業務文件，寫入 `project.security_level_assessment`；缺少資料時記錄未能判定原因，不中斷審查。若 Agent 未填，`scripts/lib/security_level.py` 依 completed 的 `inspected_paths` 自動擷取明確的角色／權限程式碼作 C 級技術線索；無證據顯示待確認，不以 absence 推定 D／E 級。
 - `security_level_assessment` 格式：`{status: "preliminary"|"undetermined", level:"A"|"B"|"C"|"D"|"E"|"待確認", basis:string, evidence:[{path,line_start,line_end}], missing_information:string[]}`。preliminary 必須有已完成審查的真實來源檔與行號；初判不代表法定核定，且不能排除較高級別。
 - `project.security_level` 僅代表**已取得正式認定／核定的機關等級**；無可核對資料時填「待確認」或省略，不適用對象填「不適用」。正式核定優先於初判顯示。
 - 指定 A～E 級時須填 `project.security_level_basis`（認定／核定佐證）；資通系統防護需求分級（第 11 條及附表九）及程式碼整體風險 `presentation.overall_risk` 應分別判斷。

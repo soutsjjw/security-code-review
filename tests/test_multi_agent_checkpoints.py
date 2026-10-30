@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 import test_multi_agent as fixtures
 from multi_agent import (ANALYSIS, LEDGER, PROBE, _read, _write, plan, claim,
                          accept, accept_stdin, begin_integration, commit_integration,

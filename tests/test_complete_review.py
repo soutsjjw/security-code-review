@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+sys.path.insert(0, str(SKILL_ROOT / 'scripts/lib'))
 from report_common import load_json
 from review_fixture import make_file_review
 

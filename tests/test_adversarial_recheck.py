@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from adversarial_recheck import (BASELINE, REVIEWS, SNAPSHOT, INDEX, digest,
                                  guidance, progress, begin_second_pass, second_pass_errors)

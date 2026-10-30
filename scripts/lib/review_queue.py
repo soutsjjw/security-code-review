@@ -35,7 +35,7 @@ from partial_review import (initialize as init_partial, integrate as integrate_p
 from partial_review_safety import (begin_second_pass as begin_partial_second_pass,
                                    prepare_index as prepare_partial_index, validate as validate_partial)
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = Path(__file__).resolve().parents[2]
 REPORT_RELATIVE = Path("reports/security-code-review")
 
 

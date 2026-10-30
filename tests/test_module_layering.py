@@ -1,4 +1,4 @@
-"""共用底層不得反向匯入上層模組，scripts/ 內不得存在任何循環匯入（含函式內延遲匯入）。"""
+"""共用底層不得反向匯入上層模組，scripts/lib/ 內不得存在任何循環匯入（含函式內延遲匯入）。"""
 import ast
 import contextlib
 import importlib
@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "scripts"
+SCRIPTS = ROOT / "scripts/lib"
 sys.path.insert(0, str(SCRIPTS))
 from review_snapshot import rule_scopes
 
@@ -72,8 +72,19 @@ class ModuleLayeringTests(unittest.TestCase):
     def test_no_import_cycles(self):
         self.assertEqual(_cycles(_import_graph()), [])
 
+    def test_cli_wrappers_match_lib_entry_points(self):
+        # scripts/<name>.py 只是轉呼叫 lib 的入口；有 main 的 lib 模組必須都有入口，反之亦然。
+        launcher_tools = {"check_python_env"}
+        wrappers = {p.stem for p in (ROOT / "scripts").glob("*.py")} - launcher_tools
+        entry_points = {p.stem for p in SCRIPTS.glob("*.py")
+                        if "__name__ == " in p.read_text("utf-8")}
+        self.assertEqual(wrappers, entry_points)
+        for name in wrappers:
+            body = (ROOT / "scripts" / f"{name}.py").read_text("utf-8")
+            self.assertIn(f'runpy.run_module("{name}", run_name="__main__", alter_sys=True)', body, name)
+
     def test_importing_any_script_has_no_side_effects(self):
-        # CLI 與函式庫共用 scripts/，所以 CLI 邏輯必須放在 main() 內，匯入時不得執行。
+        # 多數 lib 模組同時是 CLI，所以 CLI 邏輯必須放在 main() 內，匯入時不得執行。
         for name in sorted(_import_graph()):
             out, err = io.StringIO(), io.StringIO()
             with self.subTest(name), patch.object(sys, "argv", [name]), \

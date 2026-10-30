@@ -48,7 +48,7 @@ def rule_scopes() -> dict[str, str]:
 
     project 為全專案責任檢查，即使沒有任何檔案命中也必須執行。
     """
-    master = Path(__file__).resolve().parents[1] / "rules.json"
+    master = Path(__file__).resolve().parents[2] / "rules.json"
     scopes = {r["id"]: r.get("inspection", {}).get("review_scope")
               for r in json.loads(master.read_text(encoding="utf-8"))["rules"]}
     invalid = sorted(rid for rid, scope in scopes.items() if scope not in REVIEW_SCOPES)

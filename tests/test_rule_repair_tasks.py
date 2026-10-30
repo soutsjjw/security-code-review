@@ -7,7 +7,7 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/lib"))
 from rule_repair_tasks import (
     build_rule_repair_tasks, classify_repair_work,
     compare_rule_repair_diagnostics, _dependency_errors,

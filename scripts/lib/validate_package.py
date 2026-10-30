@@ -5,7 +5,7 @@ import json,sys
 import yaml
 from jsonschema import Draft202012Validator
 
-ROOT=Path(__file__).resolve().parent.parent
+ROOT=Path(__file__).resolve().parents[2]
 
 
 def main():

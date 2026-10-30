@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/lib"))
 from review_repair_waves import _payload_scope, _sample_policy, apply_second_pass
 from review_waves_state import _evidence_state, _formal_diff
 

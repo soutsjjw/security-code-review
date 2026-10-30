@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(HERE / 'scripts'))
+sys.path.insert(0, str(HERE / 'scripts/lib'))
 from report_common import load_json, render_html, validate_data, validate_html, extract_html_report
 from security_level import infer_security_level
 

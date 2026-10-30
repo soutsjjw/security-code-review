@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 from review_core import json_bytes, write_json_atomic, write_json_exclusive
 
 VALUE = {"b": "中文", "a": [1, 2]}

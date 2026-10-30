@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from control_effectiveness import REQUIRED_SCENARIOS
 from quality_gate import (QUALITY_VERSIONS, REPORT_DIR, compare_project,

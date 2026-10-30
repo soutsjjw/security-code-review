@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+sys.path.insert(0, str(SKILL_ROOT / 'scripts/lib'))
 from scope_inventory import detect_projects, scope_project_issues
 
 

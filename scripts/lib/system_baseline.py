@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = ROOT / "standards" / "tw-system-baseline-v1.3.yaml"
 LEVELS = ("普", "中", "高")
 DECISIONS = ("pass", "fail", "review", "na")

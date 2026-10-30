@@ -13,7 +13,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from jsonschema import Draft202012Validator, FormatChecker
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads((ROOT / "schemas/execution-boundary-event-v1.schema.json").read_text("utf-8"))
 VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
 HEX = set("0123456789abcdef")

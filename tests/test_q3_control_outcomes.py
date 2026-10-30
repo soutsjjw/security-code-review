@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 from analysis_prepare import prepare
 from control_effectiveness import (REQUIRED_SCENARIOS, VERIFICATIONS,
                                    guidance, snapshot_fingerprint, verification_errors)

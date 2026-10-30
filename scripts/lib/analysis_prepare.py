@@ -23,7 +23,7 @@ from review_core import write_json_atomic
 INDEX_VERSION = 10
 ROSLYN_VERSION = "roslyn-symbol-candidates-v4"
 CANDIDATE_VERSION = 2
-SKILL_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = Path(__file__).resolve().parents[2]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
 
 

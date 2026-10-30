@@ -2,14 +2,14 @@ name: Controlled Multi-agent Gate
 on:
   pull_request:
     paths:
-      - "scripts/multi_agent*.py"
-      - "scripts/analysis_prepare.py"
-      - "scripts/analysis_adapters.py"
+      - "scripts/lib/multi_agent*.py"
+      - "scripts/lib/analysis_prepare.py"
+      - "scripts/lib/analysis_adapters.py"
       - "tools/roslyn-indexer/**"
       - "tests/test_roslyn_sdk_alignment.py"
-      - "scripts/source_reader.py"
-      - "scripts/second_pass_layers.py"
-      - "scripts/file_review_integrity.py"
+      - "scripts/lib/source_reader.py"
+      - "scripts/lib/second_pass_layers.py"
+      - "scripts/lib/file_review_integrity.py"
       - "tests/fixtures/multi_agent_cases/**"
       - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
@@ -21,14 +21,14 @@ on:
       - ".github/workflows/multi-agent-tests.yml"
   push:
     paths:
-      - "scripts/multi_agent*.py"
-      - "scripts/analysis_prepare.py"
-      - "scripts/analysis_adapters.py"
+      - "scripts/lib/multi_agent*.py"
+      - "scripts/lib/analysis_prepare.py"
+      - "scripts/lib/analysis_adapters.py"
       - "tools/roslyn-indexer/**"
       - "tests/test_roslyn_sdk_alignment.py"
-      - "scripts/source_reader.py"
-      - "scripts/second_pass_layers.py"
-      - "scripts/file_review_integrity.py"
+      - "scripts/lib/source_reader.py"
+      - "scripts/lib/second_pass_layers.py"
+      - "scripts/lib/file_review_integrity.py"
       - "tests/fixtures/multi_agent_cases/**"
       - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q scripts/multi_agent*.py tests/test_multi_agent*.py
+      - run: python -m compileall -q scripts/lib/multi_agent*.py tests/test_multi_agent*.py
       - run: python -m unittest discover -s tests -p 'test_multi_agent*.py' -v
       - run: python -m unittest discover -s tests -p 'test_codex_multiagent_contract.py' -v
       - uses: actions/setup-dotnet@v4

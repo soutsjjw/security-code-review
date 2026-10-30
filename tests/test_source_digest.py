@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+sys.path.insert(0, str(SKILL_ROOT / 'scripts/lib'))
 from review_fixture import make_file_review
 from source_coverage import build_source_coverage
 from source_reader import canonical_bytes, digest_matches, source_digest

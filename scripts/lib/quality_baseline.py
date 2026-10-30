@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from review_core import write_json_atomic
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CATALOG = ROOT / "tests/fixtures/p0-quality-baseline/cases.json"
 PROJECT_FILE = """<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>

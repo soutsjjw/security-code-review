@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SKILL_ROOT / 'scripts'))
+sys.path.insert(0, str(SKILL_ROOT / 'scripts/lib'))
 from assessment_consistency import (
     clip_text, consistency_errors, consistency_warnings, detect_language_framework,
     project_placeholder_errors,

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 from b0_baseline import observation, summary
 import review_log
 from execution_boundary_events import append_violation, verify_run, batch_path, _verify_events, snapshot_run_summary

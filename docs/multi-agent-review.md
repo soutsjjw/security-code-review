@@ -42,7 +42,7 @@
 
 ## Worker 證據契約與信任邊界
 
-檔案：`schemas/multi-agent-worker-result.schema.json` 與 `scripts/multi_agent_contract.py`。
+檔案：`schemas/multi-agent-worker-result.schema.json` 與 `scripts/lib/multi_agent_contract.py`。
 
 子代理的最後回覆須是**純 JSON 物件**，不含 Markdown fences、執行指示或原始碼全文。**優先經主代理直接使用 `--accept-stdin` 傳送至驗證器**，先遮罩／拒絕機敏資料，驗證後才保存在 `analysis/multi-agent/results/<task_id>.json`；舊的 `--accept --result` 接收既有暫存檔，無法保證落地前遮罩，僅限無敏感資訊的受控交接。經核可的完整回傳與 SHA256 綁定，不得任意修改。Schema：
 

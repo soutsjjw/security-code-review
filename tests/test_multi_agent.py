@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from file_review_integrity import CATEGORIES
 from multi_agent_contract import validate_worker_result, finding_key

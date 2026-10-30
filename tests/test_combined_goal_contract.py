@@ -40,7 +40,7 @@ class CombinedGoalContractTests(unittest.TestCase):
 
     def test_recovery_implementation_and_agent_isolation_both_remain(self):
         self.assertTrue((ROOT / "scripts/review_evidence_recovery.py").is_file())
-        self.assertTrue((ROOT / "scripts/evidence_integrity.py").is_file())
+        self.assertTrue((ROOT / "scripts/lib/evidence_integrity.py").is_file())
         self.assertTrue((ROOT / "scripts/multi_agent.py").is_file())
         native = (ROOT / "docs/multi-agent-review.md").read_text(encoding="utf-8")
         integrity = (ROOT / "docs/evidence-integrity.md").read_text(encoding="utf-8")

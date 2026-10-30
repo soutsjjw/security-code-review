@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 from web_appendix1 import (
     load_appendix1, appendix_review_hints, build_appendix1,
     validate_appendix1, review_from_report,

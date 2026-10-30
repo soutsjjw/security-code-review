@@ -10,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MASTER = ROOT / "rules.json"
 OUTPUT = ROOT / "docs/70-rules-standardized.md"
 RELEASE_LABELS = {"stable": "正式版"}

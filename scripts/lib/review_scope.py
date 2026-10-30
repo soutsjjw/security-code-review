@@ -12,7 +12,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = Path(__file__).resolve().parents[2]
 RULES_FILE = SKILL_ROOT / "rules.json"
 REPORT_ROOT = Path("reports/security-code-review")
 PARTIAL_ROOT = REPORT_ROOT / "partial"

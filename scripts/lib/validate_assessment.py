@@ -10,7 +10,7 @@ from source_coverage import build_source_coverage
 from scope_inventory import scope_project_issues
 from review_safety import safety_errors
 
-ROOT=Path(__file__).resolve().parent.parent
+ROOT=Path(__file__).resolve().parents[2]
 
 
 def main(argv=None):

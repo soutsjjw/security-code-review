@@ -21,7 +21,7 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 @lru_cache(maxsize=1)
 def _master_rules() -> dict[str, str]:
-    rules = json.loads((Path(__file__).resolve().parents[1] / "rules.json").read_text("utf-8"))["rules"]
+    rules = json.loads((Path(__file__).resolve().parents[2] / "rules.json").read_text("utf-8"))["rules"]
     return {rule["id"]: rule["id"].split("-")[0] for rule in rules}
 
 

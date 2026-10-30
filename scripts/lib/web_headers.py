@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "standards" / "nics-web-v3.2-appendix3.yaml"
 HEADERS = (
     "Content-Security-Policy", "Strict-Transport-Security", "X-Content-Type-Options",

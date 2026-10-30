@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from partial_review import initialize, read_category, stage, integrate, _category_dir
 from partial_review_safety import (prepare_index, begin_second_pass, validate, _evidence,
