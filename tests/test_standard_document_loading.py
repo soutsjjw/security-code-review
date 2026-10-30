@@ -7,7 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
-from review_queue import STANDARD_GUIDES, build_queue, load_rules
+from review_queue import build_queue, load_rules
+from standard_guides import STANDARD_GUIDES
 from validate_skill_docs import documentation_errors
 
 

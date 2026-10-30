@@ -25,14 +25,8 @@ from partial_review_store import (BASELINE, EVIDENCE_FILES, HISTORY, SNAPSHOT_FI
                                   _artifact, _assert_assessment, _category_dir, _category_rules,
                                   _load, _snapshot, _verify_snapshot, read_category)
 from partial_review_safety import validate as validate_partial
-from standard_guides import STANDARD_GUIDES, load_owasp_2025_categories, load_tacert_v2_checks
-from adversarial_recheck import digest as rule_digest, guidance as adversarial_guidance
-from control_effectiveness import guidance as control_guidance
-from decision_adjudication import guidance as adjudication_guidance
-from system_baseline import source_review_hints
-from web_appendix1 import appendix_review_hints
-from web_guide import web_guide_review_hints
-from web_headers import header_review_hints
+from adversarial_recheck import digest as rule_digest
+import rule_guidance
 
 EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
                            "adversarial_reviews"})
@@ -280,14 +274,7 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
 def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: int,
           *, detail_id: str | None = None, compact: bool = False) -> dict:
     rules = catalog["rules"]
-    maps = {} if compact else {
-        "tacert_v2_checks": load_tacert_v2_checks(rules),
-        "owasp_2025_categories": load_owasp_2025_categories(rules),
-        "system_baseline_v13_controls": source_review_hints(rules),
-        "web_guide_v32_checks": web_guide_review_hints(rules),
-        "web_guide_v32_appendix1": appendix_review_hints(rules),
-        "web_guide_v32_appendix3": header_review_hints(rules),
-    }
+    maps = {} if compact else rule_guidance.standard_maps(rules)
     decision = load_decision_matrix() if not compact else {}
     if detail_id and detail_id.split("-")[0] not in categories:
         raise ScopeError(f"未選分類規則不可查詢：{detail_id}")
@@ -330,14 +317,11 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
                     "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
                     "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
                     "decision_guidance": decision[r["id"]],
-                    "control_effectiveness_guidance": control_guidance(r["id"]),
-                    "decision_adjudication_guidance": adjudication_guidance(r["id"]),
-                    "adversarial_guidance": adversarial_guidance(r["id"]),
+                    **rule_guidance.guidance_fields(r["id"]),
                 })
                 item.update({name: mapping[r["id"]] for name, mapping in maps.items()})
                 if detail_id:
-                    item["standard_documents"] = [
-                        path for name, path in STANDARD_GUIDES.items() if item.get(name)]
+                    item["standard_documents"] = rule_guidance.standard_documents(item)
             next_checks.append(item)
         complete = len(remaining) == 0 and not coverage["missing_source_file_count"]
         complete = complete and not coverage["review_integrity_errors"] and not quality

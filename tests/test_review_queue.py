@@ -48,7 +48,7 @@ class ReviewQueueTests(unittest.TestCase):
 
     def test_tacert_v2_mappings_have_source_and_external_checks(self):
         _, rules = load_rules()
-        from review_queue import load_tacert_v2_checks
+        from standard_guides import load_tacert_v2_checks
         mapped = load_tacert_v2_checks(rules)
         all_checks = {item["id"]: item for items in mapped.values() for item in items}
         self.assertEqual(len(all_checks), 39)
@@ -57,7 +57,7 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertEqual(all_checks["TACERT-V2-R04"]["verification_mode"], "source")
 
     def test_owasp_2025_mapping_and_ssrf(self):
-        from review_queue import load_owasp_2025_categories
+        from standard_guides import load_owasp_2025_categories
         _, rules = load_rules()
         mapping = load_owasp_2025_categories(rules)
         ids = {item["id"] for per_rule in mapping.values() for item in per_rule}

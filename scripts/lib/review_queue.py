@@ -9,19 +9,13 @@ import re
 import subprocess
 import sys
 import time
-from system_baseline import source_review_hints
-from web_guide import web_guide_review_hints
-from web_appendix1 import appendix_review_hints
-from web_headers import header_review_hints
 from collections import Counter
 from datetime import date
 from pathlib import Path
 from source_coverage import build_source_coverage, provisional_source_coverage
 from review_completion import completion_errors
 from review_decision import decision_quality_errors, load_decision_matrix
-from control_effectiveness import guidance as control_effectiveness_guidance
-from decision_adjudication import guidance as decision_adjudication_guidance
-from adversarial_recheck import guidance as adversarial_guidance, progress as adversarial_progress
+from adversarial_recheck import progress as adversarial_progress
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
@@ -29,11 +23,8 @@ from source_reader import read_source_text
 from review_safety import safety_errors
 from review_snapshot import scope_tasks
 from review_core import REPORT_ROOT, write_json_atomic
-from standard_guides import STANDARD_GUIDES, load_owasp_2025_categories, load_tacert_v2_checks
-from partial_review import (initialize as init_partial, integrate as integrate_partial,
-                            queue as partial_queue, stage as stage_partial)
-from partial_review_safety import (begin_second_pass as begin_partial_second_pass,
-                                   prepare_index as prepare_partial_index, validate as validate_partial)
+import rule_guidance
+import partial_review_cli
 
 SKILL_ROOT = Path(__file__).resolve().parents[2]
 REPORT_RELATIVE = REPORT_ROOT
@@ -111,12 +102,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     if illegal:
         raise ValueError("無效執行狀態：" + ", ".join(illegal))
     # --compact 不載入龐大的規範對照；--detail-id 仍保留完整單條指引。
-    tacert_by_rule = {} if compact else load_tacert_v2_checks(rules)
-    owasp_by_rule = {} if compact else load_owasp_2025_categories(rules)
-    system_baseline_by_rule = {} if compact else source_review_hints(rules)
-    web_guide_by_rule = {} if compact else web_guide_review_hints(rules)
-    web_appendix_by_rule = {} if compact else appendix_review_hints(rules)
-    web_headers_by_rule = {} if compact else header_review_hints(rules)
+    standard_by_rule = {} if compact else rule_guidance.standard_maps(rules)
     decision_matrix = {} if compact else load_decision_matrix()
     remaining = [r for r in rules if (indexed[r["id"]].get("execution") or {}).get("state") != "completed"]
     if detail_id is not None and detail_id not in master_ids:
@@ -218,15 +204,8 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
             "applicable_when": r.get("applicability", {}).get("must_assess_when", ""),
             "na_when": r.get("applicability", {}).get("may_be_not_applicable_when", ""),
             "decision_guidance": decision_matrix[r["id"]],
-            "control_effectiveness_guidance": control_effectiveness_guidance(r["id"]),
-            "decision_adjudication_guidance": decision_adjudication_guidance(r["id"]),
-            "adversarial_guidance": adversarial_guidance(r["id"]),
-            "tacert_v2_checks": tacert_by_rule[r["id"]],
-            "owasp_2025_categories": owasp_by_rule[r["id"]],
-            "system_baseline_v13_controls": system_baseline_by_rule[r["id"]],
-            "web_guide_v32_checks": web_guide_by_rule[r["id"]],
-            "web_guide_v32_appendix1": web_appendix_by_rule[r["id"]],
-            "web_guide_v32_appendix3": web_headers_by_rule[r["id"]]
+            **rule_guidance.guidance_fields(r["id"]),
+            **{field: mapping[r["id"]] for field, mapping in standard_by_rule.items()},
         } for r in selected] if not compact else [
             {"id": r["id"], "title": r["title"],
              "current_state": (indexed[r["id"]].get("execution") or {}).get("state", "pending"),
@@ -276,9 +255,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     # 完整 --detail-id 回傳實際非空對照所需的文件，供 Agent 按需讀取。
     if detail_id is not None:
         for item in queue["next_checks"]:
-            item["standard_documents"] = [
-                path for field, path in STANDARD_GUIDES.items() if item.get(field)
-            ]
+            item["standard_documents"] = rule_guidance.standard_documents(item)
     if compact:
         # 唯一目的：減少送入 AI 上下文的佇列字數；詳細規範請用 --detail-id。
         queue["next_checks"] = [{
@@ -358,43 +335,7 @@ def main() -> int:
         parser.error("受測路徑不存在或指向 Skill 安裝目錄")
     out = target / REPORT_RELATIVE
     if args.categories:
-        from review_scope import parse_categories, load_catalog
-        try:
-            selected = parse_categories(args.categories[0])
-            catalog = load_catalog()
-            if args.prepare:
-                result = prepare_partial_index(target, catalog)
-            elif args.begin_second_pass:
-                if len(selected) != 1:
-                    raise ValueError("--begin-second-pass 每次只能指定單一分類")
-                result = begin_partial_second_pass(target, selected[0], catalog)
-            elif args.validate:
-                results = [validate_partial(target, cat, catalog) for cat in selected]
-                result = {"review_mode": "partial", "category_validation": results,
-                          "safety_valid": all(r["safety_valid"] for r in results),
-                          "ready_for_report": False}
-            elif args.stage or args.integrate:
-                if len(selected) != 1:
-                    raise ValueError("分類 --stage/--integrate 每次只能指定一個分類")
-                category = selected[0]
-                if args.stage:
-                    result = {"staged_path": str(stage_partial(target, category, args.stage, catalog)),
-                              "ready_for_report": False}
-                else:
-                    result = integrate_partial(target, category, catalog,
-                                               allow_revision=args.allow_revision)
-            else:
-                if args.init:
-                    init_partial(target, selected, catalog)
-                result = partial_queue(target, selected, catalog, args.batch_size,
-                                       detail_id=args.detail_id, compact=args.compact)
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            return 2
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8")
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 1 if args.validate and not result["safety_valid"] else 0
+        return partial_review_cli.run(args, target)
     if args.diagnose_first_pass or args.repair_plan:
         from review_blockers import diagnose
         try:

@@ -101,7 +101,7 @@ class PerformanceSafetyTests(unittest.TestCase):
             data = json.loads((ROOT / "examples/assessment.example.json").read_text("utf-8"))
             with patch("review_queue.build_source_coverage", side_effect=AssertionError("strict")), \
                  patch("review_queue.safety_errors", side_effect=AssertionError("safety")), \
-                 patch("review_queue.load_tacert_v2_checks", side_effect=AssertionError("standards")):
+                 patch("rule_guidance.standard_maps", side_effect=AssertionError("standards")):
                 result = build_queue(data, rules, 5, source_root=root, compact=True)
             self.assertFalse(result["ready_for_report"])
             self.assertTrue(result["validation_deferred"])

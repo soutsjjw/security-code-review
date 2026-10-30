@@ -44,14 +44,14 @@ class MultiAgentTests(unittest.TestCase):
         trace.parent.mkdir(parents=True)
         trace.write_text("Synthetic fixture, NOT a real Codex trace.", "utf-8")
         self.trace = trace
-        from multi_agent import _git_state as original_git_state
+        from multi_agent_ledger import _git_state as original_git_state
         self.original_git_state = original_git_state
         self.git = {"head": "a" * 40, "worktree_digest": "b" * 64}
-        for name in ("multi_agent.runtime_binding", "multi_agent_guard.runtime_binding"):
+        for name in ("multi_agent_planning.runtime_binding", "multi_agent_guard.runtime_binding"):
             runtime = patch(name, return_value="codex-cli test-version")
             runtime.start()
             self.addCleanup(runtime.stop)
-        patcher = patch("multi_agent._git_state", return_value=self.git)
+        patcher = patch("multi_agent_ledger._git_state", return_value=self.git)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -68,7 +68,7 @@ class MultiAgentTests(unittest.TestCase):
         # The source tree is not a Git repository, but its authoritative source
         # hashes and executor read-only probe are independently verifiable.
         self.verified_probe()
-        with patch("multi_agent._git_state",
+        with patch("multi_agent_ledger._git_state",
                    return_value={"head": None, "worktree_digest": None}):
             state = plan(self.root, max_agents=3, task_tokens=2000)
             self.assertTrue(state["multi_agent_enabled"])
