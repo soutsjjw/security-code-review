@@ -212,6 +212,8 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     <button type="button" data-f="info" aria-pressed="false">資訊</button>
   </div>
   <div id="findingDetails"></div>
+  <h3 id="withdrawnTitle">已撤回的發現</h3>
+  <div id="withdrawnFindings"></div>
 
   <h2 id="scope">審查方法與限制</h2>
   <div class="panel small" id="scopeContent"></div>
@@ -740,6 +742,27 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     } else article.append(empty('未提供 Before / After 程式碼，請勿自動捏造範例。'));
     paragraph(article,'修正建議',f.remediation);
     $('findingDetails').append(article);
+  }
+
+  // 已撤回的發現：保留原 Finding、撤回理由與反證位置，供人工複核
+  const withdrawals=asArray(assessment.fail_withdrawals);
+  if(!withdrawals.length) $('withdrawnFindings').append(empty('沒有撤回的已確認發現。'));
+  for(const w of withdrawals){
+    const article=el('article','panel');
+    const header=el('header');header.append(el('span','fid mono',text(w.rule_id)),chip('已撤回','st-na'),el('h3',null,'由不符合改判為'+(STATUS[w.new_status]||STATUS.missing)[0]));article.append(header);
+    for(const f of asArray(w.withdrawn_findings)){
+      const p=el('p','small');p.append(el('code',null,text(f.id)),document.createTextNode(' '+text(f.title)+'（原風險 '+(SEVERITY[f.severity]||SEVERITY.info)[0]+'）'));article.append(p);
+    }
+    paragraph(article,'撤回理由',w.reason);
+    paragraph(article,'第一輪誤判原因',w.first_pass_error);
+    article.append(el('h4',null,'反證位置'));
+    const ul=el('ul','locs');
+    for(const e of asArray(w.counter_evidence)){
+      const li=el('li');li.append(el('code',null,text(e.path)+':'+text(e.line_start)+(e.line_end!==e.line_start?'-'+text(e.line_end):'')),document.createTextNode(' '+text(e.description)));ul.append(li);
+    }
+    article.append(ul);
+    paragraph(article,'覆核者',text(w.reviewer)+'（'+text(w.recorded_on)+'）');
+    $('withdrawnFindings').append(article);
   }
 
   // 審查方法與限制

@@ -54,7 +54,7 @@ python "<SKILL_ROOT>/scripts/review_safety.py" --target "<TARGET_ROOT>" --valida
 
 - `--stage` 只寫 `analysis/staged/`，**不會更改**原本 `assessment.json`。
 - `--integrate` 先檢查快照及資料衝突，再以原子替換保存 `assessment.json`，並保留所有既有 Findings。相同弱點的確切指紋去重；不同來源或不同描述不強行合併。
-- 已完成規則、相同檔案或結案結果不同時會阻擋，先人工核對；確實要更新舊證據，可明確加 `--allow-revision`，但不能藉此把原有 `fail` 改成非 `fail`。
+- 已完成規則、相同檔案或結案結果不同時會阻擋，先人工核對；確實要更新舊證據，可明確加 `--allow-revision`，但不能藉此把原有 `fail` 改成非 `fail`；誤判的 fail 只能走下方[受控撤回](#誤判的已確認-fail-受控撤回不刪除-finding)。
 - 暫存的 `file_reviews` 在規則結案前可不符合正式 completed 雙向關聯；**正式交付時**仍必須完全通過既有 `file_review_integrity.py`，不可減少規則覆蓋或修改報告格式。
 - `--integrate` 現在對**本次變更且相關規則已 completed** 的 `file_reviews` 提前執行正式逐檔驗證；不相關行號、已有 `inspected_paths` 但缺 `rule_reviews`，或使跨檔制式結論超過門檻者必須拒絕整合（不會寫入 assessment／Journal）。仍 pending 的逐檔紀錄可跨批待查，但正式 completed 時一定要過守門。
 - 舊資料已存在的不合格紀錄不因其他檔案整合而自動修改或放行；修復時需在同批補齊受影響來源關聯，且不得以 `--allow-revision` 解除品質檢查。
@@ -166,3 +166,18 @@ python "<SKILL_ROOT>/scripts/analysis_prepare.py" --target "<TARGET_ROOT>" --mod
 若既有 Finding 的來源行號或說明經重新閱讀證明須更正，先保留舊 Finding，於 staged payload 的 `findings` 放入相同 ID 的完整新紀錄，並在 `finding_revisions` 以相同 ID 指定 `reason`（至少 40 字、描述實際重查）及 `reviewer`（至少 4 字）。主代理須取得使用者對該批修訂的明確授權，再執行 `review_safety.py --stage <payload>` 與 `review_safety.py --integrate --allow-revision --allow-finding-revision`。
 
 此路徑維持 Finding ID、既有檢核關聯與 confirmed 信心，不允許一般更正降低嚴重度或清空證據。整合器在受控 `assessment.finding_amendments` 保存舊 Finding 全文、修改前後 SHA256、覆核理由及人員，與整體 `assessment.json` 一起納入原有 Manifest／Journal 交易鏈。取消授權、不符欄位或跨批衝突必須拒絕寫入；不得自行覆寫 JSON 或重設 Manifest。
+
+## 誤判的已確認 fail 受控撤回（不刪除 Finding）
+
+重新追查證明已完成的 `fail` 是誤判（例如控制位於第一輪沒追到的包裝層）時，不能直接改寫或刪除 Finding。在 staged payload 放入改判後的 `checks[]`（狀態 `pass`／`na`／`review`，`finding_ids` 不再引用被撤回的 Finding），並以規則 ID 為鍵提供 `fail_withdrawals`：
+
+```json
+{"fail_withdrawals": {"AC-08": {
+  "reason": "至少 40 字，說明實際重新追查的路徑與結論",
+  "first_pass_error": "至少 30 字，說明第一輪為何誤判",
+  "reviewer": "security-review-agent",
+  "counter_evidence": [{"path": "Guard.cs", "line_start": 2, "line_end": 2,
+                        "description": "至少 20 字，說明這段程式碼如何推翻原判定"}]}}}
+```
+
+再執行 `review_safety.py --integrate --allow-revision --allow-fail-withdrawal`。整合器會核對：反證檔案在來源快照內且行號落在實際範圍；撤回只用於本批由已完成 `fail` 改判的規則；原 Finding 若仍關聯其他未撤回的 `fail` 規則則拒絕。通過後原 Finding 移出 `findings`，全文、SHA256、原檢核雜湊、理由、反證與覆核者寫入受控 `assessment.fail_withdrawals`，與 `assessment.json` 一起納入 Manifest／Journal 交易鏈；HTML 報告在「已撤回的發現」區塊列出，不會無聲消失。第二輪若改判已固定的第一輪 `fail`，同樣必須先完成此撤回，否則仍視為靜默降級。此流程只經 `review_safety.py`；Wave 協調器與分類模式目前不支援撤回。

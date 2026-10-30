@@ -197,6 +197,9 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
     known = set((snapshot.get("source_hashes") or {}).keys())
     existing_findings = {f.get("id") for f in assessment.get("findings", [])
                          if isinstance(f, dict)}
+    # 整合器只在反證與授權齊備時寫入撤回紀錄；以最後一次撤回的改判結果為準。
+    withdrawn = {w.get("rule_id"): w.get("new_status")
+                 for w in assessment.get("fail_withdrawals") or [] if isinstance(w, dict)}
     decision_audits = audits_override if audits_override is not None else _read(target / RELATIVE / "decision-audits.json", {})
     if not isinstance(decision_audits, dict):
         decision_audits = {}
@@ -219,8 +222,8 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
         outcome = record.get("outcome")
         if outcome != ("corrected" if altered else "confirmed"):
             errors.append(f"{rid}: 第一輪結論有異動時須列出矛盾與修訂，未異動須記 confirmed")
-        if first["status"] == "fail" and status != "fail":
-            errors.append(f"{rid}: 已確認弱點不得在第二輪被靜默降級")
+        if first["status"] == "fail" and status != "fail" and withdrawn.get(rid) != status:
+            errors.append(f"{rid}: 已確認弱點不得在第二輪被靜默降級；須經 --allow-fail-withdrawal 留下撤回紀錄")
         if not isinstance(record.get("attacker_perspective"), str) or len(
                 record["attacker_perspective"].strip()) < 24:
             errors.append(f"{rid}: 缺少具體攻擊者觀點，不能沿用第一輪摘要")

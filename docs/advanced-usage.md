@@ -296,7 +296,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
    - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。多代理模式必須先 `multi_agent.py --begin-integration` 停止派工，再由主代理正式 Stage/Integrate，`--commit-integration` 成功核對交易後才可繼續派工。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
-   - 本 `/goal` 已明確預先授權本次專案之 completed 證據合法修訂：核對真實來源後可用 `--integrate --allow-revision`，不必逐批重問；未在實際使用者指令授權或超出範圍、涉及 Finding 修訂者須另取得明確同意。仍不得跳過批次證據、Finding 保護、SHA256／Manifest／Journal 守門。
+   - 本 `/goal` 已明確預先授權本次專案之 completed 證據合法修訂：核對真實來源後可用 `--integrate --allow-revision`，不必逐批重問；未在實際使用者指令授權或超出範圍、涉及 Finding 修訂者須另取得明確同意。重新查證確認已完成的 fail 為誤判時，本 `/goal` 亦預先授權依[受控撤回](review-integrity-guards.md#誤判的已確認-fail-受控撤回不刪除-finding)附來源反證後使用 `--integrate --allow-revision --allow-fail-withdrawal`，原 Finding 全文保留於撤回紀錄。仍不得跳過批次證據、Finding 保護、SHA256／Manifest／Journal 守門。
 
 6. 每批保存真實審查結果，持續執行直到：
    - 70 項規則均已實際完成。

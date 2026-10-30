@@ -66,13 +66,13 @@ def stage(target: Path, payload_path: Path) -> str:
     payload = review_snapshot.read_report_json(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
-    known_sections = {"file_reviews", "checks", "findings", "finding_revisions", "closures",
+    known_sections = {"file_reviews", "checks", "findings", "finding_revisions", "fail_withdrawals", "closures",
                       "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"}
     unexpected = set(payload) - known_sections
     if unexpected:
         raise ValueError("暫存資料包含未知欄位，禁止靜默丟棄：" + "、".join(sorted(unexpected)))
-    for key in ("file_reviews", "checks", "findings", "finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"):
-        is_map = key in {"finding_revisions", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"}
+    for key in ("file_reviews", "checks", "findings", "finding_revisions", "fail_withdrawals", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"):
+        is_map = key in {"finding_revisions", "fail_withdrawals", "closures", "control_verifications", "decision_audits", "adversarial_reviews", "second_pass_samples", "recheck_proof"}
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
@@ -93,10 +93,104 @@ def stage(target: Path, payload_path: Path) -> str:
     return path.as_posix()
 
 
+def _withdrawal_text(value: Any, minimum: int) -> bool:
+    return isinstance(value, str) and len(value.strip()) >= minimum
+
+
+def _counter_evidence_errors(target: Path, rid: str, evidence: Any,
+                             source_hashes: dict[str, str]) -> list[str]:
+    if not isinstance(evidence, list) or not evidence:
+        return [f"{rid}: 撤回 fail 須附至少一筆實際來源反證"]
+    errors = []
+    for pos, item in enumerate(evidence):
+        if (not isinstance(item, dict)
+                or set(item) != {"path", "line_start", "line_end", "description"}):
+            errors.append(f"{rid}: 反證[{pos}] 須且只能包含 path、line_start、line_end、description")
+            continue
+        path, start, end = item["path"], item["line_start"], item["line_end"]
+        if not isinstance(path, str) or path not in source_hashes:
+            errors.append(f"{rid}: 反證[{pos}] 的檔案不在來源快照")
+            continue
+        lines = len((target / path).read_bytes().splitlines())
+        if (type(start) is not int or type(end) is not int
+                or not 1 <= start <= end <= lines):
+            errors.append(f"{rid}: 反證[{pos}] 的行號超出 {path} 實際範圍")
+        if not _withdrawal_text(item["description"], 20):
+            errors.append(f"{rid}: 反證[{pos}] 須具體說明此段程式碼如何推翻原判定")
+    return errors
+
+
+def _withdraw_fail_findings(target: Path, snapshot: dict, requests: dict[str, Any],
+                            withdrawn_rules: set[str], checks_before: dict[str, dict],
+                            checks: dict[str, dict], findings: dict[str, dict]) -> list[dict]:
+    """已確認 fail 改判為非 fail 的唯一路徑：Finding 移出清單但保留全文、反證與雜湊。"""
+    unused = sorted(set(requests) - withdrawn_rules)
+    if unused:
+        raise ValueError("fail_withdrawals 只能用於本批由已完成 fail 改判的規則：" + "、".join(unused))
+    serialized = lambda obj: json.dumps(obj, ensure_ascii=False, sort_keys=True,
+                                        separators=(",", ":")).encode("utf-8")
+    errors: list[str] = []
+    withdrawn_ids: dict[str, list[str]] = {}
+    for rid in sorted(withdrawn_rules):
+        request = requests[rid]
+        if (not isinstance(request, dict) or set(request) != {
+                "reason", "first_pass_error", "reviewer", "counter_evidence"}):
+            errors.append(f"{rid}: fail_withdrawals 須且只能包含 reason、first_pass_error、reviewer、counter_evidence")
+            continue
+        if not _withdrawal_text(request["reason"], 40):
+            errors.append(f"{rid}: 撤回理由須至少 40 字並描述實際重查")
+        if not _withdrawal_text(request["first_pass_error"], 30):
+            errors.append(f"{rid}: 須說明第一輪誤判的具體原因（至少 30 字）")
+        if not _withdrawal_text(request["reviewer"], 4):
+            errors.append(f"{rid}: 撤回須記錄覆核者")
+        errors += _counter_evidence_errors(target, rid, request["counter_evidence"],
+                                           snapshot["source_hashes"])
+        ids = sorted(set(checks_before[rid].get("finding_ids") or []))
+        for fid in ids:
+            finding = findings.get(fid)
+            if finding is None:
+                errors.append(f"{rid}: 找不到要撤回的 Finding {fid}")
+                continue
+            remaining = sorted(set(finding.get("check_ids") or []) - withdrawn_rules)
+            if remaining:
+                errors.append(f"{fid}: Finding 仍關聯未撤回的規則 {'、'.join(remaining)}；"
+                              "須一併撤回或維持 fail")
+        if set(checks[rid].get("finding_ids") or []) & set(ids):
+            errors.append(f"{rid}: 改判後的檢核不得再引用被撤回的 Finding")
+        withdrawn_ids[rid] = ids
+    if errors:
+        raise ValueError("；".join(errors[:12]))
+    records = []
+    for rid in sorted(withdrawn_rules):
+        request = requests[rid]
+        removed = [findings[fid] for fid in withdrawn_ids[rid]]
+        records.append({
+            "rule_id": rid,
+            "previous_status": "fail",
+            "new_status": checks[rid]["status"],
+            "previous_check_sha256": hashlib.sha256(serialized(checks_before[rid])).hexdigest(),
+            "finding_ids": withdrawn_ids[rid],
+            "withdrawn_findings": removed,
+            "finding_sha256": {f["id"]: hashlib.sha256(serialized(f)).hexdigest() for f in removed},
+            "reason": request["reason"].strip(),
+            "first_pass_error": request["first_pass_error"].strip(),
+            "counter_evidence": request["counter_evidence"],
+            "reviewer": request["reviewer"].strip(),
+            "recorded_on": date.today().isoformat(),
+        })
+    for ids in withdrawn_ids.values():
+        for fid in ids:
+            findings.pop(fid, None)
+    return records
+
+
 def integrate(target: Path, *, allow_revision: bool = False,
-              allow_finding_revision: bool = False) -> dict:
+              allow_finding_revision: bool = False,
+              allow_fail_withdrawal: bool = False) -> dict:
     if allow_finding_revision and not allow_revision:
         raise ValueError("Finding 修訂需要同時指定 --allow-revision")
+    if allow_fail_withdrawal and not allow_revision:
+        raise ValueError("撤回已確認 fail 需要同時指定 --allow-revision")
     failures = review_snapshot.snapshot_errors(target)
     from evidence_integrity import errors as evidence_integrity_errors
     failures += evidence_integrity_errors(target)
@@ -126,6 +220,9 @@ def integrate(target: Path, *, allow_revision: bool = False,
                      for rid, value in checks.items()}
     findings = {r["id"]: r for r in data.get("findings", [])}
     amendment_history = list(data.get("finding_amendments") or [])
+    withdrawal_history = list(data.get("fail_withdrawals") or [])
+    staged_withdrawals: dict[str, Any] = {}
+    withdrawn_rules: set[str] = set()
     amended_findings: set[str] = set()
     closures = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.CLOSURES, {}) or {}
     control_verifications = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.CONTROL_VERIFICATIONS, {}) or {}
@@ -159,6 +256,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
                 or staged.get("source_hashes") != snapshot["source_hashes"]):
             raise ValueError(f"{path.name}: 暫存使用不同的來源快照")
         part = staged["payload"]
+        for rid, request in (part.get("fail_withdrawals") or {}).items():
+            if rid in staged_withdrawals and staged_withdrawals[rid] != request:
+                raise ValueError(f"{rid}: 多份暫存的 fail 撤回內容衝突，需人工裁決")
+            staged_withdrawals[rid] = request
         for record in part.get("file_reviews", []):
             name = record["path"]
             if name not in snapshot["source_hashes"]:
@@ -238,7 +339,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
                 raise ValueError(f"{rid}: 多份暫存規則結果衝突，需人工裁決")
             if checks[rid] != record and (checks[rid].get("execution") or {}).get("state") == "completed":
                 if checks[rid].get("status") == "fail" and record.get("status") != "fail":
-                    raise ValueError(f"{rid}: 不允許未裁決即將已確認弱點改判為非 fail")
+                    if not allow_fail_withdrawal or rid not in staged_withdrawals:
+                        raise ValueError(f"{rid}: 不允許未裁決即將已確認弱點改判為非 fail；"
+                                         "須在 fail_withdrawals 提出反證並明確授權 --allow-fail-withdrawal")
+                    withdrawn_rules.add(rid)
                 if not allow_revision:
                     raise ValueError(f"{rid}: 已完成的規則不同，須明確人工允許修訂")
             if ((checks[rid].get("execution") or {}).get("state") != "completed"
@@ -340,6 +444,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
                 samples[source_path] = sample
             adversarial_reviews[RESERVED] = {**layer, "samples": samples}
 
+    if staged_withdrawals:
+        withdrawal_history += _withdraw_fail_findings(
+            target, snapshot, staged_withdrawals, withdrawn_rules,
+            checks_before, checks, findings)
     # 不允許因去重而留下錯誤 Finding ID 參照。
     for check in checks.values():
         for fid in check.get("finding_ids", []):
@@ -354,6 +462,8 @@ def integrate(target: Path, *, allow_revision: bool = False,
     data["findings"] = [findings[p] for p in sorted(findings)]
     if amendment_history:
         data["finding_amendments"] = amendment_history
+    if withdrawal_history:
+        data["fail_withdrawals"] = withdrawal_history
     # 批次品質及新增檔案關聯必須在任何正式寫入／Journal 交易前通過。
     # 不對舊批次未更動的錯誤直接改判，也不得藉 allow_revision 繞過。
     defects = batch_quality_errors(
@@ -542,6 +652,8 @@ def main() -> int:
                         help="人工核對後允許覆核既有 completed；仍禁止抹除已確認 fail")
     parser.add_argument("--allow-finding-revision", action="store_true",
                         help="搭配 --integrate --allow-revision 與 finding_revisions 明確修訂既有 Finding")
+    parser.add_argument("--allow-fail-withdrawal", action="store_true",
+                        help="搭配 --integrate --allow-revision 與 fail_withdrawals，以反證撤回誤判的已確認 fail")
     parser.add_argument("--restart-second-pass", action="store_true",
                         help="明確重新執行第一輪後，歸檔舊快照／複核紀錄並重啟第二輪")
     parser.add_argument("--begin-second-pass", action="store_true",
@@ -551,6 +663,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.allow_finding_revision and (not args.integrate or not args.allow_revision):
         parser.error("--allow-finding-revision 須搭配 --integrate --allow-revision")
+    if args.allow_fail_withdrawal and (not args.integrate or not args.allow_revision):
+        parser.error("--allow-fail-withdrawal 須搭配 --integrate --allow-revision")
     try:
         if args.recover_integrity:
             from evidence_integrity import recover
@@ -574,7 +688,8 @@ def main() -> int:
             print("STAGED:", stage(args.target, args.stage))
         elif args.integrate:
             print(json.dumps(integrate(args.target, allow_revision=args.allow_revision,
-                                       allow_finding_revision=args.allow_finding_revision), ensure_ascii=False))
+                                       allow_finding_revision=args.allow_finding_revision,
+                                       allow_fail_withdrawal=args.allow_fail_withdrawal), ensure_ascii=False))
         elif args.plan:
             print(json.dumps(review_snapshot.scope_tasks(args.target), ensure_ascii=False, indent=2))
         elif args.validate:

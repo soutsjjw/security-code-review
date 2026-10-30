@@ -13,7 +13,7 @@
 3. 第二輪重新開啟來源，不沿用第一輪的「結論敘述」作為新證據，對每條規則提出至少一個反例假設；高風險控制（如 AC-01、AC-08、AU-08、IN-01、IN-07）至少兩個**不同攻擊面**。重新確認入口、分支、DI、組態覆寫、授權主體與查詢條件，實際核對反例及相反結果。
 4. `review_queue.py --target "<TARGET_ROOT>" --compact` 會提供 `second_pass.baseline_ready`、`pending_count`、`pending_ids` 及進度；`--detail-id <RULE_ID>` 有 `adversarial_guidance` 指出最低反例數量。這些是待複核工作，不會增加 70 項規則，也不會把原本 completed 改成 pending。
 5. 每批將第二輪紀錄置於原有 `review_safety.py --stage` JSON 的 `adversarial_reviews`，經 `--integrate` 以單一寫入者儲存於 `analysis/adversarial-reviews.json`。**不得**只將第一輪理由重新表述或填固定模板。
-6. 第二輪發現第一輪錯誤：先依法建立／保留 Finding，修訂規則狀態、證據和必要工作中紀錄；對完成判定的合法修訂使用 `--allow-revision`，保留第一輪快照不修改。第二輪紀錄填 `outcome=corrected`，以 `contradictions` 明確寫出最初與修訂後的狀態、來源行號、裁決理由。若未解決，停止正式結案，保留進度。
+6. 第二輪發現第一輪錯誤：先依法建立／保留 Finding，修訂規則狀態、證據和必要工作中紀錄；對完成判定的合法修訂使用 `--allow-revision`，保留第一輪快照不修改。第二輪紀錄填 `outcome=corrected`，以 `contradictions` 明確寫出最初與修訂後的狀態、來源行號、裁決理由。第一輪 `fail` 經證實為誤判時，須先依[受控撤回](review-integrity-guards.md#誤判的已確認-fail-受控撤回不刪除-finding)以 `--allow-fail-withdrawal` 整合反證，不得只改狀態。若未解決，停止正式結案，保留進度。
 7. 所有 70 項第二輪證據通過 `review_safety.py --validate`，`review_queue.py` 回傳 `ready_for_report=true` 後才能呼叫 `complete_review.py`。未修訂的規則應記 `outcome=confirmed` 且 `contradictions=[]`，若修改規則結論／證據卻沒有裁決紀錄，會被擋下。
 
 ## 工作中 JSON 結構

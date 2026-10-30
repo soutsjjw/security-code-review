@@ -149,6 +149,6 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --apply-second-pass --payload "<SECOND_PASS_PAYLOAD>.json"
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --next
 ```
-若第二輪需要改寫已 completed 規則或 Finding，須另外明確授權 `--allow-revision`（Finding 另加 `--allow-finding-revision`）；正式 `review_safety.py` 與 Journal 的安全守門不變。純反向複核／抽樣仍需逐筆核對來源、繞過假設與矛盾，不得填固定樣板。若採用子代理，若採用子代理，先依 [多代理可信能力契約](multi-agent-review.md) 完成實測與原生工具隔離。L0 表示同代理且**不獨立**；L1／L2 只有可驗證的不同代理／獨立人員實際查核才可主張，不能以 Prompt 或自填字串推定。
+若第二輪需要改寫已 completed 規則或 Finding，須另外明確授權 `--allow-revision`（Finding 另加 `--allow-finding-revision`）；誤判 fail 的撤回不經 Wave，直接依[受控撤回](review-integrity-guards.md#誤判的已確認-fail-受控撤回不刪除-finding)以 `review_safety.py` 整合。正式 `review_safety.py` 與 Journal 的安全守門不變。純反向複核／抽樣仍需逐筆核對來源、繞過假設與矛盾，不得填固定樣板。若採用子代理，若採用子代理，先依 [多代理可信能力契約](multi-agent-review.md) 完成實測與原生工具隔離。L0 表示同代理且**不獨立**；L1／L2 只有可驗證的不同代理／獨立人員實際查核才可主張，不能以 Prompt 或自填字串推定。
 
 最後仍須執行 `review_safety.py --validate`、不帶 `--compact` 的 `review_queue.py`，確認 `ready_for_report=true`，再用 `complete_review.py` 產生並驗證 HTML／JSON 報告。協調器自己的 `ready_for_report` 僅是工作完成提示，**不是最終交付授權**。

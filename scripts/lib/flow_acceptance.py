@@ -52,8 +52,16 @@ def preservation(before, after):
             known = matches[0]["updated_sha256"]
             seen.add(known)
         return True
-    missing = sorted(set(original) - set(current))
-    modified = sorted(fid for fid in original.keys() & current.keys()
+    # 經 --allow-fail-withdrawal 撤回的 Finding 以撤回當下的全文雜湊接續修訂鏈。
+    present = set(current)
+    for record in after.get("fail_withdrawals", []):
+        hashes = record.get("finding_sha256") if isinstance(record, dict) else None
+        for fid, sha in (hashes.items() if isinstance(hashes, dict) else ()):
+            if fid in original and fid not in present:
+                current[fid] = sha
+    missing = sorted(fid for fid in original if fid not in current
+                     or (fid not in present and not valid_revision(fid)))
+    modified = sorted(fid for fid in original.keys() & present
                       if original[fid] != current[fid] and not valid_revision(fid))
     return missing, modified
 

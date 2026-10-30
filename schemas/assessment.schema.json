@@ -209,6 +209,48 @@
         "additionalProperties": false
       }
     },
+    "fail_withdrawals": {
+      "type": "array",
+      "description": "以反證撤回誤判的已確認 fail；由單一寫入者整合器產生並保留原 Finding 全文，不得由 staged payload 直接指定。",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "previous_status", "new_status", "previous_check_sha256",
+                     "finding_ids", "withdrawn_findings", "finding_sha256", "reason",
+                     "first_pass_error", "counter_evidence", "reviewer", "recorded_on"],
+        "properties": {
+          "rule_id": {"type": "string", "minLength": 1},
+          "previous_status": {"const": "fail"},
+          "new_status": {"enum": ["pass", "na", "review"]},
+          "previous_check_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "finding_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "withdrawn_findings": {"type": "array", "items": {"type": "object"}},
+          "finding_sha256": {
+            "type": "object",
+            "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          },
+          "reason": {"type": "string", "minLength": 40},
+          "first_pass_error": {"type": "string", "minLength": 30},
+          "counter_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["path", "line_start", "line_end", "description"],
+              "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "line_start": {"type": "integer", "minimum": 1},
+                "line_end": {"type": "integer", "minimum": 1},
+                "description": {"type": "string", "minLength": 20}
+              },
+              "additionalProperties": false
+            }
+          },
+          "reviewer": {"type": "string", "minLength": 4},
+          "recorded_on": {"type": "string", "format": "date"}
+        },
+        "additionalProperties": false
+      }
+    },
     "findings": {
       "type": "array",
       "items": {

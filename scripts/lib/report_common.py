@@ -438,7 +438,7 @@ def validate_html(html: str, data: dict[str, Any], template: str | None = None) 
         result.errors.append('HTML 內嵌資料與 report.json 不一致')
     essential = {'summary', 'high', 'priority', 'strengths', 'checklist', 'findings', 'scope',
                  'stFilter', 'sevFilter', 'themeToggle', 'report-data', 'statusStats',
-                 'severityStats', 'checklistContent', 'findingDetails', 'owasp2025Content', 'systemBaselineContent', 'webGuideContent', 'webAppendixContent', 'webHeadersContent'}
+                 'severityStats', 'checklistContent', 'findingDetails', 'withdrawnFindings', 'owasp2025Content', 'systemBaselineContent', 'webGuideContent', 'webAppendixContent', 'webHeadersContent'}
     if not essential.issubset(set(tree.ids)):
         result.errors.append('HTML 缺少必要節點：' + ', '.join(sorted(essential - set(tree.ids))))
     for link in tree.hash_links:
