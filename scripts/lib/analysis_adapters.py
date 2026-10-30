@@ -15,6 +15,8 @@ from typing import Protocol
 
 MODERN_TFMS = re.compile(r"^(?:netcoreapp[1-9]\d*(?:\.\d+)?|net(?:[5-9]|[1-9]\d)\.\d+)(?:[-+].*)?$", re.I)
 LEGACY_TFMS = re.compile(r"^net(?:[1-4]\d{1,2}|framework)", re.I)
+_CLI_HOME_DENIED = ("unauthorizedaccessexception", "access to the path", "access denied",
+                    "permission denied")
 
 
 class AnalysisAdapter(Protocol):
@@ -72,13 +74,23 @@ def _evaluated_tfms(project: Path) -> list[str]:
                DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1",
                DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE="1",
                MSBUILDDISABLENODEREUSE="1")
-    try:
-        result = subprocess.run(
-            command, cwd=project.parent, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=30, check=False, env=env
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ValueError(f"MSBuild 唯讀 TFM 評估無法執行（{type(exc).__name__}）") from exc
+
+    def run(environment: dict[str, str]) -> subprocess.CompletedProcess:
+        try:
+            return subprocess.run(
+                command, cwd=project.parent, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=30, check=False, env=environment
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ValueError(f"MSBuild 唯讀 TFM 評估無法執行（{type(exc).__name__}）") from exc
+
+    result = run(env)
+    output = ((result.stdout or "") + "\n" + (result.stderr or "")).lower()
+    if result.returncode != 0 and any(code in output for code in _CLI_HOME_DENIED):
+        # 即使 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1，dotnet 首次執行仍要在 CLI home 建立
+        # .dotnet 標記檔；沙箱身分的家目錄不可寫入時改用隔離暫存 CLI home 重試一次。
+        with tempfile.TemporaryDirectory(prefix="security-review-dotnet-home-") as home:
+            result = run(dict(env, DOTNET_CLI_HOME=home))
     if result.returncode != 0:
         raise ValueError(f"MSBuild TFM 評估失敗（exit {result.returncode}，可能缺少相容 SDK／匯入）")
     try:

@@ -137,6 +137,59 @@ class MSBuildTFMTests(unittest.TestCase):
                 "language_framework": detect_language_framework(self.root)
             }))
 
+    def test_unwritable_cli_home_retries_once_with_isolated_home(self):
+        (self.root / "Directory.Build.props").write_text(
+            "<Project><PropertyGroup><TargetFramework>net10.0</TargetFramework>"
+            "</PropertyGroup></Project>", encoding="utf-8")
+        denied = subprocess.CompletedProcess(
+            ["dotnet"], 1, stdout="",
+            stderr="System.UnauthorizedAccessException: Access to the path 'C:\\home\\.dotnet' is denied.")
+        evaluated = subprocess.CompletedProcess(["dotnet"], 0, stdout=json.dumps(
+            {"Properties": {"TargetFramework": "net10.0", "TargetFrameworks": "",
+                            "TargetFrameworkVersion": ""}}), stderr="")
+        with patch("analysis_adapters.shutil.which", return_value="dotnet"), \
+                patch("analysis_adapters.subprocess.run", side_effect=[denied, evaluated]) as run:
+            detected = ModernDotNetAdapter().detect(self.root)
+        self.assertTrue(detected["supported"], detected)
+        self.assertEqual(run.call_count, 2)
+        self.assertNotIn("security-review-dotnet-home-",
+                         run.call_args_list[0].kwargs["env"].get("DOTNET_CLI_HOME", ""))
+        home = Path(run.call_args_list[1].kwargs["env"]["DOTNET_CLI_HOME"])
+        self.assertTrue(home.name.startswith("security-review-dotnet-home-"))
+        self.assertFalse(home.exists())
+
+    def test_other_msbuild_failures_are_not_retried(self):
+        (self.root / "Directory.Build.props").write_text(
+            "<Project><PropertyGroup><TargetFramework>net10.0</TargetFramework>"
+            "</PropertyGroup></Project>", encoding="utf-8")
+        with patch("analysis_adapters.shutil.which", return_value="dotnet"), \
+                self.mock_evaluation(returncode=1) as run:
+            detected = ModernDotNetAdapter().detect(self.root)
+        self.assertFalse(detected["supported"])
+        self.assertEqual(run.call_count, 1)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows ACL deny")
+    def test_real_msbuild_survives_unwritable_fresh_cli_home(self):
+        if not shutil.which("dotnet") or not shutil.which("icacls"):
+            self.skipTest("dotnet SDK or icacls unavailable")
+        import getpass
+        import os
+        home = self.root / "denied-home"
+        home.mkdir()
+        user = getpass.getuser()
+        subprocess.run(["icacls", str(home), "/deny", f"{user}:(OI)(CI)(W,AD,WD)"],
+                       check=True, capture_output=True)
+        self.addCleanup(subprocess.run, ["icacls", str(home), "/remove:d", user],
+                        capture_output=True)
+        (self.root / "Directory.Build.props").write_text(
+            '<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework>'
+            '</PropertyGroup></Project>', encoding="utf-8")
+        self.project.write_text('<Project Sdk="Microsoft.NET.Sdk"/>', encoding="utf-8")
+        with patch.dict(os.environ, {"DOTNET_CLI_HOME": str(home)}):
+            detected = ModernDotNetAdapter().detect(self.root)
+        self.assertTrue(detected["supported"], detected)
+        self.assertEqual(detected["projects"][0]["target_frameworks"], ["net8.0"])
+
     def test_literal_direct_tfm_works_without_sdk_and_net10_is_modern(self):
         self.project.write_text(
             '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
