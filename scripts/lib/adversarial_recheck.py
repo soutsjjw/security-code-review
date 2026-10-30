@@ -6,10 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from review_decision import load_decision_matrix
-from review_core import canonical_digest as digest, read_json as _read, snapshot_fingerprint
+from review_core import (canonical_digest as digest, read_json as _read, snapshot_fingerprint,
+                         write_json_atomic as _write)
 from adversarial_evidence import (BASELINE, HIGH_RISK_RULES, HISTORY, INDEX, RELATIVE, REVIEWS, SNAPSHOT,
                                   _evidence_errors)
 from adversarial_quality import quality_errors
+from second_pass_layers import build_plan, layered_errors, RESERVED
 
 CONTRACT_VERSION = 1
 
@@ -116,7 +118,6 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
     }
     path = target / BASELINE
     existing = _read(path)
-    from second_pass_layers import RESERVED, build_plan
     layered_enabled = (_read(target / INDEX, {}) or {}).get("adversarial_quality_version") == 1
     old_record = _read(target / REVIEWS, {}) or {}
     needs_upgrade = bool(restart and existing == checkpoint and layered_enabled
@@ -129,7 +130,6 @@ def begin_second_pass(target: Path, assessment: dict[str, Any], *, restart: bool
             "plan": build_plan(assessment, checkpoint, snap), "samples": {},
         }}
 
-    from review_core import write_json_atomic as _write
     from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors
     if integrity_enabled(target):
         trouble = integrity_errors(target)
@@ -297,7 +297,6 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
             and structure_index.get("adversarial_quality_version") == 1):
         errors.extend(quality_errors(target, assessment, stored, baseline, decision_audits,
                                      snapshot_override=snapshot_override))
-    from second_pass_layers import layered_errors
     errors.extend(layered_errors(target, assessment, baseline, snapshot, stored))
     return errors
 
@@ -324,7 +323,6 @@ def progress(target: Path, assessment: dict[str, Any], batch_size: int = 10) -> 
                and (c["id"] in invalid
                     or not isinstance(reviews.get(c["id"]), dict)
                     or reviews[c["id"]].get("final_digest") != digest(c))]
-    from second_pass_layers import RESERVED
     layer = reviews.get(RESERVED)
     sample_tasks = (layer.get("plan") or {}).get("sampling", []) if isinstance(layer, dict) else []
     finished = layer.get("samples", {}) if isinstance(layer, dict) else {}

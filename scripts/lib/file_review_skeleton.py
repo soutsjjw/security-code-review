@@ -10,9 +10,10 @@ from pathlib import Path
 
 from analysis_candidates import candidate_hits
 from review_queue import REPORT_RELATIVE
-from source_coverage import provisional_source_coverage
+from source_coverage import expected_paths, provisional_source_coverage
 from source_reader import read_source_text, source_digest
 from review_core import ANALYSIS_ROOT
+from scope_paths import relative_path
 
 INDEX = ANALYSIS_ROOT / "structure-index.json"
 
@@ -35,8 +36,6 @@ def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,
     hashes = snapshot.get("source_hashes")
     if not isinstance(hashes, dict) or hashes != index.get("source_hashes"):
         raise ValueError("來源快照與索引不同；請重建結構索引，不得使用過期提示")
-    from source_coverage import expected_paths
-    from scope_paths import relative_path
     exclusions = [
         relative_path(root, row["path"], root_allowed=True)
         for row in (assessment.get("scope_details") or {}).get("excluded_paths", [])

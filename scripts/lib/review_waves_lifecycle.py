@@ -11,12 +11,13 @@ import subprocess
 import sys
 import review_waves_state as ws
 from review_core import file_sha256 as _file_sha, REPORT_ROOT
+from review_waves_contracts import independence_metadata, verify_sample_chain, work_contract
+from rule_repair_tasks import compare_rule_repair_diagnostics
 
 DELIVERY = REPORT_ROOT / "logs/repair-waves/delivery.json"
 
 
 def agent_next(target: Path) -> dict:
-    from review_waves_contracts import work_contract
     state = ws._load_state(target)
     ws._assert_state_current(target, state)
     work = None
@@ -33,7 +34,6 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
     """
     if not acknowledged:
         raise ValueError("必須明確承認已調查中斷的正式交易")
-    from rule_repair_tasks import compare_rule_repair_diagnostics
     state = ws._load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
@@ -122,7 +122,6 @@ def finalize(target: Path) -> dict:
     from second_pass_layers import worklist
     from review_queue import load_rules, build_queue
     from review_safety import safety_errors
-    from review_waves_contracts import independence_metadata, verify_sample_chain
     state = ws._load_state(target)
     ws._assert_state_current(target, state)
     if state["phase"] != "second_pass" or state.get("paused"):

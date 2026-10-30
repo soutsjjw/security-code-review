@@ -13,6 +13,7 @@ import re
 from review_decision import load_decision_matrix
 from review_core import read_json as _read, snapshot_fingerprint
 from adversarial_evidence import HIGH_RISK_RULES, SNAPSHOT, _evidence_errors
+from second_pass_layers import RESERVED
 
 VERSION = 1
 ATTACK_VECTORS = frozenset({
@@ -85,7 +86,6 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
         return ["第二輪 Q4: 無有效來源快照"]
     if baseline.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
         return ["第二輪 Q4: 第一輪與來源快照指紋不一致"]
-    from second_pass_layers import RESERVED
     layered_mode = (isinstance(records.get(RESERVED), dict)
                     and isinstance(records[RESERVED].get("plan"), dict))
     matrix = load_decision_matrix()

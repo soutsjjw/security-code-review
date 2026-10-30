@@ -12,6 +12,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Callable, Iterator, Sequence
+from review_scope import PARTIAL_ROOT
 
 
 class PublicationError(ValueError):
@@ -38,7 +39,6 @@ def _write_staged(path: Path, body: str) -> None:
 @contextmanager
 def _publish_lock(root: Path) -> Iterator[None]:
     # 僅允許根目錄下固定的 partial 位置，不接受來自 CLI 的路徑。
-    from review_scope import PARTIAL_ROOT
 
     base = root.resolve()
     directory = base / PARTIAL_ROOT
@@ -70,7 +70,6 @@ def publish(root: Path, outputs: Sequence[tuple[Path, str]], *,
 
     只接受分類目錄的 JSON/HTML，不能把正式 70 項報告當成目標。
     """
-    from review_scope import PARTIAL_ROOT
 
     root = root.resolve()
     destinations = [path for path, _ in outputs]

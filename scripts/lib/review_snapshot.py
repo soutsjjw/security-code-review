@@ -16,6 +16,7 @@ from review_core import REPORT_ROOT, write_json_atomic as _write
 from scope_paths import EXCLUDED_DIRS, _default_rule
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 from source_reader import source_digest
+from cross_file_evidence import trace_errors
 
 RELATIVE = REPORT_ROOT
 SNAPSHOT = Path("analysis/review-snapshot.json")
@@ -199,7 +200,6 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
     snapshot = snapshot_override if snapshot_override is not None else (_read(report_dir(target) / SNAPSHOT, {}) or {})
     current = set(snapshot.get("source_hashes", {}))
     errors = []
-    from cross_file_evidence import trace_errors
     q2 = index.get("cross_file_evidence_version") == 1
     for check in assessment.get("checks", []):
         rid = check.get("id")

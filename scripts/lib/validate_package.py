@@ -4,6 +4,15 @@ from collections import Counter
 import json,sys
 import yaml
 from jsonschema import Draft202012Validator
+from package_manifest import manifest_errors
+from render_rules_markdown import markdown_errors
+from review_decision import load_decision_matrix
+from review_snapshot import rule_scopes
+from system_baseline import load_catalog
+from validate_skill_docs import documentation_errors
+from web_appendix1 import load_appendix1
+from web_guide import load_web_guide
+from web_headers import build_appendix3, load_headers
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -26,7 +35,6 @@ def main():
   errors.append('assessment schema must support stable v2.0.0 and prior rc1 progress')
 
  ids=[r['id'] for r in j['rules']]
- from review_snapshot import rule_scopes
  try:
   scopes=rule_scopes()
   if set(scopes)!=set(ids) or any(mode not in ('local','cross_file','project') for mode in scopes.values()):
@@ -51,7 +59,6 @@ def main():
    if ref['mapping_type']!='relevant_requirement_not_full_equivalence':errors.append('invalid mapping type')
 
  # 判定方式是提示與完成品質契約，不預設弱點嚴重度，規則 ID 不得遺漏。
- from review_decision import load_decision_matrix
  try:
   matrix=load_decision_matrix()
   if set(matrix)!=set(ids):
@@ -104,7 +111,6 @@ def main():
 
 
  # 確保第二層 V1.3 80 項來源編目與舊版 70 項規則並行而不混淆。
- from system_baseline import load_catalog
  baseline_controls = load_catalog()
  baseline_ids = {c["id"] for c in baseline_controls}
  if len(baseline_ids) != 80:
@@ -121,7 +127,6 @@ def main():
    errors.append(f"TW baseline references unknown 70-rule ID: {control['id']}")
 
  # V3.2 Web 指引應包含第 4 章 29 類/35 個細部條次，並嚴格排除 Java/PHP 專屬範例。
- from web_guide import load_web_guide
  guide=load_web_guide(j['rules'])
  guide_categories=guide['controls']
  guide_topics=[t for c in guide_categories for t in c['implementation_topics']]
@@ -138,7 +143,6 @@ def main():
   errors.append('NICS V3.2 HTTP security header crosswalk missing')
 
  # NICS WEB V3.2 附件1 的55項細則、27類與分級檢核結果皆須來自附件來源。
- from web_appendix1 import load_appendix1
  webappendix=load_appendix1(j['rules'])
  webappendix_ids=[e['id'] for e in webappendix['checks']]
  if len(webappendix_ids)!=55 or len(set(webappendix_ids))!=55:
@@ -153,7 +157,6 @@ def main():
   errors.append('WEB Appendix1 must not misrepresent main-guide HTTP header requirement')
 
  # V3.2 附件3的六項標頭必須明確屬於 CR-05，且不會自動從程式碼推斷 Pass。
- from web_headers import load_headers, build_appendix3
  headers_doc=load_headers(j['rules'])
  headers_checks=headers_doc['checks']
  if len(headers_checks)!=6 or len({item['header'] for item in headers_checks})!=6:
@@ -168,13 +171,10 @@ def main():
  if not any('unsafe-inline' in v and 'unsafe-eval' in v for v in csp.get('implementation_cautions',[])):
   errors.append('WEB Appendix3 must highlight weak CSP example')
  # P5：文件拆分後仍須確保 Skill 能按 --detail-id 找到每個標準的查核指引。
- from validate_skill_docs import documentation_errors
  errors.extend(documentation_errors(ROOT))
  # 70 項規則 Markdown 是 rules.json 的閱讀版本，必須可由主檔原樣重新產生。
- from render_rules_markdown import markdown_errors
  errors.extend(markdown_errors(ROOT))
  # 套件雜湊清單須涵蓋全部發布檔且與目前內容一致，避免過期清單造成已校驗的錯覺。
- from package_manifest import manifest_errors
  errors.extend(manifest_errors(ROOT))
 
  print(f"規則數：{len(ids)}；分類：{dict(counts)}；已填 ASVS 關聯之規則：{sum(bool(r['references']['technical_requirements']) for r in j['rules'])}")

@@ -12,7 +12,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from review_core import json_bytes as _json_bytes, read_json as _read, REPORT_ROOT, sha256_bytes as digest, snapshot_fingerprint, write_json_atomic as _write
+from review_core import (json_bytes as _json_bytes, read_json as _read, REPORT_ROOT,
+                         sha256_bytes as digest, snapshot_fingerprint, write_json_atomic as _write)
 
 RELATIVE = REPORT_ROOT
 ANALYSIS = RELATIVE / "analysis"

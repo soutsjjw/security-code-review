@@ -10,8 +10,10 @@ import hashlib
 import json
 from pathlib import Path
 
-from execution_boundary_events import append_violation, verify_run, fingerprint, snapshot_run_summary
+from execution_boundary_events import (append_violation, verify_run, fingerprint,
+                                       snapshot_run_summary)
 from review_core import REPORT_ROOT, write_json_exclusive
+from review_log import _paths
 
 REPORT = REPORT_ROOT
 SCRIPT_EXT = {".py", ".sh", ".js", ".ps1", ".cmd", ".bat", ".exe", ".dll"}
@@ -38,7 +40,7 @@ def scripts(target):
     return items
 
 def begin(target):
-    from review_log import _paths, _load
+    from review_log import _load
     target = Path(target).resolve()
     active = _load(_paths(target)[1])
     if not active or active.get("status") != "running":
@@ -54,7 +56,7 @@ def begin(target):
     return baseline
 
 def inspect(target, *, batch_id, stage="first_pass", record=False):
-    from review_log import _paths, _load
+    from review_log import _load
     target = Path(target).resolve()
     active = _load(_paths(target)[1])
     if not active or active.get("status") != "running":

@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any
 import review_waves_state as ws
 from review_core import canonical_digest as _digest, file_sha256 as _file_sha, REPORT_ROOT
+from evidence_integrity import MANIFEST, PENDING
+from review_snapshot import STAGED
 
 QUARANTINE = REPORT_ROOT / "logs/repair-waves/aborted"
 RECEIPT_VERSION = 1
@@ -58,7 +60,6 @@ def _safe_folder(root: Path) -> Path:
 
 
 def _verify_official_unchanged(target: Path, state: dict, intent: dict) -> tuple[dict, dict]:
-    from evidence_integrity import MANIFEST, PENDING
     if (target / PENDING).exists() or (target / PENDING).is_symlink():
         raise ValueError("存在完整性待提交交易，禁止取消；先處理正式復原")
     evidence = ws._evidence_state(target)  # checks Journal chain and ALL tracked hashes
@@ -92,7 +93,7 @@ def _validate_staged(target: Path, state: dict, intent: dict,
                      staged: Path, payload_path: Path | None, manifest: dict,
                      *, expected_staged_sha256: str | None = None,
                      allow_unbound_legacy: bool = False) -> dict:
-    from review_snapshot import STAGED, SNAPSHOT
+    from review_snapshot import SNAPSHOT
     source = target / ws.REPORT / STAGED
     if source.is_symlink() or staged.is_symlink() or not staged.is_file():
         raise ValueError("staged 不是可信的一般檔案")
@@ -143,7 +144,6 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
     inflight may be well-formed yet unabortable until its exact source payload
     bytes are supplied.
     """
-    from review_snapshot import STAGED
     target = target.resolve()
     state = ws._load_state(target)
     intent = state.get("inflight")
@@ -219,7 +219,6 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
     """
     if not acknowledged:
         raise ValueError("必須明確 --acknowledge-investigation 才可隔離未提交暫存")
-    from review_snapshot import STAGED
     target = target.resolve()
     state = ws._load_state(target)
     intent = state.get("inflight")

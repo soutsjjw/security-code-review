@@ -14,17 +14,25 @@ from typing import Any
 from review_scope import CATEGORY_COUNTS, PARTIAL_ROOT, ScopeError, build_scope_plan, load_catalog
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
-from review_decision import decision_quality_errors
+from review_decision import decision_quality_errors, load_decision_matrix
 from source_reader import read_source_text
 from analysis_candidates import candidate_hits
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
-from review_core import canonical_digest as _digest, write_json_atomic as _atomic, write_json_exclusive
+from review_core import (canonical_digest as _digest, write_json_atomic as _atomic,
+                         write_json_exclusive)
 from partial_review_store import (BASELINE, EVIDENCE_FILES, HISTORY, SNAPSHOT_FILE, STAGED_FILE,
                                   _artifact, _assert_assessment, _category_dir, _category_rules,
                                   _load, _snapshot, _verify_snapshot, read_category)
 from partial_review_safety import validate as validate_partial
 from standard_guides import STANDARD_GUIDES, load_owasp_2025_categories, load_tacert_v2_checks
+from adversarial_recheck import digest as rule_digest, guidance as adversarial_guidance
+from control_effectiveness import guidance as control_guidance
+from decision_adjudication import guidance as adjudication_guidance
+from system_baseline import source_review_hints
+from web_appendix1 import appendix_review_hints
+from web_guide import web_guide_review_hints
+from web_headers import header_review_hints
 
 EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
                            "adversarial_reviews"})
@@ -177,7 +185,6 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
         expected_sha.get(key) != (_digest(actual_evidence[key]) if evidence_paths[key].is_file() else None)
         for key in EVIDENCE_FILES):
         raise ScopeError("分類安全證據已由其他工作異動，拒絕覆寫 staged 交易")
-    from adversarial_recheck import digest as rule_digest
     baseline_path = _artifact(root, category, BASELINE)
     baseline = _load(baseline_path) if baseline_path.is_file() else None
     revisions = {}
@@ -272,14 +279,6 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
 
 def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: int,
           *, detail_id: str | None = None, compact: bool = False) -> dict:
-    from review_decision import load_decision_matrix
-    from control_effectiveness import guidance as control_guidance
-    from decision_adjudication import guidance as adjudication_guidance
-    from adversarial_recheck import guidance as adversarial_guidance
-    from system_baseline import source_review_hints
-    from web_guide import web_guide_review_hints
-    from web_appendix1 import appendix_review_hints
-    from web_headers import header_review_hints
     rules = catalog["rules"]
     maps = {} if compact else {
         "tacert_v2_checks": load_tacert_v2_checks(rules),

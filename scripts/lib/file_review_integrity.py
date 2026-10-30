@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from source_reader import digest_matches, read_source_text
-from analysis_candidates import (candidate_hits, has_executable_control,
-                                 meaningful_source_excerpt, source_relevant_to_rule)
+from analysis_candidates import (candidate_hits, has_executable_control, meaningful_source_excerpt,
+                                 RULE_EVIDENCE_SIGNALS, source_relevant_to_rule)
 from review_completion import _template
 from scope_paths import relative_path
 
@@ -120,7 +120,6 @@ def _semantic_relevance_verified(rr: dict, check: dict, path: str) -> bool:
     This is a narrowly scoped escape from name-based heuristics, not a verdict
     override. The actual execution and effectiveness still require review.
     """
-    from analysis_candidates import RULE_EVIDENCE_SIGNALS
     rid = rr.get("rule_id")
     if rid not in RULE_EVIDENCE_SIGNALS:
         return False  # External / workflow proof may not use this exception.

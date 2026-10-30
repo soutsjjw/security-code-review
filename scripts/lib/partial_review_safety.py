@@ -10,18 +10,22 @@ import json
 from pathlib import Path
 from typing import Any
 
-from review_scope import PARTIAL_ROOT, ScopeError
+from review_scope import PARTIAL_ROOT, ScopeError, validate_catalog
 from review_completion import completion_errors
 from review_decision import decision_quality_errors
 from source_coverage import build_source_coverage
 from review_snapshot import closure_errors, rule_scopes
 from control_effectiveness import verification_errors
 from decision_adjudication import adjudication_errors
-from adversarial_recheck import second_pass_errors, digest
+from adversarial_recheck import CONTRACT_VERSION, digest, second_pass_errors
 from partial_review_store import (BASELINE, EVIDENCE_FILES, STAGED_FILE, _artifact, _category_dir,
                                   _category_rules, _load, _snapshot, read_category)
 from review_core import canonical_digest as _digest, write_json_atomic as _atomic
 from review_core import snapshot_fingerprint
+from analysis_candidates import candidate_hits
+from analysis_prepare import (ADAPTERS, CANDIDATE_VERSION, cross_file_call_hints, DOTNET_EXTENSIONS,
+                              INDEX_VERSION, ROSLYN_VERSION)
+from review_relationships import build_relationships
 
 STRUCTURE = PARTIAL_ROOT / "_shared/analysis/structure-index.json"
 INDEX_SEAL = PARTIAL_ROOT / "_shared/analysis/index-integrity.json"
@@ -43,13 +47,8 @@ def _shared_path(root: Path) -> Path:
 
 def prepare_index(root: Path, catalog: dict) -> dict:
     """只產生 partial/_shared 的結構索引；不改動正式審查 analysis。"""
-    from analysis_prepare import (ADAPTERS, INDEX_VERSION, ROSLYN_VERSION,
-                                  DOTNET_EXTENSIONS, CANDIDATE_VERSION, _run_roslyn,
-                                  cross_file_call_hints, probe_codegraph, probe_roslyn)
-    from review_relationships import build_relationships
-    from analysis_candidates import candidate_hits
+    from analysis_prepare import _run_roslyn, probe_codegraph, probe_roslyn
     from source_reader import read_source_text
-    from review_scope import validate_catalog
     validate_catalog(catalog)
     root = root.resolve()
     adapter = ADAPTERS[0]
@@ -190,7 +189,6 @@ def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
     problems = _first_pass(root, category, assessment, index)
     if problems:
         raise ScopeError("第一輪安全證據尚未結案：" + "；".join(problems[:8]))
-    from adversarial_recheck import CONTRACT_VERSION
     baseline = {"schema_version": CONTRACT_VERSION,
                 "snapshot_fingerprint": snapshot_fingerprint(_snap(root)),
                 "checks": {c["id"]: {"status": c["status"], "digest": digest(c),

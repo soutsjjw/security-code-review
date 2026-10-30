@@ -21,6 +21,9 @@ import review_waves_state as ws
 from review_snapshot import high_tier_rules
 from review_waves_abort import abort_uncommitted, inspect_uncommitted
 from review_waves_lifecycle import agent_next, finalize, reconcile
+from review_waves_contracts import sample_chain_append, verify_sample_chain
+from rule_repair_tasks import compare_rule_repair_diagnostics
+from source_reader import digest_matches
 
 SNAPSHOT = ws.REPORT / "analysis/source-snapshot.json"
 
@@ -242,7 +245,6 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
         raise ValueError("正式整合未套用任何證據")
     after = ws._assessment(target)
     updated = diagnose(target, after)
-    from rule_repair_tasks import compare_rule_repair_diagnostics
     regression = compare_rule_repair_diagnostics(current, updated)
     after_fingerprints = ws._formal_fingerprints(target)
     changed, mandatory = ws._formal_diff(before_fingerprints, after_fingerprints)
@@ -292,7 +294,6 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     if evidence["source_snapshot_sha256"] != state["last_evidence"]["source_snapshot_sha256"]:
         raise ValueError("來源快照版本變動，不能沿用舊的修復批次")
     from review_blockers import diagnose
-    from rule_repair_tasks import compare_rule_repair_diagnostics
     current = diagnose(target, ws._assessment(target))
     current_fingerprints = ws._formal_fingerprints(target)
     external_changed, external_mandatory = ws._formal_diff(
@@ -381,7 +382,6 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
     source_hash = (snapshot.get("source_hashes") or {}).get(path)
     original = target / path
     candidate = original.resolve()
-    from source_reader import digest_matches
     if (not source_hash or original.is_symlink()
             or not candidate.is_relative_to(target.resolve())
             or not candidate.is_file() or not digest_matches(source_hash, candidate.read_bytes())):
@@ -407,7 +407,6 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
             anchors.add(row.get("path"))
     if path not in anchors:
         raise ValueError("抽樣路徑未與本規則正式來源證據建立關聯")
-    from review_waves_contracts import sample_chain_append
     state["sample_chain"] = sample_chain_append(
         state.get("sample_chain"), receipt,
         expected_manifest_sha256=state["last_evidence"].get("manifest_sha256"))
@@ -432,7 +431,6 @@ def begin_second_pass(target: Path) -> dict:
     policy = state.get("sample_policy")
     if not isinstance(policy, dict) or set(policy["selected_rules"]) != set(state["sample_records"]):
         raise ValueError("人工風險抽樣未全部完成，不得進入第二輪")
-    from review_waves_contracts import verify_sample_chain
     chain = state.get("sample_chain")
     if chain is not None:
         verify_sample_chain(chain)

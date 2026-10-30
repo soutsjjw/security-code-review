@@ -13,6 +13,10 @@ from pathlib import Path
 from typing import Any
 
 from review_core import file_sha256 as _file_sha, REPORT_ROOT, write_json_exclusive
+from evidence_integrity import MANIFEST, TRACKED
+from first_pass_repair import repair_plan
+from review_snapshot import STAGED
+from review_waves_contracts import verify_sample_chain
 
 REPORT = REPORT_ROOT
 STATE = REPORT / "logs/repair-waves/state.json"
@@ -41,7 +45,6 @@ def _evidence_state(target: Path) -> dict[str, Any]:
     snap_path = target / REPORT / FORMAL_SNAPSHOT
     if not assessment.is_file() or not snap_path.is_file():
         raise ValueError("缺少正式 assessment 或來源快照")
-    from evidence_integrity import TRACKED, MANIFEST
     manifest = target / MANIFEST
     # The integrity validator above is authoritative. These raw hashes serve
     # only to invalidate stale operational checkpoints after legitimate writes.
@@ -141,7 +144,6 @@ def _formal_diff(previous: dict, current: dict) -> tuple[set[str], set[str]]:
 
 
 def _stage_clean(target: Path) -> None:
-    from review_snapshot import STAGED
     directory = target / REPORT / STAGED
     if directory.is_dir() and list(directory.glob("*.json")):
         raise ValueError("存在其他待整合暫存資料；先合法處理，不得混入本批")
@@ -149,7 +151,6 @@ def _stage_clean(target: Path) -> None:
 
 def _diagnose_and_plan(target: Path) -> tuple[dict, dict]:
     from review_blockers import diagnose
-    from first_pass_repair import repair_plan
     assessment = _assessment(target)
     diagnosis = diagnose(target, assessment)
     plan = repair_plan(assessment, diagnosis)
@@ -195,7 +196,6 @@ def _load_state(target: Path) -> dict:
 def _assert_state_current(target: Path, state: dict) -> None:
     if state.get("inflight"):
         raise ValueError("存在待對帳的正式交易；禁止重放，先執行 --reconcile")
-    from review_waves_contracts import verify_sample_chain
     if state.get("sample_chain") is not None:
         verify_sample_chain(state["sample_chain"])
     current = _evidence_state(target)

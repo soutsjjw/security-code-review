@@ -18,12 +18,14 @@ from typing import Any
 from snapshot_impact import affected_rules, source_delta
 from review_core import snapshot_fingerprint, write_json_atomic as _write
 import review_snapshot
+from adversarial_recheck import second_pass_errors
+from batch_evidence_gate import batch_quality_errors
+from evidence_integrity import _read as integrity_read, MANIFEST as integrity_manifest
 
 
 def safety_errors(target: Path, assessment: dict) -> list[str]:
     from control_effectiveness import verification_errors
     from decision_adjudication import adjudication_errors
-    from adversarial_recheck import second_pass_errors
     from evidence_integrity import errors as evidence_integrity_errors
     errors = (evidence_integrity_errors(target) + review_snapshot.snapshot_errors(target) + review_snapshot.closure_errors(target, assessment)
               + verification_errors(target, assessment.get("checks", []))
@@ -78,7 +80,7 @@ def stage(target: Path, payload_path: Path) -> str:
     staged = {"snapshot_git_revision": snapshot["git_revision"],
               "source_hashes": snapshot["source_hashes"],
               "payload": payload}
-    from evidence_integrity import enabled as integrity_enabled, MANIFEST as integrity_manifest, _read as integrity_read
+    from evidence_integrity import enabled as integrity_enabled
     if integrity_enabled(target):
         manifest = integrity_read(target / integrity_manifest)
         if not isinstance(manifest, dict):
@@ -114,7 +116,7 @@ def integrate(target: Path, *, allow_revision: bool = False,
     if not isinstance(data, dict):
         raise ValueError("assessment.json 不存在或格式錯誤")
     snapshot = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
-    from evidence_integrity import enabled as integrity_enabled, MANIFEST as integrity_manifest, _read as integrity_read
+    from evidence_integrity import enabled as integrity_enabled
     integrity_head = (integrity_read(target / integrity_manifest)["head"]
                       if integrity_enabled(target) else None)
     files = {r["path"]: r for r in data.get("file_reviews", [])}
@@ -354,7 +356,6 @@ def integrate(target: Path, *, allow_revision: bool = False,
         data["finding_amendments"] = amendment_history
     # 批次品質及新增檔案關聯必須在任何正式寫入／Journal 交易前通過。
     # 不對舊批次未更動的錯誤直接改判，也不得藉 allow_revision 繞過。
-    from batch_evidence_gate import batch_quality_errors
     defects = batch_quality_errors(
         target, previous_assessment, data,
         changed_paths=changed_file_evidence | newly_completed_paths,
@@ -421,7 +422,7 @@ def refresh_snapshot(target: Path) -> None:
     folder = review_snapshot.report_dir(target) / review_snapshot.STAGED
     if folder.is_dir() and any(folder.glob("*.json")):
         raise ValueError("尚有未整合暫存；禁止刷新來源快照")
-    from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors, MANIFEST as integrity_manifest
+    from evidence_integrity import enabled as integrity_enabled, errors as integrity_errors
     active = integrity_enabled(target) and (
         (target / integrity_manifest).exists()
         or (review_snapshot.report_dir(target) / "assessment.json").exists())

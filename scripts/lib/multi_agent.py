@@ -18,6 +18,7 @@ from source_reader import source_digest
 from source_coverage import expected_paths
 from scope_paths import relative_path
 from review_core import ANALYSIS_ROOT, REPORT_ROOT, write_json_atomic
+from evidence_integrity import MANIFEST
 
 ANALYSIS = ANALYSIS_ROOT
 LEDGER = ANALYSIS / "multi-agent/ledger.json"
@@ -351,7 +352,7 @@ def begin_integration(root: Path) -> dict:
     if second_path.exists() and any(x["status"] == "running"
                                     for x in _read(second_path)["tasks"].values()):
         raise ValueError("第二輪仍有執行中的 Worker，不可開啟整合窗口")
-    from evidence_integrity import errors, MANIFEST
+    from evidence_integrity import errors
     integrity_errors = errors(root)
     if integrity_errors:
         raise ValueError("正式交易完整性不符：" + "；".join(integrity_errors[:4]))
@@ -382,7 +383,7 @@ def commit_integration(root: Path) -> dict:
     probe = _read(root / PROBE) if (root / PROBE).exists() else {}
     if state.get("probe_digest") != digest(probe):
         raise ValueError("整合期間 Probe 已異動，拒絕重封存")
-    from evidence_integrity import errors, MANIFEST
+    from evidence_integrity import errors
     problems = errors(root)
     if problems:
         raise ValueError("正式 Manifest／Journal 驗證不通過：" + "；".join(problems[:4]))
@@ -704,7 +705,7 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
         raise ValueError("主代理結案證據欄位不完整")
     if SECRET.search(json.dumps(document, ensure_ascii=False)):
         raise ValueError("主代理結案證據含疑似機敏資訊")
-    from evidence_integrity import errors as integrity_errors, MANIFEST
+    from evidence_integrity import errors as integrity_errors
     if integrity_errors(root):
         raise ValueError("正式審查資料完整性尚未通過驗證")
     manifest = _read(root / MANIFEST)

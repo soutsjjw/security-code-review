@@ -9,6 +9,7 @@ from pathlib import Path
 
 from execution_boundary import scripts
 from review_core import REPORT_ROOT
+from evidence_integrity import commit
 
 REPORT = REPORT_ROOT
 
@@ -22,7 +23,7 @@ def plan(target):
                         for name, value in sorted(records.items())]}
 
 def archive(target):
-    from evidence_integrity import commit, errors as integrity_errors
+    from evidence_integrity import errors as integrity_errors
     target = Path(target).resolve()
     issues = integrity_errors(target)
     if issues:

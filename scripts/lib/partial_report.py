@@ -25,6 +25,7 @@ from review_scope import (CATEGORIES, ScopeError, load_catalog, parse_categories
                           build_scope_plan, validate_catalog)
 from source_coverage import build_source_coverage
 from source_reader import read_source_text
+from partial_report_publish import publish
 
 SCHEMA_DIR = ROOT / "schemas"
 TEMPLATE_PATH = ROOT / "templates/partial-security-report.html"
@@ -352,7 +353,6 @@ def complete(root: Path, categories: tuple[str, ...], catalog: dict[str, Any]) -
         issues = validation_errors(data, root, category, catalog)
         if issues:
             raise ScopeError(f"{category}: 寫入前重新驗證失敗：" + "；".join(issues[:8]))
-    from partial_report_publish import publish
 
     outputs: list[tuple[Path, str]] = []
     results = []

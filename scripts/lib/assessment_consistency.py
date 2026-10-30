@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from source_reader import read_source_text
+from analysis_adapters import ModernDotNetAdapter
 
 # 「保留 review」「故為 review」等語句出現在 pass／fail 的判定理由中，代表狀態與理由不一致。
 STATUS_CONTRADICTION = re.compile(r"(保留|維持|仍為|故為|列為|沿用|仍屬)\s*[`'\"「]?\s*review", re.IGNORECASE)
@@ -81,7 +82,6 @@ def project_placeholder_errors(project: dict[str, Any]) -> list[str]:
 
 def detect_language_framework(target: Path) -> str:
     """重用與結構索引相同的 MSBuild 屬性評估；失敗保留佔位，不猜測框架。"""
-    from analysis_adapters import ModernDotNetAdapter
 
     detection = ModernDotNetAdapter().detect(target)
     if not detection["supported"]:
