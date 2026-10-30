@@ -18,11 +18,11 @@ import sys
 
 from review_core import canonical_digest as _digest, file_sha256 as _file_sha
 import review_waves_state as ws
+from review_snapshot import high_tier_rules
 from review_waves_abort import abort_uncommitted, inspect_uncommitted
 from review_waves_lifecycle import agent_next, finalize, reconcile
 
 SNAPSHOT = ws.REPORT / "analysis/source-snapshot.json"
-RISK_PREFIXES = ("AC", "AU", "CR", "DP", "IN")
 
 
 def _sample_policy(changed: list[str], mandatory: list[str], initial_signature: str,
@@ -33,12 +33,14 @@ def _sample_policy(changed: list[str], mandatory: list[str], initial_signature: 
     minimum = min(len(rules), max(5, math.ceil(len(rules) * 0.1))) if rules else 0
     checks = {c.get("id"): c for c in assessment.get("checks", []) if isinstance(c, dict)}
 
+    high_tier = high_tier_rules()
+
     def tier(rule_id: str) -> str:
+        # 規則審查強度以 rules.json 的 review_tier 為準；fail／review 結論另外提高分層。
         check = checks.get(rule_id, {})
-        prefix = rule_id.split("-", 1)[0]
-        if check.get("status") == "fail" or prefix in {"AC", "AU", "CR"}:
+        if check.get("status") == "fail" or rule_id in high_tier:
             return "high"
-        if check.get("status") == "review" or prefix in {"DP", "IN"}:
+        if check.get("status") == "review":
             return "medium"
         return "low"
 

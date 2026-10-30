@@ -24,6 +24,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - Session/Cookie/JWT 過期時間
     - 逾時後重新鑑別測試
@@ -128,6 +129,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - 登出與撤銷流程
     - 舊 Token/Session 重放
@@ -227,6 +229,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 管理路由與身分管理
     - VPN/零信任/Proxy/來源政策
@@ -327,6 +330,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - 角色權限矩陣
     - 服務帳號權限
@@ -426,6 +430,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - AppPool/Container/Service 執行身分
     - 主機權限與部署帳號
@@ -518,6 +523,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - 外部 API 保護鏈
     - 來源/身分/用途限制
@@ -617,6 +623,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - Static File/Directory Browsing
     - Web Server 靜態檔案設定
@@ -715,6 +722,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - 路由識別碼與資源歸屬
     - Repository/SQL 查詢隔離

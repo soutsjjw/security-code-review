@@ -19,6 +19,7 @@
 - A lib module with `if __name__ == "__main__"` needs a matching wrapper (and vice versa), and its CLI logic stays inside `main()`; `tests/test_module_layering.py` enforces both and fails when importing any lib module prints or exits.
 - Patch a function in the module that defines it (for example `review_snapshot.snapshot_errors`, `review_waves_state._load_state`); callers reach those through the module attribute or a call-time import so one patch covers every call site.
 - Rule review scope (`local` / `cross_file` / `project`) lives in `inspection.review_scope` of `rules.json` / `rules.yaml` / `rules/*.yaml`; `review_snapshot.rule_scopes()` reads it.
+- Review rigor (`high` / `standard`) lives in `inspection.review_tier` and is read through `review_snapshot.rule_tiers()` / `high_tier_rules()`. It drives second-pass hypothesis counts, incremental verification order and repair-wave sampling strata; never hard-code rule ID or category-prefix risk lists. It is unrelated to finding severity, which stays `not_preassigned`.
 - `scripts/lib/review_waves_abort.py`: quarantine of uncommitted staged batches, including the SHA256-bound legacy staged-only exception and crash recovery.
 
 ## Line Endings

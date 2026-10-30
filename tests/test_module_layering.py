@@ -11,7 +11,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts/lib"
 sys.path.insert(0, str(SCRIPTS))
-from review_snapshot import rule_scopes
+from review_snapshot import high_tier_rules, rule_scopes, rule_tiers
 
 # 最底層模組可匯入的審查模組上限；review_core 與 standard_guides 完全不得匯入其他審查模組。
 BASE_LAYERS = {"review_core": set(), "scope_paths": set(), "standard_guides": set(),
@@ -99,6 +99,19 @@ class ModuleLayeringTests(unittest.TestCase):
         scopes = rule_scopes()
         self.assertEqual(len(scopes), 70)
         self.assertEqual(sorted(set(scopes.values())), ["cross_file", "local", "project"])
+
+    def test_high_risk_rules_come_from_review_tier(self):
+        from adversarial_evidence import HIGH_RISK_RULES
+        tiers = rule_tiers()
+        self.assertEqual(len(tiers), 70)
+        self.assertEqual(HIGH_RISK_RULES, high_tier_rules())
+        self.assertEqual(len(HIGH_RISK_RULES), 23)
+        # 類別前綴不得再自行判定高風險：同類別內仍有 standard 規則。
+        self.assertIn("IN-01", HIGH_RISK_RULES)
+        self.assertNotIn("IN-05", HIGH_RISK_RULES)
+        for name in ("incremental_verification", "review_repair_waves"):
+            body = (SCRIPTS / f"{name}.py").read_text("utf-8")
+            self.assertNotRegex(body, r'\{?\(?"AC", "AU"', name)
 
 
 if __name__ == "__main__":

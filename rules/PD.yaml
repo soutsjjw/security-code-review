@@ -24,6 +24,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 資料蒐集目的/法律依據
     - 告知及合法例外條件
@@ -111,6 +112,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - 回應 DTO 與畫面欄位
     - 最小化/遮罩與目的限制
@@ -205,6 +207,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - 個資傳輸鏈路
     - 外部/內部/批次服務 TLS
@@ -301,6 +304,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - 個資讀取/下載/變更事件
     - 稽核權限、留存與防竄改
@@ -395,6 +399,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - 個資庫/快取/備份
     - 加密/隔離/權限等效措施與核定
@@ -493,6 +498,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: high
     search_targets:
     - 個資 API 身分與授權
     - 來源、目的與存取頻率控管
@@ -582,6 +588,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - 資料保存期限/刪除流程
     - 法律保存例外與刪除證據
@@ -675,6 +682,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 事故通報流程與責任人
     - 通報演練、紀錄、法定期限現行版

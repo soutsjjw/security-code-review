@@ -24,6 +24,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - Exception Filter/Middleware
     - 意外錯誤回應與堆疊追蹤
@@ -120,6 +121,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - 全域例外路由
     - 失效時的預設拒絕模式
@@ -217,6 +219,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: local
+    review_tier: standard
     search_targets:
     - Stream/Connection/資源釋放
     - 例外與取消流程
@@ -316,6 +319,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 異常告警規則
     - 重大事件接收/值班與演練證據
@@ -406,6 +410,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 正式環境 debug/swagger 設定
     - 錯誤畫面與 log level
@@ -504,6 +509,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 預設帳密/範例組態
     - 部署時的基線變更

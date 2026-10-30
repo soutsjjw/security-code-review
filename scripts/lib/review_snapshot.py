@@ -27,6 +27,7 @@ CONTROL_VERIFICATIONS = Path("analysis/control-verifications.json")
 DECISION_AUDITS = Path("analysis/decision-audits.json")
 ADVERSARIAL_REVIEWS = Path("analysis/adversarial-reviews.json")
 REVIEW_SCOPES = ("local", "cross_file", "project")
+REVIEW_TIERS = ("high", "standard")
 
 
 def report_dir(target: Path) -> Path:
@@ -43,18 +44,34 @@ def _revision(target: Path) -> str:
     return result.stdout.strip() if result.returncode == 0 else "not-a-git-repository"
 
 
+def _inspection_field(field: str, allowed: tuple[str, ...]) -> dict[str, str]:
+    master = Path(__file__).resolve().parents[2] / "rules.json"
+    values = {r["id"]: r.get("inspection", {}).get(field)
+              for r in json.loads(master.read_text(encoding="utf-8"))["rules"]}
+    invalid = sorted(rid for rid, value in values.items() if value not in allowed)
+    if invalid:
+        raise ValueError(f"規則缺少有效的 inspection.{field}：{', '.join(invalid)}")
+    return dict(sorted(values.items()))
+
+
 def rule_scopes() -> dict[str, str]:
     """規則檢核範圍以 rules.json 的 inspection.review_scope 為唯一來源。
 
     project 為全專案責任檢查，即使沒有任何檔案命中也必須執行。
     """
-    master = Path(__file__).resolve().parents[2] / "rules.json"
-    scopes = {r["id"]: r.get("inspection", {}).get("review_scope")
-              for r in json.loads(master.read_text(encoding="utf-8"))["rules"]}
-    invalid = sorted(rid for rid, scope in scopes.items() if scope not in REVIEW_SCOPES)
-    if invalid:
-        raise ValueError(f"規則缺少有效的 inspection.review_scope：{', '.join(invalid)}")
-    return dict(sorted(scopes.items()))
+    return _inspection_field("review_scope", REVIEW_SCOPES)
+
+
+def rule_tiers() -> dict[str, str]:
+    """審查強度以 rules.json 的 inspection.review_tier 為唯一來源，與 Finding 嚴重度無關。
+
+    high 規則在第二輪須提出兩種不同攻擊向量，並在增量驗證與修復 Wave 抽樣中優先。
+    """
+    return _inspection_field("review_tier", REVIEW_TIERS)
+
+
+def high_tier_rules() -> frozenset[str]:
+    return frozenset(rid for rid, tier in rule_tiers().items() if tier == "high")
 
 
 def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str]:

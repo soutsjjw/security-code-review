@@ -12,12 +12,11 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
-from review_snapshot import rule_scopes
+from review_snapshot import high_tier_rules, rule_scopes
 from review_blockers import diagnose
 from review_core import sha256_bytes as _sha, snapshot_fingerprint
 
 BASE = Path("reports/security-code-review")
-HIGH_RISK = frozenset(("AC", "AU", "IN", "CR"))
 CONTRACT_FILES = (
     "rules.json", "policies/review-decision-matrix.json",
     "schemas/assessment.schema.json", "scripts/lib/analysis_prepare.py",
@@ -218,7 +217,8 @@ def plan(target: Path, changes: dict[str, Any], *, previous_contract: str | None
     repaired = set(recent_changes)
     shared_fanout = {rid: sum(max(0, len(owners[p]) - 1) for p in linked)
                      for rid, linked in rule_paths.items()}
-    rank = lambda rid: (0 if rid.split("-")[0] in HIGH_RISK else 1,
+    high_tier = high_tier_rules()
+    rank = lambda rid: (0 if rid in high_tier else 1,
                         0 if rid in repaired else 1,
                         0 if rid in trace_rules else 1,
                         -shared_fanout.get(rid, 0),

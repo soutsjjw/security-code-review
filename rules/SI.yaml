@@ -24,6 +24,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - CI workflow 權限
     - Action/套件固定版及秘密
@@ -118,6 +119,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: project
+    review_tier: standard
     search_targets:
     - 遠端 CDN JS/CSS 載入
     - SRI 或受控替代方式
@@ -210,6 +212,7 @@ rules:
     no_evidence: review
   inspection:
     review_scope: cross_file
+    review_tier: standard
     search_targets:
     - JSON/XML/Binary 反序列化
     - 允許型別與執行副作用

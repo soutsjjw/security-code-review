@@ -79,7 +79,7 @@ class RepairWavesSecurityTests(unittest.TestCase):
 
     def test_sampling_covers_every_populated_risk_stratum(self):
         rules = ["AC-01", "DP-01", "LG-01", "BC-01"]
-        checks = [{"id": r, "status": "pass"} for r in rules]
+        checks = [{"id": r, "status": "review" if r == "DP-01" else "pass"} for r in rules]
         policy = _sample_policy(rules, [], "seed", {"checks": checks})
         self.assertEqual(policy["rule_count"], 4)
         self.assertEqual(policy["strata_population"],
@@ -87,6 +87,13 @@ class RepairWavesSecurityTests(unittest.TestCase):
         self.assertGreaterEqual(policy["strata_selected"]["high"], 1)
         self.assertGreaterEqual(policy["strata_selected"]["medium"], 1)
         self.assertGreaterEqual(policy["strata_selected"]["low"], 1)
+
+    def test_sampling_strata_follow_rule_review_tier(self):
+        # IN-01 屬 review_tier=high；DP-01 與 IN-05 為 standard，不再因類別前綴升級。
+        rules = ["IN-01", "IN-05", "DP-01", "PD-02"]
+        checks = [{"id": r, "status": "pass"} for r in rules]
+        policy = _sample_policy(rules, [], "seed", {"checks": checks})
+        self.assertEqual(policy["strata_population"], {"high": 2, "medium": 0, "low": 2})
 
     def test_formal_manifest_and_all_tracked_versions_detect_changes(self):
         with tempfile.TemporaryDirectory() as temp:

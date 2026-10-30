@@ -10,6 +10,7 @@ from typing import Any
 
 from control_proofs import _location_errors
 from review_decision import _is_weak_source_evidence
+from review_snapshot import high_tier_rules
 
 RELATIVE = Path("reports/security-code-review/analysis")
 INDEX = RELATIVE / "structure-index.json"
@@ -17,12 +18,8 @@ SNAPSHOT = RELATIVE / "review-snapshot.json"
 BASELINE = RELATIVE / "first-pass-baseline.json"
 REVIEWS = RELATIVE / "adversarial-reviews.json"
 HISTORY = RELATIVE / "second-pass-history"
-HIGH_RISK_RULES = frozenset({
-    "AC-01", "AC-02", "AC-04", "AC-06", "AC-08",
-    "AU-03", "AU-06", "AU-08", "AU-09",
-    "IN-01", "IN-02", "IN-03", "IN-04", "IN-06", "IN-07", "IN-08",
-    "CR-01", "CR-02", "CR-03", "CR-05", "CR-06", "PD-02", "PD-06",
-})
+# 高風險（inspection.review_tier=high）規則須提出兩種不同攻擊向量；清單以規則主檔為準。
+HIGH_RISK_RULES = high_tier_rules()
 
 
 def _evidence_errors(target: Path, proof: Any, rid: str, label: str,

@@ -66,7 +66,8 @@
           "inspection": {
             "type": "object",
             "required": [
-              "review_scope"
+              "review_scope",
+              "review_tier"
             ],
             "properties": {
               "review_scope": {
@@ -74,6 +75,12 @@
                   "local",
                   "cross_file",
                   "project"
+                ]
+              },
+              "review_tier": {
+                "enum": [
+                  "high",
+                  "standard"
                 ]
               }
             }
