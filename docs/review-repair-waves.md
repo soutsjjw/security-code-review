@@ -48,7 +48,7 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --inspect-uncommitted execution-01 --payload "<ORIGINAL_PAYLOAD>.json"
 ```
 
-只在 `can_abort=true`，且審查者明確授權，才可呼叫下方 `--abort-uncommitted`。**原始 payload 遺失時，不能由 staged 反推原始 JSON bytes 或假冒 SHA256 相符。** 若唯一 staged 原檔、來源快照及所有正式工件均可驗證，且另獲針對本次交易的**明確 staged-only 例外授權**，可使用原始 staged 的完整 SHA256 作為**隔離對象鎖定**（不是原始 payload 指紋）： 
+只在 `can_abort=true`，且審查者明確授權（含 `/goal` 授權段落的預先授權），才可呼叫下方 `--abort-uncommitted`。**原始 payload 遺失時，不能由 staged 反推原始 JSON bytes 或假冒 SHA256 相符。** 若唯一 staged 原檔、來源快照及所有正式工件均可驗證，且另獲針對本次交易的**明確 staged-only 例外授權**，可使用原始 staged 的完整 SHA256 作為**隔離對象鎖定**（不是原始 payload 指紋）： 
 
 ```powershell
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --inspect-uncommitted execution-01 --expected-staged-sha256 "<STAGED_SHA256>" --allow-unbound-legacy-stage
@@ -102,7 +102,7 @@ python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --
 python "<SKILL_ROOT>/scripts/review_repair_waves.py" --target "<TARGET_ROOT>" --next
 ```
 
-`--allow-revision` **僅限使用者對本次特定審查明確授權**；不能由文件示例視為已授權。Finding 既有內容修訂須另以 `--allow-finding-revision` 授權，既有正式交易仍會檢查理由、審查人員、嚴重度與原始證據。
+`--allow-revision` **僅限使用者對本次特定審查明確授權**（含 `/goal` 實際輸入的授權段落）；不能由文件示例視為已授權。Finding 既有內容修訂須另以 `--allow-finding-revision` 授權（`/goal` 授權段落已明列時視為已授權），既有正式交易仍會檢查理由、審查人員、嚴重度與原始證據。
 
 無進展、來源快照異動、新增權威阻塞類型、4 筆以上新 blocker、完整性損壞或其他既有交易拒絕時，保持 `blocked`／退出碼 2、或 `paused`／退出碼 3，禁止自動 rollback、重建 Manifest、刪 Finding 或循環重試。**整合成功但 checkpoint 寫入失敗**是需要人工核對的事故，不能自動再套用同一 payload。
 

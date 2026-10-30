@@ -226,7 +226,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 
 ## 預先授權邊界
 
-`/goal` 的**實際使用者輸入**可以事先包含限定本專案、本次審查的 completed 證據修訂授權，省去每批重問。只有真實重新查證且允許修訂的資料才使用 `--allow-revision`；單純讀取文件、引用範例或沒有使用者同意，不等於授權。Finding 修訂、跨專案或跨審查範圍的變更、來源版本重大變更仍需另行確認。這項授權不能取代任何完整性驗證。
+`/goal` 的**實際使用者輸入**可以事先包含限定本專案、本次審查的**全部流程授權**，供長時間無人值守執行時省去每批重問。下方範本的授權段落預先涵蓋：completed 證據修訂（`--allow-revision`）、Finding 更正（`--allow-finding-revision`）、誤判 fail 受控撤回（`--allow-fail-withdrawal`）、證據備份還原（含 `--allow-damaged-replacement`）、無可信備份時封存重審（`--archive-for-recheck --acknowledge-evidence-loss`）、未提交 Wave 批次的受控取消（含 staged-only 例外）、交易中斷復原與既有結果封存（`--recover-integrity`／`--seal-integrity`）、來源異動後的 snapshot-refresh 重查，以及多代理 `--renew-budget`／`--renew-probe` 續期。每項仍須先通過該工具自身的唯讀預檢與真實重新查證；單純讀取文件、引用範例或沒有使用者輸入，不等於授權。跨專案或超出本次審查範圍的變更仍需另行確認；這項授權不能取代任何完整性驗證。
 
 ## Codex 可選 `/goal` 完整審查指令
 
@@ -235,7 +235,14 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 ```text
 /goal 使用 $security-code-review --multi-agent --agents 3 Skill，對目前專案執行完整、具備真實程式碼證據的 70 項資安檢核。
 
-授權（本人明確同意）：僅限本次指定受測專案與本次完整審查，Agent 可在重新閱讀真實原始碼、核對來源快照及安全控制證據後，以 --integrate --allow-revision 修訂既有 completed 證據；保留原 Findings 與修訂追溯，不得修改受測專案程式碼、繞過品質／SHA256／Manifest／Journal 守門。這項預先授權不包含 --allow-finding-revision、移除既有 confirmed Finding、未經裁決將 fail 改成 pass，或對其他專案／重大版本變更的授權。
+授權（本人明確同意）：本次為長時間無人值守執行，僅限本次指定受測專案與本次完整審查，以下操作全部預先授權，Agent 不必逐批或逐項重問；每項仍須先重新閱讀真實原始碼、核對來源快照及安全控制證據，並通過該工具自身的唯讀預檢：
+- 以 --integrate --allow-revision 修訂既有 completed 證據。
+- 經重新閱讀證明須更正時，以 --allow-finding-revision 更正既有 Finding（保留 finding_amendments 舊全文與修訂追溯）。
+- 重新查證確認為誤判的 fail，附來源反證後以 --allow-revision --allow-fail-withdrawal 受控撤回，原 Finding 全文保留於撤回紀錄。
+- 完整性證據遺失時依 review_evidence_recovery.py --plan 核對後 --restore（必要時含 --allow-damaged-replacement）；無可信備份時以 --archive-for-recheck --acknowledge-evidence-loss 封存舊審查後重新取證。
+- 未提交 Wave 批次在 --inspect-uncommitted 回報 can_abort=true 時以 --abort-uncommitted --acknowledge-investigation 受控取消，含符合全部條件的 staged-only 例外。
+- 人工核對後執行 --recover-integrity／--seal-integrity；來源異動時依 snapshot-refresh 與重查機制重新取證；多代理資源不足時依契約 --renew-budget／--renew-probe 續期。
+仍不得修改受測專案程式碼、繞過品質／SHA256／Manifest／Journal 守門、未經來源反證移除既有 confirmed Finding、未經裁決將 fail 改成 pass，也不涵蓋其他專案。
 
 前置：
 
@@ -257,7 +264,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 
 0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
    - 新審查由 --init 自動建立完整性封存；已有結果的專案則需先人工核對並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity。
-   - 完整性證據遺失時先以 `review_evidence_recovery.py --plan` 核對可信內容備份，通過後才執行 `--restore`；無可信備份須經明確同意保留／隔離舊審查與 Findings 並重新取證，不得重封舊鏈。
+   - 完整性證據遺失時先以 `review_evidence_recovery.py --plan` 核對可信內容備份，通過後才執行 `--restore`；無可信備份須經明確同意（本 `/goal` 授權段落已預先同意）保留／隔離舊審查與 Findings 並重新取證，不得重封舊鏈。
    - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
 
 1. 完整盤點受測專案的原始碼、設定檔、專案檔、相依套件及相關 CI/CD 設定，建立實際審查範圍。全專案規則即使沒有關鍵字命中，也必須確認控制責任與缺席情況。
@@ -296,7 +303,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
    - 不得使用固定模板、批次填入理由或製造檢核結果。
    - 不得修改受測專案原始碼，也不要求先修復弱點。
    - 工作中結果使用 review_safety.py --stage 獨立暫存，再以 --integrate 檢查衝突後整合。多代理模式必須先 `multi_agent.py --begin-integration` 停止派工，再由主代理正式 Stage/Integrate，`--commit-integration` 成功核對交易後才可繼續派工。覆核既有 completed 須有真實重新審查證據及必要的修訂流程，不得覆寫已確認弱點。
-   - 本 `/goal` 已明確預先授權本次專案之 completed 證據合法修訂：核對真實來源後可用 `--integrate --allow-revision`，不必逐批重問；未在實際使用者指令授權或超出範圍、涉及 Finding 修訂者須另取得明確同意。重新查證確認已完成的 fail 為誤判時，本 `/goal` 亦預先授權依[受控撤回](review-integrity-guards.md#誤判的已確認-fail-受控撤回不刪除-finding)附來源反證後使用 `--integrate --allow-revision --allow-fail-withdrawal`，原 Finding 全文保留於撤回紀錄。仍不得跳過批次證據、Finding 保護、SHA256／Manifest／Journal 守門。
+   - 本 `/goal` 已明確預先授權本次專案之 completed 證據合法修訂：核對真實來源後可用 `--integrate --allow-revision`，不必逐批重問；Finding 更正、證據還原／封存重審、Wave 受控取消及續期亦依上方授權段落辦理；未在實際使用者指令授權或超出範圍者須另取得明確同意。重新查證確認已完成的 fail 為誤判時，本 `/goal` 亦預先授權依[受控撤回](review-integrity-guards.md#誤判的已確認-fail-受控撤回不刪除-finding)附來源反證後使用 `--integrate --allow-revision --allow-fail-withdrawal`，原 Finding 全文保留於撤回紀錄。仍不得跳過批次證據、Finding 保護、SHA256／Manifest／Journal 守門。
 
 6. 每批保存真實審查結果，持續執行直到：
    - 70 項規則均已實際完成。

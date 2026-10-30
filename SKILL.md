@@ -95,7 +95,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
 
 
-**證據與授權**：本次 `/goal` 明確授權後，可重查 completed 並用 `--integrate --allow-revision`；Finding 修訂需另授權 `--allow-finding-revision`；誤判 fail 以反證及 `--allow-fail-withdrawal` 撤回並保留全文，不得繞過 SHA256／Manifest／Journal。證據遺失先 `review_evidence_recovery.py --plan`，可信備份用 `--restore`；無備份須確認後封存重審，不可重封。詳見 [證據完整性](docs/evidence-integrity.md) 與 [授權](docs/advanced-usage.md#預先授權邊界)。
+**證據與授權**：`/goal` 授權段落可一次預先授權下列全部操作：重查 completed 用 `--integrate --allow-revision`；Finding 修訂用 `--allow-finding-revision`；誤判 fail 以反證及 `--allow-fail-withdrawal` 撤回並保留全文，不得繞過 SHA256／Manifest／Journal。證據遺失先 `review_evidence_recovery.py --plan`，可信備份用 `--restore`；無備份須確認後封存重審，不可重封。詳見 [證據完整性](docs/evidence-integrity.md) 與 [授權](docs/advanced-usage.md#預先授權邊界)。
 
 ## 正式完整模式執行與交付
 

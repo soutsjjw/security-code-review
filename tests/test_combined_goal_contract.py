@@ -13,7 +13,8 @@ class CombinedGoalContractTests(unittest.TestCase):
             "/goal 使用 $security-code-review --multi-agent --agents 3",
             "主代理", "原生協作工具", "claim-batch",
             "授權（本人明確同意）", "--integrate --allow-revision",
-            "不包含 --allow-finding-revision", "Finding",
+            "--allow-finding-revision", "--allow-fail-withdrawal",
+            "--archive-for-recheck", "--abort-uncommitted", "不涵蓋其他專案", "Finding",
             "review_evidence_recovery.py --plan", "--restore",
             "Manifest", "Journal",
         ):

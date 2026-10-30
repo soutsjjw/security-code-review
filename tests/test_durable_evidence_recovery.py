@@ -190,7 +190,7 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
         self.assertEqual(ledger.errors(self.target), [])
 
     def test_revision_permission_does_not_imply_finding_permission(self):
-        # /goal 的預先授權只涵蓋 --allow-revision，仍不能以此修改既有 Finding。
+        # --allow-revision 不隱含 --allow-finding-revision；Finding 修改須另帶該旗標。
         finding = copy.deepcopy(self.findings[0])
         finding["title"] = "新標題（需另外授權）"
         draft = self.report / "finding-revision.json"

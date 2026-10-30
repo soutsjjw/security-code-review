@@ -49,7 +49,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 
 只允許從**最新有效 Journal 的 SHA256** 精確還原，內容或備份 SHA256 不相符即拒絕；現有資料被修改且須取代時，必須顯式提供 `--allow-damaged-replacement`。還原後重新核對整份正式鏈，追加 `backup-restore` 交易。正常完整的正式證據若因舊版而缺少備份，使用 `--checkpoint` 建立可稽核的新備份起點。交易中斷仍使用前述 `--recover-integrity`，不能混用。
 
-完全沒有可信備份時，先保留原審查及所有 Findings。經使用者明確確認後：
+完全沒有可信備份時，先保留原審查及所有 Findings。經使用者明確確認（或本次 `/goal` 授權段落已預先同意）後：
 
 ```bash
 python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT>" --archive-for-recheck --acknowledge-evidence-loss
