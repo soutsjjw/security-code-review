@@ -2,14 +2,12 @@ name: Controlled Multi-agent Gate
 on:
   pull_request:
     paths:
-      - "scripts/lib/multi_agent*.py"
-      - "scripts/lib/analysis_prepare.py"
-      - "scripts/lib/analysis_adapters.py"
+      # multi_agent* 經多層匯入依賴大部分 lib 模組；整個 lib 都要監看，避免依賴變更時漏跑守門。
+      - "scripts/lib/**"
+      - "scripts/multi_agent*.py"
+      - "requirements.txt"
       - "tools/roslyn-indexer/**"
       - "tests/test_roslyn_sdk_alignment.py"
-      - "scripts/lib/source_reader.py"
-      - "scripts/lib/second_pass_layers.py"
-      - "scripts/lib/file_review_integrity.py"
       - "tests/fixtures/multi_agent_cases/**"
       - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
@@ -21,14 +19,12 @@ on:
       - ".github/workflows/multi-agent-tests.yml"
   push:
     paths:
-      - "scripts/lib/multi_agent*.py"
-      - "scripts/lib/analysis_prepare.py"
-      - "scripts/lib/analysis_adapters.py"
+      # multi_agent* 經多層匯入依賴大部分 lib 模組；整個 lib 都要監看，避免依賴變更時漏跑守門。
+      - "scripts/lib/**"
+      - "scripts/multi_agent*.py"
+      - "requirements.txt"
       - "tools/roslyn-indexer/**"
       - "tests/test_roslyn_sdk_alignment.py"
-      - "scripts/lib/source_reader.py"
-      - "scripts/lib/second_pass_layers.py"
-      - "scripts/lib/file_review_integrity.py"
       - "tests/fixtures/multi_agent_cases/**"
       - "tests/fixtures/multi_agent_security_cases.json"
       - "schemas/multi-agent-worker-result.schema.json"
@@ -37,6 +33,7 @@ on:
       - "SKILL.md"
       - "docs/multi-agent-review.md"
       - "docs/advanced-usage.md"
+      - ".github/workflows/multi-agent-tests.yml"
 jobs:
   contract:
     runs-on: ubuntu-latest
