@@ -91,6 +91,14 @@ git clone --branch develop https://github.com/soutsjjw/security-code-review.git 
 
 安裝後重新開啟 Agent 工作階段。
 
+Claude Desktop／claude.ai 以上傳 Zip 安裝時，整個儲存庫超過 200 個檔案的上限，請改用精簡版：
+
+```bash
+python scripts/build_skill_zip.py
+```
+
+產生的 `dist/security-code-review.zip` 只含審查執行期需要的檔案（不含 `tests/`、`examples/`），並把上傳端不接受的 frontmatter 欄位移入 `metadata`。
+
 完成 HTML／JSON 報告產生與驗證，需要 **Python 3.10+**。Agent 透過啟動器檢查 `python`／`python3`／`py`、虛擬環境和常見 Windows 安裝位置，並核對 `requirements.txt` 套件與版本；找到後固定同一次審查的 Python 路徑。Windows 找不到 `python` 命令不等於沒有安裝 Python。
 
 可在 Skill 安裝目錄先進行唯讀環境檢查：

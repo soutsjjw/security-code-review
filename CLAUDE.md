@@ -5,6 +5,7 @@
 - Validate Rules Package (rules.json / rules.yaml / schema consistency): `sh scripts/run-python.sh scripts/validate_package.py`
 - Regenerate Rule Docs: `python scripts/render_rules_markdown.py --write` after changing `rules.json`; `docs/70-rules-standardized.md` is generated, so never edit it by hand (`validate_package.py` fails when they drift).
 - Refresh Package Checksums: `python scripts/package_manifest.py --write` (after `git add` of new files; `--check` verifies, and `validate_package.py` fails on a stale `SHA256SUMS.txt`)
+- Build Claude Desktop Upload Zip: `python scripts/build_skill_zip.py` writes `dist/security-code-review.zip` (ignored by git). It drops `tests/`, `examples/`, `CLAUDE.md` and docs that nothing links to, moves unsupported SKILL.md frontmatter keys into `metadata`, and fails above the 200-file upload limit; `tests/test_build_skill_zip.py` checks that the repository still fits.
 - Run Unit Tests: `python -m unittest discover -s tests -v`
   - The full suite takes ~6 minutes. JSON and `ERROR:` lines in the output are printed by CLI paths under test (blocked / aborted / stalled cases), not failures; check the final `OK` / `FAILED` summary.
 - Quality Acceptance: `python scripts/quality_acceptance.py`

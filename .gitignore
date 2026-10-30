@@ -2,5 +2,8 @@
 __pycache__/
 *.pyc
 
+# Upload zip from scripts/build_skill_zip.py
+dist/
+
 # Claude Code personal settings
 .claude/settings.local.json
