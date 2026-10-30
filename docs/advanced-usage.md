@@ -241,7 +241,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 - 重新查證確認為誤判的 fail，附來源反證後以 --allow-revision --allow-fail-withdrawal 受控撤回，原 Finding 全文保留於撤回紀錄。
 - 完整性證據遺失時依 review_evidence_recovery.py --plan 核對後 --restore（必要時含 --allow-damaged-replacement）；無可信備份時以 --archive-for-recheck --acknowledge-evidence-loss 封存舊審查後重新取證。
 - 未提交 Wave 批次在 --inspect-uncommitted 回報 can_abort=true 時以 --abort-uncommitted --acknowledge-investigation 受控取消，含符合全部條件的 staged-only 例外。
-- 人工核對後執行 --recover-integrity／--seal-integrity；來源異動時依 snapshot-refresh 與重查機制重新取證；多代理資源不足時依契約 --renew-budget／--renew-probe 續期。
+- Agent 自行核對交易狀態與正式工件後執行 --recover-integrity／--seal-integrity；來源異動時依 snapshot-refresh 與重查機制重新取證；多代理資源不足時依契約 --renew-budget／--renew-probe 續期。
 仍不得修改受測專案程式碼、繞過品質／SHA256／Manifest／Journal 守門、未經來源反證移除既有 confirmed Finding、未經裁決將 fail 改成 pass，也不涵蓋其他專案。
 
 前置：
@@ -256,14 +256,14 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 - 主代理確認此回合有真實原生子代理建立、續派及等待工具（名稱例如 `spawn_agent`、`followup_task`，以執行器實際提供者為準），在**正式相同沙箱配置**下實測平行、獨立上下文、強制唯讀、單層委派、失敗復原、封閉回報及第一輪結論隔離等七項條件。使用 `multi_agent.py --probe-template`／`--record-probe` 登記實際 trace；只靠 Prompt 禁寫不得通過。
 - 完成來源索引及初始化後，主代理執行 `multi_agent.py --plan --max-agents 3` 與 `--next`；透過原生工具建立**只待命、不讀來源**的 Worker，先取得實際 agent instance ID，才以 `--claim-batch --assignments <JSON>`（或逐筆 `--claim`）綁定 task 與 agent。只有成功 claim 後，才透過原生續派／訊息工具送出完整 Worker Prompt 和 TASK_JSON。派工數量不超過 3、Ledger.workers、執行器可用槽位及 Token 窗口。
 - **同批真正並行執行**、等待每個 Worker 完成，而非只等建立成功。主代理將純 JSON 以 `--accept-stdin` 在落地前驗證機敏資料、來源 SHA256、隨機行挑戰、完整閱讀範圍及逐檔十類／規則證據；失敗或逾時明確 `--fail`、依上限重試。未解跨檔符號以 `--followup`、`--accept-followup-stdin` 補查，最後仍由主代理在權威交易後 `--resolve-main`。
-- 每批所有 Worker 停止後，主代理執行 `--begin-integration`，實際重讀控制鏈並以 `review_safety.py --stage/--integrate` 正式寫入，再 `--commit-integration` 驗證新 Manifest／Journal，然後自動派下一批。資源不足保留進度，依 `--renew-budget`／`--renew-probe` 契約明確續期，不得自動略過。
+- 每批所有 Worker 停止後，主代理執行 `--begin-integration`，實際重讀控制鏈並以 `review_safety.py --stage/--integrate` 正式寫入，再 `--commit-integration` 驗證新 Manifest／Journal，然後自動派下一批。資源不足保留進度，依 `--renew-budget`／`--renew-probe` 契約明確續期（已由授權段落預先授權），不得自動略過。
 - 第一輪通過 `--diagnose-first-pass` 且 `ready_for_second_pass=true` 才能在正式整合窗口執行 `review_safety.py --begin-second-pass`；再以 `multi_agent_second_pass.py --plan/--next` 派給**未參與相同規則第一輪**、可隔離第一輪判定的不同子代理。主代理只接受候選，重新讀取來源、反向查證及裁決，完成全部第二輪與正式報告守門。若原生隔離不足，改由主代理依原第二輪流程繼續，**不得宣稱盲審**。
 - 原生工具不存在、沙箱強制唯讀失敗或 agent ID 不可信時，不創造虛構 Worker／trace；保留原有合法進度與 Finding，以單代理繼續完整 70 項、100% 來源、安全控制及第二輪檢核，最終仍須產出並驗證 HTML／JSON。
 
 完成條件：
 
 0. 先執行 analysis_prepare.py，確認全部受測專案均為 .NET Core／現代 .NET；偵測並優先使用可用的 CodeGraph 與 Roslyn。利用既有結構快取減少重複讀取，失敗則回退，但不得把索引當成資安判斷。使用 review_queue.py --compact 取得待辦，每條規則透過 --detail-id 取完整要求並載入實際對應的標準文件。增量只重用結構證據；來源有變更時，依版本快照及可信影響閉包重新查核，不能沿用未重新驗證的安全結論。
-   - 新審查由 --init 自動建立完整性封存；已有結果的專案則需先人工核對並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity。
+   - 新審查由 --init 自動建立完整性封存；已有結果的專案則由 Agent 先核對既有結果並執行 --seal-integrity。交易中斷須先核對後明確 --recover-integrity（兩者均已由授權段落預先授權）。
    - 完整性證據遺失時先以 `review_evidence_recovery.py --plan` 核對可信內容備份，通過後才執行 `--restore`；無可信備份須經明確同意（本 `/goal` 授權段落已預先同意）保留／隔離舊審查與 Findings 並重新取證，不得重封舊鏈。
    - 執行 review_safety.py --plan，確認全部 70 項的 local／cross_file／project 責任範圍；跨檔關聯候選（DI、Middleware、設定、Endpoint、跨專案引用）必須實際追查。來源快照與結構索引不一致時先排除異動原因，不得混用版本。
 
@@ -334,7 +334,7 @@ python "<SKILL_ROOT>/scripts/review_evidence_recovery.py" --target "<TARGET_ROOT
 
 8. 只有第一輪診斷通過、第二輪完整、`review_safety.py --validate` 成功且正式 `ready_for_report=true`，才執行 complete_review.py，產生並驗證 HTML 與 JSON 報告。報告必須能追溯檔案、適用規則、證據與檢核結論，並維持相關規範及附件的獨立查證要求。
 
-9. 僅遇不可恢復的執行／資源限制、缺少必要人工修訂授權、無法取得且不能合法替代的必要證據時才可停止。停止前保留已完成診斷、blocker_signature、來源與 Findings、完整性交易鏈及明確續跑條件，不得宣稱審查已完成。
+9. 僅遇不可恢復的執行／資源限制、需要超出上方授權段落範圍的操作（例如其他專案）、無法取得且不能合法替代的必要證據時才可停止；授權段落已涵蓋的操作不得作為停止或等待詢問的理由。停止前保留已完成診斷、blocker_signature、來源與 Findings、完整性交易鏈及明確續跑條件，不得宣稱審查已完成。
 
 在所有條件真正完成前，不得以 70/70 completed、100% 檔案覆蓋率或 JSON Schema 驗證通過，直接宣稱已完成實質資安審查。
 ```
