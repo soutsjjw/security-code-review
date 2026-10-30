@@ -1,8 +1,12 @@
 """共用底層不得反向匯入上層模組，scripts/ 內不得存在任何循環匯入（含函式內延遲匯入）。"""
 import ast
+import contextlib
+import importlib
+import io
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -67,6 +71,18 @@ class ModuleLayeringTests(unittest.TestCase):
 
     def test_no_import_cycles(self):
         self.assertEqual(_cycles(_import_graph()), [])
+
+    def test_importing_any_script_has_no_side_effects(self):
+        # CLI 與函式庫共用 scripts/，所以 CLI 邏輯必須放在 main() 內，匯入時不得執行。
+        for name in sorted(_import_graph()):
+            out, err = io.StringIO(), io.StringIO()
+            with self.subTest(name), patch.object(sys, "argv", [name]), \
+                    contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                try:
+                    importlib.import_module(name)
+                except SystemExit as exc:
+                    self.fail(f"{name} exits on import: {exc.code}")
+            self.assertEqual((out.getvalue(), err.getvalue()), ("", ""), name)
 
     def test_rule_scopes_come_from_master_catalog(self):
         scopes = rule_scopes()
