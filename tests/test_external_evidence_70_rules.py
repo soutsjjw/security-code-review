@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
-from control_effectiveness import REQUIRED_SCENARIOS, _external_pass_errors, snapshot_fingerprint
+from control_effectiveness import REQUIRED_SCENARIOS, external_pass_errors, snapshot_fingerprint
 from cross_file_evidence import trace_errors
 from decision_adjudication import adjudication_errors
 from review_blockers import summarize
@@ -161,15 +161,15 @@ class AllRuleExternalEvidenceTests(unittest.TestCase):
                     "open_issues": [],
                 }
                 required = set(REQUIRED_SCENARIOS.get(rid, ("alternate_or_bypass_path",)))
-                self.assertEqual(_external_pass_errors(
+                self.assertEqual(external_pass_errors(
                     self.root, check, record, {"Control.cs"}, self.snapshot, required), [])
                 broken = copy.deepcopy(record)
                 broken.pop("control_evidence")
-                self.assertTrue(_external_pass_errors(
+                self.assertTrue(external_pass_errors(
                     self.root, check, broken, {"Control.cs"}, self.snapshot, required))
                 broken = copy.deepcopy(record)
                 broken["bypass_scenarios"] = []
-                self.assertTrue(_external_pass_errors(
+                self.assertTrue(external_pass_errors(
                     self.root, check, broken, {"Control.cs"}, self.snapshot, required))
 
     def test_delegated_cross_file_review_does_not_fabricate_control_trace(self):

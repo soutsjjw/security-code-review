@@ -190,7 +190,7 @@ class P1CallchainTests(unittest.TestCase):
                 return ({p: {"methods": [], "calls": [], "types": []} for p in pending}, [])
             with (patch("analysis_prepare.probe_roslyn", return_value={"available": True, "sdk_version": "8.0"}),
                   patch("analysis_prepare.probe_codegraph", return_value={"available": False}),
-                  patch("analysis_prepare._run_roslyn", side_effect=fake_roslyn)):
+                  patch("analysis_prepare.run_roslyn", side_effect=fake_roslyn)):
                 prepare(root, "full")
                 unchanged = prepare(root, "incremental")
                 self.assertEqual(unchanged["roslyn_reused_count"], 2)

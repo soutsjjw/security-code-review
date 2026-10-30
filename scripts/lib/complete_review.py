@@ -59,9 +59,9 @@ def main() -> int:
         return 2
     if os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized":
         try:
-            from review_log import _load, _paths
+            from review_log import load_metadata, log_paths
             from execution_boundary_events import verify_run
-            state = _load(_paths(target)[1])
+            state = load_metadata(log_paths(target)[1])
             if not state or not state.get("run_id"):
                 raise ValueError("缺少有效執行紀錄")
             boundary = verify_run(target, state["run_id"])

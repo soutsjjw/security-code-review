@@ -9,9 +9,9 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 import test_multi_agent as fixtures
-from multi_agent import (ANALYSIS, LEDGER, PROBE, _read, _write, plan, claim,
-                         accept, accept_stdin, begin_integration, commit_integration,
-                         renew_probe, resolve_main, followup, accept_followup, summary)
+from multi_agent import (ANALYSIS, LEDGER, PROBE, plan, claim, accept, accept_stdin, begin_integration, commit_integration, renew_probe, resolve_main, followup, accept_followup, summary)
+from review_core import load_json_object
+from multi_agent_ledger import write_ledger_json
 from multi_agent_guard import proof_line_hash
 from evidence_integrity import initialize, commit, errors as integrity_errors
 
@@ -26,14 +26,14 @@ class CheckpointTests(unittest.TestCase):
 
     def seal_official(self):
         index = self.root / ANALYSIS / "structure-index.json"
-        data = _read(index)
+        data = load_json_object(index)
         data["evidence_integrity_version"] = 1
-        _write(index, data)
+        write_ledger_json(index, data)
         initialize(self.root, explicit=True)
         self.assertEqual(integrity_errors(self.root), [])
 
     def official_transaction(self):
-        assessment = _read(self.root / "reports/security-code-review/assessment.json")
+        assessment = load_json_object(self.root / "reports/security-code-review/assessment.json")
         assessment["main_review_note"] = "main agent reviewed the control path"
         commit(self.root, {"assessment.json": assessment}, event="verified-main-review")
 
@@ -44,10 +44,10 @@ class CheckpointTests(unittest.TestCase):
         keys = list(state["tasks"])
         assigned = [{"task_id": keys[0], "agent_id": "codex-batch-001"},
                     {"task_id": keys[1], "agent_id": "codex-batch-002"}]
-        snapshot = _read(self.root / LEDGER)
+        snapshot = load_json_object(self.root / LEDGER)
         with self.assertRaisesRegex(ValueError, "重複"):
             claim_batch(self.root, [assigned[0], assigned[0]])
-        self.assertEqual(_read(self.root / LEDGER), snapshot)
+        self.assertEqual(load_json_object(self.root / LEDGER), snapshot)
         result = claim_batch(self.root, assigned)
         self.assertEqual(len(result["claimed"]), 2)
         self.assertEqual(summary(self.root)["task_counts"]["running"], 2)
@@ -98,7 +98,7 @@ class CheckpointTests(unittest.TestCase):
         self.assertTrue(accept_stdin(self.root, json.dumps(result, ensure_ascii=False))["accepted"])
         evidence = self.root / ANALYSIS / "multi-agent/results" / (task_id + ".json")
         self.assertTrue(evidence.exists())
-        self.assertEqual(_read(evidence), result)
+        self.assertEqual(load_json_object(evidence), result)
         evidence.write_text('{"corrupted":true}', encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "Worker 證據"):
             summary(self.root)
@@ -127,10 +127,10 @@ class CheckpointTests(unittest.TestCase):
             renew_probe(self.root, submitted)
         from multi_agent import fail
         fail(self.root, ids[1])
-        before = _read(self.root / LEDGER)["tasks"][ids[0]]["result_digest"]
+        before = load_json_object(self.root / LEDGER)["tasks"][ids[0]]["result_digest"]
         renewed = renew_probe(self.root, submitted)
         self.assertTrue(renewed["renewed"])
-        self.assertEqual(_read(self.root / LEDGER)["tasks"][ids[0]]["result_digest"], before)
+        self.assertEqual(load_json_object(self.root / LEDGER)["tasks"][ids[0]]["result_digest"], before)
 
     def fixture_probe_data(self):
         from multi_agent import probe_template
@@ -143,14 +143,14 @@ class CheckpointTests(unittest.TestCase):
 
     def test_main_ends_cross_shard_followup_after_formal_review(self):
         index_path = self.root / ANALYSIS / "structure-index.json"
-        index = _read(index_path)
+        index = load_json_object(index_path)
         index["cross_file_call_hints"] = {
             "src/AuthController.cs": [{
                 "called_method": "ResolvePolicy", "caller_line": 1,
                 "possible_targets": [{"path": "src/InputService.cs", "line": 1}]
             }]
         }
-        _write(index_path, index)
+        write_ledger_json(index_path, index)
         self.seal_official()
         self.fixture.verified_probe()
         state = plan(self.root, task_tokens=2000)
@@ -181,7 +181,7 @@ class CheckpointTests(unittest.TestCase):
         begin_integration(self.root)
         self.official_transaction()
         commit_integration(self.root)
-        current_manifest = _read(self.root / ANALYSIS / "integrity-manifest.json")
+        current_manifest = load_json_object(self.root / ANALYSIS / "integrity-manifest.json")
         resolved = {"task_id": task_id, "manifest_head": current_manifest["head"],
                     "resolved": [{
                         "path": "src/AuthController.cs", "name": "ResolvePolicy", "line_start": 1,

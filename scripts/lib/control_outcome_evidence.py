@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from decision_adjudication import DELEGATED_KIND, DELEGATED_RESULT, external_responsibility_errors
-from control_proofs import _proofs, REQUIRED_SCENARIOS
+from control_proofs import check_source_proofs, REQUIRED_SCENARIOS
 from review_core import ANALYSIS_ROOT, REPORT_ROOT, snapshot_fingerprint
-from review_decision import _is_weak_source_evidence, load_decision_matrix
+from review_decision import is_weak_source_evidence, load_decision_matrix
 
 VERSION = 1
 FAILURE_MODES = frozenset({"control_absent", "ineffective_enforcement",
@@ -55,7 +55,7 @@ def _required_evidence(target: Path, known: set[str], inspected: set[str],
     errors: list[str] = []
     locations: dict[str, set[tuple[str, int, int]]] = {}
     for key in keys:
-        issue, proof = _proofs(target, known, inspected, record.get(key), f"{rid}: {key}")
+        issue, proof = check_source_proofs(target, known, inspected, record.get(key), f"{rid}: {key}")
         errors.extend(issue)
         locations[key] = proof
     return errors, locations
@@ -95,7 +95,7 @@ def _scenarios(target: Path, known: set[str], inspected: set[str],
         reason = row.get("reason")
         if not isinstance(reason, str) or len(reason.strip()) < 24:
             errors.append(f"{label} 缺少具體攻擊路徑及核對結論")
-        issue, proof = _proofs(target, known, inspected, row.get("evidence"),
+        issue, proof = check_source_proofs(target, known, inspected, row.get("evidence"),
                                f"{label}.evidence")
         errors.extend(issue)
         cited.update(proof)
@@ -172,7 +172,7 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
         errors.extend(issues)
         control_key = "failure_points" if status == "fail" else "enforcement_points"
         for pos in record.get(control_key, []) if isinstance(record.get(control_key), list) else []:
-            if isinstance(pos, dict) and _is_weak_source_evidence(pos, target) is True:
+            if isinstance(pos, dict) and is_weak_source_evidence(pos, target) is True:
                 errors.append(f"{rid}: Q3 {control_key} 只有型別或欄位宣告，不能證明實際控制效果")
         if status == "fail":
             if not isinstance(record.get("failure_mode"), str) or \

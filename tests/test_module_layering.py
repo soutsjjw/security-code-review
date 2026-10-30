@@ -72,6 +72,24 @@ class ModuleLayeringTests(unittest.TestCase):
     def test_no_import_cycles(self):
         self.assertEqual(_cycles(_import_graph()), [])
 
+    def test_cross_module_names_are_public(self):
+        # 底線名稱只供定義模組內部使用；跨模組匯入或屬性存取的名稱必須公開。
+        modules = {p.stem for p in SCRIPTS.glob("*.py")}
+        private = []
+        for path in sorted(SCRIPTS.glob("*.py")):
+            tree = ast.parse(path.read_text("utf-8"))
+            aliases = {a.asname or a.name: a.name for node in ast.walk(tree)
+                       if isinstance(node, ast.Import) for a in node.names if a.name in modules}
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.ImportFrom) and node.module in modules
+                        and node.module != path.stem):
+                    private += [f"{path.stem}: from {node.module} import {a.name}"
+                                for a in node.names if a.name.startswith("_")]
+                elif (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                      and node.value.id in aliases and node.attr.startswith("_")):
+                    private.append(f"{path.stem}: {aliases[node.value.id]}.{node.attr}")
+        self.assertEqual(private, [])
+
     def test_cli_wrappers_match_lib_entry_points(self):
         # scripts/<name>.py 只是轉呼叫 lib 的入口；有 main 的 lib 模組必須都有入口，反之亦然。
         launcher_tools = {"check_python_env"}

@@ -11,9 +11,10 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/lib"))
-from review_waves_state import REPORT, STATE, _read, _write_state
+from review_waves_state import REPORT, STATE, write_state
 from review_snapshot import SNAPSHOT
 from review_waves_abort import abort_uncommitted, inspect_uncommitted
+from review_core import load_json_object
 
 
 class AbortWave2Tests(unittest.TestCase):
@@ -57,7 +58,7 @@ class AbortWave2Tests(unittest.TestCase):
                              self.payload_path.read_bytes()).hexdigest(),
                          "prior_evidence": self.evidence,
                          "prior_fingerprints": self.fp}}
-        _write_state(self.target / STATE, self.state)
+        write_state(self.target / STATE, self.state)
 
     def _write_staged(self, value):
         raw = json.dumps(value, sort_keys=True, ensure_ascii=False)
@@ -69,9 +70,9 @@ class AbortWave2Tests(unittest.TestCase):
 
     @contextmanager
     def verified(self, *, evidence=None, fingerprints=None):
-        with patch("review_waves_state._evidence_state",
+        with patch("review_waves_state.evidence_state",
                    return_value=evidence if evidence is not None else self.evidence), \
-             patch("review_waves_state._formal_fingerprints",
+             patch("review_waves_state.formal_fingerprints",
                    return_value=fingerprints if fingerprints is not None else self.fp):
             yield
 
@@ -89,7 +90,7 @@ class AbortWave2Tests(unittest.TestCase):
         self.assertEqual(result["manifest_sequence"], 90)
         self.assertTrue(self.staged_path.is_file())
         self.assertFalse((self.target / REPORT / "logs/repair-waves/aborted").exists())
-        self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+        self.assertIsNotNone(load_json_object(self.target / STATE)["inflight"])
 
     def test_read_only_preflight_proves_exact_original_payload(self):
         with self.verified():
@@ -125,7 +126,7 @@ class AbortWave2Tests(unittest.TestCase):
                            "--inspect-uncommitted", "execution-01"])
             self.assertEqual(status, 0)
         self.assertTrue(self.staged_path.exists())
-        self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+        self.assertIsNotNone(load_json_object(self.target / STATE)["inflight"])
 
     def test_legacy_staged_only_requires_independent_explicit_sha(self):
         original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
@@ -136,7 +137,7 @@ class AbortWave2Tests(unittest.TestCase):
                 self.abort(payload_path=None, expected_staged_sha256="0" * 64,
                            allow_unbound_legacy=True)
             self.assertTrue(self.staged_path.exists())
-            self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+            self.assertIsNotNone(load_json_object(self.target / STATE)["inflight"])
 
     def test_explicit_sha_bound_staged_only_quarantine_is_audited(self):
         original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
@@ -151,10 +152,10 @@ class AbortWave2Tests(unittest.TestCase):
                                 allow_unbound_legacy=True)
         self.assertTrue(result["legacy_unbound_staged_only"])
         self.assertFalse(self.staged_path.exists())
-        receipt = _read(self.target / result["receipt"])
+        receipt = load_json_object(self.target / result["receipt"])
         self.assertTrue(receipt["legacy_unbound"])
         self.assertFalse(receipt["raw_payload_verified"])
-        self.assertIsNone(_read(self.target / STATE)["inflight"])
+        self.assertIsNone(load_json_object(self.target / STATE)["inflight"])
 
     def test_staged_only_refuses_changed_formal_journal_even_with_exact_sha(self):
         original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
@@ -168,11 +169,11 @@ class AbortWave2Tests(unittest.TestCase):
     def test_staged_only_crash_recovery_requires_same_explicit_sha(self):
         original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
         with self.verified():
-            with patch("review_waves_state._write_state", side_effect=RuntimeError("crash")):
+            with patch("review_waves_state.write_state", side_effect=RuntimeError("crash")):
                 with self.assertRaisesRegex(RuntimeError, "crash"):
                     self.abort(payload_path=None, allow_unbound_legacy=True,
                                expected_staged_sha256=original_sha)
-            self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+            self.assertIsNotNone(load_json_object(self.target / STATE)["inflight"])
             with self.assertRaisesRegex(ValueError, "staged-only 例外"):
                 self.abort(payload_path=None, expected_staged_sha256=original_sha)
             with self.assertRaisesRegex(ValueError, "staged-only 例外"):
@@ -182,7 +183,7 @@ class AbortWave2Tests(unittest.TestCase):
                                 expected_staged_sha256=original_sha)
         self.assertEqual(result["status"], "aborted_uncommitted")
         self.assertTrue(result["legacy_unbound_staged_only"])
-        self.assertIsNone(_read(self.target / STATE)["inflight"])
+        self.assertIsNone(load_json_object(self.target / STATE)["inflight"])
 
     def test_staged_only_cli_requires_both_explicit_legacy_flags(self):
         from review_repair_waves import main
@@ -217,12 +218,12 @@ class AbortWave2Tests(unittest.TestCase):
         self.assertFalse(self.staged_path.exists())
         self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(),
                          result["staged_sha256"])
-        receipt = _read(self.target / result["receipt"])
+        receipt = load_json_object(self.target / result["receipt"])
         self.assertEqual(receipt["manifest_head"], self.manifest_head)
         self.assertTrue(receipt["not_formal_journal"])
-        self.assertEqual(_read(self.target / STATE)["inflight"], None)
-        self.assertEqual(_read(self.target / STATE)["completed_batches"], [])
-        self.assertEqual(_read(self.target / REPORT / "analysis/integrity-manifest.json")["sequence"], 90)
+        self.assertEqual(load_json_object(self.target / STATE)["inflight"], None)
+        self.assertEqual(load_json_object(self.target / STATE)["completed_batches"], [])
+        self.assertEqual(load_json_object(self.target / REPORT / "analysis/integrity-manifest.json")["sequence"], 90)
 
     def test_repetition_does_not_modify_or_reapply_anything(self):
         with self.verified():
@@ -314,26 +315,26 @@ class AbortWave2Tests(unittest.TestCase):
             self.assertFalse(self.staged_path.exists())
 
     def test_restart_after_move_but_before_checkpoint_write(self):
-        from review_waves_state import _write_state as real_write
+        from review_waves_state import write_state as real_write
         with self.verified():
-            with patch("review_waves_state._write_state",
+            with patch("review_waves_state.write_state",
                        side_effect=RuntimeError("simulated crash")):
                 with self.assertRaisesRegex(RuntimeError, "simulated crash"):
                     self.abort()
             self.assertTrue(self.staged_dir.is_dir())
             self.assertEqual(list(self.staged_dir.iterdir()), [])
-            self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+            self.assertIsNotNone(load_json_object(self.target / STATE)["inflight"])
             receipt_files = list((self.target / REPORT /
                                   "logs/repair-waves/aborted").glob("*/receipt.json"))
             self.assertEqual(len(receipt_files), 1)
-            with patch("review_waves_state._write_state", side_effect=real_write):
+            with patch("review_waves_state.write_state", side_effect=real_write):
                 result = self.abort()
         self.assertEqual(result["status"], "aborted_uncommitted")
-        self.assertIsNone(_read(self.target / STATE)["inflight"])
+        self.assertIsNone(load_json_object(self.target / STATE)["inflight"])
 
     def test_refuses_archive_modified_before_recovery(self):
         with self.verified():
-            with patch("review_waves_state._write_state", side_effect=RuntimeError("crash")):
+            with patch("review_waves_state.write_state", side_effect=RuntimeError("crash")):
                 with self.assertRaises(RuntimeError):
                     self.abort()
             archived = next((self.target / REPORT /
@@ -341,7 +342,7 @@ class AbortWave2Tests(unittest.TestCase):
             archived.write_text('{"tampered": true}', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "SHA256"):
                 self.abort()
-        self.assertIsNotNone(_read(self.target / STATE)["inflight"])
+        self.assertIsNotNone(load_json_object(self.target / STATE)["inflight"])
 
 
 if __name__ == "__main__":

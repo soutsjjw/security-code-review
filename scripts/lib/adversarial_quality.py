@@ -12,7 +12,7 @@ import re
 
 from review_decision import load_decision_matrix
 from review_core import read_json as _read, snapshot_fingerprint
-from adversarial_evidence import HIGH_RISK_RULES, SNAPSHOT, _evidence_errors
+from adversarial_evidence import HIGH_RISK_RULES, SNAPSHOT, evidence_errors
 from second_pass_layers import RESERVED
 
 VERSION = 1
@@ -137,7 +137,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                     if (isinstance(first_claim, str) and isinstance(factual, str)
                             and first_claim.strip() and first_claim.strip() in factual):
                         errors.append(f"{rid}: 第二輪事實主張沿用第一輪判定措辭，存在錨定")
-                    errors.extend(_evidence_errors(
+                    errors.extend(evidence_errors(
                         target, blind.get("evidence"), rid, "分層事實主張定位",
                         inspected, known, status, audit, formal))
             for field in ("challenge_question", "reinspection_summary", "conclusion_basis"):
@@ -150,7 +150,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                     _normalized(review["conclusion_basis"])):
                 errors.append(f"{rid}: 第二輪 Q4 重查與裁決摘要完全相同，未展現新查證")
             proof = review.get("verification_evidence")
-            errors.extend(_evidence_errors(target, proof, rid, "Q4 重查來源", inspected,
+            errors.extend(evidence_errors(target, proof, rid, "Q4 重查來源", inspected,
                                            known, status, audit, formal))
             location = _location(proof)
             if location is not None:
@@ -192,7 +192,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                     errors.append(f"{rid}: 第二輪 {label} 與另一反例的攻擊前提及破壞目標相同")
                 tactics.add(tactic)
             proof = item.get("inspection_evidence")
-            errors.extend(_evidence_errors(target, proof, rid, label+" 重新閱讀",
+            errors.extend(evidence_errors(target, proof, rid, label+" 重新閱讀",
                                            inspected, known, status, audit, formal))
             evidence = item.get("evidence")
             proofs.append((_location(evidence), _location(proof)))

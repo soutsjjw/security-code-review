@@ -11,20 +11,21 @@ from multi_agent_contract import SECRET, digest, validate_worker_result, finding
 from multi_agent_guard import challenges_for, exclusive_ledger, proof_line_hash
 from evidence_integrity import MANIFEST
 import multi_agent_ledger as ml
+from review_core import load_json_object
 
 
 @exclusive_ledger
 def claim(root: Path, task_id: str, *, agent_id: str | None = None) -> dict:
-    state, _ = ml._active(root)
+    state, _ = ml.active_plan(root)
     task = _claim_locked(root, state, task_id, agent_id)
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return task
 
 
 @exclusive_ledger
 def claim_batch(root: Path, assignments: list[dict]) -> dict:
     """One full snapshot check and one atomic ledger write for N parallel tasks."""
-    state, _ = ml._active(root)
+    state, _ = ml.active_plan(root)
     if (not isinstance(assignments, list) or not assignments
             or len(assignments) > state["workers"]):
         raise ValueError("批次派工數量必須介於 1 至 workers 上限")
@@ -36,7 +37,7 @@ def claim_batch(root: Path, assignments: list[dict]) -> dict:
         raise ValueError("派工 task 或 agent_instance_id 重複")
     results = [_claim_locked(root, state, x["task_id"], x["agent_id"])
                for x in assignments]
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"claimed": results, "workers": state["workers"],
             "note": "已使用同一個來源快照驗證及單次原子更新，請實際平行派工"}
 
@@ -79,7 +80,7 @@ def _claim_locked(root: Path, state: dict, task_id: str, agent_id: str) -> dict:
 @exclusive_ledger
 def fail(root: Path, task_id: str) -> dict:
     # Explicit main-agent acknowledgement of timeout or worker error.
-    state, _ = ml._active(root)
+    state, _ = ml.active_plan(root)
     row = state["tasks"].get(task_id)
     if row is None or row["status"] not in ("running", "followup_running"):
         raise ValueError("只有 running／followup_running 任務可以記錄失敗")
@@ -89,7 +90,7 @@ def fail(root: Path, task_id: str) -> dict:
     else:
         row["status"] = "failed"
         remaining = ml.RETRY_LIMIT - row["attempts"]
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"task_id": task_id, "status": row["status"],
             "remaining_attempts": remaining,
             "fallback_required": remaining <= 0}
@@ -99,7 +100,7 @@ def fail(root: Path, task_id: str) -> dict:
 def accept(root: Path, path: Path) -> dict:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
         raise ValueError("結果來源不可為連結或超大檔案")
-    return _accept_payload(root, ml._read(path))
+    return _accept_payload(root, load_json_object(path))
 
 
 @exclusive_ledger
@@ -113,7 +114,7 @@ def accept_stdin(root: Path, raw: str) -> dict:
 
 
 def _accept_payload(root: Path, result: dict) -> dict:
-    state, snap = ml._active(root)
+    state, snap = ml.active_plan(root)
     if not isinstance(result, dict):
         raise ValueError("Worker 回報必須為 JSON 物件")
     task_id = result.get("task_id")
@@ -133,7 +134,7 @@ def _accept_payload(root: Path, result: dict) -> dict:
                                     challenges=challenge_hashes)
     if errors or result.get("status") != "completed":
         row["status"] = "failed"
-        ml._write(root / ml.LEDGER, state)
+        ml.write_ledger_json(root / ml.LEDGER, state)
         return {"accepted": False, "task_id": task_id,
                 "errors": errors or ["Worker 未完成工作"],
                 "remaining_attempts": ml.RETRY_LIMIT - row["attempts"]}
@@ -143,7 +144,7 @@ def _accept_payload(root: Path, result: dict) -> dict:
     row["status"] = "needs_followup" if unresolved else "completed"
     row["result_digest"] = checksum
     current_manifest = root / ml.ANALYSIS / "integrity-manifest.json"
-    snapshot_manifest = ml._read(current_manifest) if current_manifest.exists() else {}
+    snapshot_manifest = load_json_object(current_manifest) if current_manifest.exists() else {}
     row["accepted_manifest_sequence"] = snapshot_manifest.get("sequence", -1)
     row["reviewed_rule_ids"] = sorted({
         rr["rule_id"] for entry in result["files"] for rr in entry["rule_states"]
@@ -161,9 +162,9 @@ def _accept_payload(root: Path, result: dict) -> dict:
     destination = root / ml.ANALYSIS / "multi-agent/results" / (task_id + ".json")
     if destination.exists():
         raise ValueError("已存在不同的已接受 Worker 結果，不可覆寫")
-    ml._write(destination, result)
+    ml.write_ledger_json(destination, result)
     row["result_path"] = str(destination.relative_to(root))
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"accepted": True, "task_id": task_id,
             "needs_followup": bool(row["unresolved_symbols"]),
             "finding_keys": row["finding_keys"],
@@ -172,7 +173,7 @@ def _accept_payload(root: Path, result: dict) -> dict:
 
 @exclusive_ledger
 def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
-    state, snap = ml._active(root)
+    state, snap = ml.active_plan(root)
     row = state["tasks"].get(task_id)
     if row is None or row["status"] != "needs_followup":
         raise ValueError("只有具未解跨檔符號的已接受分片才能補派")
@@ -194,7 +195,7 @@ def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
     row["followup_round"] = round_number
     row["followup_agent"] = agent_id
     row["claimed_at"] = time.time()
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"task_id": task_id, "round": round_number, "agent_instance_id": agent_id,
             "snapshot_fingerprint": state["snapshot_fingerprint"],
             "unresolved_symbols": row["unresolved_symbols"],
@@ -205,7 +206,7 @@ def followup(root: Path, task_id: str, *, agent_id: str) -> dict:
 def accept_followup(root: Path, path: Path) -> dict:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
         raise ValueError("補查結果路徑不安全")
-    return _accept_followup_payload(root, ml._read(path))
+    return _accept_followup_payload(root, load_json_object(path))
 
 
 @exclusive_ledger
@@ -218,7 +219,7 @@ def accept_followup_stdin(root: Path, raw: str) -> dict:
 
 
 def _accept_followup_payload(root: Path, data: dict) -> dict:
-    state, snap = ml._active(root)
+    state, snap = ml.active_plan(root)
     if not isinstance(data, dict):
         raise ValueError("跨檔補查回報必須為 JSON 物件")
     row = state["tasks"].get(data.get("task_id"))
@@ -239,7 +240,7 @@ def _accept_followup_payload(root: Path, data: dict) -> dict:
         raise ValueError("補查結果必須是陣列")
     if SECRET.search(json.dumps(data, ensure_ascii=False)):
         raise ValueError("補查結果包含疑似機敏資訊")
-    index = ml._read(root / ml.INDEX)
+    index = load_json_object(root / ml.INDEX)
     unresolved_ids = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
     seen = set()
     for item in resolved:
@@ -284,7 +285,7 @@ def _accept_followup_payload(root: Path, data: dict) -> dict:
     state["window_charged"] = state.get("window_charged", 0) + max(
         used, row.get("followup_estimated_tokens", 512))
     row.setdefault("followup_result_digests", []).append(digest(data))
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"task_id": data["task_id"], "status": row["status"],
             "remaining_symbols": len(row["unresolved_symbols"]),
             "main_agent_verification_required": True}
@@ -293,13 +294,13 @@ def _accept_followup_payload(root: Path, data: dict) -> dict:
 @exclusive_ledger
 def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
     """Do not clear needs_main merely by editing a status flag."""
-    state, snap = ml._active(root)
+    state, snap = ml.active_plan(root)
     row = state["tasks"].get(task_id)
     if row is None or row["status"] not in ("needs_main", "needs_followup"):
         raise ValueError("僅允許主代理結案未解符號")
     if evidence_path.is_symlink() or not evidence_path.is_file() or evidence_path.stat().st_size > 2_000_000:
         raise ValueError("主代理結案證據不可為 symlink 或過大檔案")
-    document = ml._read(evidence_path)
+    document = load_json_object(evidence_path)
     if not isinstance(document, dict) or set(document) != {"task_id", "resolved", "manifest_head"}:
         raise ValueError("主代理結案證據欄位不完整")
     if SECRET.search(json.dumps(document, ensure_ascii=False)):
@@ -307,7 +308,7 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
     from evidence_integrity import errors as integrity_errors
     if integrity_errors(root):
         raise ValueError("正式審查資料完整性尚未通過驗證")
-    manifest = ml._read(root / MANIFEST)
+    manifest = load_json_object(root / MANIFEST)
     if not isinstance(manifest, dict) or document["manifest_head"] != manifest.get("head"):
         raise ValueError("結案證據未綁定有效正式審查 Manifest")
     if (type(manifest.get("sequence")) is not int
@@ -317,7 +318,7 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
         raise ValueError("resolved 必須為陣列")
     expected = {(x["path"], x["name"], x["line_start"]) for x in row["unresolved_symbols"]}
     observed: set[tuple] = set()
-    index = ml._read(root / ml.INDEX)
+    index = load_json_object(root / ml.INDEX)
     for item in document["resolved"]:
         if not isinstance(item, dict) or set(item) != {
                 "path", "name", "line_start", "target_path", "target_line",
@@ -352,7 +353,7 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
     row["status"] = "completed"
     row["main_resolution_digest"] = digest(document)
     row["main_manifest_head"] = manifest["head"]
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"task_id": task_id, "status": "completed",
             "formal_security_verdict": False, "main_resolution_recorded": True}
 
@@ -360,7 +361,7 @@ def resolve_main(root: Path, task_id: str, evidence_path: Path) -> dict:
 @exclusive_ledger
 def renew_budget(root: Path) -> dict:
     # Main agent must checkpoint and explicitly start the next budget window.
-    state, _ = ml._active(root)
+    state, _ = ml.active_plan(root)
     if any(row["status"] in ("running", "followup_running") for row in state["tasks"].values()):
         raise ValueError("仍有執行中分片，不能在批次中途重設預算")
     limit = int(state["config"]["budget_tokens"] * 0.8)
@@ -377,14 +378,14 @@ def renew_budget(root: Path) -> dict:
     state["budget_window"] = state.get("budget_window", 1) + 1
     state["window_tokens"] = 0
     state["window_charged"] = 0
-    ml._write(root / ml.LEDGER, state)
+    ml.write_ledger_json(root / ml.LEDGER, state)
     return {"budget_window": state["budget_window"],
             "measured_tokens_total": state["measured_tokens"],
             "formal_review_completed": False}
 
 
 def summary(root: Path) -> dict:
-    state, snap = ml._active(root)
+    state, snap = ml.active_plan(root)
     done = [row["task"] for row in state["tasks"].values()
             if row["status"] == "completed"]
     covered = [f["path"] for row in done for f in row["assigned_paths"]]

@@ -10,7 +10,8 @@ sys.path.insert(0, str(ROOT / "scripts/lib"))
 import test_multi_agent as fixture_module
 from multi_agent import ANALYSIS, LEDGER, accept as first_accept, claim as first_claim, plan as first_plan
 from multi_agent_guard import proof_line_hash
-from multi_agent_second_pass import plan, claim, accept, status, SECOND, _read
+from multi_agent_second_pass import plan, claim, accept, status, SECOND
+from review_core import load_json_object
 
 
 class SecondPassTests(unittest.TestCase):

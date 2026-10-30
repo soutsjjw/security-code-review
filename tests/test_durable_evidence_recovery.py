@@ -16,6 +16,7 @@ import evidence_integrity as ledger
 from review_evidence_recovery import archive_for_recheck, plan
 from review_safety import _write, integrate, stage
 from review_snapshot import report_dir
+from review_core import read_json
 
 
 class DurableEvidenceRecoveryTests(unittest.TestCase):
@@ -63,14 +64,14 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
         self.assertTrue(old_backup.is_file())
         self.assertEqual(ledger.digest(old_backup.read_bytes()), old_sha)
         self.assertTrue(self.backup(assessment_path).is_file())
-        record = ledger._read(self.target / ledger.JOURNAL / "00000001.json")
+        record = read_json(self.target / ledger.JOURNAL / "00000001.json")
         self.assertEqual(record["backup_mode"], ledger.BACKUP_MODE)
         self.assertEqual(ledger.errors(self.target), [])
         self.assertTrue(ledger.backup_status(self.target)["ready"])
 
     def test_deleted_rule_closure_restores_exact_bytes_and_preserves_ten_findings(self):
         before = self.closure_path().read_bytes()
-        old_manifest = ledger._read(self.target / ledger.MANIFEST)
+        old_manifest = read_json(self.target / ledger.MANIFEST)
         self.closure_path().unlink()
         self.assertIn("rule-closures.json", str(ledger.errors(self.target)))
         diagnosis = plan(self.target)
@@ -80,10 +81,10 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
         self.assertEqual(result["restored_paths"], ["analysis/rule-closures.json"])
         self.assertEqual(self.closure_path().read_bytes(), before)
         self.assertEqual(ledger.errors(self.target), [])
-        self.assertEqual(ledger._read(self.report / "assessment.json")["findings"], self.findings)
-        self.assertEqual(ledger._read(self.target / ledger.MANIFEST)["sequence"],
+        self.assertEqual(read_json(self.report / "assessment.json")["findings"], self.findings)
+        self.assertEqual(read_json(self.target / ledger.MANIFEST)["sequence"],
                          old_manifest["sequence"] + 1)
-        self.assertEqual(ledger._read(self.target / ledger.JOURNAL / "00000001.json")["event"],
+        self.assertEqual(read_json(self.target / ledger.JOURNAL / "00000001.json")["event"],
                          "backup-restore")
 
     def test_modified_evidence_requires_explicit_replacement(self):
@@ -127,7 +128,7 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
 
     def test_tampered_journal_rejects_restore_even_if_backup_is_valid(self):
         journal = self.target / ledger.JOURNAL / "00000000.json"
-        row = ledger._read(journal)
+        row = read_json(journal)
         row["event"] = "changed"
         _write(journal, row)
         self.closure_path().unlink()
@@ -150,9 +151,9 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
         result = archive_for_recheck(self.target, acknowledged=True)
         archived = Path(result["archived_at"])
         self.assertTrue((archived / "assessment.json").is_file())
-        self.assertEqual(ledger._read(archived / "assessment.json")["findings"], self.findings)
+        self.assertEqual(read_json(archived / "assessment.json")["findings"], self.findings)
         self.assertEqual(result["retained_finding_count"], 10)
-        marker = ledger._read(self.report / "analysis/prior-findings-unverified.json")
+        marker = read_json(self.report / "analysis/prior-findings-unverified.json")
         self.assertEqual(marker["status"], "unverified-prior-evidence")
         self.assertEqual(marker["findings"], self.findings)
         self.assertFalse((self.report / "assessment.json").exists())
@@ -182,7 +183,7 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
                 integrate(self.target)
             outcome = integrate(self.target, allow_revision=True)
         self.assertEqual(outcome["checks"], 1)
-        current = ledger._read(self.report / "assessment.json")
+        current = read_json(self.report / "assessment.json")
         self.assertEqual(current["findings"], self.findings)
         self.assertEqual(current["checks"][0]["status"], "fail")
         self.assertEqual(current["checks"][0]["decision_reason"], amended["decision_reason"])

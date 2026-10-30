@@ -94,7 +94,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
              patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
             prepare(self.root, "full")
         self.assertEqual(snapshot_errors(self.root), [])
-        with patch("review_snapshot._revision", return_value="different-revision"):
+        with patch("review_snapshot.git_revision", return_value="different-revision"):
             self.assertTrue(snapshot_errors(self.root))
 
     def test_crossfile_and_project_closure_block_early_completion(self):

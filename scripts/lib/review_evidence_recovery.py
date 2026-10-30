@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import evidence_integrity as ledger
-from review_core import REPORT_ROOT
+from review_core import read_json, REPORT_ROOT
 
 REPORT = REPORT_ROOT
 ARCHIVES = Path("reports/security-code-review-archives")
@@ -22,10 +22,10 @@ def plan(target: Path) -> dict:
     issues = ledger.errors(target)
     trusted_formal_files = ledger.enabled(target) and not ledger.errors(target, verify_backups=False)
     status = ledger.backup_status(target)
-    manifest = ledger._read(target / ledger.MANIFEST, {})
+    manifest = read_json(target / ledger.MANIFEST, {})
     record = None
     if isinstance(manifest, dict) and type(manifest.get("sequence")) is int:
-        record = ledger._read(ledger._entry_path(target, manifest["sequence"]))
+        record = read_json(ledger.journal_entry_path(target, manifest["sequence"]))
     expected = (record or {}).get("file_hashes") if isinstance(record, dict) else None
     differences = []
     restorable = bool(expected) and not ledger.errors(
@@ -33,8 +33,8 @@ def plan(target: Path) -> dict:
     replace_required = False
     if isinstance(expected, dict):
         for name, sha in expected.items():
-            current = ledger._path(target, name)
-            if ledger._hash_file(current) == sha:
+            current = ledger.tracked_path(target, name)
+            if ledger.hash_file(current) == sha:
                 continue
             differences.append(name)
             if current.exists():
@@ -43,12 +43,12 @@ def plan(target: Path) -> dict:
                 restorable = False
                 continue
             try:
-                ledger._backup_bytes(target, sha)
+                ledger.backup_bytes(target, sha)
             except ValueError:
                 restorable = False
     else:
         restorable = False
-    assessment = ledger._read(report / "assessment.json", {})
+    assessment = read_json(report / "assessment.json", {})
     findings = assessment.get("findings", []) if isinstance(assessment, dict) else []
     return {
         "integrity_errors": issues,
@@ -92,7 +92,7 @@ def archive_for_recheck(target: Path, *, acknowledged: bool = False) -> dict:
     archive_root.mkdir(parents=True, exist_ok=True)
     tag = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:12]
     archived = archive_root / tag
-    assessment = ledger._read(report / "assessment.json", {})
+    assessment = read_json(report / "assessment.json", {})
     findings = assessment.get("findings", []) if isinstance(assessment, dict) else []
     if not isinstance(findings, list):
         raise ValueError("既有 Findings 格式錯誤，須人工保存後再處理")
@@ -105,7 +105,7 @@ def archive_for_recheck(target: Path, *, acknowledged: bool = False) -> dict:
             "status": "unverified-prior-evidence",
             "previous_review_archive": archived.relative_to(target).as_posix(),
             "previous_integrity_errors": diagnosis["integrity_errors"],
-            "previous_manifest": ledger._read(archived / "analysis/integrity-manifest.json"),
+            "previous_manifest": read_json(archived / "analysis/integrity-manifest.json"),
             "findings": findings,
             "instruction": "僅作重新取證線索，不能自動宣稱已確認或匯入 assessment",
         }

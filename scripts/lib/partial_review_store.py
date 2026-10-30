@@ -32,7 +32,7 @@ def _git_revision(root: Path) -> str:
     return result.stdout.strip() if result.returncode == 0 else "not-a-git-repository"
 
 
-def _snapshot(root: Path) -> dict[str, Any]:
+def source_snapshot(root: Path) -> dict[str, Any]:
     # 使用正式來源盤點的相同排除範圍，不把 reports/ 或 Skill 當成受測檔案。
     coverage = build_source_coverage({"checks": [], "file_reviews": []}, root)
     files = {path: hashlib.sha256((root / path).read_bytes()).hexdigest()
@@ -42,7 +42,7 @@ def _snapshot(root: Path) -> dict[str, Any]:
             "fingerprint": _digest({"git_revision": revision, "source_hashes": files})}
 
 
-def _category_dir(root: Path, category: str) -> Path:
+def category_dir(root: Path, category: str) -> Path:
     if category not in CATEGORY_COUNTS:
         raise ScopeError(f"未支援分類：{category}")
     root = root.resolve()
@@ -58,9 +58,9 @@ def _category_dir(root: Path, category: str) -> Path:
     return directory
 
 
-def _artifact(root: Path, category: str, relative: Path | str) -> Path:
+def artifact_path(root: Path, category: str, relative: Path | str) -> Path:
     """只可寫入分類私有目錄；拒絕任何中間 symlink。"""
-    directory = _category_dir(root, category)
+    directory = category_dir(root, category)
     path = directory / relative
     if path == directory or not path.resolve().is_relative_to(directory.resolve()):
         raise ScopeError("分類工件路徑無效")
@@ -72,12 +72,12 @@ def _artifact(root: Path, category: str, relative: Path | str) -> Path:
     return path
 
 
-def _category_rules(catalog: dict, category: str) -> list[dict]:
+def category_rules(catalog: dict, category: str) -> list[dict]:
     return [rule for rule in catalog["rules"] if rule["category"] == category]
 
 
-def _assert_assessment(data: Any, category: str, catalog: dict) -> None:
-    expected = [r["id"] for r in _category_rules(catalog, category)]
+def assert_category_assessment(data: Any, category: str, catalog: dict) -> None:
+    expected = [r["id"] for r in category_rules(catalog, category)]
     if not isinstance(data, dict) or data.get("review_mode") != "partial" or data.get("category") != category:
         raise ScopeError(f"{category}: assessment 的分類身分無效")
     checks = data.get("checks")
@@ -93,8 +93,8 @@ def _assert_assessment(data: Any, category: str, catalog: dict) -> None:
         raise ScopeError(f"{category}: 缺少來源快照識別")
 
 
-def _verify_snapshot(root: Path, directory: Path, assessment: dict) -> None:
-    stored_path = _artifact(root, assessment["category"], SNAPSHOT_FILE)
+def verify_snapshot(root: Path, directory: Path, assessment: dict) -> None:
+    stored_path = artifact_path(root, assessment["category"], SNAPSHOT_FILE)
     if not stored_path.is_file():
         raise ScopeError("缺少分類來源快照；不可沿用舊有 completed")
     stored = _load(stored_path)
@@ -105,16 +105,16 @@ def _verify_snapshot(root: Path, directory: Path, assessment: dict) -> None:
         raise ScopeError("分類來源快照內容損壞")
     if assessment["source_snapshot_sha256"] != stored["fingerprint"]:
         raise ScopeError("assessment 與來源快照識別不一致")
-    if _snapshot(root) != stored:
+    if source_snapshot(root) != stored:
         raise ScopeError("來源檔案或 Git Revision 已異動；拒絕沿用分類審查證據")
 
 
 def read_category(root: Path, category: str, catalog: dict) -> dict:
-    directory = _category_dir(root, category)
+    directory = category_dir(root, category)
     path = directory / "assessment.json"
     if not path.is_file():
         raise ScopeError(f"{category}: 尚無分類進度，請先指定 --init")
     assessment = _load(path)
-    _assert_assessment(assessment, category, catalog)
-    _verify_snapshot(root, directory, assessment)
+    assert_category_assessment(assessment, category, catalog)
+    verify_snapshot(root, directory, assessment)
     return assessment

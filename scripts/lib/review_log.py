@@ -34,7 +34,7 @@ def _iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
-def _load(path: Path) -> dict | None:
+def load_metadata(path: Path) -> dict | None:
     if path.is_symlink():
         raise ValueError("Log metadata 不可為 symbolic link")
     if not path.is_file():
@@ -48,14 +48,14 @@ def _load(path: Path) -> dict | None:
     return obj
 
 
-def _paths(target: Path) -> tuple[Path, Path]:
+def log_paths(target: Path) -> tuple[Path, Path]:
     folder = target.resolve() / REPORT / "logs"
     if folder.parent.is_symlink() or folder.is_symlink():
         raise ValueError("報告或 Log 目錄不可為 symbolic link")
     return folder, folder / "latest.json"
 
 
-def _append(folder: Path, state: dict, event: str, phase: str,
+def append_event(folder: Path, state: dict, event: str, phase: str,
             *, metrics: dict | None = None, elapsed_seconds: float | None = None,
             outcome: str | None = None) -> None:
     row = {"timestamp": _iso(), "review_id": state["review_id"],
@@ -74,19 +74,19 @@ def _append(folder: Path, state: dict, event: str, phase: str,
         stream.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def _save(folder: Path, state: dict) -> None:
+def save_metadata(folder: Path, state: dict) -> None:
     _atomic(folder / (state["run_id"] + "-summary.json"), state)
     _atomic(folder / "latest.json", state)
 
 
 def start(target: Path, *, new_review: bool = False) -> dict:
-    folder, latest = _paths(target)
+    folder, latest = log_paths(target)
     folder.mkdir(parents=True, exist_ok=True)
-    previous = _load(latest)
+    previous = load_metadata(latest)
     if previous and previous.get("status") in ("running", "stalled"):
         previous["status"] = "interrupted"
         previous["finished_at"] = _iso()
-        _append(folder, previous, "run_finished", previous.get("phase", "initialization"),
+        append_event(folder, previous, "run_finished", previous.get("phase", "initialization"),
                 outcome="interrupted")
         _atomic(folder / (previous["run_id"] + "-summary.json"), previous)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
@@ -102,14 +102,14 @@ def start(target: Path, *, new_review: bool = False) -> dict:
         "token_usage": {"input_tokens": 0, "output_tokens": 0},
         "note": "執行 Log 非審查證據；必須通過既有來源與安全完整性守門",
     }
-    _append(folder, state, "run_started", "initialization")
-    _save(folder, state)
+    append_event(folder, state, "run_started", "initialization")
+    save_metadata(folder, state)
     return state
 
 
 def _active(target: Path) -> tuple[Path, dict]:
-    folder, latest = _paths(target)
-    state = _load(latest)
+    folder, latest = log_paths(target)
+    state = load_metadata(latest)
     if state is None or state.get("status") in ("completed", "failed", "interrupted"):
         state = start(target)
     return folder, state
@@ -133,10 +133,10 @@ def command(target: Path, phase: str, operation: str, seconds: float, exit_code:
     state["commands"] += 1
     durations = state["command_seconds"]
     durations[operation] = round(durations.get(operation, 0.0) + max(0.0, seconds), 3)
-    _append(folder, state, operation, phase, elapsed_seconds=seconds,
+    append_event(folder, state, operation, phase, elapsed_seconds=seconds,
             outcome="ok" if exit_code == 0 else "error",
             metrics={"exit_code": exit_code})
-    _save(folder, state)
+    save_metadata(folder, state)
 
 
 def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
@@ -156,7 +156,7 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
                    for key in PROGRESS if key in metrics and metrics[key] < before[key]}
     advance = any(metrics.get(k, before[k]) > before[k] for k in PROGRESS)
     if regressions:
-        _append(folder, state, "progress_regression", phase, outcome="review",
+        append_event(folder, state, "progress_regression", phase, outcome="review",
                 metrics={"counters": regressions})
     if advance:
         state["last_progress_epoch"] = _clock()
@@ -184,10 +184,10 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
         state.setdefault("convergence", {})["checkpoint_diagnostic_required"] = True
     event = ("non_converging_checkpoint" if stalled and optimized else
              "stalled" if stalled else "checkpoint")
-    _append(folder, state, event, phase,
+    append_event(folder, state, event, phase,
             outcome="review" if stalled and optimized else "blocked" if stalled else "running",
             metrics=metrics)
-    _save(folder, state)
+    save_metadata(folder, state)
     return state
 
 
@@ -199,9 +199,9 @@ def finish(target: Path, status: str) -> dict:
     state["status"] = status
     state["finished_at"] = _iso()
     state["elapsed_seconds"] = round(max(0.0, _clock() - state["started_epoch"]), 3)
-    _append(folder, state, "run_finished", state["phase"], outcome=status,
+    append_event(folder, state, "run_finished", state["phase"], outcome=status,
             elapsed_seconds=state["elapsed_seconds"])
-    _save(folder, state)
+    save_metadata(folder, state)
     return state
 
 
@@ -225,8 +225,8 @@ def observe_blockers(target: Path, diagnostics: dict) -> dict:
     state["blocker_observation"] = {"signature": diagnostics.get("blocker_signature"),
                                     "count": len(after), "fingerprints": current,
                                     "last_delta": delta}
-    _append(folder, state, "blocker_diagnosed", "first_pass", metrics=delta)
-    _save(folder, state)
+    append_event(folder, state, "blocker_diagnosed", "first_pass", metrics=delta)
+    save_metadata(folder, state)
     return delta
 
 
@@ -240,8 +240,8 @@ def record_profile(target: Path, phase: str, operation: str, durations: dict[str
     safe = {name: round(max(0.0, seconds), 3)
             for name, seconds in durations.items()
             if re.fullmatch(r"[a-z][a-z0-9_]{0,47}", name) and isinstance(seconds, (int, float))}
-    _append(folder, state, operation + "_profile", phase, metrics={"seconds": safe})
-    _save(folder, state)
+    append_event(folder, state, operation + "_profile", phase, metrics={"seconds": safe})
+    save_metadata(folder, state)
 
 
 def observe_coverage(target: Path, *, recorded: int, verified: int) -> None:
@@ -255,11 +255,11 @@ def observe_coverage(target: Path, *, recorded: int, verified: int) -> None:
     counts = {"recorded_file_reviews": recorded, "verified_file_reviews": verified,
               "unverified_file_reviews": max(0, recorded - verified)}
     if verified < previous.get("verified_file_reviews", 0):
-        _append(folder, state, "verified_coverage_regression", "queue", outcome="review",
+        append_event(folder, state, "verified_coverage_regression", "queue", outcome="review",
                 metrics={"previous": previous["verified_file_reviews"], "current": verified})
     state["coverage_observation"] = counts
-    _append(folder, state, "formal_coverage_observed", "queue", metrics=counts)
-    _save(folder, state)
+    append_event(folder, state, "formal_coverage_observed", "queue", metrics=counts)
+    save_metadata(folder, state)
 
 
 def logged_main(main, phase: str) -> int:
@@ -281,7 +281,7 @@ def logged_main(main, phase: str) -> int:
             ("--stage", "--integrate", "--init", "--seal-integrity")))
     )
     try:
-        prior = _load(_paths(target)[1])
+        prior = load_metadata(log_paths(target)[1])
         if prior and prior.get("status") == "stalled" and not readonly_diagnostic:
             print("ERROR: 審查已 stalled；可先使用唯讀診斷，查明後再執行 review_log.py start 恢復。", file=sys.stderr)
             return 3
@@ -339,7 +339,7 @@ def main() -> int:
         elif args.action == "finish":
             state = finish(args.target, args.status)
         else:
-            state = _load(_paths(args.target)[1]) or {}
+            state = load_metadata(log_paths(args.target)[1]) or {}
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
         print(f"ERROR: Log 操作失敗（{type(exc).__name__}）", file=sys.stderr)
         return 2

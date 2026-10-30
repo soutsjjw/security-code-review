@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """多代理 Ledger 的路徑、狀態讀寫、Git／來源快照與現行計畫核對；不建立或啟動子代理。
 
-測試替換本層函式（例如 _git_state）時請 patch 本模組；planning／workers 一律以 ml.<名稱> 取用。
+測試替換本層函式（例如 git_state）時請 patch 本模組；planning／workers 一律以 ml.<名稱> 取用。
 """
 from __future__ import annotations
 
@@ -29,14 +29,14 @@ HIGH_RISK = re.compile(r"auth|identity|session|credential|permission|access|"
 RETRY_LIMIT = 2
 
 
-def _write(path: Path, data: dict) -> None:
+def write_ledger_json(path: Path, data: dict) -> None:
     # Main-agent-only metadata. Do not use this for assessment/Manifest/Journal.
     if path.is_symlink() or path.parent.is_symlink():
         raise ValueError("狀態路徑不可為符號連結")
     write_json_atomic(path, data)
 
 
-def _git_state(root: Path) -> dict:
+def git_state(root: Path) -> dict:
     try:
         head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
                               capture_output=True, text=True, check=False)
@@ -60,7 +60,7 @@ def _git_state(root: Path) -> dict:
             hashlib.sha256(b"\x00".join(filtered)).hexdigest()}
 
 
-def _snapshot(root: Path) -> tuple[dict, dict, dict]:
+def source_snapshot(root: Path) -> tuple[dict, dict, dict]:
     snap = _read(root / SNAPSHOT)
     index = _read(root / INDEX)
     hashes = snap.get("source_hashes")
@@ -76,7 +76,7 @@ def _snapshot(root: Path) -> tuple[dict, dict, dict]:
         if (not p.is_relative_to(root) or not p.is_file() or p.is_symlink()
                 or source_digest(p.read_bytes()) != sha):
             raise ValueError("來源 SHA256 無法核對：" + relative)
-    actual_head = _git_state(root)["head"]
+    actual_head = git_state(root)["head"]
     if actual_head and snap.get("git_revision") != actual_head:
         raise ValueError("來源快照 Git Revision 與實際 HEAD 不一致")
     # Without Git, the recorded source hashes remain mandatory and authoritative;
@@ -84,15 +84,15 @@ def _snapshot(root: Path) -> tuple[dict, dict, dict]:
     return snap, index, assessment
 
 
-def _fingerprint(snap: dict) -> str:
+def ledger_fingerprint(snap: dict) -> str:
     return digest({"git_revision": snap.get("git_revision"),
                    "source_hashes": snap["source_hashes"],
                    "excluded_paths": snap.get("excluded_paths", [])})
 
 
-def _active(root: Path) -> tuple[dict, dict]:
+def active_plan(root: Path) -> tuple[dict, dict]:
     state = _read(root / LEDGER)
-    snap, _, _ = _snapshot(root)
+    snap, _, _ = source_snapshot(root)
     probe = _read(root / PROBE) if (root / PROBE).exists() else {}
     if state.get("integration") is not None:
         raise ValueError("主代理正式整合窗口尚未結束，禁止分派／收件子代理")
@@ -104,8 +104,8 @@ def _active(root: Path) -> tuple[dict, dict]:
         errors = probe_errors(root, probe)
         if errors:
             raise ValueError("Codex 能力試跑已失效：" + "；".join(errors))
-    if (state.get("snapshot_fingerprint") != _fingerprint(snap)
-            or state.get("git_state") != _git_state(root)):
+    if (state.get("snapshot_fingerprint") != ledger_fingerprint(snap)
+            or state.get("git_state") != git_state(root)):
         raise ValueError("來源或 Git 狀態異動；停用既有子代理結果並重新查證")
     for ident, row in state.get("tasks", {}).items():
         if row.get("result_digest"):

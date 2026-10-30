@@ -13,7 +13,8 @@ sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from partial_report import complete, validate_saved
 from partial_report_publish import PublicationError, publish
-from partial_review import _atomic, _category_dir
+from review_core import write_json_atomic
+from partial_review_store import category_dir
 from review_scope import ScopeError
 import test_partial_report as report_fixture
 
@@ -40,7 +41,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
     def _saved(self):
         paths = {}
         for cat in self.categories:
-            folder = _category_dir(self.root, cat)
+            folder = category_dir(self.root, cat)
             for path in [folder / "report.json", *folder.glob("CodeReview_*.html")]:
                 if path.is_file():
                     paths[str(path)] = path.read_bytes()
@@ -64,10 +65,10 @@ class PublicationAcceptanceTests(unittest.TestCase):
     def test_second_category_failure_rolls_back_all_previous_reports(self):
         self._publish()
         previous = self._saved()
-        path = _category_dir(self.root, "AU") / "assessment.json"
+        path = category_dir(self.root, "AU") / "assessment.json"
         changed = json.loads(path.read_text("utf-8"))
         changed["checks"][0]["decision_reason"] += "補充重新閱讀及驗證本分類實作的結果。"
-        _atomic(path, changed)
+        write_json_atomic(path, changed)
         from partial_report_publish import _replace as original_replace
         calls = 0
 
@@ -107,8 +108,8 @@ class PublicationAcceptanceTests(unittest.TestCase):
     def test_post_commit_validation_failure_restores_earlier_reports(self):
         self._publish()
         old = self._saved()
-        destinations = [(_category_dir(self.root, "AC") / "report.json", '{"invalid":1}\n'),
-                        (_category_dir(self.root, "AU") / "report.json", '{"invalid":2}\n')]
+        destinations = [(category_dir(self.root, "AC") / "report.json", '{"invalid":1}\n'),
+                        (category_dir(self.root, "AU") / "report.json", '{"invalid":2}\n')]
         with self.assertRaises(PublicationError):
             publish(self.root, destinations, validate=lambda: [],
                     verify_saved=lambda: ["post-commit digest mismatch"])
@@ -155,7 +156,7 @@ class PublicationAcceptanceTests(unittest.TestCase):
         with self.assertRaises(PublicationError):
             publish(self.root, [(base / "report.json", "{}")], validate=lambda: [],
                     verify_saved=lambda: [])
-        path = _category_dir(self.root, "AC") / "report.json"
+        path = category_dir(self.root, "AC") / "report.json"
         with self.assertRaises(PublicationError):
             publish(self.root, [(path, "{}"), (path, "{}")], validate=lambda: [],
                     verify_saved=lambda: [])
@@ -164,10 +165,10 @@ class PublicationAcceptanceTests(unittest.TestCase):
     def test_existing_untouched_category_on_partial_publication_error(self):
         self._publish()
         old = self._saved()
-        ac = _category_dir(self.root, "AC") / "assessment.json"
+        ac = category_dir(self.root, "AC") / "assessment.json"
         payload = json.loads(ac.read_text("utf-8"))
         payload["checks"][0]["execution"]["state"] = "pending"
-        _atomic(ac, payload)
+        write_json_atomic(ac, payload)
         with patch("partial_report.validate_safety", side_effect=report_fixture.approved_safety):
             with self.assertRaises(ScopeError):
                 complete(self.root, self.categories, self.catalog)

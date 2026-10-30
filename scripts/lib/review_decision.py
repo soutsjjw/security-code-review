@@ -53,7 +53,7 @@ def _meaningful_excerpt(lines: list[str]) -> bool:
     return False
 
 
-def _is_weak_source_evidence(ev: dict[str, Any], source_root: Path) -> bool | None:
+def is_weak_source_evidence(ev: dict[str, Any], source_root: Path) -> bool | None:
     path = ev.get("path")
     if not isinstance(path, str) or not path.strip() or Path(path).suffix.lower() not in CODE_SUFFIXES:
         return None
@@ -111,7 +111,7 @@ def decision_quality_errors(
             source_evidence = [
                 ev for ev in evidence if ev.get("kind") in {"source", "configuration"}
             ]
-            inspected = [_is_weak_source_evidence(ev, source_root) for ev in source_evidence]
+            inspected = [is_weak_source_evidence(ev, source_root) for ev in source_evidence]
             # 只有純宣告／using／namespace／單一欄位等證據且沒有獨立工件：應重新查核。
             if inspected and all(v is True for v in inspected) and not any(
                 ev.get("kind") in EXTERNAL_KINDS and (ev.get("path") or ev.get("artifact_id"))

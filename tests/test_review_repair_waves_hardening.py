@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/lib"))
 from review_repair_waves import _payload_scope, _sample_policy, apply_second_pass
-from review_waves_state import _evidence_state, _formal_diff
+from review_waves_state import evidence_state, formal_diff
 
 
 def fingerprints():
@@ -65,7 +65,7 @@ class RepairWavesSecurityTests(unittest.TestCase):
         after = json.loads(json.dumps(prior))
         after["control_verifications"]["AC-01"] = "changed"
         after["findings"]["F1"] = {"digest": "new", "owners": ["AC-01"]}
-        changed, mandatory = _formal_diff(prior, after)
+        changed, mandatory = formal_diff(prior, after)
         self.assertEqual(changed, {"AC-01"})
         self.assertEqual(mandatory, {"AC-01"})
 
@@ -73,7 +73,7 @@ class RepairWavesSecurityTests(unittest.TestCase):
         prior = fingerprints()
         after = json.loads(json.dumps(prior))
         after["file_reviews"]["unknown.cs"] = {"digest": "changed", "owners": []}
-        changed, mandatory = _formal_diff(prior, after)
+        changed, mandatory = formal_diff(prior, after)
         self.assertEqual(changed, {"AC-01"})
         self.assertEqual(mandatory, set())
 
@@ -106,9 +106,9 @@ class RepairWavesSecurityTests(unittest.TestCase):
             (analysis / "integrity-manifest.json").write_text('{"head":"one"}')
             with patch("review_snapshot.snapshot_errors", return_value=[]), \
                  patch("evidence_integrity.errors", return_value=[]):
-                before = _evidence_state(root)
+                before = evidence_state(root)
                 (analysis / "rule-closures.json").write_text('{"AC-01":{}}')
-                after = _evidence_state(root)
+                after = evidence_state(root)
                 self.assertNotEqual(before, after)
                 self.assertNotEqual(before["tracked_sha256"]["analysis/rule-closures.json"],
                                     after["tracked_sha256"]["analysis/rule-closures.json"])
@@ -116,14 +116,14 @@ class RepairWavesSecurityTests(unittest.TestCase):
     def _mock_second_pass(self, root, worklist):
         stack = ExitStack()
         self.addCleanup(stack.close)
-        stack.enter_context(patch("review_waves_state._load_state",
+        stack.enter_context(patch("review_waves_state.load_state",
                                   return_value={"phase": "second_pass", "paused": False,
                                                 "last_evidence": {"manifest_sha256": None},
                                                 "formal_fingerprints": fingerprints()}))
-        stack.enter_context(patch("review_waves_state._assert_state_current"))
-        stack.enter_context(patch("review_waves_state._stage_clean"))
+        stack.enter_context(patch("review_waves_state.assert_state_current"))
+        stack.enter_context(patch("review_waves_state.ensure_stage_clean"))
         stack.enter_context(patch("second_pass_layers.worklist", return_value=worklist))
-        stack.enter_context(patch("review_waves_state._assessment",
+        stack.enter_context(patch("review_waves_state.load_assessment",
                                   return_value={"checks": [], "file_reviews": []}))
         return stack
 
@@ -147,9 +147,9 @@ class RepairWavesSecurityTests(unittest.TestCase):
                 "rule_tasks": [{"rule_id": "AC-01"}], "sample_tasks": []})
             with patch("review_safety.stage", return_value="staged") as stage, \
                  patch("review_safety.integrate", return_value={"applied": 1}) as integrate, \
-                 patch("review_waves_state._evidence_state", return_value={"sha": "after"}), \
-                 patch("review_waves_state._formal_fingerprints", return_value=fingerprints()), \
-                 patch("review_waves_state._write_state"):
+                 patch("review_waves_state.evidence_state", return_value={"sha": "after"}), \
+                 patch("review_waves_state.formal_fingerprints", return_value=fingerprints()), \
+                 patch("review_waves_state.write_state"):
                 result = apply_second_pass(root, p)
             stage.assert_called_once()
             integrate.assert_called_once()

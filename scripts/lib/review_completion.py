@@ -34,7 +34,7 @@ PATH_PATTERN = re.compile(r"(?<![\w])(?:[\w.+-]+[/\\])+[\w.+-]+")
 NUMBER_PATTERN = re.compile(r"\d+")
 
 
-def _template(text: str) -> str:
+def template_signature(text: str) -> str:
     """找出只更換規則 ID、檔案路徑、行號／數值的重複說明。"""
     result = RULE_PATTERN.sub("<RULE>", text)
     result = PATH_PATTERN.sub("<PATH>", result)
@@ -109,11 +109,11 @@ def completion_errors(checks: list[dict], *, allow_demo: bool = False) -> list[s
                 errors.append(f"{rid}: review 沿用舊判定但未重新核對實際控制與缺少工件")
             repeated[(decision, summary)] += 1
         if status in ("pass", "fail", "review"):
-            signatures[("執行摘要", _template(summary))].add(str(rid))
-            signatures[("判定理由", _template(decision))].add(str(rid))
+            signatures[("執行摘要", template_signature(summary))].add(str(rid))
+            signatures[("判定理由", template_signature(decision))].add(str(rid))
             for ev in evidence:
                 if isinstance(ev, dict) and isinstance(ev.get("description"), str):
-                    signatures[("證據描述", _template(ev["description"]))].add(str(rid))
+                    signatures[("證據描述", template_signature(ev["description"]))].add(str(rid))
     for (decision, _), count in repeated.items():
         if count >= 5:
             errors.append(f"有 {count} 個 review 共用相同結論及執行摘要，須逐項查核：{decision[:50]}")

@@ -8,7 +8,7 @@ from typing import Any
 
 from review_decision import load_decision_matrix
 from control_outcome_evidence import outcome_errors
-from control_proofs import REQUIRED_SCENARIOS, _proofs
+from control_proofs import REQUIRED_SCENARIOS, check_source_proofs
 from decision_adjudication import external_responsibility_errors, EXTERNAL_PROOF_KINDS
 from review_core import read_json as _read_json, REPORT_ROOT, snapshot_fingerprint
 
@@ -38,7 +38,7 @@ def guidance(rule_id: str) -> dict[str, Any]:
     }
 
 
-def _external_pass_errors(
+def external_pass_errors(
     target: Path, check: dict, record: dict, known: set[str],
     snapshot: dict, scenarios_required: set[str],
 ) -> list[str]:
@@ -122,7 +122,7 @@ def verification_errors(target: Path, checks: list[dict], *,
         if record.get("control_proof_mode") == "external_verified":
             if record.get("status") != "pass":
                 errors.append(f"{rid}: P0 外部有效控制紀錄狀態與 pass 不一致")
-            errors.extend(_external_pass_errors(
+            errors.extend(external_pass_errors(
                 target, check, record, known, snapshot,
                 set(REQUIRED_SCENARIOS.get(rid, ("alternate_or_bypass_path",))),
             ))
@@ -138,7 +138,7 @@ def verification_errors(target: Path, checks: list[dict], *,
             errors.append(f"{rid}: P2 沒有可核對的 inspected_paths")
         locations: dict[str, set[tuple[str, int, int]]] = {}
         for field in ("entry_points", "enforcement_points", "protected_operations"):
-            issue, located = _proofs(target, known, inspected, record.get(field), f"{rid}: {field}")
+            issue, located = check_source_proofs(target, known, inspected, record.get(field), f"{rid}: {field}")
             errors.extend(issue)
             locations[field] = located
         for field in ("control_condition", "failure_behavior", "search_summary"):
@@ -183,7 +183,7 @@ def verification_errors(target: Path, checks: list[dict], *,
             reason = scenario.get("reason")
             if not isinstance(reason, str) or len(reason.strip()) < 20:
                 errors.append(f"{rid}: {kind} 缺少具體反向追查理由")
-            issue, located = _proofs(target, known, inspected, scenario.get("evidence"),
+            issue, located = check_source_proofs(target, known, inspected, scenario.get("evidence"),
                                      f"{rid}: {kind}.evidence")
             errors.extend(issue)
             cited_paths.update(x[0] for x in located)

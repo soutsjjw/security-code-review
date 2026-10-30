@@ -11,8 +11,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
-from partial_review import (ScopeError, _category_dir, initialize, integrate, queue,
-                            read_category, stage)
+from partial_review import ScopeError, initialize, integrate, queue, read_category, stage
+from partial_review_store import category_dir
 from review_scope import CATEGORIES, load_catalog
 from source_coverage import build_source_coverage
 
@@ -91,7 +91,7 @@ class PartialReviewTests(unittest.TestCase):
                 path.write_text(json.dumps(payload), encoding="utf-8")
                 with self.assertRaises(ScopeError):
                     stage(self.root, "AC", path, self.catalog)
-        self.assertFalse((_category_dir(self.root, "AC") / "analysis/staged/pending.json").exists())
+        self.assertFalse((category_dir(self.root, "AC") / "analysis/staged/pending.json").exists())
 
     def test_source_modified_before_resume_or_integrate_blocks(self):
         initialize(self.root, ("AC",), self.catalog)
@@ -104,7 +104,7 @@ class PartialReviewTests(unittest.TestCase):
             read_category(self.root, "AC", self.catalog)
         with self.assertRaises(ScopeError):
             integrate(self.root, "AC", self.catalog)
-        self.assertTrue((_category_dir(self.root, "AC") / "analysis/staged/pending.json").exists())
+        self.assertTrue((category_dir(self.root, "AC") / "analysis/staged/pending.json").exists())
 
     def test_progress_conflict_blocks_changed_base(self):
         initialize(self.root, ("AC",), self.catalog)
@@ -112,7 +112,7 @@ class PartialReviewTests(unittest.TestCase):
         path = self.root / "reports/security-code-review/partial/AC/payload.json"
         path.write_text(json.dumps({"checks": [ac["checks"][0]]}), encoding="utf-8")
         stage(self.root, "AC", path, self.catalog)
-        assessment_path = _category_dir(self.root, "AC") / "assessment.json"
+        assessment_path = category_dir(self.root, "AC") / "assessment.json"
         tampered = json.loads(assessment_path.read_text(encoding="utf-8"))
         tampered["checks"][0]["decision_reason"] = "有人已修改進度，應拒絕舊 staged 交易"
         assessment_path.write_text(json.dumps(tampered), encoding="utf-8")
@@ -122,7 +122,7 @@ class PartialReviewTests(unittest.TestCase):
     def test_symlinked_analysis_directory_is_rejected(self):
         initialize(self.root, ("AC",), self.catalog)
         ac = read_category(self.root, "AC", self.catalog)
-        analysis = _category_dir(self.root, "AC") / "analysis"
+        analysis = category_dir(self.root, "AC") / "analysis"
         # Windows 未開啟開發者模式時，建立 symlink 需要額外權限。
         original = analysis
         renamed = analysis.with_name("analysis-saved")

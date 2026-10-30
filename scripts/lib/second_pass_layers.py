@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from review_core import ANALYSIS_ROOT, read_json as _read
-from review_decision import _is_weak_source_evidence
+from review_decision import is_weak_source_evidence
 
 VERSION = 1
 RESERVED = "__layered__"
@@ -133,7 +133,7 @@ def record_errors(target: Path, path: str, record: Any, plan: dict,
         return [f"第二輪抽樣：{path} 不能讀取來源：{type(exc).__name__}"]
     if end > len(text.splitlines()):
         return [f"第二輪抽樣：{path} 超出實際來源行號"]
-    if _is_weak_source_evidence(proof, target) is True:
+    if is_weak_source_evidence(proof, target) is True:
         return [f"第二輪抽樣：{path} 僅有註解、宣告或 using，不能作為證據"]
     if outcome == "confirmed_vulnerability":
         finding_id = record.get("finding_id")

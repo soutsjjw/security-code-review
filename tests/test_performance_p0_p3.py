@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 import review_log
-from analysis_prepare import _run_roslyn
+from analysis_prepare import run_roslyn
 from file_review_skeleton import INDEX, skeleton
 from review_queue import build_queue, load_rules
 from source_reader import source_digest
@@ -203,12 +203,12 @@ class RoslynBuildCacheTests(unittest.TestCase):
                  patch.dict("os.environ", {"SECURITY_CODE_REVIEW_ROSLYN_CACHE": "1"}), \
                  patch("analysis_prepare.subprocess.run", side_effect=fake_run):
                 for _ in range(2):
-                    result, errors = _run_roslyn(root, ["Service.cs"], probe)
+                    result, errors = run_roslyn(root, ["Service.cs"], probe)
                     self.assertEqual(errors, [])
                     self.assertIn("Service.cs", result)
                 self.assertEqual(calls.count("build"), 1)
                 binary[0].write_bytes(b"tampered")
-                _run_roslyn(root, ["Service.cs"], probe)
+                run_roslyn(root, ["Service.cs"], probe)
                 self.assertEqual(calls.count("build"), 2)
 
 

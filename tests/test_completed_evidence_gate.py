@@ -130,7 +130,7 @@ class CompletedEvidenceGateTests(unittest.TestCase):
         snapshot = {"source_hashes": {}}
         check = {"id": "AC-01", "status": "pass"}
         sidecar = {"AC-01": {"status": "pass", "control_proof_mode": "external_verified"}}
-        with patch("control_effectiveness._external_pass_errors", return_value=[]) as verify:
+        with patch("control_effectiveness.external_pass_errors", return_value=[]) as verify:
             self.assertEqual(trace_errors(
                 self.target, index, snapshot, check, {}, "cross_file",
                 verifications_override=sidecar,

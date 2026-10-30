@@ -8,8 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from control_proofs import _location_errors
-from review_decision import _is_weak_source_evidence
+from control_proofs import location_errors
+from review_decision import is_weak_source_evidence
 from review_snapshot import high_tier_rules
 from review_core import ANALYSIS_ROOT
 
@@ -23,17 +23,17 @@ HISTORY = RELATIVE / "second-pass-history"
 HIGH_RISK_RULES = high_tier_rules()
 
 
-def _evidence_errors(target: Path, proof: Any, rid: str, label: str,
+def evidence_errors(target: Path, proof: Any, rid: str, label: str,
                      inspected: set[str], known: set[str], status: str,
                      audit: dict | None, formal_evidence: list[dict]) -> list[str]:
     if not isinstance(proof, dict):
         return [f"{rid}: {label} 缺少具體來源證據"]
     kind = proof.get("kind")
     if kind in {"source", "configuration"}:
-        issues, _ = _location_errors(target, known, inspected, proof, f"{rid}: {label}")
+        issues, _ = location_errors(target, known, inspected, proof, f"{rid}: {label}")
         if issues:
             return issues
-        if _is_weak_source_evidence(proof, target) is True:
+        if is_weak_source_evidence(proof, target) is True:
             return [f"{rid}: {label} 只有宣告、using 或註解，不能證明反例"]
         return []
     if kind == "external_gap" and status == "review":

@@ -22,11 +22,11 @@ STATE = REPORT / "logs/repair-waves/state.json"
 VERSION = 2
 
 
-def _assessment(target: Path) -> dict[str, Any]:
+def load_assessment(target: Path) -> dict[str, Any]:
     return _read(target / REPORT / "assessment.json")
 
 
-def _evidence_state(target: Path) -> dict[str, Any]:
+def evidence_state(target: Path) -> dict[str, Any]:
     from review_snapshot import snapshot_errors
     from evidence_integrity import errors as integrity_errors
     failures = snapshot_errors(target) + integrity_errors(target)
@@ -49,7 +49,7 @@ def _evidence_state(target: Path) -> dict[str, Any]:
             "manifest_sha256": _file_sha(manifest) if manifest.is_file() else None}
 
 
-def _rule_ids_from_file(row: dict) -> set[str]:
+def rule_ids_from_file(row: dict) -> set[str]:
     """Collect owners without assigning rules from generic path heuristics."""
     owners = {rr.get("rule_id") for rr in row.get("rule_reviews", [])
               if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
@@ -67,9 +67,9 @@ def _rule_ids_from_file(row: dict) -> set[str]:
     return owners
 
 
-def _formal_fingerprints(target: Path) -> dict[str, Any]:
+def formal_fingerprints(target: Path) -> dict[str, Any]:
     """Digests of real formal records; checkpoint is not itself formal proof."""
-    assessment = _assessment(target)
+    assessment = load_assessment(target)
     analysis = target / REPORT / "analysis"
     snapshots: dict[str, Any] = {}
     for section, filename in (("closures", "rule-closures.json"),
@@ -88,7 +88,7 @@ def _formal_fingerprints(target: Path) -> dict[str, Any]:
     snapshots["checks"] = {c["id"]: {"digest": _digest(c), "status": c.get("status")}
                            for c in checks}
     snapshots["file_reviews"] = {f["path"]: {"digest": _digest(f),
-                                             "owners": sorted(_rule_ids_from_file(f))}
+                                             "owners": sorted(rule_ids_from_file(f))}
                                   for f in files}
     snapshots["findings"] = {f["id"]: {"digest": _digest(f),
                                        "owners": sorted(set(f.get("check_ids") or []))}
@@ -102,7 +102,7 @@ def _formal_fingerprints(target: Path) -> dict[str, Any]:
     return snapshots
 
 
-def _formal_diff(previous: dict, current: dict) -> tuple[set[str], set[str]]:
+def formal_diff(previous: dict, current: dict) -> tuple[set[str], set[str]]:
     """Conservatively include externally changed evidence in sampling."""
     changed: set[str] = set()
     mandatory: set[str] = set()
@@ -135,21 +135,21 @@ def _formal_diff(previous: dict, current: dict) -> tuple[set[str], set[str]]:
     return changed, mandatory
 
 
-def _stage_clean(target: Path) -> None:
+def ensure_stage_clean(target: Path) -> None:
     directory = target / REPORT / STAGED
     if directory.is_dir() and list(directory.glob("*.json")):
         raise ValueError("存在其他待整合暫存資料；先合法處理，不得混入本批")
 
 
-def _diagnose_and_plan(target: Path) -> tuple[dict, dict]:
+def diagnose_and_plan(target: Path) -> tuple[dict, dict]:
     from review_blockers import diagnose
-    assessment = _assessment(target)
+    assessment = load_assessment(target)
     diagnosis = diagnose(target, assessment)
     plan = repair_plan(assessment, diagnosis)
     return diagnosis, plan
 
 
-def _write_state(path: Path, state: dict) -> None:
+def write_state(path: Path, state: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_symlink() or path.parent.is_symlink():
         raise ValueError("不接受指向外部的 checkpoint 符號連結")
@@ -161,7 +161,7 @@ def _write_state(path: Path, state: dict) -> None:
 
 
 @contextmanager
-def _single_writer(target: Path):
+def single_writer(target: Path):
     lock = target / STATE.parent / ".writer.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -175,7 +175,7 @@ def _single_writer(target: Path):
         lock.unlink(missing_ok=True)
 
 
-def _load_state(target: Path) -> dict:
+def load_state(target: Path) -> dict:
     path = target / STATE
     if path.is_symlink():
         raise ValueError("不接受 checkpoint 符號連結")
@@ -185,21 +185,21 @@ def _load_state(target: Path) -> dict:
     return state
 
 
-def _assert_state_current(target: Path, state: dict) -> None:
+def assert_state_current(target: Path, state: dict) -> None:
     if state.get("inflight"):
         raise ValueError("存在待對帳的正式交易；禁止重放，先執行 --reconcile")
     if state.get("sample_chain") is not None:
         verify_sample_chain(state["sample_chain"])
-    current = _evidence_state(target)
+    current = evidence_state(target)
     if current != state.get("last_evidence"):
         raise ValueError("正式資料或來源快照已在協調器外變更；停止並人工核對")
 
 
-def _all_completed(state: dict) -> bool:
+def all_completed(state: dict) -> bool:
     return len(state["completed_batches"]) == len(state["batches"])
 
 
-def _next_batch(state: dict) -> dict | None:
+def next_batch(state: dict) -> dict | None:
     done = set(state["completed_batches"])
     for batch in state["batches"]:
         if batch["batch_id"] not in done and set(batch["depends_on_batch_ids"]) <= done:
@@ -207,13 +207,13 @@ def _next_batch(state: dict) -> dict | None:
     return None
 
 
-def _batch_blockers(batch: dict, tasks: list[dict]) -> set[tuple[str, tuple[str, ...]]]:
+def batch_blockers(batch: dict, tasks: list[dict]) -> set[tuple[str, tuple[str, ...]]]:
     ids = set(batch["task_ids"])
     return {(item["message"], tuple(sorted(item["rule_ids"])))
             for task in tasks if task["task_id"] in ids
             for item in task["blocker_details"]}
 
 
-def _blocker_keys(diagnostic: dict) -> set[tuple[str, tuple[str, ...]]]:
+def blocker_keys(diagnostic: dict) -> set[tuple[str, tuple[str, ...]]]:
     return {(str(b["message"]), tuple(sorted(b.get("rule_ids") or [])))
             for b in diagnostic.get("blockers", [])}

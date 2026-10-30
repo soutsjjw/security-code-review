@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 import evidence_integrity as ledger
 from review_safety import stage, integrate, _write
-from review_snapshot import report_dir, _read
+from review_snapshot import report_dir, read_report_json
 
 
 class EvidenceIntegrityTests(unittest.TestCase):
@@ -238,7 +238,7 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.seal()
         with (patch("review_snapshot.current_hashes",
                     return_value={"Program.cs": "updated-source-hash"}),
-              patch("review_snapshot._revision", return_value="updated-git-revision")):
+              patch("review_snapshot.git_revision", return_value="updated-git-revision")):
             refresh_snapshot(self.root)
         self.assertEqual(ledger.errors(self.root), [])
         manifest = json.loads((self.root / ledger.MANIFEST).read_text("utf-8"))
@@ -266,16 +266,16 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.assertEqual(ledger.errors(self.root), [])
         with (patch("review_snapshot.current_hashes",
                     return_value=dict(self.snapshot["source_hashes"])),
-              patch("review_snapshot._revision", return_value="new-git-revision")):
+              patch("review_snapshot.git_revision", return_value="new-git-revision")):
             refresh_snapshot(self.root)
         self.assertEqual(ledger.errors(self.root), [])
         self.assertFalse((self.report / "analysis/recheck-required.json").exists())
-        self.assertEqual(_read(self.report / "analysis/rule-closures.json"), closure)
-        reanchored = _read(self.report / "analysis/control-verifications.json")
+        self.assertEqual(read_report_json(self.report / "analysis/rule-closures.json"), closure)
+        reanchored = read_report_json(self.report / "analysis/control-verifications.json")
         self.assertEqual(reanchored["AC-08"]["git_revision"], "new-git-revision")
         self.assertNotEqual(reanchored["AC-08"]["snapshot_fingerprint"], old_fp)
         self.assertEqual(reanchored["AU-09"], proof["AU-09"])
-        self.assertEqual(_read(self.report / "assessment.json"), self.assessment)
+        self.assertEqual(read_report_json(self.report / "assessment.json"), self.assessment)
         journal = json.loads((self.root / ledger.JOURNAL / "00000002.json").read_text("utf-8"))
         self.assertEqual(journal["event"], "snapshot-refresh")
 
@@ -285,10 +285,10 @@ class EvidenceIntegrityTests(unittest.TestCase):
         (self.root / ledger.MANIFEST).unlink()
         with (patch("review_snapshot.current_hashes",
                     return_value=dict(self.snapshot["source_hashes"])),
-              patch("review_snapshot._revision", return_value="new-git-revision")):
+              patch("review_snapshot.git_revision", return_value="new-git-revision")):
             with self.assertRaises(ValueError):
                 refresh_snapshot(self.root)
-        self.assertEqual(_read(self.report / "analysis/review-snapshot.json"), self.snapshot)
+        self.assertEqual(read_report_json(self.report / "analysis/review-snapshot.json"), self.snapshot)
 
     def test_legacy_index_not_forced_into_unrequested_migration(self):
         _write(self.root / ledger.INDEX, {"schema_version": 6})

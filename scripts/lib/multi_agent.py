@@ -11,11 +11,12 @@ import json
 import sys
 from pathlib import Path
 
-from multi_agent_ledger import (ANALYSIS, LEDGER, PROBE, RETRY_LIMIT, _active, _read, _write)
+from multi_agent_ledger import ANALYSIS, LEDGER, PROBE, RETRY_LIMIT, active_plan, write_ledger_json
 from multi_agent_planning import (begin_integration, commit_integration, plan, probe_template, record_probe,
                                  renew_probe)
 from multi_agent_workers import (accept, accept_followup, accept_followup_stdin, accept_stdin, blind_tasks,
                                 claim, claim_batch, fail, followup, renew_budget, resolve_main, summary)
+from review_core import load_json_object
 
 
 def main() -> int:
@@ -42,11 +43,11 @@ def main() -> int:
         elif args.record_probe:
             if args.evidence is None:
                 raise ValueError("--record-probe 必須指定 --evidence")
-            answer = record_probe(root, _read(args.evidence))
+            answer = record_probe(root, load_json_object(args.evidence))
         elif args.renew_probe:
             if args.evidence is None:
                 raise ValueError("--renew-probe 需提供新試跑紀錄 --evidence")
-            answer = renew_probe(root, _read(args.evidence))
+            answer = renew_probe(root, load_json_object(args.evidence))
         elif args.plan:
             state = plan(root, max_agents=args.max_agents,
                          budget_tokens=args.budget_tokens, task_tokens=args.task_tokens,
@@ -64,7 +65,7 @@ def main() -> int:
         elif args.commit_integration:
             answer = commit_integration(root)
         elif args.next:
-            state, _ = _active(root)
+            state, _ = active_plan(root)
             answer = {"tasks": [row["task"] for row in state["tasks"].values()
                                 if row["status"] in ("pending", "failed")
                                 and row["attempts"] < RETRY_LIMIT],

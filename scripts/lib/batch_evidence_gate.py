@@ -6,7 +6,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from review_completion import _template
+from review_completion import template_signature
 
 
 def _reason_clusters(rows: list[dict]) -> Counter[tuple[str, str]]:
@@ -18,7 +18,7 @@ def _reason_clusters(rows: list[dict]) -> Counter[tuple[str, str]]:
         keys: set[str] = set()
         for rr in row.get("rule_reviews") or []:
             if isinstance(rr, dict) and isinstance(rr.get("reason"), str):
-                keys.add(_template(rr["reason"].replace(row["path"], "<PATH>")))
+                keys.add(template_signature(rr["reason"].replace(row["path"], "<PATH>")))
         for key in keys:
             counts[(row["path"], key)] += 1
     return counts
@@ -92,12 +92,12 @@ def batch_quality_errors(target: Path, before: dict[str, Any], after: dict[str, 
     old_counts: Counter[str] = Counter()
     new_counts: Counter[str] = Counter()
     for path, row in existing.items():
-        keys = {_template(rr["reason"].replace(path, "<PATH>"))
+        keys = {template_signature(rr["reason"].replace(path, "<PATH>"))
                 for rr in row.get("rule_reviews") or []
                 if isinstance(rr, dict) and isinstance(rr.get("reason"), str)}
         old_counts.update(keys)
     for path, row in candidate.items():
-        keys = {_template(rr["reason"].replace(path, "<PATH>"))
+        keys = {template_signature(rr["reason"].replace(path, "<PATH>"))
                 for rr in row.get("rule_reviews") or []
                 if isinstance(rr, dict) and isinstance(rr.get("reason"), str)}
         new_counts.update(keys)

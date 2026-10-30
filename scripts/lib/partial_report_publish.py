@@ -95,9 +95,9 @@ def publish(root: Path, outputs: Sequence[tuple[Path, str]], *,
         try:
             for destination, content in outputs:
                 # 重驗父目錄及 symlink，避免等待發布鎖期間被換掉。
-                from partial_review_store import _artifact
+                from partial_review_store import artifact_path
                 category = destination.relative_to(root / PARTIAL_ROOT).parts[0]
-                guarded = _artifact(root, category, destination.name)
+                guarded = artifact_path(root, category, destination.name)
                 if guarded != destination or destination.is_symlink():
                     raise PublicationError("分類輸出路徑在驗證後遭到更改")
                 destination.parent.mkdir(parents=True, exist_ok=True)

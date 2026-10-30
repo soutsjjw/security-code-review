@@ -13,7 +13,7 @@ from pathlib import Path
 from execution_boundary_events import (append_violation, verify_run, fingerprint,
                                        snapshot_run_summary)
 from review_core import REPORT_ROOT, write_json_exclusive
-from review_log import _paths
+from review_log import log_paths
 
 REPORT = REPORT_ROOT
 SCRIPT_EXT = {".py", ".sh", ".js", ".ps1", ".cmd", ".bat", ".exe", ".dll"}
@@ -40,9 +40,9 @@ def scripts(target):
     return items
 
 def begin(target):
-    from review_log import _load
+    from review_log import load_metadata
     target = Path(target).resolve()
-    active = _load(_paths(target)[1])
+    active = load_metadata(log_paths(target)[1])
     if not active or active.get("status") != "running":
         raise ValueError("必須先執行 review_log.py start")
     run_id = active["run_id"]
@@ -56,9 +56,9 @@ def begin(target):
     return baseline
 
 def inspect(target, *, batch_id, stage="first_pass", record=False):
-    from review_log import _load
+    from review_log import load_metadata
     target = Path(target).resolve()
-    active = _load(_paths(target)[1])
+    active = load_metadata(log_paths(target)[1])
     if not active or active.get("status") != "running":
         raise ValueError("缺少有效的 running Run")
     run_id = active["run_id"]

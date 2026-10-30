@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from review_decision import _is_weak_source_evidence, load_decision_matrix
+from review_decision import is_weak_source_evidence, load_decision_matrix
 from source_reader import read_source_text
 from review_core import ANALYSIS_ROOT
 
@@ -46,7 +46,7 @@ def _point_errors(root: Path, point: Any, known: set[str],
         return [f"{label}: 無法重新讀取來源"]
     if hi > len(lines):
         return [f"{label}: 行號超出實際來源"]
-    if _is_weak_source_evidence(point, root) is True:
+    if is_weak_source_evidence(point, root) is True:
         return [f"{label}: 引用只有宣告／註解等薄弱來源，不能作為控制鏈證據"]
     if not any(line.strip() and not line.lstrip().startswith(("//", "/*", "*", "#"))
                for line in lines[lo - 1:hi]):
@@ -88,7 +88,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
         return [f"{rid}: Q2 外部責任尚未獲正式證據確認，不能省略控制鏈"]
     if status == "pass":
         import json
-        from control_effectiveness import _external_pass_errors, REQUIRED_SCENARIOS
+        from control_effectiveness import external_pass_errors, REQUIRED_SCENARIOS
         file = target / ANALYSIS_ROOT / "control-verifications.json"
         try:
             records = json.loads(file.read_text(encoding="utf-8"))
@@ -98,7 +98,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
             records = verifications_override
         proof = records.get(rid) if isinstance(records, dict) else None
         if (isinstance(proof, dict) and proof.get("control_proof_mode") == "external_verified"
-                and not _external_pass_errors(target, check, proof,
+                and not external_pass_errors(target, check, proof,
                     set(snapshot.get("source_hashes") or {}), snapshot,
                     set(REQUIRED_SCENARIOS.get(rid, ("alternate_or_bypass_path",))))):
             return []

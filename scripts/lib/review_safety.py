@@ -16,11 +16,11 @@ from pathlib import Path
 from typing import Any
 
 from snapshot_impact import affected_rules, source_delta
-from review_core import snapshot_fingerprint, write_json_atomic as _write
+from review_core import read_json as integrity_read, snapshot_fingerprint, write_json_atomic as _write
 import review_snapshot
 from adversarial_recheck import second_pass_errors
 from batch_evidence_gate import batch_quality_errors
-from evidence_integrity import _read as integrity_read, MANIFEST as integrity_manifest
+from evidence_integrity import MANIFEST as integrity_manifest
 
 
 def safety_errors(target: Path, assessment: dict) -> list[str]:
@@ -31,7 +31,7 @@ def safety_errors(target: Path, assessment: dict) -> list[str]:
               + verification_errors(target, assessment.get("checks", []))
               + adjudication_errors(target, assessment.get("checks", []))
               + second_pass_errors(target, assessment))
-    outstanding = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.RECHECK, {}) or {}
+    outstanding = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.RECHECK, {}) or {}
     ids = outstanding.get("rule_ids", [])
     if ids:
         errors.append("來源異動後仍有待重新檢核的規則：" + "、".join(ids[:15]))
@@ -63,7 +63,7 @@ def stage(target: Path, payload_path: Path) -> str:
         from execution_boundary import require_clean
         require_clean(target, batch_id=hashlib.sha256(str(payload_path).encode("utf-8")).hexdigest()[:24],
                       stage="first_pass")
-    payload = review_snapshot._read(payload_path)
+    payload = review_snapshot.read_report_json(payload_path)
     if not isinstance(payload, dict):
         raise ValueError("暫存資料必須為 JSON 物件")
     known_sections = {"file_reviews", "checks", "findings", "finding_revisions", "closures",
@@ -76,7 +76,7 @@ def stage(target: Path, payload_path: Path) -> str:
         value = payload.get(key, {} if is_map else [])
         if not isinstance(value, dict if is_map else list):
             raise ValueError(f"暫存 {key} 型別錯誤")
-    snapshot = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
+    snapshot = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
     staged = {"snapshot_git_revision": snapshot["git_revision"],
               "source_hashes": snapshot["source_hashes"],
               "payload": payload}
@@ -112,10 +112,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
         batch_key = hashlib.sha256("|".join(p.name for p in paths).encode("utf-8")).hexdigest()[:24]
         boundary_attestation = require_clean(target, batch_id=batch_key, stage="first_pass")
     assessment_path = review_snapshot.report_dir(target) / "assessment.json"
-    data = review_snapshot._read(assessment_path)
+    data = review_snapshot.read_report_json(assessment_path)
     if not isinstance(data, dict):
         raise ValueError("assessment.json 不存在或格式錯誤")
-    snapshot = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
+    snapshot = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
     from evidence_integrity import enabled as integrity_enabled
     integrity_head = (integrity_read(target / integrity_manifest)["head"]
                       if integrity_enabled(target) else None)
@@ -127,10 +127,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
     findings = {r["id"]: r for r in data.get("findings", [])}
     amendment_history = list(data.get("finding_amendments") or [])
     amended_findings: set[str] = set()
-    closures = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.CLOSURES, {}) or {}
-    control_verifications = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.CONTROL_VERIFICATIONS, {}) or {}
-    decision_audits = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.DECISION_AUDITS, {}) or {}
-    adversarial_reviews = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.ADVERSARIAL_REVIEWS, {}) or {}
+    closures = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.CLOSURES, {}) or {}
+    control_verifications = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.CONTROL_VERIFICATIONS, {}) or {}
+    decision_audits = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.DECISION_AUDITS, {}) or {}
+    adversarial_reviews = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.ADVERSARIAL_REVIEWS, {}) or {}
     # Keep pre-integration sidecars for delta validation of existing completed evidence.
     previous_closures = json.loads(json.dumps(closures, ensure_ascii=False))
     previous_verifications = json.loads(json.dumps(control_verifications, ensure_ascii=False))
@@ -145,14 +145,14 @@ def integrate(target: Path, *, allow_revision: bool = False,
     new_decision_audits: set[str] = set()
     new_adversarial_reviews: set[str] = set()
     aliases: dict[str, str] = {}
-    recheck = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.RECHECK, {}) or {}
+    recheck = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.RECHECK, {}) or {}
     required_recheck = set(recheck.get("rule_ids", []))
     newly_rechecked: set[str] = set()
     newly_rechecked_receipts: dict[str, dict] = {}
 
     # 先於記憶體完整調和、偵測衝突，絕不分批覆蓋正式檔。
     for path in paths:
-        staged = review_snapshot._read(path)
+        staged = review_snapshot.read_report_json(path)
         if integrity_head is not None and staged.get("integrity_head") != integrity_head:
             raise ValueError(f"{path.name}: 暫存基礎版本已被其他整合改變；請重新核對並暫存")
         if (staged.get("snapshot_git_revision") != snapshot["git_revision"]
@@ -304,7 +304,7 @@ def integrate(target: Path, *, allow_revision: bool = False,
             if rid not in checks:
                 raise ValueError(f"{rid}: 第二輪複核包含未知規則")
             from adversarial_recheck import BASELINE, digest
-            baseline = review_snapshot._read(target / BASELINE, {})
+            baseline = review_snapshot.read_report_json(target / BASELINE, {})
             original = (baseline.get("checks") or {}).get(rid) if isinstance(baseline, dict) else None
             if not isinstance(original, dict):
                 raise ValueError(f"{rid}: 尚未執行 --begin-second-pass 固定第一輪判定")
@@ -328,7 +328,7 @@ def integrate(target: Path, *, allow_revision: bool = False,
             if not isinstance(layer, dict) or not isinstance(layer.get("plan"), dict):
                 raise ValueError("第二輪抽樣：缺少已封存的分層計畫")
             samples = dict(layer.get("samples", {}))
-            source_snapshot = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT, {})
+            source_snapshot = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT, {})
             sample_assessment = {"findings": list(findings.values()), "checks": list(checks.values())}
             for source_path, sample in sample_entries.items():
                 problems = record_errors(target, source_path, sample, layer["plan"],
@@ -430,17 +430,17 @@ def refresh_snapshot(target: Path) -> None:
         problems = integrity_errors(target)
         if problems:
             raise ValueError("；".join(problems))
-    old = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
+    old = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.SNAPSHOT)
     if not isinstance(old, dict) or not isinstance(old.get("source_hashes"), dict):
         raise ValueError("尚未建立有效審查快照")
-    assessment = review_snapshot._read(review_snapshot.report_dir(target) / "assessment.json", {}) or {}
+    assessment = review_snapshot.read_report_json(review_snapshot.report_dir(target) / "assessment.json", {}) or {}
     excludes = sorted({str(row.get("path", "")) for row in
                        (assessment.get("scope_details") or {}).get("excluded_paths", [])
                        if isinstance(row, dict)})
     if excludes != old.get("excluded_paths", []):
         raise ValueError("審查排除範圍已改變；須完整重新盤點，禁止增量套用舊結論")
     current = review_snapshot.current_hashes(target, excludes)
-    updated_snapshot = {"schema_version": 1, "git_revision": review_snapshot._revision(target),
+    updated_snapshot = {"schema_version": 1, "git_revision": review_snapshot.git_revision(target),
                         "source_hashes": current, "excluded_paths": excludes}
     if old == updated_snapshot:
         return
@@ -449,8 +449,8 @@ def refresh_snapshot(target: Path) -> None:
     changed_paths = sorted(set().union(*map(set, delta.values())))
     updates: dict[str, Any] = {"analysis/review-snapshot.json": updated_snapshot}
     if changed_paths:
-        index = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.INDEX, {}) or {}
-        closures = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.CLOSURES, {}) or {}
+        index = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.INDEX, {}) or {}
+        closures = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.CLOSURES, {}) or {}
         # Also consider newly introduced control patterns in modified sources.
         # Parser failures force the conservative full-rule fallback.
         current_candidates = {}
@@ -466,7 +466,7 @@ def refresh_snapshot(target: Path) -> None:
         impact = affected_rules(old["source_hashes"], current, index,
                                 assessment, closures, review_snapshot.rule_scopes(),
                                 current_candidates=current_candidates)
-        previous = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.RECHECK, {}) or {}
+        previous = review_snapshot.read_report_json(review_snapshot.report_dir(target) / review_snapshot.RECHECK, {}) or {}
         recheck = {
             "schema_version": 2,
             "rule_ids": sorted(set(previous.get("rule_ids") or []) | set(impact["rule_ids"])),
@@ -497,7 +497,7 @@ def refresh_snapshot(target: Path) -> None:
         old_fp = snapshot_fingerprint(old)
         new_fp = snapshot_fingerprint(updated_snapshot)
         for sidecar in (review_snapshot.CONTROL_VERIFICATIONS, review_snapshot.DECISION_AUDITS):
-            records = review_snapshot._read(review_snapshot.report_dir(target) / sidecar)
+            records = review_snapshot.read_report_json(review_snapshot.report_dir(target) / sidecar)
             if records is None:
                 continue
             if not isinstance(records, dict):
@@ -564,7 +564,7 @@ def main() -> int:
             print(json.dumps(seal(args.target, explicit=True), ensure_ascii=False))
         elif args.begin_second_pass or args.restart_second_pass:
             from adversarial_recheck import begin_second_pass
-            data = review_snapshot._read(review_snapshot.report_dir(args.target) / "assessment.json", {}) or {}
+            data = review_snapshot.read_report_json(review_snapshot.report_dir(args.target) / "assessment.json", {}) or {}
             print(json.dumps(begin_second_pass(args.target, data, restart=args.restart_second_pass),
                              ensure_ascii=False))
         elif args.snapshot_refresh:
@@ -578,7 +578,7 @@ def main() -> int:
         elif args.plan:
             print(json.dumps(review_snapshot.scope_tasks(args.target), ensure_ascii=False, indent=2))
         elif args.validate:
-            errors = safety_errors(args.target, review_snapshot._read(review_snapshot.report_dir(args.target) / "assessment.json", {}) or {})
+            errors = safety_errors(args.target, review_snapshot.read_report_json(review_snapshot.report_dir(args.target) / "assessment.json", {}) or {})
             for error in errors:
                 print("ERROR:", error, file=sys.stderr)
             if errors:

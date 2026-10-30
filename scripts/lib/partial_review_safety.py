@@ -16,9 +16,8 @@ from review_snapshot import closure_errors
 from control_effectiveness import verification_errors
 from decision_adjudication import adjudication_errors
 from adversarial_recheck import CONTRACT_VERSION, digest, second_pass_errors
-from partial_review_store import (BASELINE, EVIDENCE_FILES, STAGED_FILE, _artifact, _load,
-                                  _snapshot, read_category)
-from review_core import canonical_digest as _digest, write_json_atomic as _atomic
+from partial_review_store import BASELINE, EVIDENCE_FILES, STAGED_FILE, artifact_path, source_snapshot, read_category
+from review_core import canonical_digest as _digest, load_json, write_json_atomic as _atomic
 from review_core import snapshot_fingerprint
 from analysis_candidates import candidate_hits
 from analysis_prepare import (ADAPTERS, CANDIDATE_VERSION, cross_file_call_hints, DOTNET_EXTENSIONS,
@@ -45,13 +44,13 @@ def _shared_path(root: Path) -> Path:
 
 def prepare_index(root: Path, catalog: dict) -> dict:
     """只產生 partial/_shared 的結構索引；不改動正式審查 analysis。"""
-    from analysis_prepare import _run_roslyn, probe_codegraph, probe_roslyn
+    from analysis_prepare import run_roslyn, probe_codegraph, probe_roslyn
     from source_reader import read_source_text
     validate_catalog(catalog)
     root = root.resolve()
     adapter = ADAPTERS[0]
     detection = adapter.detect(root)
-    snapshot = _snapshot(root)
+    snapshot = source_snapshot(root)
     files = snapshot["source_hashes"]
     if not detection["supported"] or any(path.endswith(".vue") for path in files):
         raise ScopeError("分類結構索引僅支援 .NET Core／現代 .NET；不允許略過不支援框架")
@@ -60,8 +59,8 @@ def prepare_index(root: Path, catalog: dict) -> dict:
     if seal.is_symlink():
         raise ScopeError("共享索引完整性紀錄不允許 symbolic link")
     if index_path.is_file():
-        old = _load(index_path)
-        seal_obj = _load(seal) if seal.is_file() else None
+        old = load_json(index_path)
+        seal_obj = load_json(seal) if seal.is_file() else None
         if (isinstance(old, dict) and old.get("source_hashes") == files
                 and old.get("git_revision") == snapshot["git_revision"]
                 and old.get("schema_version") == INDEX_VERSION
@@ -75,12 +74,12 @@ def prepare_index(root: Path, catalog: dict) -> dict:
         raise ScopeError("共用索引驗證紀錄存在，但索引缺失；拒絕覆寫")
     codegraph, roslyn = probe_codegraph(root), probe_roslyn()
     csharp = sorted(p for p in files if p.endswith(".cs"))
-    parsed, errors = _run_roslyn(root, csharp, roslyn)
+    parsed, errors = run_roslyn(root, csharp, roslyn)
     hints = cross_file_call_hints(parsed)
     candidates = {p: candidate_hits(p, read_source_text(root / p)[0])
                   for p in files if Path(p).suffix.lower() in DOTNET_EXTENSIONS}
     relationships = build_relationships(root, sorted(files), hints)
-    current = _snapshot(root)
+    current = source_snapshot(root)
     if current != snapshot:
         raise ScopeError("建立索引時來源版本異動，拒絕保存不一致結果")
     payload = {
@@ -108,10 +107,10 @@ def prepare_index(root: Path, catalog: dict) -> dict:
 
 
 def _evidence(root: Path, category: str, key: str) -> dict:
-    path = _artifact(root, category, EVIDENCE_FILES[key])
+    path = artifact_path(root, category, EVIDENCE_FILES[key])
     if not path.is_file():
         return {}
-    data = _load(path)
+    data = load_json(path)
     if not isinstance(data, dict):
         raise ScopeError(f"{category}: {key} 應為規則 ID 對應的物件")
     return data
@@ -121,12 +120,12 @@ def _index(root: Path, assessment: dict) -> tuple[dict, list[str]]:
     path = _shared_path(root)
     if not path.is_file():
         return {}, ["尚未建立分類共用的來源結構索引；先執行 --prepare"]
-    obj = _load(path)
+    obj = load_json(path)
     seal_path = root / INDEX_SEAL
     if seal_path.is_symlink():
         return {}, ["共享索引完整性紀錄不允許 symbolic link"]
-    seal = _load(seal_path) if seal_path.is_file() else None
-    snap = _snapshot(root)
+    seal = load_json(seal_path) if seal_path.is_file() else None
+    snap = source_snapshot(root)
     if (not isinstance(seal, dict) or seal.get("index_sha256") != _digest(obj)
             or seal.get("source_snapshot_sha256") != snap["fingerprint"]):
         return {}, ["共用結構索引完整性校驗失敗，拒絕未經驗證的候選關聯資料"]
@@ -145,7 +144,7 @@ def _index(root: Path, assessment: dict) -> tuple[dict, list[str]]:
 
 
 def _snap(root: Path) -> dict:
-    current = _snapshot(root)
+    current = source_snapshot(root)
     return {"schema_version": 1, "git_revision": current["git_revision"],
             "source_hashes": current["source_hashes"], "excluded_paths": []}
 
@@ -182,7 +181,7 @@ def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
     checks = assessment["checks"]
     if any((c.get("execution") or {}).get("state") != "completed" for c in checks):
         raise ScopeError(f"{category}: 第一輪 {len(checks)} 項尚未全數完成")
-    if _artifact(root, category, STAGED_FILE).exists():
+    if artifact_path(root, category, STAGED_FILE).exists():
         raise ScopeError(f"{category}: 尚有未整合的工作暫存，禁止開始第二輪")
     problems = _first_pass(root, category, assessment, index)
     if problems:
@@ -192,9 +191,9 @@ def begin_second_pass(root: Path, category: str, catalog: dict) -> dict:
                 "checks": {c["id"]: {"status": c["status"], "digest": digest(c),
                                      "decision_reason": c.get("decision_reason", "")}
                            for c in checks}}
-    path = _artifact(root, category, BASELINE)
+    path = artifact_path(root, category, BASELINE)
     if path.is_file():
-        previous = _load(path)
+        previous = load_json(path)
         if previous != baseline:
             raise ScopeError("第一輪固定判定已有差異；不可覆寫。請查明版本及矛盾來源")
         return {"category": category, "already_existed": True,
@@ -213,8 +212,8 @@ def validate(root: Path, category: str, catalog: dict) -> dict:
     if index:
         errors += _first_pass(root, category, assessment, index)
     coverage = build_source_coverage(assessment, root, selected_categories=(category,))
-    baseline_path = _artifact(root, category, BASELINE)
-    baseline = _load(baseline_path) if baseline_path.is_file() else None
+    baseline_path = artifact_path(root, category, BASELINE)
+    baseline = load_json(baseline_path) if baseline_path.is_file() else None
     reviews = _evidence(root, category, "adversarial_reviews")
     audits = _evidence(root, category, "decision_audits")
     if index and not remaining:

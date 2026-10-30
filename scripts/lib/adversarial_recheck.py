@@ -9,7 +9,7 @@ from review_decision import load_decision_matrix
 from review_core import (canonical_digest as digest, read_json as _read, snapshot_fingerprint,
                          write_json_atomic as _write)
 from adversarial_evidence import (BASELINE, HIGH_RISK_RULES, HISTORY, INDEX, RELATIVE, REVIEWS, SNAPSHOT,
-                                  _evidence_errors)
+                                  evidence_errors)
 from adversarial_quality import quality_errors
 from second_pass_layers import build_plan, layered_errors, RESERVED
 
@@ -258,7 +258,7 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
                 errors.append(f"{rid}: {label} 必須標記實際追查結果")
             else:
                 results.append(result)
-            errors += _evidence_errors(target, hypothesis.get("evidence"), rid,
+            errors += evidence_errors(target, hypothesis.get("evidence"), rid,
                                        label, inspected_set, known, status,
                                        decision_audits.get(rid), check.get("evidence") or [])
         if (status == "pass" and any(x not in {"blocked", "not_applicable"} for x in results)
@@ -288,7 +288,7 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
             note = contradiction.get("resolution")
             if not isinstance(note, str) or len(note.strip()) < 30:
                 errors.append(f"{rid}: 矛盾[{i}] 缺少具體裁決原因")
-            errors += _evidence_errors(target, contradiction.get("evidence"), rid,
+            errors += evidence_errors(target, contradiction.get("evidence"), rid,
                                        f"矛盾[{i}]", inspected_set, known, status,
                                        decision_audits.get(rid), check.get("evidence") or [])
     # 新索引啟用 Q4，驗證真正重讀控制分支、反例可區分性及跨規則模板。

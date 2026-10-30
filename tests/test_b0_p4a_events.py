@@ -49,7 +49,7 @@ class BlockerObservationTests(unittest.TestCase):
             self.assertEqual(two["new_count"], 0)
             empty = review_log.observe_blockers(root, {"blockers": [], "blocker_signature": "none"})
             self.assertEqual(empty["resolved_count"], 1)
-            self.assertEqual(review_log._load(review_log._paths(root)[1])["status"], "running")
+            self.assertEqual(review_log.load_metadata(review_log.log_paths(root)[1])["status"], "running")
 
 
 class BoundaryEventsTests(unittest.TestCase):

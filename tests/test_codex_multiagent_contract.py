@@ -33,11 +33,11 @@ class CodexNativeSubagentContractTests(unittest.TestCase):
         self.assertNotIn("維持單代理執行，不啟動子代理", section)
 
     def test_gitless_not_auto_disabled_in_runtime_plan(self):
-        # plan() 位於 planning、_git_state() 位於 ledger；合併檢查多代理執行期程式碼。
+        # plan() 位於 planning、git_state() 位於 ledger；合併檢查多代理執行期程式碼。
         script = "".join(read(f"scripts/lib/{name}.py") for name in
                          ("multi_agent", "multi_agent_ledger", "multi_agent_planning"))
         self.assertIn("enabled = not probe_errors(root, probe)", script)
-        self.assertNotIn('and _git_state(root)["head"] is not None', script)
+        self.assertNotIn('git_state(root)["head"] is not None', script)
         self.assertIn('return {"head": None, "worktree_digest": None}', script)
         native = read("docs/multi-agent-review.md")
         self.assertIn("不是 Git repo 本身不構成降級理由", native)

@@ -12,7 +12,7 @@ from typing import Any
 from source_reader import digest_matches, read_source_text
 from analysis_candidates import (candidate_hits, has_executable_control, meaningful_source_excerpt,
                                  RULE_EVIDENCE_SIGNALS, source_relevant_to_rule)
-from review_completion import _template
+from review_completion import template_signature
 from scope_paths import relative_path
 
 CATEGORIES = ("AC", "AU", "IN", "CR", "EH", "LG", "DP", "PD", "BC", "SI")
@@ -43,7 +43,7 @@ def repeated_screening_reason_errors(rows: list[Any], *, categories: tuple[str, 
                 continue
             reason = entry.get("reason")
             if isinstance(reason, str) and reason.strip():
-                template = _template(reason.strip().replace(row["path"], "<PATH>"))
+                template = template_signature(reason.strip().replace(row["path"], "<PATH>"))
                 groups[(category, template)].add(row["path"])
     # 比較相同類別的跨檔敘述，不誤把單一檔案十類理由相同當作此處的問題。
     threshold = max(12, (len(zero_rule) + 7) // 8)
@@ -364,16 +364,16 @@ def verified_file_rule_reviews(
                 continue
             summary = row.get("summary")
             if isinstance(summary, str):
-                template = _template(summary.replace(row["path"], "<PATH>"))
+                template = template_signature(summary.replace(row["path"], "<PATH>"))
                 template_groups["逐檔摘要"][template].add(row["path"])
             for item in row.get("rule_reviews", []):
                 if isinstance(item, dict) and isinstance(item.get("reason"), str):
-                    template = _template(item["reason"].replace(row["path"], "<PATH>"))
+                    template = template_signature(item["reason"].replace(row["path"], "<PATH>"))
                     template_groups["逐檔規則結論"][template].add(row["path"])
             for exclusion in row.get("candidate_exclusions", []):
                 if isinstance(exclusion, dict) and isinstance(exclusion.get("reason"), str):
                     reason = exclusion["reason"].replace(row["path"], "<PATH>")
-                    template_groups["候選排除理由"][_template(reason)].add(row["path"])
+                    template_groups["候選排除理由"][template_signature(reason)].add(row["path"])
         threshold = max(15, (len(rows) + 7) // 8)  # 八分之一以上高度同質輸出需要重新核對
         for kind, groups in template_groups.items():
             for paths in groups.values():

@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from typing import Any
 import review_waves_state as ws
-from review_core import canonical_digest as _digest, file_sha256 as _file_sha, REPORT_ROOT
+from review_core import canonical_digest as _digest, file_sha256 as _file_sha, load_json_object, REPORT_ROOT
 from evidence_integrity import MANIFEST, PENDING
 from review_snapshot import STAGED
 
@@ -62,7 +62,7 @@ def _safe_folder(root: Path) -> Path:
 def _verify_official_unchanged(target: Path, state: dict, intent: dict) -> tuple[dict, dict]:
     if (target / PENDING).exists() or (target / PENDING).is_symlink():
         raise ValueError("存在完整性待提交交易，禁止取消；先處理正式復原")
-    evidence = ws._evidence_state(target)  # checks Journal chain and ALL tracked hashes
+    evidence = ws.evidence_state(target)  # checks Journal chain and ALL tracked hashes
     old = intent.get("prior_evidence")
     if (not isinstance(old, dict) or evidence != old
             or evidence != state.get("last_evidence")):
@@ -71,7 +71,7 @@ def _verify_official_unchanged(target: Path, state: dict, intent: dict) -> tuple
     if (not isinstance(manifest.get("head"), str)
             or type(manifest.get("sequence")) is not int or manifest["sequence"] < 0):
         raise ValueError("Manifest sequence/head 格式不合法")
-    fingerprints = ws._formal_fingerprints(target)
+    fingerprints = ws.formal_fingerprints(target)
     if (fingerprints != intent.get("prior_fingerprints")
             or fingerprints != state.get("formal_fingerprints")):
         raise ValueError("正式逐條證據已變更，禁止取消")
@@ -84,7 +84,7 @@ def _check_original(target: Path, state: dict, intent: dict, batch_id: str) -> N
             or not isinstance(intent.get("payload_sha256"), str)
             or len(intent["payload_sha256"]) != 64):
         raise ValueError("僅允許取消明確指定的第一輪未提交 Wave 2 批次")
-    expected = ws._next_batch(state)
+    expected = ws.next_batch(state)
     if not expected or expected.get("batch_id") != batch_id:
         raise ValueError("取消批次已結案、依賴不符或不是目前執行批次")
 
@@ -99,14 +99,14 @@ def _validate_staged(target: Path, state: dict, intent: dict,
         raise ValueError("staged 不是可信的一般檔案")
     if staged.parent.resolve() != source.resolve() or staged.suffix != ".json":
         raise ValueError("staged 檔案不在正式暫存目錄")
-    record = ws._read(staged)
+    record = load_json_object(staged)
     if set(record) != {"snapshot_git_revision", "source_hashes", "payload", "integrity_head"}:
         raise ValueError("staged 欄位異常，不得取消")
     serialized = json.dumps(record, ensure_ascii=False, sort_keys=True)
     expected_name = hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:24] + ".json"
     if staged.name != expected_name:
         raise ValueError("staged 檔名與正式 Stage 內容指紋不一致")
-    snapshot = ws._read(target / ws.REPORT / SNAPSHOT)
+    snapshot = load_json_object(target / ws.REPORT / SNAPSHOT)
     if (record["snapshot_git_revision"] != snapshot.get("git_revision")
             or record["source_hashes"] != snapshot.get("source_hashes")
             or record["integrity_head"] != manifest["head"]):
@@ -125,7 +125,7 @@ def _validate_staged(target: Path, state: dict, intent: dict,
     if payload_path is not None:
         if (payload_path.is_symlink() or not payload_path.is_file()
                 or _file_sha(payload_path) != intent["payload_sha256"]
-                or ws._read(payload_path) != record["payload"]):
+                or load_json_object(payload_path) != record["payload"]):
             raise ValueError("原始 payload SHA256／內容與 staged 或 inflight 不一致")
     return {"file_sha256": _file_sha(staged),
             "payload_digest": _digest(record["payload"]),
@@ -145,7 +145,7 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
     bytes are supplied.
     """
     target = target.resolve()
-    state = ws._load_state(target)
+    state = ws.load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
         raise ValueError("不存在可核對的 inflight 交易")
@@ -165,7 +165,7 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
     # this cannot authorize cancellation until the raw payload is supplied.
     if needs_original and not legacy_authorized:
         from review_snapshot import SNAPSHOT
-        record = ws._read(stage)
+        record = load_json_object(stage)
         if (stage.is_symlink() or not stage.is_file()
                 or set(record) != {"snapshot_git_revision", "source_hashes",
                                    "payload", "integrity_head"}):
@@ -173,7 +173,7 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
         serialization = json.dumps(record, ensure_ascii=False, sort_keys=True)
         if stage.name != hashlib.sha256(serialization.encode("utf-8")).hexdigest()[:24] + ".json":
             raise ValueError("staged 的檔名與內容指紋不同")
-        snapshot = ws._read(target / ws.REPORT / SNAPSHOT)
+        snapshot = load_json_object(target / ws.REPORT / SNAPSHOT)
         if (record["integrity_head"] != manifest["head"]
                 or record["snapshot_git_revision"] != snapshot["git_revision"]
                 or record["source_hashes"] != snapshot["source_hashes"]):
@@ -220,7 +220,7 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
     if not acknowledged:
         raise ValueError("必須明確 --acknowledge-investigation 才可隔離未提交暫存")
     target = target.resolve()
-    state = ws._load_state(target)
+    state = ws.load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
         # Retries are read-only, and must still verify the archived bytes,
@@ -229,7 +229,7 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
                     if x.get("batch_id") == batch_id]
         if not matching:
             raise ValueError("沒有可取消的 inflight 交易")
-        ws._assert_state_current(target, state)
+        ws.assert_state_current(target, state)
         last = matching[-1]
         event_id = last.get("event_id")
         if (not isinstance(event_id, str) or len(event_id) != 32
@@ -365,7 +365,7 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
                                        "receipt": receipt_path.relative_to(target).as_posix(),
                                        "staged_sha256": prepared["staged_sha256"]}]
     state["inflight"] = None
-    ws._write_state(target / ws.STATE, state)
+    ws.write_state(target / ws.STATE, state)
     return {"status": "aborted_uncommitted", "batch_id": batch_id,
             "manifest_sequence_unchanged": manifest["sequence"],
             "completed_batches_unchanged": len(state["completed_batches"]),

@@ -44,14 +44,14 @@ class MultiAgentTests(unittest.TestCase):
         trace.parent.mkdir(parents=True)
         trace.write_text("Synthetic fixture, NOT a real Codex trace.", "utf-8")
         self.trace = trace
-        from multi_agent_ledger import _git_state as original_git_state
+        from multi_agent_ledger import git_state as original_git_state
         self.original_git_state = original_git_state
         self.git = {"head": "a" * 40, "worktree_digest": "b" * 64}
         for name in ("multi_agent_planning.runtime_binding", "multi_agent_guard.runtime_binding"):
             runtime = patch(name, return_value="codex-cli test-version")
             runtime.start()
             self.addCleanup(runtime.stop)
-        patcher = patch("multi_agent_ledger._git_state", return_value=self.git)
+        patcher = patch("multi_agent_ledger.git_state", return_value=self.git)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -68,7 +68,7 @@ class MultiAgentTests(unittest.TestCase):
         # The source tree is not a Git repository, but its authoritative source
         # hashes and executor read-only probe are independently verifiable.
         self.verified_probe()
-        with patch("multi_agent_ledger._git_state",
+        with patch("multi_agent_ledger.git_state",
                    return_value={"head": None, "worktree_digest": None}):
             state = plan(self.root, max_agents=3, task_tokens=2000)
             self.assertTrue(state["multi_agent_enabled"])
@@ -85,7 +85,7 @@ class MultiAgentTests(unittest.TestCase):
                              {"head": None, "worktree_digest": None})
 
     def test_claim_denied_without_verified_probe(self):
-        from multi_agent import _read
+        from review_core import load_json_object
         state = plan(self.root, task_tokens=2000)
         task_id = next(iter(state["tasks"]))
         with self.assertRaisesRegex(ValueError, "禁止使用多代理 claim"):
@@ -106,11 +106,12 @@ class MultiAgentTests(unittest.TestCase):
     def test_probe_expiry_blocks_claim(self):
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
-        from multi_agent import _read, _write
+        from review_core import load_json_object
+        from multi_agent_ledger import write_ledger_json
         probe_path = self.root / PROBE
-        probe = _read(probe_path)
+        probe = load_json_object(probe_path)
         probe["verified_at"] -= 48 * 3600
-        _write(probe_path, probe)
+        write_ledger_json(probe_path, probe)
         with self.assertRaisesRegex(ValueError, "probe|試跑"):
             claim(self.root, next(iter(state["tasks"])), agent_id="codex-test-001")
 
@@ -125,7 +126,7 @@ class MultiAgentTests(unittest.TestCase):
         lock.unlink()
 
     def test_worker_concurrency_cannot_exceed_n(self):
-        from multi_agent import _write
+        from multi_agent_ledger import write_ledger_json
         # Keep each file large enough to create separate tasks.
         for i in range(6):
             name = f"src/Extra{i}.cs"
@@ -135,10 +136,10 @@ class MultiAgentTests(unittest.TestCase):
         report = self.root / ANALYSIS
         snapshot = json.loads((report / "review-snapshot.json").read_text("utf-8"))
         snapshot["source_hashes"] = self.hashes
-        _write(report / "review-snapshot.json", snapshot)
+        write_ledger_json(report / "review-snapshot.json", snapshot)
         index = json.loads((report / "structure-index.json").read_text("utf-8"))
         index["source_hashes"] = self.hashes
-        _write(report / "structure-index.json", index)
+        write_ledger_json(report / "structure-index.json", index)
         self.verified_probe()
         state = plan(self.root, max_agents=3, task_tokens=2000)
         self.assertEqual(state["workers"], 3)
@@ -190,7 +191,7 @@ class MultiAgentTests(unittest.TestCase):
             self.root, task, result, self.hashes,
             challenges={path: {str(n): __import__("multi_agent_guard").proof_line_hash(
                 self.root, path, n) for n in positions} for path, positions in
-                        __import__("multi_agent")._read(self.root / LEDGER)
+                        __import__("review_core").load_json_object(self.root / LEDGER)
                         ["tasks"][task["task_id"]]["challenges"].items()})))
 
     def test_wrong_random_challenge_is_rejected(self):
@@ -326,16 +327,17 @@ class MultiAgentTests(unittest.TestCase):
     def test_unresolved_symbol_is_accepted_for_followup_not_retry(self):
         from multi_agent import followup, accept_followup
         from multi_agent_guard import proof_line_hash
-        from multi_agent import _read, _write
+        from review_core import load_json_object
+        from multi_agent_ledger import write_ledger_json
         index_path = self.root / ANALYSIS / "structure-index.json"
-        idx = _read(index_path)
+        idx = load_json_object(index_path)
         idx["cross_file_call_hints"] = {
             "src/AuthController.cs": [{
                 "called_method": "ResolvePolicy", "caller_line": 1,
                 "possible_targets": [{"path": "src/InputService.cs", "line": 1}]
             }]
         }
-        _write(index_path, idx)
+        write_ledger_json(index_path, idx)
         self.verified_probe()
         state = plan(self.root, task_tokens=2000)
         task_id = next(key for key, value in state["tasks"].items()
@@ -348,7 +350,7 @@ class MultiAgentTests(unittest.TestCase):
                                       challenges={path: {str(n): proof_line_hash(self.root, path, n)
                                                         for n in positions}
                                                   for path, positions in
-                                                  __import__("multi_agent")._read(self.root / LEDGER)
+                                                  __import__("review_core").load_json_object(self.root / LEDGER)
                                                   ["tasks"][task_id]["challenges"].items()})
         self.assertIn("未覆蓋來源所有行", str(errs))
         result["files"][0]["reviewed_ranges"] = [{"start": 1, "end": 300}]

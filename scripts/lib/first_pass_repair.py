@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from review_completion import _template
+from review_completion import template_signature
 from rule_repair_tasks import build_rule_repair_tasks, compare_rule_repair_diagnostics
 from review_core import REPORT_ROOT
 
@@ -90,7 +90,7 @@ def repair_plan(assessment: dict[str, Any], diagnostics: dict[str, Any], *,
         for rr in row.get("rule_reviews") or []:
             if isinstance(rr, dict) and isinstance(rr.get("reason"), str):
                 # 同正式驗證器，路徑與流水號不得讓複製模板偽裝成不同內容。
-                normalized = _template(rr["reason"].replace(row["path"], "<PATH>"))
+                normalized = template_signature(rr["reason"].replace(row["path"], "<PATH>"))
                 clusters[normalized].add(row["path"])
     threshold = max(15, (len(rows) + 7) // 8)
     repeated_paths: set[str] = set()

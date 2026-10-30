@@ -40,14 +40,14 @@ def _private_mkdir(path: Path, *, windows: bool | None = None) -> None:
         path.mkdir(parents=True, exist_ok=True, mode=0o700)
 
 
-def _run_roslyn(root: Path, pending: list[str], probe: dict, *, no_cache: bool = False) -> tuple[dict, list[str]]:
+def run_roslyn(root: Path, pending: list[str], probe: dict, *, no_cache: bool = False) -> tuple[dict, list[str]]:
     """Use exactly the SDK shipping the Roslyn DLLs; cache permission fails open to scratch,
     never to unverified symbol evidence."""
     try:
         return _run_roslyn_work(root, pending, probe, no_cache=no_cache)
     except (OSError, PermissionError) as exc:
         if not no_cache and os.environ.get("SECURITY_CODE_REVIEW_ROSLYN_CACHE", "1") != "0":
-            data, warnings = _run_roslyn(root, pending, probe, no_cache=True)
+            data, warnings = run_roslyn(root, pending, probe, no_cache=True)
             return data, ["Roslyn 快取／暫存權限不足，已改用隔離暫存：" + type(exc).__name__, *warnings]
         return {}, ["Roslyn 無法建立可寫入的工具暫存目錄：" + type(exc).__name__]
 
@@ -127,7 +127,7 @@ def _run_roslyn_work(root: Path, pending: list[str], probe: dict, *,
                 if use_cache and any(code in output.lower() for code in (
                         "access denied", "permission denied", "access to the path",
                         "unauthorizedaccessexception", "msb3026", "msb3027")):
-                    parsed, issues = _run_roslyn(root, pending, probe, no_cache=True)
+                    parsed, issues = run_roslyn(root, pending, probe, no_cache=True)
                     return parsed, ["Roslyn 快取權限不足，已使用隔離暫存編譯", *issues]
                 return {}, ["Roslyn indexer 編譯失敗（非受測專案編譯）；請核對 SDK 及工具相依"]
             digest_file.write_text(hashlib.sha256(dll.read_bytes()).hexdigest(),
@@ -322,7 +322,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
     reused = ({p: old_entries[p] for p in csharp if p in old_entries}
               if not semantic_invalidated else {})
     pending = [p for p in csharp if p not in reused]
-    parsed, errors = _run_roslyn(root, pending, roslyn)
+    parsed, errors = run_roslyn(root, pending, roslyn)
     indexed = {**reused, **parsed}
     # 完整來源 SHA256、分析器契約與 SDK 版本全部相符時，跨檔索引可原樣重用。
     # 任何來源增刪改或版本差異都回到保守重算，不沿用安全判定。

@@ -83,7 +83,7 @@ REQUIRED_SCENARIOS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _location_errors(root: Path, known: set[str], inspected: set[str],
+def location_errors(root: Path, known: set[str], inspected: set[str],
                      entry: Any, label: str) -> tuple[list[str], tuple[str, int, int] | None]:
     if not isinstance(entry, dict):
         return [f"{label}: 證據須為含 path/line_start/line_end 的物件"], None
@@ -108,14 +108,14 @@ def _location_errors(root: Path, known: set[str], inspected: set[str],
     return [], (path, lo, hi)
 
 
-def _proofs(root: Path, known: set[str], inspected: set[str],
+def check_source_proofs(root: Path, known: set[str], inspected: set[str],
             items: Any, label: str) -> tuple[list[str], set[tuple[str, int, int]]]:
     if not isinstance(items, list) or not items:
         return [f"{label}: 至少需要一筆具行號的真實來源證據"], set()
     errs: list[str] = []
     located: set[tuple[str, int, int]] = set()
     for i, item in enumerate(items):
-        issue, location = _location_errors(root, known, inspected, item, f"{label}[{i}]")
+        issue, location = location_errors(root, known, inspected, item, f"{label}[{i}]")
         errs.extend(issue)
         if location is not None:
             located.add(location)

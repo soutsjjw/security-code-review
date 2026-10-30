@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import source_coverage
-from scope_paths import _default_rule, relative_path
+from scope_paths import default_exclusion_rule, relative_path
 
 
 def _in_project(path: str, project_path: str) -> bool:
@@ -58,7 +58,7 @@ def build_scope_inventory(
             rule = next(((p, reason) for p, reason in custom_excludes
                          if rel == p or rel.startswith(p.rstrip("/") + "/")), None)
             if rule is None:
-                rule = _default_rule(rel)
+                rule = default_exclusion_rule(rel)
             if rule:
                 excluded[rule] += 1
             else:
@@ -134,7 +134,7 @@ def detect_projects(source_root: Path) -> list[dict[str, str]]:
         directories[:] = sorted(
             d for d in directories
             if not (Path(current) / d).is_symlink()
-            and _default_rule((Path(rel_dir) / d / "x").as_posix().lstrip("./")) is None)
+            and default_exclusion_rule((Path(rel_dir) / d / "x").as_posix().lstrip("./")) is None)
         for name in sorted(filenames):
             if name.lower().endswith(".csproj"):
                 rows.append({"name": Path(name).stem, "path": rel_dir if rel_dir != "." else "."})

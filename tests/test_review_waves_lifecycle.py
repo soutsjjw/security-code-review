@@ -84,19 +84,19 @@ class WaveLifecycleTests(unittest.TestCase):
     def test_reconcile_without_authorization_or_actual_commit_fails(self):
         with self.assertRaisesRegex(ValueError, "明確承認"):
             reconcile(self.root, acknowledged=False)
-        with patch("review_waves_state._load_state", return_value=self.state), \
-             patch("review_waves_state._evidence_state", return_value=self.evidence), \
-             patch("review_waves_state._formal_fingerprints", return_value=self.fingerprints):
+        with patch("review_waves_state.load_state", return_value=self.state), \
+             patch("review_waves_state.evidence_state", return_value=self.evidence), \
+             patch("review_waves_state.formal_fingerprints", return_value=self.fingerprints):
             with self.assertRaisesRegex(ValueError, "未觀察到完成的正式證據"):
                 reconcile(self.root, acknowledged=True)
 
     def test_reconcile_confirms_original_blocker_is_gone_without_replaying_stage(self):
-        with patch("review_waves_state._load_state", return_value=self.state), \
-             patch("review_waves_state._evidence_state", return_value=self.evidence), \
-             patch("review_waves_state._formal_fingerprints", return_value=self.latest), \
-             patch("review_waves_state._assessment", return_value={"checks": []}), \
+        with patch("review_waves_state.load_state", return_value=self.state), \
+             patch("review_waves_state.evidence_state", return_value=self.evidence), \
+             patch("review_waves_state.formal_fingerprints", return_value=self.latest), \
+             patch("review_waves_state.load_assessment", return_value={"checks": []}), \
              patch("review_blockers.diagnose", return_value=self.cleared), \
-             patch("review_waves_state._write_state") as save, \
+             patch("review_waves_state.write_state") as save, \
              patch("review_safety.stage") as stage:
             result = reconcile(self.root, acknowledged=True)
         self.assertEqual(result["status"], "reconciled")
@@ -116,8 +116,8 @@ class WaveLifecycleTests(unittest.TestCase):
         })
         state = dict(self.state, inflight={**self.state["inflight"],
                                            "prior_evidence": before})
-        with patch("review_waves_state._load_state", return_value=state), \
-             patch("review_waves_state._evidence_state", return_value=after):
+        with patch("review_waves_state.load_state", return_value=state), \
+             patch("review_waves_state.evidence_state", return_value=after):
             with self.assertRaisesRegex(ValueError, "正式工件異動超出"):
                 reconcile(self.root, acknowledged=True)
 
@@ -125,10 +125,10 @@ class WaveLifecycleTests(unittest.TestCase):
         updated = {**self.latest,
                    "checks": {"AC-01": {"digest": "new", "status": "pass"},
                               "AU-01": {"digest": "unexpected", "status": "fail"}}}
-        with patch("review_waves_state._load_state", return_value=self.state), \
-             patch("review_waves_state._evidence_state", return_value=self.evidence), \
-             patch("review_waves_state._formal_fingerprints", return_value=updated), \
-             patch("review_waves_state._assessment", return_value={"checks": []}), \
+        with patch("review_waves_state.load_state", return_value=self.state), \
+             patch("review_waves_state.evidence_state", return_value=self.evidence), \
+             patch("review_waves_state.formal_fingerprints", return_value=updated), \
+             patch("review_waves_state.load_assessment", return_value={"checks": []}), \
              patch("review_blockers.diagnose", return_value=self.cleared):
             with self.assertRaisesRegex(ValueError, "超出批次授權"):
                 reconcile(self.root, acknowledged=True)
@@ -141,12 +141,12 @@ class WaveLifecycleTests(unittest.TestCase):
                      inflight={"phase": "baseline", "batch_id": "first-pass-baseline",
                                "prior_evidence": self.evidence,
                                "prior_fingerprints": old})
-        with patch("review_waves_state._load_state", return_value=state), \
-             patch("review_waves_state._evidence_state", return_value=self.evidence), \
-             patch("review_waves_state._formal_fingerprints", return_value=new), \
+        with patch("review_waves_state.load_state", return_value=state), \
+             patch("review_waves_state.evidence_state", return_value=self.evidence), \
+             patch("review_waves_state.formal_fingerprints", return_value=new), \
              patch("second_pass_layers.worklist",
                    return_value={"ready": True, "rules_total": 70, "rules_pending": 70}), \
-             patch("review_waves_state._write_state") as save:
+             patch("review_waves_state.write_state") as save:
             result = reconcile(self.root, acknowledged=True)
         self.assertTrue(result["baseline_reconciled"])
         self.assertEqual(state["phase"], "second_pass")
@@ -156,8 +156,8 @@ class WaveLifecycleTests(unittest.TestCase):
     def test_final_report_needs_completed_second_pass(self):
         state = dict(self.state, phase="second_pass", inflight=None, sample_policy={
             "selected_rules": []})
-        with patch("review_waves_state._load_state", return_value=state), \
-             patch("review_waves_state._assert_state_current"), \
+        with patch("review_waves_state.load_state", return_value=state), \
+             patch("review_waves_state.assert_state_current"), \
              patch("second_pass_layers.worklist", return_value={
                  "ready": True, "rules_total": 70, "rules_pending": 1, "samples_pending": 0}):
             with self.assertRaisesRegex(ValueError, "反向複核"):
@@ -177,13 +177,13 @@ class WaveLifecycleTests(unittest.TestCase):
                      inflight={"phase": "second_pass", "batch_id": "second-pass",
                                "prior_evidence": self.evidence,
                                "prior_fingerprints": old})
-        with patch("review_waves_state._load_state", return_value=state), \
-             patch("review_waves_state._evidence_state", return_value=self.evidence), \
-             patch("review_waves_state._formal_fingerprints", return_value=new), \
+        with patch("review_waves_state.load_state", return_value=state), \
+             patch("review_waves_state.evidence_state", return_value=self.evidence), \
+             patch("review_waves_state.formal_fingerprints", return_value=new), \
              patch("second_pass_layers.worklist",
                    return_value={"ready": True, "rules_pending": 1,
                                  "samples_pending": 1}), \
-             patch("review_waves_state._write_state") as save:
+             patch("review_waves_state.write_state") as save:
             result = reconcile(self.root, acknowledged=True)
         self.assertEqual(result["phase"], "second_pass")
         self.assertEqual(result["status"], "reconciled")
@@ -198,17 +198,17 @@ class WaveLifecycleTests(unittest.TestCase):
         (report_dir / "report.json").write_text("{}", encoding="utf-8")
         (report_dir / "CodeReview_20261029.html").write_text(
             "<html>validated fixture</html>", encoding="utf-8")
-        with patch("review_waves_state._load_state", return_value=state), \
-             patch("review_waves_state._assert_state_current"), \
+        with patch("review_waves_state.load_state", return_value=state), \
+             patch("review_waves_state.assert_state_current"), \
              patch("second_pass_layers.worklist", return_value={
                  "ready": True, "rules_total": 70, "rules_pending": 0,
                  "samples_pending": 0}), \
-             patch("review_waves_state._assessment",
+             patch("review_waves_state.load_assessment",
                    return_value={"assessment_date": "2026-10-29", "checks": []}), \
              patch("review_queue.load_rules", return_value=({}, [])), \
              patch("review_queue.build_queue", return_value={"ready_for_report": True}), \
              patch("review_safety.safety_errors", return_value=[]), \
-             patch("review_waves_state._stage_clean"), \
+             patch("review_waves_state.ensure_stage_clean"), \
              patch("subprocess.run") as official:
             official.return_value.returncode = 0
             result = finalize(self.root)
@@ -218,20 +218,20 @@ class WaveLifecycleTests(unittest.TestCase):
         official.assert_called_once()
 
     def test_inflight_state_rejects_new_agent_work(self):
-        from review_waves_state import _assert_state_current
-        with patch("review_waves_state._evidence_state",
+        from review_waves_state import assert_state_current
+        with patch("review_waves_state.evidence_state",
                    return_value=self.evidence):
             with self.assertRaisesRegex(ValueError, "待對帳"):
-                _assert_state_current(self.root, self.state)
+                assert_state_current(self.root, self.state)
 
     def test_formal_report_requires_full_ready_queue(self):
         state = dict(self.state, phase="second_pass", inflight=None, sample_policy={
             "selected_rules": []})
-        with patch("review_waves_state._load_state", return_value=state), \
-             patch("review_waves_state._assert_state_current"), \
+        with patch("review_waves_state.load_state", return_value=state), \
+             patch("review_waves_state.assert_state_current"), \
              patch("second_pass_layers.worklist", return_value={
                  "ready": True, "rules_total": 70, "rules_pending": 0, "samples_pending": 0}), \
-             patch("review_waves_state._assessment", return_value={"checks": []}), \
+             patch("review_waves_state.load_assessment", return_value={"checks": []}), \
              patch("review_queue.load_rules", return_value=({}, [])), \
              patch("review_queue.build_queue", return_value={"ready_for_report": False}):
             with self.assertRaisesRegex(ValueError, "ready_for_report"):

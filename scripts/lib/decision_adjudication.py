@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from review_decision import load_decision_matrix, _is_weak_source_evidence
+from review_decision import load_decision_matrix, is_weak_source_evidence
 from source_reader import read_source_text
 from review_core import ANALYSIS_ROOT, read_json as _read_json, snapshot_fingerprint
 
@@ -21,7 +21,7 @@ CONFIG_SUFFIXES = frozenset({".json", ".yaml", ".yml", ".xml", ".config", ".prop
 
 def _meaningful_static_source(root: Path, evidence: dict[str, Any]) -> bool:
     """原始碼／組態證據可以來自設定檔；僅檢查內容非空泛，不代表控制安全。"""
-    if _is_weak_source_evidence(evidence, root) is False:
+    if is_weak_source_evidence(evidence, root) is False:
         return True
     path = evidence["path"]
     if Path(path).suffix.lower() not in CONFIG_SUFFIXES:

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from analysis_adapters import probe_roslyn
-from analysis_prepare import _run_roslyn, prepare, INDEX_NAME
+from analysis_prepare import run_roslyn, prepare, INDEX_NAME
 
 
 class RoslynSdkAlignmentTests(unittest.TestCase):
@@ -50,7 +50,7 @@ class RoslynSdkAlignmentTests(unittest.TestCase):
                 args=["dotnet", "--version"], returncode=0,
                 stdout="8.0.408\n", stderr="")
             with patch("analysis_prepare.subprocess.run", return_value=wrong):
-                data, reasons = _run_roslyn(Path(tmp), ["Target.cs"], requested, no_cache=True)
+                data, reasons = run_roslyn(Path(tmp), ["Target.cs"], requested, no_cache=True)
             self.assertEqual(data, {})
             self.assertIn("版本", str(reasons))
 
@@ -88,7 +88,7 @@ class RoslynSdkAlignmentTests(unittest.TestCase):
             inaccessible.write_text("no cache beneath this file", encoding="utf-8")
             with (patch("analysis_prepare.Path.home", return_value=inaccessible),
                   patch.dict(os.environ, {"SECURITY_CODE_REVIEW_ROSLYN_CACHE": "1"})):
-                data, issues = _run_roslyn(root, ["Caller.cs", "Target.cs"], probe)
+                data, issues = run_roslyn(root, ["Caller.cs", "Target.cs"], probe)
             self.assertEqual(set(data), {"Caller.cs", "Target.cs"}, issues)
             self.assertIn("權限不足", str(issues))
 

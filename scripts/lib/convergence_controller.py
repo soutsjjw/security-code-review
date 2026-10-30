@@ -152,24 +152,24 @@ def record_attempt(state: dict, *, category: str, group_key: str, strategy_id: s
 def observe_diagnostics(target: Path, diagnostics: dict, *, k=3, m=3):
     """Reuse the same authoritative diagnosis instead of calling the full validator twice."""
     target = target.resolve()
-    folder, latest = review_log._paths(target)
-    current = review_log._load(latest)
+    folder, latest = review_log.log_paths(target)
+    current = review_log.load_metadata(latest)
     if not current or current.get("status") != "running":
         raise ValueError("無有效 running Run；收斂觀測不會自動開啟新 Run")
     state = evaluate(current.get("convergence") or {}, diagnostics, k=k, m=m)
     current["convergence"] = state
-    review_log._append(folder, current, "convergence_observed", "first_pass",
+    review_log.append_event(folder, current, "convergence_observed", "first_pass",
                        metrics={"blocked_count": state["count"],
                                 "nonprogress_batches": state["nonprogress_batches"],
                                 "strategy_exhausted_groups": sum(g["strategy_exhausted"] for g in state["groups"])})
-    review_log._save(folder, current)
+    review_log.save_metadata(folder, current)
     return state
 
 def run(target: Path, *, category=None, group_key=None, strategy_id=None, receipt=None,
         k=3, m=3):
     target = target.resolve()
-    folder, latest = review_log._paths(target)
-    observed = review_log._load(latest)
+    folder, latest = review_log.log_paths(target)
+    observed = review_log.load_metadata(latest)
     if not observed or observed.get("status") not in ("running", "stalled"):
         raise ValueError("請先建立有效 Run；此命令不會啟動新審查")
     assessment = target / REPORT_ROOT / "assessment.json"
@@ -183,11 +183,11 @@ def run(target: Path, *, category=None, group_key=None, strategy_id=None, receip
         state = record_attempt(state, category=category, group_key=group_key,
                                strategy_id=strategy_id, evidence_receipt=receipt)
     observed["convergence"] = state
-    review_log._append(folder, observed, "convergence_observed", "first_pass",
+    review_log.append_event(folder, observed, "convergence_observed", "first_pass",
                        metrics={"blocked_count": state["count"],
                                 "nonprogress_batches": state["nonprogress_batches"],
                                 "strategy_exhausted_groups": sum(g["strategy_exhausted"] for g in state["groups"])})
-    review_log._save(folder, observed)
+    review_log.save_metadata(folder, observed)
     return state
 
 def main():

@@ -47,7 +47,7 @@ def relative_path(root: Path, raw: str, *, root_allowed: bool = False, directory
     return clean
 
 
-def _default_rule(path: str) -> tuple[str, str] | None:
+def default_exclusion_rule(path: str) -> tuple[str, str] | None:
     parts = path.split("/")
     for i, part in enumerate(parts[:-1]):
         if part.startswith(".codegraph-"):

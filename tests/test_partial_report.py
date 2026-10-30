@@ -14,7 +14,9 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
-from partial_review import _atomic, _category_dir, initialize, read_category
+from partial_review import initialize, read_category
+from review_core import write_json_atomic
+from partial_review_store import category_dir
 from partial_report import (LIMITATIONS, _schema_validator, build_report, complete, html_errors,
                             render_partial_html, validate_saved, validation_errors)
 from review_scope import CATEGORIES, ScopeError, load_catalog
@@ -74,7 +76,7 @@ class PartialReportTests(unittest.TestCase):
             "rule_reviews": [],
             "candidate_exclusions": []
         }]
-        _atomic(_category_dir(self.root, category) / "assessment.json", original)
+        write_json_atomic(category_dir(self.root, category) / "assessment.json", original)
 
     def _assert_formal_unmodified(self):
         for name, path in self.formal.items():
@@ -98,7 +100,7 @@ class PartialReportTests(unittest.TestCase):
         self.assertEqual(len(output), 2)
         self.assertEqual([o["rule_count"] for o in output], [8, 10])
         for category in ("AC", "AU"):
-            folder = _category_dir(self.root, category)
+            folder = category_dir(self.root, category)
             self.assertTrue((folder / "report.json").is_file())
             report = json.loads((folder / "report.json").read_text("utf-8"))
             self.assertTrue((folder / f"CodeReview_{report['project']['assessment_date'].replace('-', '')}.html").is_file())
@@ -109,25 +111,25 @@ class PartialReportTests(unittest.TestCase):
     def test_unselected_category_does_not_write_results(self):
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             complete(self.root, ("AC",), self.catalog)
-        self.assertFalse((_category_dir(self.root, "AU") / "report.json").exists())
+        self.assertFalse((category_dir(self.root, "AU") / "report.json").exists())
         self._assert_formal_unmodified()
 
     def test_live_safety_guard_denies_fake_completed_report(self):
         # 真實 P3 不接受為測試建立的全 NA/未複核證據。
         with self.assertRaises(ScopeError):
             complete(self.root, ("AC",), self.catalog)
-        self.assertFalse((_category_dir(self.root, "AC") / "report.json").exists())
+        self.assertFalse((category_dir(self.root, "AC") / "report.json").exists())
         self._assert_formal_unmodified()
 
     def test_multicategory_validation_precedes_writes(self):
-        au_file = _category_dir(self.root, "AU") / "assessment.json"
+        au_file = category_dir(self.root, "AU") / "assessment.json"
         tampered = read_category(self.root, "AU", self.catalog)
         tampered["checks"][0]["execution"]["state"] = "pending"
-        _atomic(au_file, tampered)
+        write_json_atomic(au_file, tampered)
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             with self.assertRaises(ScopeError):
                 complete(self.root, ("AC", "AU"), self.catalog)
-        self.assertFalse((_category_dir(self.root, "AC") / "report.json").exists())
+        self.assertFalse((category_dir(self.root, "AC") / "report.json").exists())
         self._assert_formal_unmodified()
 
     def test_reject_tampered_summary_and_cross_category_check(self):
@@ -163,7 +165,7 @@ class PartialReportTests(unittest.TestCase):
     def test_tampered_json_or_html_detected(self):
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             complete(self.root, ("AC",), self.catalog)
-            folder = _category_dir(self.root, "AC")
+            folder = category_dir(self.root, "AC")
             report_file = folder / "report.json"
             data = json.loads(report_file.read_text("utf-8"))
             data["summary"]["pass"] = 8
@@ -178,19 +180,19 @@ class PartialReportTests(unittest.TestCase):
     def test_source_changes_invalidate_saved_report_without_overwrite(self):
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             complete(self.root, ("AC",), self.catalog)
-        prior = (_category_dir(self.root, "AC") / "report.json").read_bytes()
+        prior = (category_dir(self.root, "AC") / "report.json").read_bytes()
         self.source.write_text("public class Tiny { public int Add(int a, int b) => 0; }\n", encoding="utf-8")
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             self.assertTrue(validate_saved(self.root, ("AC",), self.catalog))
             with self.assertRaises(ScopeError):
                 complete(self.root, ("AC",), self.catalog)
-        self.assertEqual((_category_dir(self.root, "AC") / "report.json").read_bytes(), prior)
+        self.assertEqual((category_dir(self.root, "AC") / "report.json").read_bytes(), prior)
         self._assert_formal_unmodified()
 
     def test_formal_report_validator_does_not_accept_partial_json(self):
         with patch("partial_report.validate_safety", side_effect=approved_safety):
             complete(self.root, ("AC",), self.catalog)
-        report = _category_dir(self.root, "AC") / "report.json"
+        report = category_dir(self.root, "AC") / "report.json"
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         proc = subprocess.run([sys.executable, str(ROOT / "scripts/validate_report.py"),
                                "--report", str(report), "--source-root", str(self.root),
@@ -205,7 +207,7 @@ class PartialReportTests(unittest.TestCase):
             "--target", str(self.root), "--categories", "AC,AU",
         ], text=True, encoding="utf-8", capture_output=True, env=env, check=False)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertFalse((_category_dir(self.root, "AC") / "report.json").exists())
+        self.assertFalse((category_dir(self.root, "AC") / "report.json").exists())
         self._assert_formal_unmodified()
 
     def test_validate_report_category_cli_rejects_missing_partial(self):
@@ -218,7 +220,7 @@ class PartialReportTests(unittest.TestCase):
         self._assert_formal_unmodified()
 
     def test_symlinked_partial_report_must_not_overwrite_formal(self):
-        link = _category_dir(self.root, "AC") / "report.json"
+        link = category_dir(self.root, "AC") / "report.json"
         try:
             link.symlink_to(self.formal["report.json"])
         except (OSError, NotImplementedError) as exc:

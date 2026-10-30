@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from review_core import REPORT_ROOT, write_json_atomic as _write
-from scope_paths import EXCLUDED_DIRS, _default_rule
+from scope_paths import EXCLUDED_DIRS, default_exclusion_rule
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 from source_reader import source_digest
 from cross_file_evidence import trace_errors
@@ -35,11 +35,11 @@ def report_dir(target: Path) -> Path:
     return target.resolve() / RELATIVE
 
 
-def _read(path: Path, default: Any = None) -> Any:
+def read_report_json(path: Path, default: Any = None) -> Any:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
 
 
-def _revision(target: Path) -> str:
+def git_revision(target: Path) -> str:
     result = subprocess.run(["git", "-C", str(target), "rev-parse", "HEAD"],
                             capture_output=True, text=True, check=False)
     return result.stdout.strip() if result.returncode == 0 else "not-a-git-repository"
@@ -81,7 +81,7 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
     files: dict[str, str] = {}
     for current, dirs, names in os.walk(root, followlinks=False):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".codegraph-") and not (Path(current) / d).is_symlink()
-                  and not _default_rule((Path(current) / d).relative_to(root).as_posix())
+                  and not default_exclusion_rule((Path(current) / d).relative_to(root).as_posix())
                   and not any((Path(current) / d).relative_to(root).as_posix() == p or
                               (Path(current) / d).relative_to(root).as_posix().startswith(p.rstrip("/") + "/")
                               for p in excluded)]
@@ -90,7 +90,7 @@ def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str
             if not path.is_file() or path.is_symlink():
                 continue
             rel = path.relative_to(root).as_posix()
-            if _default_rule(rel) or any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in excluded):
+            if default_exclusion_rule(rel) or any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in excluded):
                 continue
             if path.suffix.lower() in SOURCE_SUFFIXES or name in SOURCE_FILENAMES or path.suffix.lower() == ".vue":
                 files[rel] = source_digest(path.read_bytes())
@@ -104,10 +104,10 @@ def current_hashes(target: Path, exclusions: list[str]) -> dict[str, str]:
 def initialize_snapshot(target: Path, source_hashes: dict[str, str],
                         exclusions: list[str]) -> None:
     path = report_dir(target) / SNAPSHOT
-    original = _read(path)
+    original = read_report_json(path)
     proposed = {
         "schema_version": 1,
-        "git_revision": _revision(target),
+        "git_revision": git_revision(target),
         "source_hashes": source_hashes,
         "excluded_paths": sorted(set(exclusions)),
     }
@@ -120,12 +120,12 @@ def initialize_snapshot(target: Path, source_hashes: dict[str, str],
 
 
 def snapshot_errors(target: Path) -> list[str]:
-    original = _read(report_dir(target) / SNAPSHOT)
+    original = read_report_json(report_dir(target) / SNAPSHOT)
     if original is None:
         return []  # 舊審查紀錄沒有新協定，不擅自宣稱其已完成 P0 守門。
     if not isinstance(original, dict) or original.get("schema_version") != 1:
         return ["審查快照版本無效"]
-    assessment = _read(report_dir(target) / "assessment.json", {}) or {}
+    assessment = read_report_json(report_dir(target) / "assessment.json", {}) or {}
     excluded = sorted({str(item.get("path", "")) for item in
                        (assessment.get("scope_details") or {}).get("excluded_paths", [])
                        if isinstance(item, dict)})
@@ -138,7 +138,7 @@ def snapshot_errors(target: Path) -> list[str]:
     before = original.get("source_hashes")
     if not isinstance(before, dict):
         return ["審查快照未記錄完整來源 SHA256"]
-    index = _read(report_dir(target) / INDEX, {}) or {}
+    index = read_report_json(report_dir(target) / INDEX, {}) or {}
     if index.get("source_hashes") != before:
         return ["分析結構索引與審查快照不同步；須重新執行 analysis_prepare.py 後才可審查或交付"]
     changed = sorted(k for k in actual.keys() & before.keys() if actual[k] != before[k])
@@ -147,7 +147,7 @@ def snapshot_errors(target: Path) -> list[str]:
     if changed or added or removed:
         return [f"來源快照已異動：修改 {changed[:5]}；新增 {added[:5]}；刪除 {removed[:5]}。"
                 "必須重新審查受影響的規則及檔案"]
-    if _revision(target) != original.get("git_revision"):
+    if git_revision(target) != original.get("git_revision"):
         return ["Git Revision 已改變，但來源 SHA256 均未異動；"
                 "須明確執行 snapshot-refresh 更新版本錨點，不得跳過完整性守門"]
     return []
@@ -155,10 +155,10 @@ def snapshot_errors(target: Path) -> list[str]:
 
 def scope_tasks(target: Path) -> list[dict]:
     """70 項均出現在待辦；缺少來源命中不能當作 N/A。"""
-    index = _read(report_dir(target) / INDEX, {}) or {}
+    index = read_report_json(report_dir(target) / INDEX, {}) or {}
     candidates = index.get("rule_candidates") or {}
     relations = index.get("typed_relationships") or []
-    closures = _read(report_dir(target) / CLOSURES, {}) or {}
+    closures = read_report_json(report_dir(target) / CLOSURES, {}) or {}
     tasks = []
     for rid, scope in rule_scopes().items():
         paths = sorted(p for p, hits in candidates.items()
@@ -191,13 +191,13 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
     """明確記錄人工查證的邊界及全專案責任；不以索引候選冒充結論。"""
     if snapshot_override is None and not (report_dir(target) / SNAPSHOT).exists():
         return []
-    closures = closures_override if closures_override is not None else (_read(report_dir(target) / CLOSURES, {}) or {})
+    closures = closures_override if closures_override is not None else (read_report_json(report_dir(target) / CLOSURES, {}) or {})
     scopes = rule_scopes()
-    index = index_override if index_override is not None else (_read(report_dir(target) / INDEX, {}) or {})
+    index = index_override if index_override is not None else (read_report_json(report_dir(target) / INDEX, {}) or {})
     edges = index.get("typed_relationships", [])
     known_edges = {r["id"] for r in edges}
     candidates = index.get("rule_candidates") or {}
-    snapshot = snapshot_override if snapshot_override is not None else (_read(report_dir(target) / SNAPSHOT, {}) or {})
+    snapshot = snapshot_override if snapshot_override is not None else (read_report_json(report_dir(target) / SNAPSHOT, {}) or {})
     current = set(snapshot.get("source_hashes", {}))
     errors = []
     q2 = index.get("cross_file_evidence_version") == 1

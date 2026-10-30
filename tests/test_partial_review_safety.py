@@ -11,7 +11,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
-from partial_review import initialize, read_category, stage, integrate, _category_dir
+from partial_review import initialize, read_category, stage, integrate
+from partial_review_store import category_dir
 from partial_review_safety import (prepare_index, begin_second_pass, validate, _evidence,
                                    _shared_path, _index, _first_pass, BASELINE)
 from review_scope import ScopeError, load_catalog
@@ -98,7 +99,7 @@ class PartialSafetyTests(unittest.TestCase):
             "control_verifications": {"AC-01": {"status": "review"}},
             "decision_audits": {"AC-01": {"status": "review"}},
         }
-        path = _category_dir(self.root, "AC") / "payload.json"
+        path = category_dir(self.root, "AC") / "payload.json"
         path.write_text(json.dumps(payload), encoding="utf-8")
         stage(self.root, "AC", path, self.catalog)
         result = integrate(self.root, "AC", self.catalog)
@@ -109,7 +110,7 @@ class PartialSafetyTests(unittest.TestCase):
         self.assertEqual(self.official.read_text("utf-8"), '{"official":true}')
 
     def test_reject_cross_category_records_and_second_pass_without_baseline(self):
-        payload_path = _category_dir(self.root, "AC") / "payload.json"
+        payload_path = category_dir(self.root, "AC") / "payload.json"
         for payload in ({"closures": {"AU-01": {}}},
                         {"control_verifications": {"AU-01": {"status": "pass"}}},
                         {"adversarial_reviews": {"AC-01": {"outcome": "confirmed"}}}):
@@ -119,7 +120,7 @@ class PartialSafetyTests(unittest.TestCase):
 
     def test_evidence_conflict_preserves_previous_record_and_staged_data(self):
         self.prepare()
-        path = _category_dir(self.root, "AC") / "payload.json"
+        path = category_dir(self.root, "AC") / "payload.json"
         path.write_text(json.dumps({"closures": {"AC-01": {"status": "review"}}}), encoding="utf-8")
         stage(self.root, "AC", path, self.catalog)
         integrate(self.root, "AC", self.catalog)
@@ -128,17 +129,17 @@ class PartialSafetyTests(unittest.TestCase):
         with self.assertRaises(ScopeError):
             integrate(self.root, "AC", self.catalog)
         self.assertEqual(_evidence(self.root, "AC", "closures")["AC-01"]["status"], "review")
-        self.assertTrue((_category_dir(self.root, "AC") / "analysis/staged/pending.json").is_file())
+        self.assertTrue((category_dir(self.root, "AC") / "analysis/staged/pending.json").is_file())
 
     def test_first_pass_cannot_start_with_pending_rules(self):
         self.prepare()
         with self.assertRaises(ScopeError):
             begin_second_pass(self.root, "AC", self.catalog)
-        self.assertFalse((_category_dir(self.root, "AC") / BASELINE).exists())
+        self.assertFalse((category_dir(self.root, "AC") / BASELINE).exists())
 
     def test_fake_completed_checks_cannot_bypass_control_review(self):
         self.prepare()
-        assessment_file = _category_dir(self.root, "AC") / "assessment.json"
+        assessment_file = category_dir(self.root, "AC") / "assessment.json"
         a = read_category(self.root, "AC", self.catalog)
         for check in a["checks"]:
             check["execution"]["state"] = "completed"
@@ -156,24 +157,24 @@ class PartialSafetyTests(unittest.TestCase):
 
     def test_fixed_first_pass_baseline_cannot_be_silently_replaced(self):
         # 僅測不可變錨點；第一輪證據要求由各獨立守門器測試。
-        from partial_review import _atomic
+        from review_core import write_json_atomic
         self.prepare()
-        path = _category_dir(self.root, "AC") / "assessment.json"
+        path = category_dir(self.root, "AC") / "assessment.json"
         a = read_category(self.root, "AC", self.catalog)
         for check in a["checks"]:
             check["execution"]["state"] = "completed"
-        _atomic(path, a)
+        write_json_atomic(path, a)
         with patch("partial_review_safety._first_pass", return_value=[]):
             first = begin_second_pass(self.root, "AC", self.catalog)
             self.assertFalse(first["already_existed"])
             again = begin_second_pass(self.root, "AC", self.catalog)
             self.assertTrue(again["already_existed"])
-            fixed = (_category_dir(self.root, "AC") / BASELINE).read_text("utf-8")
+            fixed = (category_dir(self.root, "AC") / BASELINE).read_text("utf-8")
             a["checks"][0]["decision_reason"] = "修訂後的不同判定，不得更換第一次固定的指紋"
-            _atomic(path, a)
+            write_json_atomic(path, a)
             with self.assertRaises(ScopeError):
                 begin_second_pass(self.root, "AC", self.catalog)
-            self.assertEqual((_category_dir(self.root, "AC") /
+            self.assertEqual((category_dir(self.root, "AC") /
                               BASELINE).read_text("utf-8"), fixed)
 
     def test_index_relationship_tamper_blocked_by_seal(self):
@@ -199,16 +200,16 @@ class PartialSafetyTests(unittest.TestCase):
 
     def test_second_pass_correction_requires_explicit_revision_and_history(self):
         from adversarial_recheck import digest
-        from partial_review import _atomic
-        assessment_path = _category_dir(self.root, "AC") / "assessment.json"
+        from review_core import write_json_atomic
+        assessment_path = category_dir(self.root, "AC") / "assessment.json"
         previous = read_category(self.root, "AC", self.catalog)
         first = previous["checks"][0]
         first["status"] = "pass"
         first["execution"]["state"] = "completed"
         previous["checks"][0] = first
-        _atomic(assessment_path, previous)
-        baseline_path = _category_dir(self.root, "AC") / BASELINE
-        _atomic(baseline_path, {"schema_version": 1, "checks": {
+        write_json_atomic(assessment_path, previous)
+        baseline_path = category_dir(self.root, "AC") / BASELINE
+        write_json_atomic(baseline_path, {"schema_version": 1, "checks": {
             "AC-01": {"status": "pass", "digest": digest(first), "decision_reason": "原先判定"}
         }})
         corrected = json.loads(json.dumps(first))
@@ -218,7 +219,7 @@ class PartialSafetyTests(unittest.TestCase):
         record = {"outcome": "corrected", "baseline_digest": digest(first),
                   "final_digest": digest(corrected), "final_status": "fail",
                   "contradictions": [{"resolution": "重新閱讀執行路徑後發現已證實的授權缺失"}]}
-        path = _category_dir(self.root, "AC") / "payload.json"
+        path = category_dir(self.root, "AC") / "payload.json"
         path.write_text(json.dumps({"checks": [corrected],
                                     "findings": [{"id": "F-01", "check_ids": ["AC-01"]}],
                                     "adversarial_reviews": {"AC-01": record}}), encoding="utf-8")
@@ -231,7 +232,7 @@ class PartialSafetyTests(unittest.TestCase):
             result = integrate(self.root, "AC", self.catalog, allow_revision=True)
         self.assertEqual(result["corrected_rule_ids"], ["AC-01"])
         self.assertEqual(read_category(self.root, "AC", self.catalog)["checks"][0]["status"], "fail")
-        history = list((_category_dir(self.root, "AC") /
+        history = list((category_dir(self.root, "AC") /
                         "analysis/second-pass-history").glob("*.json"))
         self.assertEqual(len(history), 1)
         self.assertEqual(json.loads(history[0].read_text("utf-8"))["previous_checks"]["AC-01"]["status"], "pass")
@@ -239,14 +240,14 @@ class PartialSafetyTests(unittest.TestCase):
 
     def test_second_pass_cannot_demote_existing_fail(self):
         from adversarial_recheck import digest
-        from partial_review import _atomic
-        assessment_path = _category_dir(self.root, "AC") / "assessment.json"
+        from review_core import write_json_atomic
+        assessment_path = category_dir(self.root, "AC") / "assessment.json"
         previous = read_category(self.root, "AC", self.catalog)
         first = previous["checks"][0]
         first["status"] = "fail"
         first["execution"]["state"] = "completed"
-        _atomic(assessment_path, previous)
-        _atomic(_category_dir(self.root, "AC") / BASELINE, {
+        write_json_atomic(assessment_path, previous)
+        write_json_atomic(category_dir(self.root, "AC") / BASELINE, {
             "schema_version": 1, "checks": {"AC-01": {
                 "status": "fail", "digest": digest(first), "decision_reason": "已確認弱點"}
             }})
@@ -255,7 +256,7 @@ class PartialSafetyTests(unittest.TestCase):
         record = {"outcome": "corrected", "baseline_digest": digest(first),
                   "final_digest": digest(corrected), "final_status": "pass",
                   "contradictions": [{"resolution": "嘗試降級，應拒絕"}]}
-        path = _category_dir(self.root, "AC") / "payload.json"
+        path = category_dir(self.root, "AC") / "payload.json"
         path.write_text(json.dumps({"checks": [corrected],
                                     "adversarial_reviews": {"AC-01": record}}), encoding="utf-8")
         with patch("partial_review.completion_errors", return_value=[]), \

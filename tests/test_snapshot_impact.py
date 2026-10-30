@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts/lib"))
 from snapshot_impact import affected_rules, source_delta
 from review_blockers import summarize
 from review_safety import _write, integrate, refresh_snapshot, stage
-from review_snapshot import _read, report_dir, snapshot_errors
+from review_snapshot import read_report_json, report_dir, snapshot_errors
 
 
 class ImpactTests(unittest.TestCase):
@@ -118,28 +118,28 @@ class SnapshotRefreshTests(unittest.TestCase):
         })
 
     def test_git_only_refresh_retains_findings_closures_and_no_rechecks(self):
-        with patch("review_snapshot._revision", return_value="new"):
+        with patch("review_snapshot.git_revision", return_value="new"):
             self.assertTrue(any("SHA256 均未異動" in e for e in snapshot_errors(self.root)))
             refresh_snapshot(self.root)
             self.assertEqual(snapshot_errors(self.root), [])
-        self.assertEqual(_read(self.report / "analysis/rule-closures.json")["AC-01"]["status"],
+        self.assertEqual(read_report_json(self.report / "analysis/rule-closures.json")["AC-01"]["status"],
                          "review")
         self.assertFalse((self.report / "analysis/recheck-required.json").exists())
-        self.assertEqual(_read(self.report / "assessment.json")["findings"],
+        self.assertEqual(read_report_json(self.report / "assessment.json")["findings"],
                          self.assessment["findings"])
 
     def test_changed_code_invalidates_only_affected_closures_and_records_provenance(self):
         (self.root / "App.cs").write_text("class App { void Change() {} }", encoding="utf-8")
-        with patch("review_snapshot._revision", return_value="old"):
+        with patch("review_snapshot.git_revision", return_value="old"):
             refresh_snapshot(self.root)
-        ledger = _read(self.report / "analysis/recheck-required.json")
+        ledger = read_report_json(self.report / "analysis/recheck-required.json")
         self.assertEqual(ledger["schema_version"], 2)
         self.assertIn("AC-01", ledger["rule_ids"])
         self.assertIn("DP-01", ledger["rule_ids"])
         self.assertNotIn("AU-09", ledger["rule_ids"])
         self.assertEqual(ledger["changed_source_paths"], ["App.cs"])
-        self.assertEqual(set(_read(self.report / "analysis/rule-closures.json")), {"AU-09"})
-        self.assertEqual(_read(self.report / "assessment.json")["findings"],
+        self.assertEqual(set(read_report_json(self.report / "analysis/rule-closures.json")), {"AU-09"})
+        self.assertEqual(read_report_json(self.report / "assessment.json")["findings"],
                          self.assessment["findings"])
 
     def test_new_review_receipt_can_clear_only_its_authorized_rule(self):
@@ -162,14 +162,14 @@ class SnapshotRefreshTests(unittest.TestCase):
         payload.write_text(json.dumps({"checks": [updated_check],
                                        "recheck_proof": {"AC-01": receipt}},
                                       ensure_ascii=False), encoding="utf-8")
-        with patch("review_snapshot._revision", return_value="old"):
+        with patch("review_snapshot.git_revision", return_value="old"):
             stage(self.root, payload)
             result = integrate(self.root, allow_revision=True)
         self.assertEqual(result["applied"], 1)
-        ledger = _read(self.report / "analysis/recheck-required.json")
+        ledger = read_report_json(self.report / "analysis/recheck-required.json")
         self.assertEqual(ledger["rule_ids"], ["AU-09"])
         self.assertEqual(len(ledger["verified_rechecks"]["AC-01"]["receipt_sha256"]), 64)
-        self.assertEqual(_read(self.report / "assessment.json")["findings"],
+        self.assertEqual(read_report_json(self.report / "assessment.json")["findings"],
                          self.assessment["findings"])
 
     def test_replayed_completed_check_cannot_clear_recheck(self):
@@ -181,8 +181,8 @@ class SnapshotRefreshTests(unittest.TestCase):
         _write(self.report / "analysis/recheck-required.json", {
             "schema_version": 2, "rule_ids": ["AC-01"],
             "changed_source_paths": ["App.cs"]})
-        from review_snapshot import _revision
-        with patch("review_snapshot._revision", return_value="old"):
+        from review_snapshot import git_revision
+        with patch("review_snapshot.git_revision", return_value="old"):
             # Even a current, plausible hash receipt cannot authorize a replay
             # of an unchanged completed verdict.
             receipt = {"snapshot_fingerprint": snapshot_fingerprint(self.snapshot),
@@ -195,9 +195,9 @@ class SnapshotRefreshTests(unittest.TestCase):
             stage(self.root, payload)
             with self.assertRaisesRegex(ValueError, "重新查核須新增實際證據"):
                 integrate(self.root, allow_revision=True)
-        self.assertEqual(_read(self.report / "analysis/recheck-required.json")["rule_ids"],
+        self.assertEqual(read_report_json(self.report / "analysis/recheck-required.json")["rule_ids"],
                          ["AC-01"])
-        self.assertEqual(_read(self.report / "assessment.json")["findings"],
+        self.assertEqual(read_report_json(self.report / "assessment.json")["findings"],
                          self.assessment["findings"])
 
 

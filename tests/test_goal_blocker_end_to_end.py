@@ -124,7 +124,7 @@ class GoalEndToEndSmokeTests(unittest.TestCase):
         ]:
             with self.subTest(options=options), \
                  patch("sys.argv", ["review_queue.py", "--target", str(self.root), *options]), \
-                 patch("review_log._load", return_value={"status": "stalled"}):
+                 patch("review_log.load_metadata", return_value={"status": "stalled"}):
                 self.assertEqual(logged_main(no_write, "queue"), expected)
 
 

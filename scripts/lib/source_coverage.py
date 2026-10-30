@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
-from scope_paths import _default_rule, relative_path
+from scope_paths import default_exclusion_rule, relative_path
 from file_review_integrity import (CATEGORIES, verified_file_rule_reviews,
                                    verified_na_inspection_links)
 
@@ -41,7 +41,7 @@ def expected_paths(root: Path, excluded_paths: list[str],
         directories[:] = [
             name for name in directories
             if not (Path(current) / name).is_symlink()
-            and not _default_rule((Path(current) / name / "entry").relative_to(root).as_posix())
+            and not default_exclusion_rule((Path(current) / name / "entry").relative_to(root).as_posix())
             and not any(
                 (Path(current) / name).relative_to(root).as_posix() == path
                 or (Path(current) / name).relative_to(root).as_posix().startswith(path.rstrip("/") + "/")
@@ -53,7 +53,7 @@ def expected_paths(root: Path, excluded_paths: list[str],
             if not absolute.is_file() or absolute.is_symlink():
                 continue
             rel = absolute.relative_to(root).as_posix()
-            if rel in ignored or _default_rule(rel) or any(
+            if rel in ignored or default_exclusion_rule(rel) or any(
                 rel == path or rel.startswith(path.rstrip("/") + "/")
                 for path in excluded_paths
             ):

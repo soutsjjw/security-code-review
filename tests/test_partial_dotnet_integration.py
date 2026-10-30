@@ -19,7 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from partial_report import complete, validate_saved
-from partial_review import _category_dir, _snapshot, initialize, queue, read_category
+from partial_review import initialize, queue, read_category
+from partial_review_store import category_dir, source_snapshot
 from partial_review_safety import prepare_index, validate, _shared_path
 from review_scope import ScopeError, load_catalog
 
@@ -152,7 +153,7 @@ class DotNetCategoryIntegrationTests(unittest.TestCase):
         self.assertEqual(stats["source_file_count"], len(SOURCES))
         index = json.loads(_shared_path(self.root).read_text(encoding="utf-8"))
         self.assertEqual(set(index["source_hashes"]), set(SOURCES))
-        self.assertEqual(index["source_hashes"], _snapshot(self.root)["source_hashes"])
+        self.assertEqual(index["source_hashes"], source_snapshot(self.root)["source_hashes"])
         edges = index["typed_relationships"]
         self.assertTrue(any(e["kind"] == "di_registration" and
                             e["source"] == "Api/Program.cs" and e["target"] == "Infra/OrderRepository.cs"
@@ -194,8 +195,8 @@ class DotNetCategoryIntegrationTests(unittest.TestCase):
         self.assertEqual(check["second_pass"]["pending_count"], 8)
         with self.assertRaises(ScopeError):
             complete(self.root, ("AC", "AU"), self.catalog)
-        self.assertFalse((_category_dir(self.root, "AC") / "report.json").exists())
-        self.assertFalse((_category_dir(self.root, "AU") / "report.json").exists())
+        self.assertFalse((category_dir(self.root, "AC") / "report.json").exists())
+        self.assertFalse((category_dir(self.root, "AU") / "report.json").exists())
         self.assert_formal_unchanged()
 
     def test_source_change_invalidates_both_classes(self):

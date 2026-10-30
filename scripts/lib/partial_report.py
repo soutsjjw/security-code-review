@@ -17,7 +17,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
-from partial_review_store import STAGED_FILE, _artifact, _snapshot, read_category
+from partial_review_store import STAGED_FILE, artifact_path, source_snapshot, read_category
 from partial_review_safety import validate as validate_safety
 from report_common import ROOT, extract_html_report, render_html
 from review_scope import (CATEGORIES, ScopeError, load_catalog, parse_categories,
@@ -94,7 +94,7 @@ def build_report(root: Path, category: str, catalog: dict[str, Any]) -> dict[str
     """生成內存物件之前先核對 P3 安全品質；不觸碰任何現有報告。"""
     rules = _expected(category, catalog)
     assessment = read_category(root, category, catalog)
-    if _artifact(root, category, STAGED_FILE).exists():
+    if artifact_path(root, category, STAGED_FILE).exists():
         raise ScopeError(f"{category}: 尚有 staged 交易未整合，不能產生部分報告")
     safety = validate_safety(root, category, catalog)
     if (not safety["safety_valid"] or not safety["first_pass_complete"]
@@ -157,7 +157,7 @@ def validation_errors(report: Any, root: Path, category: str, catalog: dict[str,
     try:
         expected = _expected(category, catalog)
         assessment = read_category(root, category, catalog)
-        snap = _snapshot(root)
+        snap = source_snapshot(root)
         ids = [r["id"] for r in expected]
         checks = report["assessment"]["checks"]
         actual = [c["id"] for c in checks]
@@ -219,7 +219,7 @@ def validation_errors(report: Any, root: Path, category: str, catalog: dict[str,
                                for fid in refs):
                 errors.append(f"{check['id']}: Fail 缺少可查核的本分類 Finding")
         if require_safety:
-            if _artifact(root, category, STAGED_FILE).exists():
+            if artifact_path(root, category, STAGED_FILE).exists():
                 errors.append("尚有 staged 交易未整合")
             safety = validate_safety(root, category, catalog)
             if (not safety["safety_valid"] or not safety["first_pass_complete"]
@@ -329,7 +329,7 @@ def html_errors(html: str, report: dict[str, Any]) -> list[str]:
 
 def _html_path(root: Path, category: str, assessment: dict) -> Path:
     date = assessment["assessment_date"]
-    return _artifact(root, category, f"CodeReview_{date.replace('-', '')}.html")
+    return artifact_path(root, category, f"CodeReview_{date.replace('-', '')}.html")
 
 
 def complete(root: Path, categories: tuple[str, ...], catalog: dict[str, Any]) -> list[dict[str, Any]]:
@@ -342,7 +342,7 @@ def complete(root: Path, categories: tuple[str, ...], catalog: dict[str, Any]) -
         issues = html_errors(html, data)
         if issues:
             raise ScopeError(f"{category}: " + "；".join(issues[:8]))
-        json_path = _artifact(root, category, REPORT_FILE)
+        json_path = artifact_path(root, category, REPORT_FILE)
         html_path = _html_path(root, category, data["assessment"])
         if json_path == html_path or json_path.name == "assessment.json":
             raise ScopeError("分類報告輸出位置與原始證據衝突")
@@ -396,7 +396,7 @@ def validate_saved(root: Path, categories: tuple[str, ...], catalog: dict[str, A
     for category in categories:
         try:
             assessment = read_category(root, category, catalog)
-            report_path = _artifact(root, category, REPORT_FILE)
+            report_path = artifact_path(root, category, REPORT_FILE)
             html_path = _html_path(root, category, assessment)
             if not report_path.is_file() or not html_path.is_file():
                 errors.append(f"{category}: 尚未產生完整的分類 report.json / HTML")

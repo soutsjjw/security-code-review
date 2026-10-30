@@ -21,12 +21,11 @@ from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from review_core import (canonical_digest as _digest, write_json_atomic as _atomic,
                          write_json_exclusive)
-from partial_review_store import (BASELINE, EVIDENCE_FILES, HISTORY, SNAPSHOT_FILE, STAGED_FILE,
-                                  _artifact, _assert_assessment, _category_dir, _category_rules,
-                                  _load, _snapshot, _verify_snapshot, read_category)
+from partial_review_store import BASELINE, EVIDENCE_FILES, HISTORY, SNAPSHOT_FILE, STAGED_FILE, artifact_path, assert_category_assessment, category_dir, category_rules, source_snapshot, verify_snapshot, read_category
 from partial_review_safety import validate as validate_partial
 from adversarial_recheck import digest as rule_digest
 import rule_guidance
+from review_core import load_json
 
 EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
                            "adversarial_reviews"})
@@ -46,21 +45,21 @@ def _pending_check(rule: dict) -> dict:
 
 def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[str]:
     plan = build_scope_plan(root, categories, catalog)
-    snapshot = _snapshot(root)
+    snapshot = source_snapshot(root)
     created: list[str] = []
     for row in plan["category_reports"]:
         cat = row["category"]
-        directory = _category_dir(root, cat)
+        directory = category_dir(root, cat)
         assessment_file = directory / "assessment.json"
-        snapshot_file = _artifact(root, cat, SNAPSHOT_FILE)
+        snapshot_file = artifact_path(root, cat, SNAPSHOT_FILE)
         project_file = directory / "project.json"
         if assessment_file.exists() or snapshot_file.exists():
             # 不補寫／修補既有半套資料：未齊者要求人工調查，避免隱性覆蓋。
             if not assessment_file.is_file() or not snapshot_file.is_file():
                 raise ScopeError(f"{cat}: 分類進度不完整，不允許重新初始化覆寫")
-            existing = _load(assessment_file)
-            _assert_assessment(existing, cat, catalog)
-            _verify_snapshot(root, directory, existing)
+            existing = load_json(assessment_file)
+            assert_category_assessment(existing, cat, catalog)
+            verify_snapshot(root, directory, existing)
             continue
         if directory.exists() and any(directory.iterdir()):
             raise ScopeError(f"{cat}: 分類目錄已有其他資料，拒絕覆寫")
@@ -70,7 +69,7 @@ def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[s
             "assessment_date": date.today().isoformat(),
             "scope": f"僅 {cat} 分類；來源盤點仍包含所有適用程式與組態",
             "source_snapshot_sha256": snapshot["fingerprint"],
-            "checks": [_pending_check(r) for r in _category_rules(catalog, cat)],
+            "checks": [_pending_check(r) for r in category_rules(catalog, cat)],
             "file_reviews": [], "findings": [], "scope_details": {"projects": detect_projects(root)},
         }
         _atomic(snapshot_file, snapshot)
@@ -84,7 +83,7 @@ def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[s
 def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
     if not isinstance(payload, dict) or not payload or not set(payload) <= WRITE_KEYS:
         raise ScopeError("stage JSON 僅允許非空的 checks、file_reviews、findings")
-    allowed = {r["id"] for r in _category_rules(catalog, category)}
+    allowed = {r["id"] for r in category_rules(catalog, category)}
     for key, id_key in (("checks", "id"), ("file_reviews", "path"), ("findings", "id")):
         rows = payload.get(key, [])
         if not isinstance(rows, list):
@@ -137,19 +136,19 @@ def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
 
 def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     current = read_category(root, category, catalog)
-    payload = _load(input_path)
+    payload = load_json(input_path)
     _validate_payload(payload, category, catalog)
-    directory = _category_dir(root, category)
-    pending = _artifact(root, category, STAGED_FILE)
+    directory = category_dir(root, category)
+    pending = artifact_path(root, category, STAGED_FILE)
     if "adversarial_reviews" in payload:
-        if not _artifact(root, category, BASELINE).is_file():
+        if not artifact_path(root, category, BASELINE).is_file():
             raise ScopeError("第二輪證據須先固定第一輪結論：--begin-second-pass")
     if pending.exists():
         raise ScopeError(f"{category}: 已有未整合的 staged 交易；請先 --integrate")
     # O_EXCL 阻擋兩個 Agent 同時啟動 staging（不允許失敗時覆寫）。
     pending.parent.mkdir(parents=True, exist_ok=True)
-    evidence_sha = {key: _digest(_load(_artifact(root, category, rel)))
-                    if _artifact(root, category, rel).is_file() else None
+    evidence_sha = {key: _digest(load_json(artifact_path(root, category, rel)))
+                    if artifact_path(root, category, rel).is_file() else None
                     for key, rel in EVIDENCE_FILES.items()}
     body = {"category": category, "base_sha256": _digest(current),
             "evidence_sha256": evidence_sha,
@@ -160,27 +159,27 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
 
 def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool = False) -> dict:
     current = read_category(root, category, catalog)
-    directory = _category_dir(root, category)
-    pending = _artifact(root, category, STAGED_FILE)
+    directory = category_dir(root, category)
+    pending = artifact_path(root, category, STAGED_FILE)
     if not pending.is_file():
         raise ScopeError(f"{category}: 沒有待整合的 staged 交易")
-    staged = _load(pending)
+    staged = load_json(pending)
     if (staged.get("category") != category or staged.get("base_sha256") != _digest(current)
             or staged.get("snapshot_sha256") != current["source_snapshot_sha256"]):
         raise ScopeError("分類暫存版本與目前來源／assessment 不一致，拒絕整合")
     payload = staged["payload"]
     _validate_payload(payload, category, catalog)
-    evidence_paths = {key: _artifact(root, category, rel)
+    evidence_paths = {key: artifact_path(root, category, rel)
                       for key, rel in EVIDENCE_FILES.items()}
-    actual_evidence = {key: _load(path) if path.is_file() else {}
+    actual_evidence = {key: load_json(path) if path.is_file() else {}
                        for key, path in evidence_paths.items()}
     expected_sha = staged.get("evidence_sha256")
     if not isinstance(expected_sha, dict) or any(
         expected_sha.get(key) != (_digest(actual_evidence[key]) if evidence_paths[key].is_file() else None)
         for key in EVIDENCE_FILES):
         raise ScopeError("分類安全證據已由其他工作異動，拒絕覆寫 staged 交易")
-    baseline_path = _artifact(root, category, BASELINE)
-    baseline = _load(baseline_path) if baseline_path.is_file() else None
+    baseline_path = artifact_path(root, category, BASELINE)
+    baseline = load_json(baseline_path) if baseline_path.is_file() else None
     revisions = {}
     for check in payload.get("checks", []):
         old = next(item for item in current["checks"] if item["id"] == check["id"])
@@ -226,7 +225,7 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
                 and check != previous and check["id"] not in revisions):
             raise ScopeError(f"{check['id']}: 已完成判定不可靜默覆寫；需先人工複核")
         by_id[check["id"]] = check
-    merged["checks"] = [by_id[r["id"]] for r in _category_rules(catalog, category)]
+    merged["checks"] = [by_id[r["id"]] for r in category_rules(catalog, category)]
     for key, identity in (("file_reviews", "path"), ("findings", "id")):
         existing = {r[identity]: r for r in merged[key]}
         for row in payload.get(key, []):
@@ -240,7 +239,7 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
                     raise ScopeError(f"{key}: {row[identity]} 已存在不同證據，拒絕覆寫")
             existing[row[identity]] = row
         merged[key] = list(existing.values())
-    _assert_assessment(merged, category, catalog)
+    assert_category_assessment(merged, category, catalog)
     # 未完成逐檔核驗的資料可以分批保存，但不可因此輸出任何完成報告。
     if revisions:
         archive = {
@@ -253,9 +252,9 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
             "previous_file_reviews": {r["path"]: r for r in current["file_reviews"]},
         }
         digest_name = _digest(archive)[:32] + ".json"
-        archive_path = _artifact(root, category, HISTORY / digest_name)
+        archive_path = artifact_path(root, category, HISTORY / digest_name)
         if archive_path.exists():
-            if _load(archive_path) != archive:
+            if load_json(archive_path) != archive:
                 raise ScopeError("第二輪修訂歷史紀錄存在衝突")
         else:
             _atomic(archive_path, archive)
@@ -285,7 +284,7 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
         assessment = read_category(root, category, catalog)
         checks = assessment["checks"]
         by_id = {c["id"]: c for c in checks}
-        selected_rules = _category_rules(catalog, category)
+        selected_rules = category_rules(catalog, category)
         remaining = [r for r in selected_rules
                      if (by_id[r["id"]].get("execution") or {}).get("state") != "completed"]
         if detail_id and detail_id not in by_id:

@@ -42,11 +42,11 @@ def _value_hash(value: Any) -> str | None:
     return None if value is None else digest(_json_bytes(value))
 
 
-def _hash_file(path: Path) -> str | None:
+def hash_file(path: Path) -> str | None:
     return digest(path.read_bytes()) if path.is_file() else None
 
 
-def _path(target: Path, relative: str) -> Path:
+def tracked_path(target: Path, relative: str) -> Path:
     if relative not in TRACKED:
         raise ValueError(f"非受控審查檔案：{relative}")
     path = (target.resolve() / RELATIVE / relative).resolve()
@@ -56,7 +56,7 @@ def _path(target: Path, relative: str) -> Path:
 
 
 def _hashes(target: Path) -> dict[str, str | None]:
-    return {name: _hash_file(_path(target, name)) for name in TRACKED}
+    return {name: hash_file(tracked_path(target, name)) for name in TRACKED}
 
 
 def _backup_path(target: Path, sha: str) -> Path:
@@ -65,7 +65,7 @@ def _backup_path(target: Path, sha: str) -> Path:
     return target.resolve() / BACKUPS / sha[:2] / (sha + ".json")
 
 
-def _backup_bytes(target: Path, sha: str) -> bytes:
+def backup_bytes(target: Path, sha: str) -> bytes:
     path = _backup_path(target, sha)
     if any(p.is_symlink() for p in (path, path.parent, path.parent.parent, path.parent.parent.parent)):
         raise ValueError("完整性備份路徑包含 symbolic link")
@@ -81,7 +81,7 @@ def _store_backup(target: Path, raw: bytes) -> str:
     sha = digest(raw)
     path = _backup_path(target, sha)
     if path.is_file():
-        _backup_bytes(target, sha)
+        backup_bytes(target, sha)
         return sha
     if any(p.is_symlink() for p in (path, path.parent, path.parent.parent, path.parent.parent.parent)):
         raise ValueError("完整性備份路徑包含 symbolic link")
@@ -98,7 +98,7 @@ def _store_backup(target: Path, raw: bytes) -> str:
             stream.flush()
             os.fsync(stream.fileno())
     if path.exists() or path.is_symlink():
-        _backup_bytes(target, sha)
+        backup_bytes(target, sha)
         temporary.unlink(missing_ok=True)
     else:
         temporary.replace(path)
@@ -108,7 +108,7 @@ def _store_backup(target: Path, raw: bytes) -> str:
 def _backup_present_state(target: Path, updates: dict[str, Any] | None = None) -> None:
     """先保護所有未變及將更新的正式證據，再允許 Journal 交易開始。"""
     for name in TRACKED:
-        path = _path(target, name)
+        path = tracked_path(target, name)
         if path.is_symlink():
             raise ValueError(f"正式證據路徑包含 symbolic link：{name}")
         if path.is_file():
@@ -124,7 +124,7 @@ def _backup_errors(target: Path, hashes: dict[str, str | None]) -> list[str]:
         if sha is None:
             continue
         try:
-            _backup_bytes(target, sha)
+            backup_bytes(target, sha)
         except ValueError as exc:
             issues.append(f"資料完整性：{name} 的持久化備份不合格：{exc}")
     return issues
@@ -138,7 +138,7 @@ def backup_status(target: Path) -> dict:
     if failures:
         return {"ready": False, "errors": failures}
     manifest = _read(target / MANIFEST)
-    journal = _read(_entry_path(target, manifest["sequence"]))
+    journal = _read(journal_entry_path(target, manifest["sequence"]))
     problems = _backup_errors(target, journal["file_hashes"])
     return {"ready": not problems, "backup_mode": journal.get("backup_mode", "legacy-hash-only"),
             "errors": problems, "tracked_file_count": sum(v is not None for v in journal["file_hashes"].values())}
@@ -154,7 +154,7 @@ def repair_backups(target: Path) -> dict:
     # 只在受控正式檔完全吻合 Journal 時，才可依其 bytes 重建損毀備份。
     # 舊損毀檔先隔離保留供事故鑑識，不能直接覆蓋或當作可信證據。
     for name in TRACKED:
-        formal = _path(target, name)
+        formal = tracked_path(target, name)
         if not formal.is_file():
             continue
         raw = formal.read_bytes()
@@ -185,27 +185,27 @@ def restore_backups(target: Path, *, allow_replace: bool = False) -> dict:
     if troubles:
         raise ValueError("備份復原遭拒：完整性交易鏈不可信：" + "；".join(troubles))
     manifest = _read(target / MANIFEST)
-    journal = _read(_entry_path(target, manifest["sequence"]))
+    journal = _read(journal_entry_path(target, manifest["sequence"]))
     expected = journal["file_hashes"]
     changed = [name for name, sha in expected.items()
-               if _hash_file(_path(target, name)) != sha]
+               if hash_file(tracked_path(target, name)) != sha]
     if not changed:
         raise ValueError("目前正式證據與 Journal 完全一致，無需復原")
     payloads = {}
     for name in changed:
         sha = expected[name]
-        path = _path(target, name)
+        path = tracked_path(target, name)
         if sha is None:
             raise ValueError(f"{name}: Journal 預期不存在，不允許以復原操作刪除檔案")
         if path.is_symlink() or any(parent.is_symlink() for parent in (path.parent, path.parent.parent)):
             raise ValueError(f"{name}: 復原路徑包含 symbolic link")
         if path.exists() and not allow_replace:
             raise ValueError(f"{name}: 現存內容與 Journal 不同，須明確指定 --allow-damaged-replacement")
-        payloads[name] = _backup_bytes(target, sha)
+        payloads[name] = backup_bytes(target, sha)
     # 所有備份與覆蓋衝突皆先檢查，再寫入任何正式證據。
     # 現存受損檔案保留原始 bytes 作事故線索，不混入可信 SHA256 證據庫。
     for name in payloads:
-        current_path = _path(target, name)
+        current_path = tracked_path(target, name)
         if current_path.is_file():
             original = current_path.read_bytes()
             damaged_sha = digest(original)
@@ -221,7 +221,7 @@ def restore_backups(target: Path, *, allow_replace: bool = False) -> dict:
                     stream.flush()
                     os.fsync(stream.fileno())
     for name, raw in payloads.items():
-        path = _path(target, name)
+        path = tracked_path(target, name)
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(path.name + ".restore-pending")
         if temporary.exists() or temporary.is_symlink():
@@ -242,7 +242,7 @@ def restore_backups(target: Path, *, allow_replace: bool = False) -> dict:
             "head": commit_result["head"]}
 
 
-def _entry_path(target: Path, seq: int) -> Path:
+def journal_entry_path(target: Path, seq: int) -> Path:
     return target / JOURNAL / f"{seq:08d}.json"
 
 
@@ -278,7 +278,7 @@ def initialize(target: Path, *, explicit: bool = False) -> dict:
     snapshot = _read(target / SNAPSHOT)
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("source_hashes"), dict):
         raise ValueError("來源快照不存在；須先執行 analysis_prepare.py")
-    assessment = _read(_path(target, "assessment.json"))
+    assessment = _read(tracked_path(target, "assessment.json"))
     if not isinstance(assessment, dict):
         raise ValueError("assessment.json 不存在，不能封存")
     if not explicit and (assessment.get("findings") or any(
@@ -292,7 +292,7 @@ def initialize(target: Path, *, explicit: bool = False) -> dict:
                "file_hashes": hashes, "staged_sha256": {},
                "backup_mode": BACKUP_MODE}
     record = _entry(payload)
-    _write(_entry_path(target, 0), record)
+    _write(journal_entry_path(target, 0), record)
     _write(target / MANIFEST, {"schema_version": VERSION, "sequence": 0,
                              "head": record["entry_hash"]})
     return {"initialized": True, "sequence": 0, "head": record["entry_hash"]}
@@ -313,7 +313,7 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
     previous: str | None = None
     last: dict | None = None
     for n in range(seq + 1):
-        row = _read(_entry_path(target, n))
+        row = _read(journal_entry_path(target, n))
         if not isinstance(row, dict):
             return [f"資料完整性：交易日誌缺少序號 {n}"]
         recorded_hash = row.get("entry_hash")
@@ -360,7 +360,7 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
                     if not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{64}", sha) is None:
                         raise ValueError("封存內容指紋格式無效")
                     file_path = folder / "legacy-scripts" / sha
-                    if file_path.is_symlink() or not file_path.is_file() or _hash_file(file_path) != sha:
+                    if file_path.is_symlink() or not file_path.is_file() or hash_file(file_path) != sha:
                         raise ValueError("封存內容遺失或版本變更")
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
                 return [f"資料完整性：交易日誌第 {n} 筆舊腳本封存無法驗證：{exc}"]
@@ -369,7 +369,7 @@ def errors(target: Path, *, verify_files: bool = True, verify_backups: bool = Tr
         previous, last = recorded_hash, row
     if previous != manifest["head"]:
         return ["資料完整性：manifest 與最後交易日誌不一致"]
-    if _entry_path(target, seq + 1).is_file():
+    if journal_entry_path(target, seq + 1).is_file():
         return ["資料完整性：存在未對應 manifest 的額外交易日誌"]
     if last is None:
         return ["資料完整性：找不到完整交易"]
@@ -401,7 +401,7 @@ def commit(target: Path, updates: dict[str, Any], *, event: str,
     if not set(updates).issubset(TRACKED):
         raise ValueError("嘗試修改未受控審查檔案")
     base = _read(target / MANIFEST)
-    prior = _read(_entry_path(target, base["sequence"]))
+    prior = _read(journal_entry_path(target, base["sequence"]))
     after_hashes = dict(prior["file_hashes"])
     for relative, value in updates.items():
         after_hashes[relative] = _value_hash(value)
@@ -411,7 +411,7 @@ def commit(target: Path, updates: dict[str, Any], *, event: str,
         folder = (target / ANALYSIS / "staged").resolve()
         if not p.is_relative_to(folder) or not p.is_file() or p.suffix != ".json":
             raise ValueError("交易暫存路徑不在指定 staged 目錄")
-        staged[p.name] = _hash_file(p)
+        staged[p.name] = hash_file(p)
     _backup_present_state(target, updates)
     current_snapshot = new_snapshot if new_snapshot is not None else _read(target / SNAPSHOT)
     if not isinstance(current_snapshot, dict):
@@ -465,7 +465,7 @@ def recover(target: Path) -> dict:
             or set(before) != set(TRACKED) or set(after) != set(TRACKED)
             or not isinstance(updates, dict) or not set(updates).issubset(TRACKED)):
         raise ValueError("待復原交易資料格式或受控範圍無效")
-    previous = _read(_entry_path(target, pending.get("sequence", 0) - 1))
+    previous = _read(journal_entry_path(target, pending.get("sequence", 0) - 1))
     if (not isinstance(previous, dict)
             or previous.get("entry_hash") != pending.get("previous")
             or previous.get("file_hashes") != before
@@ -491,10 +491,10 @@ def recover(target: Path) -> dict:
     if not committed and (pending.get("previous") != manifest.get("head")
                           or pending.get("sequence") != manifest.get("sequence", -1) + 1):
         raise ValueError("待復原交易與已提交的完整性鏈不同，拒絕操作")
-    if committed and _read(_entry_path(target, pending["sequence"])) != row:
+    if committed and _read(journal_entry_path(target, pending["sequence"])) != row:
         raise ValueError("已提交交易與日誌內容不同，不允許自動清理")
     for relative in TRACKED:
-        now = _hash_file(_path(target, relative))
+        now = hash_file(tracked_path(target, relative))
         if (now != after[relative] if committed else now not in {before[relative], after[relative]}):
             raise ValueError(f"復原遭拒：{relative} 已被第三種內容修改，須人工核對")
         if relative in updates and _value_hash(updates[relative]) != after[relative]:
@@ -504,16 +504,16 @@ def recover(target: Path) -> dict:
     folder = (target / ANALYSIS / "staged").resolve()
     for filename, sha in (pending.get("staged_sha256") or {}).items():
         if (not isinstance(filename, str) or Path(filename).name != filename
-                or (_hash_file(folder / filename) not in ({sha, None} if committed else {sha}))):
+                or (hash_file(folder / filename) not in ({sha, None} if committed else {sha}))):
             raise ValueError(f"復原遭拒：暫存 {filename} 遭修改或消失")
     if not committed:
         for relative, value in updates.items():
-            p = _path(target, relative)
+            p = tracked_path(target, relative)
             if value is None:
                 p.unlink(missing_ok=True)
             else:
                 _write(p, value)
-    journal = _entry_path(target, pending["sequence"])
+    journal = journal_entry_path(target, pending["sequence"])
     if journal.is_file() and _read(journal) != row:
         raise ValueError("復原遭拒：已存在不同內容的交易日誌")
     _write(journal, row)

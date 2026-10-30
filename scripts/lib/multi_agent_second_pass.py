@@ -12,11 +12,11 @@ import sys
 import time
 from pathlib import Path
 
-from multi_agent_ledger import (ANALYSIS, LEDGER, PROBE, _read, _write, _snapshot, _fingerprint,
-                                _git_state)
+from multi_agent_ledger import ANALYSIS, LEDGER, PROBE, write_ledger_json, source_snapshot, ledger_fingerprint, git_state
 from multi_agent_contract import VERSION, SECRET, digest
 from multi_agent_guard import (probe_errors, protected_report_digest,
                                challenges_for, proof_line_hash, exclusive_ledger)
+from review_core import load_json_object
 
 SECOND = ANALYSIS / "multi-agent/second-pass-ledger.json"
 AGENT = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
@@ -40,13 +40,13 @@ def plan(root: Path, *, advance: bool = False) -> dict:
     work = worklist(root)
     if not work.get("ready"):
         raise ValueError("第一輪 Baseline 尚未固定")
-    baseline = _read(root / ANALYSIS / "first-pass-baseline.json")
-    first = _read(root / LEDGER)
-    snap, _, _ = _snapshot(root)
-    probe = _read(root / PROBE)
+    baseline = load_json_object(root / ANALYSIS / "first-pass-baseline.json")
+    first = load_json_object(root / LEDGER)
+    snap, _, _ = source_snapshot(root)
+    probe = load_json_object(root / PROBE)
     if probe_errors(root, probe) or first.get("probe_digest") != digest(probe):
         raise ValueError("第二輪不得沿用失效的 Codex 唯讀 probe")
-    if first.get("snapshot_fingerprint") != _fingerprint(snap):
+    if first.get("snapshot_fingerprint") != ledger_fingerprint(snap):
         raise ValueError("第一輪及第二輪來源快照不符")
     if any(x.get("status") != "completed" for x in first["tasks"].values()):
         raise ValueError("第一輪仍有未完成或未結的跨分片工作")
@@ -73,10 +73,10 @@ def plan(root: Path, *, advance: bool = False) -> dict:
                 sanitized = {k: row[k] for k in ("path", "risk_signals") if k in row}
             targets = _source_targets(sanitized, snap["source_hashes"])
             public, expected = challenges_for(root, targets)
-            task_id = digest([_fingerprint(snap), digest(baseline), key])[:20]
+            task_id = digest([ledger_fingerprint(snap), digest(baseline), key])[:20]
             jobs[task_id] = {
                 "task": {"schema_version": VERSION, "task_id": task_id,
-                         "snapshot_fingerprint": _fingerprint(snap),
+                         "snapshot_fingerprint": ledger_fingerprint(snap),
                          "kind": category, "factual_anchors": sanitized,
                          "source_paths": targets, "challenge_lines": public,
                          "instruction": "只可提出反例與可重讀事實，絕不可接受第一輪 verdict"},
@@ -86,9 +86,9 @@ def plan(root: Path, *, advance: bool = False) -> dict:
                 "digest": None, "attempts": 0}
     if not jobs:
         raise ValueError("第二輪沒有本批可分派工作")
-    candidate = {"version": VERSION, "snapshot_fingerprint": _fingerprint(snap),
+    candidate = {"version": VERSION, "snapshot_fingerprint": ledger_fingerprint(snap),
                  "baseline_digest": digest(baseline), "probe_digest": digest(probe),
-                 "git_state": _git_state(root),
+                 "git_state": git_state(root),
                  "report_guard": protected_report_digest(root),
                  "workers": first["workers"], "tasks": jobs,
                  "budget_tokens": first["config"]["budget_tokens"],
@@ -96,7 +96,7 @@ def plan(root: Path, *, advance: bool = False) -> dict:
                  "measured_tokens": 0}
     destination = root / SECOND
     if destination.exists():
-        old = _read(destination)
+        old = load_json_object(destination)
         if (old.get("snapshot_fingerprint") != candidate["snapshot_fingerprint"]
                 or old.get("baseline_digest") != candidate["baseline_digest"]
                 or old.get("probe_digest") != candidate["probe_digest"]):
@@ -113,15 +113,15 @@ def plan(root: Path, *, advance: bool = False) -> dict:
             raise ValueError("第二輪歷史記錄已存在，拒絕覆寫")
         import os
         os.replace(destination, archive)
-    _write(destination, candidate)
+    write_ledger_json(destination, candidate)
     return candidate
 
 
 def _active(root: Path) -> tuple[dict, dict]:
-    state = _read(root / SECOND)
-    snap, _, _ = _snapshot(root)
-    probe = _read(root / PROBE)
-    first = _read(root / LEDGER)
+    state = load_json_object(root / SECOND)
+    snap, _, _ = source_snapshot(root)
+    probe = load_json_object(root / PROBE)
+    first = load_json_object(root / LEDGER)
     observed = protected_report_digest(root)
     recorded = state["report_guard"]
     # The second-pass batch may span several legitimate main-agent transactions.
@@ -137,17 +137,17 @@ def _active(root: Path) -> tuple[dict, dict]:
     if authorized_update:
         from evidence_integrity import errors as integrity_errors
         authorized_update = not integrity_errors(root)
-    if (state["snapshot_fingerprint"] != _fingerprint(snap)
+    if (state["snapshot_fingerprint"] != ledger_fingerprint(snap)
             or state["probe_digest"] != digest(probe)
             or probe_errors(root, probe)
-            or state["git_state"] != _git_state(root)
+            or state["git_state"] != git_state(root)
             or first.get("integration") is not None
             or (recorded != observed and not authorized_update)):
         raise ValueError("第二輪 probe／來源／正式工件已異動，停止沿用回報")
     for task_id, item in state["tasks"].items():
         if item.get("digest"):
             result_file = root / ANALYSIS / "multi-agent/second-pass-results" / (task_id + ".json")
-            if not result_file.is_file() or result_file.is_symlink() or digest(_read(result_file)) != item["digest"]:
+            if not result_file.is_file() or result_file.is_symlink() or digest(load_json_object(result_file)) != item["digest"]:
                 raise ValueError("第二輪候選結果檔遭更動或遺失")
     return state, snap
 
@@ -175,7 +175,7 @@ def claim(root: Path, task_id: str, agent_id: str) -> dict:
     task["agent_instance_id"] = agent_id
     task["claimed_at"] = time.time()
     task["status"] = "running"
-    _write(root / SECOND, state)
+    write_ledger_json(root / SECOND, state)
     return {**task["task"], "agent_instance_id": agent_id}
 
 
@@ -186,7 +186,7 @@ def fail(root: Path, task_id: str) -> dict:
     if task is None or task["status"] != "running":
         raise ValueError("只有 running 的第二輪任務能被標為失敗")
     task["status"] = "failed" if task["attempts"] < 2 else "needs_main"
-    _write(root / SECOND, state)
+    write_ledger_json(root / SECOND, state)
     return {"task_id": task_id, "status": task["status"],
             "fallback_required": task["status"] == "needs_main"}
 
@@ -274,11 +274,11 @@ def _accept_payload(root: Path, raw: str) -> dict:
     result_file = root / ANALYSIS / "multi-agent/second-pass-results" / (data["task_id"] + ".json")
     if result_file.exists():
         raise ValueError("第二輪交接檔已存在，不得覆寫")
-    _write(result_file, data)
+    write_ledger_json(result_file, data)
     row["result_path"] = str(result_file.relative_to(root))
     state["measured_tokens"] += max(row["estimated_tokens"], 512)
     state["window_charged"] += max(row["estimated_tokens"], 512)
-    _write(root / SECOND, state)
+    write_ledger_json(root / SECOND, state)
     return {"accepted": True, "task_id": data["task_id"],
             "official_adversarial_review_completed": False,
             "notice": "只接受了可定位的挑戰候選；仍須主代理反向閱讀、裁決並透過原有 Stage/Integrate 保存"}
@@ -299,7 +299,7 @@ def renew_budget(root: Path) -> dict:
         raise ValueError("第二輪單一任務超出上限，須主代理重切分片")
     state["window_charged"] = 0
     state["budget_window"] = state.get("budget_window", 1) + 1
-    _write(root / SECOND, state)
+    write_ledger_json(root / SECOND, state)
     return {"budget_window": state["budget_window"], "measured_tokens": state["measured_tokens"]}
 
 
