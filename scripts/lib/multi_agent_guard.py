@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import time
 from pathlib import Path
 from source_reader import read_source_text
-from review_core import canonical_digest as digest, REPORT_ROOT, sha256_bytes as sha
+from review_core import REPORT_ROOT, sha256_bytes as sha
 
 CHECKS = ("parallel_dispatch", "independent_context", "single_layer",
           "enforced_read_only", "structured_result", "failure_recovery",

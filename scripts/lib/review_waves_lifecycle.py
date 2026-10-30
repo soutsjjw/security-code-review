@@ -6,7 +6,6 @@ Reconciliation never replays a transaction and never edits official evidence.
 from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
-import json
 import subprocess
 import sys
 import review_waves_state as ws

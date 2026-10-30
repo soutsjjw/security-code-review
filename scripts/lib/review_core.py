@@ -60,6 +60,18 @@ def write_json_exclusive(path: Path, value: Any, *, sort_keys: bool = False) -> 
         os.fsync(handle.fileno())
 
 
+def load_json(path: Path) -> Any:
+    """嚴格讀取：檔案不存在或 JSON 無效時直接拋出例外。"""
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_json_object(path: Path) -> dict[str, Any]:
+    data = load_json(path)
+    if not isinstance(data, dict):
+        raise ValueError(f"{path.name}: 必須是 JSON 物件")
+    return data
+
+
 def read_json(path: Path, default: Any = None) -> Any:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 

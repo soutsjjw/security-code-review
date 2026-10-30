@@ -14,7 +14,6 @@ import hashlib
 import json
 import math
 from pathlib import Path
-import sys
 
 from review_core import canonical_digest as _digest, file_sha256 as _file_sha
 import review_waves_state as ws

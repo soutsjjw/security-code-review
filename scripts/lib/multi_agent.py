@@ -11,8 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-from multi_agent_ledger import (ANALYSIS, HIGH_RISK, INDEX, LEDGER, PROBE, REPORT, RETRY_LIMIT, SNAPSHOT,
-                               _active, _fingerprint, _read, _snapshot, _write)
+from multi_agent_ledger import (ANALYSIS, LEDGER, PROBE, RETRY_LIMIT, _active, _read, _write)
 from multi_agent_planning import (begin_integration, commit_integration, plan, probe_template, record_probe,
                                  renew_probe)
 from multi_agent_workers import (accept, accept_followup, accept_followup_stdin, accept_stdin, blind_tasks,

@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import json
 import os
 from pathlib import Path
 from typing import Any
 
-from review_core import file_sha256 as _file_sha, REPORT_ROOT, write_json_exclusive
+from review_core import file_sha256 as _file_sha, load_json_object as _read, REPORT_ROOT, write_json_exclusive
 from evidence_integrity import MANIFEST, TRACKED
 from first_pass_repair import repair_plan
 from review_snapshot import STAGED
@@ -21,13 +20,6 @@ from review_waves_contracts import verify_sample_chain
 REPORT = REPORT_ROOT
 STATE = REPORT / "logs/repair-waves/state.json"
 VERSION = 2
-
-
-def _read(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"{path.name}: 必須是 JSON 物件")
-    return data
 
 
 def _assessment(target: Path) -> dict[str, Any]:

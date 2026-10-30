@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json,sys,re
+import json, sys
 from pathlib import Path
 from datetime import date
 from jsonschema import Draft202012Validator,FormatChecker

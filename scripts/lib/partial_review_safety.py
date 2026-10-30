@@ -6,20 +6,18 @@
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any
 
 from review_scope import PARTIAL_ROOT, ScopeError, validate_catalog
 from review_completion import completion_errors
 from review_decision import decision_quality_errors
 from source_coverage import build_source_coverage
-from review_snapshot import closure_errors, rule_scopes
+from review_snapshot import closure_errors
 from control_effectiveness import verification_errors
 from decision_adjudication import adjudication_errors
 from adversarial_recheck import CONTRACT_VERSION, digest, second_pass_errors
-from partial_review_store import (BASELINE, EVIDENCE_FILES, STAGED_FILE, _artifact, _category_dir,
-                                  _category_rules, _load, _snapshot, read_category)
+from partial_review_store import (BASELINE, EVIDENCE_FILES, STAGED_FILE, _artifact, _load,
+                                  _snapshot, read_category)
 from review_core import canonical_digest as _digest, write_json_atomic as _atomic
 from review_core import snapshot_fingerprint
 from analysis_candidates import candidate_hits

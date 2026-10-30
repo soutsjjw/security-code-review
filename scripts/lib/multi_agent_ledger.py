@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import subprocess
 from pathlib import Path
@@ -16,7 +15,7 @@ from multi_agent_guard import probe_errors, protected_report_digest, sha
 from source_reader import source_digest
 from source_coverage import expected_paths
 from scope_paths import relative_path
-from review_core import ANALYSIS_ROOT, REPORT_ROOT, write_json_atomic
+from review_core import ANALYSIS_ROOT, load_json_object as _read, REPORT_ROOT, write_json_atomic
 
 ANALYSIS = ANALYSIS_ROOT
 LEDGER = ANALYSIS / "multi-agent/ledger.json"
@@ -28,13 +27,6 @@ HIGH_RISK = re.compile(r"auth|identity|session|credential|permission|access|"
                        r"controller|endpoint|request|input|upload|serializ|"
                        r"deserializ|middleware|token|password|config", re.I)
 RETRY_LIMIT = 2
-
-
-def _read(path: Path) -> dict:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError("JSON root 必須為物件")
-    return data
 
 
 def _write(path: Path, data: dict) -> None:

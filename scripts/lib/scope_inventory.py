@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import source_coverage
-from scope_paths import EXCLUDED_DIRS, _default_rule, relative_path
+from scope_paths import _default_rule, relative_path
 
 
 def _in_project(path: str, project_path: str) -> bool:

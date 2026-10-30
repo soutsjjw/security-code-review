@@ -12,8 +12,8 @@ import sys
 import time
 from pathlib import Path
 
-from multi_agent_ledger import (ANALYSIS, LEDGER, PROBE, SNAPSHOT, _read, _write,
-                                _snapshot, _fingerprint, _git_state)
+from multi_agent_ledger import (ANALYSIS, LEDGER, PROBE, _read, _write, _snapshot, _fingerprint,
+                                _git_state)
 from multi_agent_contract import VERSION, SECRET, digest
 from multi_agent_guard import (probe_errors, protected_report_digest,
                                challenges_for, proof_line_hash, exclusive_ledger)

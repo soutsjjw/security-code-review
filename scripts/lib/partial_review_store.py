@@ -6,14 +6,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 import subprocess
 from typing import Any
 
 from review_scope import CATEGORY_COUNTS, PARTIAL_ROOT, ScopeError
 from source_coverage import build_source_coverage
-from review_core import canonical_digest as _digest
+from review_core import canonical_digest as _digest, load_json as _load
 
 STAGED_FILE = Path("analysis/staged/pending.json")
 SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
@@ -25,10 +24,6 @@ REVIEWS = Path("analysis/adversarial-reviews.json")
 HISTORY = Path("analysis/second-pass-history")
 EVIDENCE_FILES = {"closures": CLOSURES, "control_verifications": VERIFICATIONS,
                   "decision_audits": AUDITS, "adversarial_reviews": REVIEWS}
-
-
-def _load(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _git_revision(root: Path) -> str:

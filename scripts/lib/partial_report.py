@@ -18,7 +18,6 @@ from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
 from partial_review_store import STAGED_FILE, _artifact, _snapshot, read_category
-from review_core import write_json_atomic as _atomic
 from partial_review_safety import validate as validate_safety
 from report_common import ROOT, extract_html_report, render_html
 from review_scope import (CATEGORIES, ScopeError, load_catalog, parse_categories,

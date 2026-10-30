@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import date
 from typing import Any
 
-from review_scope import CATEGORY_COUNTS, PARTIAL_ROOT, ScopeError, build_scope_plan, load_catalog
+from review_scope import CATEGORY_COUNTS, PARTIAL_ROOT, ScopeError, build_scope_plan
 from source_coverage import build_source_coverage
 from review_completion import completion_errors
 from review_decision import decision_quality_errors, load_decision_matrix

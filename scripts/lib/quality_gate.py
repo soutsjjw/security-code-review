@@ -17,7 +17,7 @@ from quality_acceptance import report_artifact_errors
 from review_decision import load_decision_matrix
 from review_queue import build_queue, load_rules
 from review_snapshot import rule_scopes
-from review_core import REPORT_ROOT, write_json_atomic
+from review_core import load_json as _read, REPORT_ROOT, write_json_atomic
 
 VERSION = 1
 REPORT_DIR = REPORT_ROOT
@@ -27,10 +27,6 @@ QUALITY_VERSIONS = (
     "adversarial_quality_version", "evidence_integrity_version"
 )
 STATUSES = frozenset({"pass", "fail", "review", "na"})
-
-
-def _read(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def contract_matrix() -> dict[str, Any]:

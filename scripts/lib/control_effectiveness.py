@@ -8,7 +8,7 @@ from typing import Any
 
 from review_decision import load_decision_matrix
 from control_outcome_evidence import outcome_errors
-from control_proofs import REQUIRED_SCENARIOS, _location_errors, _proofs
+from control_proofs import REQUIRED_SCENARIOS, _proofs
 from decision_adjudication import external_responsibility_errors, EXTERNAL_PROOF_KINDS
 from review_core import read_json as _read_json, REPORT_ROOT, snapshot_fingerprint
 
