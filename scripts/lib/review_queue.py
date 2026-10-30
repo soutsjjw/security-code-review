@@ -23,6 +23,7 @@ from source_reader import read_source_text
 from review_safety import safety_errors
 from review_snapshot import scope_tasks
 from review_core import REPORT_ROOT, write_json_atomic
+from evidence_integrity import integrated_sequence
 import rule_guidance
 import partial_review_cli
 
@@ -404,6 +405,9 @@ def main() -> int:
             observed = {"completed_rules": queue["completed"]}
             if queue["source_coverage"] is not None:
                 observed["reviewed_files"] = queue["source_coverage"]["reviewed_source_file_count"]
+            sequence = integrated_sequence(target)
+            if sequence is not None:
+                observed["integrated_transactions"] = sequence
             log_state = checkpoint(target, "queue", observed)
             queue["review_run_id"] = log_state["run_id"]
             queue["run_status"] = log_state["status"]

@@ -74,6 +74,61 @@ class ReviewLogTests(unittest.TestCase):
                                          (old_id + "-summary.json")).read_text("utf-8"))["status"],
                              "interrupted")
 
+    def test_integrated_transactions_count_as_progress_after_rules_complete(self):
+        # 第二輪與已完成證據修訂期間規則數不變，成功提交的正式交易仍須算作進展。
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with patch("review_log._clock", return_value=0.0):
+                review_log.start(root)
+            for sequence in range(1, 8):
+                with patch("review_log._clock", return_value=1000.0 * sequence):
+                    state = review_log.checkpoint(root, "queue", {
+                        "completed_rules": 70, "integrated_transactions": sequence})
+            self.assertEqual(state["status"], "running")
+            # 交易序號不再遞增（例如整合一再被拒）時仍照常判定停滯。
+            for _ in range(4):
+                with patch("review_log._clock", return_value=9000.0):
+                    state = review_log.checkpoint(root, "queue", {
+                        "completed_rules": 70, "integrated_transactions": 7})
+            self.assertEqual(state["status"], "stalled")
+
+    def test_checkpoint_accepts_run_started_before_new_progress_counter(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = review_log.start(root)
+            state["progress"].pop("integrated_transactions")
+            review_log.save_metadata(review_log.log_paths(root)[0], state)
+            state = review_log.checkpoint(root, "queue", {"integrated_transactions": 3})
+            self.assertEqual(state["progress"]["integrated_transactions"], 3)
+            self.assertEqual(state["no_progress_checkpoints"], 0)
+
+    def test_compact_query_reports_integrated_transaction_sequence(self):
+        import contextlib
+        import io
+        import review_queue
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "Api.cs").write_text("public class Api { }", encoding="utf-8")
+            calls = []
+
+            def fake_checkpoint(target, phase, observed):
+                calls.append(observed)
+                return {"run_id": "run", "status": "running"}
+
+            def run(*extra):
+                argv = ["review_queue.py", "--target", str(root), *extra, "--compact"]
+                with patch.object(sys, "argv", argv), \
+                     patch("review_log.checkpoint", side_effect=fake_checkpoint), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(review_queue.main(), 0)
+
+            run("--init")
+            manifest = root / "reports/security-code-review/analysis/integrity-manifest.json"
+            manifest.parent.mkdir(parents=True, exist_ok=True)
+            manifest.write_text('{"sequence": 7, "head": "x"}', encoding="utf-8")
+            run()
+            self.assertEqual(calls[-1]["integrated_transactions"], 7)
+
     def test_progress_resets_stall_counter_and_only_report_success_auto_finishes(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

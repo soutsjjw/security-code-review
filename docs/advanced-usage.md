@@ -25,7 +25,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 
 數字為範例，不得直接套用或估算。Agent 可另外記錄 `--verified-callsites` 與實測 `--input-tokens`／`--output-tokens`。結構索引、佇列、證據整合與正式報告 CLI 各自記錄耗時及退出碼；Log 不收集原始碼全文或金鑰。
 
-連續四次 checkpoint 無實際進展、且至少 15 分鐘沒有進展時回傳退出碼 3 並記錄 `stalled`。此後完整審查 CLI 會直接拒絕執行，避免重試空轉；保留全部原始審查紀錄與 Finding，先診斷阻塞原因。重新啟動用 `start`；人工結束用 `finish --status interrupted`／`blocked`。**這是由 Agent 主動回報的檢查點，不是常駐背景監控。**
+連續四次 checkpoint 無實際進展、且至少 15 分鐘沒有進展時回傳退出碼 3 並記錄 `stalled`。實際進展包括已完成規則、已審查檔案、已驗證呼叫點、第二輪規則數，以及正式整合交易序號（`integrated_transactions`，每次 Stage／Integrate 成功提交即遞增）；`review_queue.py --compact` 會自動回報交易序號，因此第二輪或已完成證據修訂期間規則數不變也不會誤判，整合一再被拒則仍會停滯。此後完整審查 CLI 會直接拒絕執行，避免重試空轉；保留全部原始審查紀錄與 Finding，先診斷阻塞原因。重新啟動用 `start`；人工結束用 `finish --status interrupted`／`blocked`。**這是由 Agent 主動回報的檢查點，不是常駐背景監控。**
 
 `--compact`、`--detail-id` 查詢只提供未驗證的進度預覽，`ready_for_report` 永遠是 `false`；不能使用預覽來源覆蓋率交付。正式驗證必須執行 `review_queue.py`（不帶上述兩參數）、`review_safety.py --validate`、`complete_review.py` 與嚴格報告驗證。`--mode incremental` 只對來源 SHA256 與索引契約相符的結構快取生效，不沿用任何安全判定。
 

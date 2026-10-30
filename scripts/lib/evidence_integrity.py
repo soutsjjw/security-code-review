@@ -262,6 +262,13 @@ def enabled(target: Path) -> bool:
     return isinstance(obj, dict) and obj.get("evidence_integrity_version") == VERSION
 
 
+def integrated_sequence(target: Path) -> int | None:
+    """目前 Manifest 已提交的交易序號，只供執行 Log 觀測進度，不作完整性驗證。"""
+    manifest = _read(target / MANIFEST, {})
+    sequence = manifest.get("sequence") if isinstance(manifest, dict) else None
+    return sequence if type(sequence) is int and sequence >= 0 else None
+
+
 def initialize(target: Path, *, explicit: bool = False) -> dict:
     """首次建立受測資料時封存版本；既有資料須明確信任與初始化。"""
     target = target.resolve()

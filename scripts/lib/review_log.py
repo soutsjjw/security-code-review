@@ -19,8 +19,12 @@ PHASES = ("initialization", "structure_index", "queue", "first_pass",
           "cross_file_analysis", "second_pass", "validation", "report")
 COUNTERS = ("completed_rules", "reviewed_files", "verified_callsites",
             "second_pass_rules", "remaining_rules", "input_tokens", "output_tokens",
-            "recorded_file_reviews", "verified_file_reviews", "invalid_file_reviews")
-PROGRESS = COUNTERS[:4]
+            "recorded_file_reviews", "verified_file_reviews", "invalid_file_reviews",
+            "integrated_transactions")
+# 正式整合交易序號只在 Stage／Integrate 成功提交時遞增：第二輪與已完成證據修訂期間
+# 規則數與檔案數不再增加，仍屬實際進展；失敗重試不會遞增，停滯偵測照常生效。
+PROGRESS = ("completed_rules", "reviewed_files", "verified_callsites",
+            "second_pass_rules", "integrated_transactions")
 STALL_CHECKPOINTS = 4
 STALL_SECONDS = 900
 RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{8}$")
@@ -152,6 +156,9 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     _advance_phase(state, phase)
     state["checkpoints"] += 1
     before = state["progress"]
+    for key in PROGRESS:
+        # 舊版 run 的 progress 沒有後來新增的計數器。
+        before.setdefault(key, 0)
     regressions = {key: {"before": before[key], "after": metrics[key]}
                    for key in PROGRESS if key in metrics and metrics[key] < before[key]}
     advance = any(metrics.get(k, before[k]) > before[k] for k in PROGRESS)
