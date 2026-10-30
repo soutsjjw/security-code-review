@@ -110,3 +110,73 @@ def batch_quality_errors(target: Path, before: dict[str, Any], after: dict[str, 
             )
             break
     return errors
+
+
+def completion_transition_errors(
+    target: Path, before: dict[str, Any], after: dict[str, Any], *,
+    before_closures: dict, after_closures: dict,
+    before_verifications: dict, after_verifications: dict,
+    before_audits: dict, after_audits: dict,
+) -> list[str]:
+    """Validate first-pass evidence before a completed transition is committed.
+
+    Existing completed backlog may be repaired incrementally: a revision must not
+    introduce new per-rule violations, but need not repair unrelated historical
+    violations in the same transaction. The final full verifier is unchanged.
+    """
+    from review_completion import completion_errors
+    from review_decision import decision_quality_errors
+    from review_snapshot import closure_errors
+    from control_effectiveness import verification_errors
+    from decision_adjudication import adjudication_errors
+
+    prior = {c["id"]: c for c in before.get("checks", [])
+             if isinstance(c, dict) and isinstance(c.get("id"), str)}
+    current = {c["id"]: c for c in after.get("checks", [])
+               if isinstance(c, dict) and isinstance(c.get("id"), str)}
+    completed = {rid for rid, c in current.items()
+                 if (c.get("execution") or {}).get("state") == "completed"}
+    transitions = {rid for rid in completed
+                   if (prior.get(rid, {}).get("execution") or {}).get("state") != "completed"}
+    touched = {rid for rid in completed if current[rid] != prior.get(rid)}
+    for old_records, new_records in (
+        (before_closures, after_closures),
+        (before_verifications, after_verifications),
+        (before_audits, after_audits),
+    ):
+        touched.update(rid for rid in completed
+                       if old_records.get(rid) != new_records.get(rid))
+    legacy_revisions = touched - transitions
+    if not transitions and not legacy_revisions:
+        return []
+
+    def issues(assessment: dict, ids: set[str], closures: dict,
+               verifications: dict, audits: dict) -> list[str]:
+        checks = [c for c in assessment.get("checks", [])
+                  if isinstance(c, dict) and c.get("id") in ids]
+        return (completion_errors(checks)
+                + decision_quality_errors(checks, source_root=target)
+                + closure_errors(target, {"checks": checks}, closures_override=closures,
+                                 verifications_override=verifications,
+                                 audits_override=audits)
+                + verification_errors(target, checks,
+                                      records_override=verifications,
+                                      audits_override=audits,
+                                      assessment_override=assessment)
+                + adjudication_errors(target, checks, audits_override=audits))
+
+    errors = [
+        "新完成規則證據未通過守門：" + e
+        for e in issues(after, transitions, after_closures, after_verifications, after_audits)
+    ] if transitions else []
+    for rid in sorted(legacy_revisions):
+        # Legacy incomplete evidence needs multi-batch repair. A newly supplied
+        # closure may expose deeper Q2/P2/Q3 gaps; do not mistake that for a
+        # regression. Still protect a previously valid rule from degradation.
+        old_errors = issues(before, {rid}, before_closures,
+                            before_verifications, before_audits)
+        if not old_errors:
+            errors.extend("既有 completed 證據修訂新增阻塞：" + e
+                          for e in issues(after, {rid}, after_closures,
+                                          after_verifications, after_audits))
+    return errors

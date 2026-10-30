@@ -140,7 +140,9 @@ class P0ReviewSafetyTests(unittest.TestCase):
         _write(payload, {"checks": [updated]})
         stage(self.root, payload)
         self.assertEqual((self.report / "assessment.json").read_bytes(), original)
-        result = integrate(self.root)
+        # 此案例只隔離測試 Stage/衝突行為；完成證據守門由下方專屬測試驗證。
+        with patch("batch_evidence_gate.completion_transition_errors", return_value=[]):
+            result = integrate(self.root)
         self.assertEqual(result["checks"], 1)
         self.assertEqual(json.loads((self.report / "assessment.json").read_text(encoding="utf-8"))["checks"][0]
                          ["execution"]["state"], "completed")
@@ -169,6 +171,83 @@ class P0ReviewSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "批次逐檔證據不合格"):
             integrate(self.root)
         self.assertEqual((self.report / "assessment.json").read_bytes(), original)
+
+
+    def test_new_completed_requires_closure_before_commit(self):
+        original = (self.report / "assessment.json").read_bytes()
+        check = dict(next(c for c in self.assessment["checks"] if c["id"] == "AC-01"))
+        check.update(
+            status="pass", decision_reason="已檢查實際授權與逾時處理分支",
+            evidence=[{"kind": "source", "path": "Program.cs", "line_start": 3, "line_end": 3}],
+            execution={"state": "completed", "methods": ["read_source"],
+                       "summary": "已查核實際控制執行與需要的來源關聯。"},
+        )
+        draft = self.report / "completion-no-closure.json"
+        _write(draft, {"checks": [check]})
+        stage(self.root, draft)
+        with self.assertRaisesRegex(ValueError, "新完成規則證據未通過守門.*缺少 cross_file"):
+            integrate(self.root)
+        self.assertEqual((self.report / "assessment.json").read_bytes(), original)
+        self.assertFalse((self.report / CLOSURES).exists())
+
+    def test_new_completed_requires_q2_control_trace(self):
+        index_path = self.report / "analysis/structure-index.json"
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        index["cross_file_evidence_version"] = 1
+        _write(index_path, index)
+        check = dict(next(c for c in self.assessment["checks"] if c["id"] == "AC-01"))
+        check.update(
+            status="pass",
+            execution={"state": "completed", "methods": ["read_source"],
+                       "summary": "已核對入口與來源控制分支"},
+        )
+        closure = {"status": "pass", "summary": "已核對所有入口與組態間的控制責任",
+                   "examined_paths": ["Program.cs"], "control_owner": "Authentication",
+                   "search_summary": "已檢查全部入口、登入控制及中介軟體設定",
+                   "examined_relationship_ids": [], "dismissed_relationships": {},
+                   "callsite_reviews": {}, "open_issues": []}
+        draft = self.report / "completion-no-trace.json"
+        _write(draft, {"checks": [check], "closures": {"AC-01": closure}})
+        stage(self.root, draft)
+        with self.assertRaisesRegex(ValueError, "Q2 缺少實際入口"):
+            integrate(self.root)
+        self.assertFalse((self.report / CLOSURES).exists())
+
+    def test_new_completed_requires_p2_q3_and_p3(self):
+        for rid, status, marker in (
+            ("AC-01", "fail", "Q3 缺少"),
+            ("AC-01", "pass", "P2 缺少"),
+            ("DP-01", "review", "P3 尚未說明"),
+        ):
+            with self.subTest(rule=rid, status=status):
+                check = dict(next(c for c in self.assessment["checks"] if c["id"] == rid))
+                check.update(status=status, execution={"state": "completed",
+                            "methods": ["read_source"], "summary": "已核對安全控制來源與執行路徑"})
+                draft = self.report / f"completion-{rid}-{status}.json"
+                _write(draft, {"checks": [check]})
+                stage(self.root, draft)
+                with self.assertRaisesRegex(ValueError, marker):
+                    integrate(self.root)
+                # Clearing unsuccessful staged input here is fixture cleanup only.
+                for pending in (self.report / "analysis/staged").glob("*.json"):
+                    pending.unlink()
+        self.assertFalse((self.report / "analysis/rule-closures.json").exists())
+
+    def test_preexisting_invalid_completed_can_repair_sidecars_in_batches(self):
+        check = next(c for c in self.assessment["checks"] if c["id"] == "AC-01")
+        check["execution"] = {"state": "completed", "methods": ["read_source"],
+                              "summary": "舊證據尚未完整核對"}
+        _write(self.report / "assessment.json", self.assessment)
+        draft = self.report / "partial-legacy-repair.json"
+        _write(draft, {"closures": {"AC-01": {
+            "status": "review",
+            "summary": "先登記實際查核中找到的負責元件，後續批次補齊來源佐證"
+        }}})
+        stage(self.root, draft)
+        self.assertEqual(integrate(self.root)["closures"], 1)
+        self.assertEqual(json.loads((self.report / "assessment.json").read_text("utf-8"))
+                         ["checks"][0]["execution"]["state"], "completed")
+        self.assertTrue(safety_errors(self.root, self.assessment))
 
     def test_finding_duplicates_collapse_without_erasing_existing(self):
         evidence = [{"path": "Program.cs", "line_start": 3, "line_end": 4}]

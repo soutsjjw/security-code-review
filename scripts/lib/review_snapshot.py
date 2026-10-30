@@ -167,7 +167,9 @@ def scope_tasks(target: Path) -> list[dict]:
 def closure_errors(target: Path, assessment: dict, *, index_override: dict | None = None,
                    snapshot_override: dict | None = None,
                    closures_override: dict | None = None,
-                   diagnostics: dict[str, dict] | None = None) -> list[str]:
+                   diagnostics: dict[str, dict] | None = None,
+                   verifications_override: dict | None = None,
+                   audits_override: dict | None = None) -> list[str]:
     """明確記錄人工查證的邊界及全專案責任；不以索引候選冒充結論。"""
     if snapshot_override is None and not (report_dir(target) / SNAPSHOT).exists():
         return []
@@ -297,7 +299,11 @@ def closure_errors(target: Path, assessment: dict, *, index_override: dict | Non
         elif closure["open_issues"]:
             errors.append(f"{rid}: 仍有未關閉的跨檔／全專案補查任務")
         if q2:
-            errors.extend(trace_errors(target, index, snapshot, check, closure, scopes[rid]))
+            errors.extend(trace_errors(
+                target, index, snapshot, check, closure, scopes[rid],
+                verifications_override=verifications_override,
+                audits_override=audits_override,
+            ))
         if scopes[rid] == "cross_file" and isinstance(paths, list) and len(paths) == 1:
             # 合法的單檔實作仍可結案，但需說明如何排除其他呼叫端／設定。
             note = closure.get("single_file_justification")

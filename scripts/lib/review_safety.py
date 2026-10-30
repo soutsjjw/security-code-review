@@ -129,6 +129,10 @@ def integrate(target: Path, *, allow_revision: bool = False,
     control_verifications = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.CONTROL_VERIFICATIONS, {}) or {}
     decision_audits = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.DECISION_AUDITS, {}) or {}
     adversarial_reviews = review_snapshot._read(review_snapshot.report_dir(target) / review_snapshot.ADVERSARIAL_REVIEWS, {}) or {}
+    # Keep pre-integration sidecars for delta validation of existing completed evidence.
+    previous_closures = json.loads(json.dumps(closures, ensure_ascii=False))
+    previous_verifications = json.loads(json.dumps(control_verifications, ensure_ascii=False))
+    previous_audits = json.loads(json.dumps(decision_audits, ensure_ascii=False))
     known_fingerprints = {_fingerprint(f): fid for fid, f in findings.items()}
     new_files: set[str] = set()
     changed_file_evidence: set[str] = set()
@@ -355,6 +359,18 @@ def integrate(target: Path, *, allow_revision: bool = False,
         target, previous_assessment, data,
         changed_paths=changed_file_evidence | newly_completed_paths,
         snapshot_paths=set(snapshot["source_hashes"]),
+    )
+    if defects:
+        raise ValueError("；".join(defects[:12]))
+    # Validate newly completed rules against the merged assessment and sidecars,
+    # not the old on-disk evidence. Incremental repairs must not regress existing
+    # completed rules; unrelated historical gaps remain subject to full validation.
+    from batch_evidence_gate import completion_transition_errors
+    defects = completion_transition_errors(
+        target, previous_assessment, data,
+        before_closures=previous_closures, after_closures=closures,
+        before_verifications=previous_verifications, after_verifications=control_verifications,
+        before_audits=previous_audits, after_audits=decision_audits,
     )
     if defects:
         raise ValueError("；".join(defects[:12]))
