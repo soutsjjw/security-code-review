@@ -13,7 +13,7 @@ from pathlib import Path
 
 from adversarial_recheck import first_pass_issues
 from evidence_integrity import errors as integrity_errors
-from review_safety import snapshot_errors
+from review_snapshot import snapshot_errors
 from quality_gate import measure as quality_measure
 from execution_boundary_events import verify_run
 from review_core import snapshot_fingerprint, write_json_atomic

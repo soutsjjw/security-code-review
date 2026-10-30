@@ -16,7 +16,8 @@ from adversarial_recheck import (BASELINE, REVIEWS, SNAPSHOT, INDEX, digest,
                                  guidance, progress, begin_second_pass, second_pass_errors)
 from control_effectiveness import snapshot_fingerprint
 from review_decision import load_decision_matrix
-from review_safety import _write, stage, integrate, report_dir
+from review_safety import _write, stage, integrate
+from review_snapshot import report_dir
 from quality_baseline import load_catalog, PROJECT_FILE
 
 
@@ -227,8 +228,8 @@ class AdversarialSecondPassTests(unittest.TestCase):
 
     def test_begin_pins_completed_first_pass_and_is_idempotent(self):
         (self.root / BASELINE).unlink()
-        with (patch("review_safety.snapshot_errors", return_value=[]),
-              patch("review_safety.closure_errors", return_value=[]),
+        with (patch("review_snapshot.snapshot_errors", return_value=[]),
+              patch("review_snapshot.closure_errors", return_value=[]),
               patch("control_effectiveness.verification_errors", return_value=[]),
               patch("decision_adjudication.adjudication_errors", return_value=[]),
               patch("review_completion.completion_errors", return_value=[]),
@@ -248,8 +249,8 @@ class AdversarialSecondPassTests(unittest.TestCase):
     def test_explicit_restart_archives_previous_results_instead_of_erasing(self):
         old = copy.deepcopy(self.baseline)
         self.check("AC-08")["decision_reason"] = "不同的複核後來源結論"
-        with (patch("review_safety.snapshot_errors", return_value=[]),
-              patch("review_safety.closure_errors", return_value=[]),
+        with (patch("review_snapshot.snapshot_errors", return_value=[]),
+              patch("review_snapshot.closure_errors", return_value=[]),
               patch("control_effectiveness.verification_errors", return_value=[]),
               patch("decision_adjudication.adjudication_errors", return_value=[]),
               patch("review_completion.completion_errors", return_value=[]),
@@ -276,7 +277,7 @@ class AdversarialSecondPassTests(unittest.TestCase):
                {"checks": self.checks, "file_reviews": [], "findings": []})
         draft = report_dir(self.root) / "adversarial-draft.json"
         _write(draft, {"adversarial_reviews": {"AC-08": self.records["AC-08"]}})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.root, draft)
             saved = integrate(self.root)
             self.assertEqual(saved["adversarial_reviews"], 1)
@@ -293,7 +294,7 @@ class AdversarialSecondPassTests(unittest.TestCase):
         # 這只測試資料整合，未對虛構 70 項給出實際安全結論。
         draft = report_dir(self.root) / "second-pass-test.json"
         _write(draft, {"adversarial_reviews": {"AC-08": self.records["AC-08"]}})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.root, draft)
             with self.assertRaisesRegex(ValueError, "assessment.json 不存在"):
                 integrate(self.root)

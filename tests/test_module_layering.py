@@ -1,4 +1,4 @@
-"""共用底層不得反向匯入上層模組，且循環匯入只能減少、不得新增。"""
+"""共用底層不得反向匯入上層模組，scripts/ 內不得存在任何循環匯入（含函式內延遲匯入）。"""
 import ast
 import sys
 import unittest
@@ -7,16 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-from review_safety import rule_scopes
+from review_snapshot import rule_scopes
 
-# 只允許匯入 source_reader 的底層模組；review_core 完全不得匯入其他審查模組。
-BASE_LAYERS = {"review_core": set(), "scope_paths": set(), "control_proofs": {"source_reader"}}
-# 既有循環仍靠函式內延遲匯入，且測試依賴其 patch 目標；拆除時請同步縮小此清單。
-KNOWN_CYCLES = [
-    {"adversarial_quality", "adversarial_recheck", "analysis_prepare", "review_safety"},
-    {"partial_review", "partial_review_safety", "review_queue"},
-    {"review_repair_waves", "review_waves_abort", "review_waves_lifecycle"},
-]
+# 最底層模組可匯入的審查模組上限；review_core 與 standard_guides 完全不得匯入其他審查模組。
+BASE_LAYERS = {"review_core": set(), "scope_paths": set(), "standard_guides": set(),
+               "control_proofs": {"source_reader"}}
 
 
 def _import_graph() -> dict[str, set[str]]:
@@ -70,9 +65,8 @@ class ModuleLayeringTests(unittest.TestCase):
         for name, allowed in BASE_LAYERS.items():
             self.assertLessEqual(graph[name], allowed, name)
 
-    def test_no_new_import_cycles(self):
-        for cycle in _cycles(_import_graph()):
-            self.assertIn(cycle, KNOWN_CYCLES)
+    def test_no_import_cycles(self):
+        self.assertEqual(_cycles(_import_graph()), [])
 
     def test_rule_scopes_come_from_master_catalog(self):
         scopes = rule_scopes()

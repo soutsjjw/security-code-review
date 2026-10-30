@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from review_queue import STANDARD_GUIDES
+from standard_guides import STANDARD_GUIDES
 
 STANDARD_CATALOGS = {
     "tacert_v2_checks": "standards/tacert-v2-checklist.yaml",

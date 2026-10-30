@@ -9,10 +9,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from review_repair_waves import (
-    _evidence_state, _formal_diff, _payload_scope, _sample_policy,
-    apply_second_pass,
-)
+from review_repair_waves import _payload_scope, _sample_policy, apply_second_pass
+from review_waves_state import _evidence_state, _formal_diff
 
 
 def fingerprints():
@@ -99,7 +97,7 @@ class RepairWavesSecurityTests(unittest.TestCase):
             (analysis / "review-snapshot.json").write_text('{"source_hashes":{}}')
             (analysis / "rule-closures.json").write_text('{}')
             (analysis / "integrity-manifest.json").write_text('{"head":"one"}')
-            with patch("review_safety.snapshot_errors", return_value=[]), \
+            with patch("review_snapshot.snapshot_errors", return_value=[]), \
                  patch("evidence_integrity.errors", return_value=[]):
                 before = _evidence_state(root)
                 (analysis / "rule-closures.json").write_text('{"AC-01":{}}')
@@ -111,14 +109,14 @@ class RepairWavesSecurityTests(unittest.TestCase):
     def _mock_second_pass(self, root, worklist):
         stack = ExitStack()
         self.addCleanup(stack.close)
-        stack.enter_context(patch("review_repair_waves._load_state",
+        stack.enter_context(patch("review_waves_state._load_state",
                                   return_value={"phase": "second_pass", "paused": False,
                                                 "last_evidence": {"manifest_sha256": None},
                                                 "formal_fingerprints": fingerprints()}))
-        stack.enter_context(patch("review_repair_waves._assert_state_current"))
-        stack.enter_context(patch("review_repair_waves._stage_clean"))
+        stack.enter_context(patch("review_waves_state._assert_state_current"))
+        stack.enter_context(patch("review_waves_state._stage_clean"))
         stack.enter_context(patch("second_pass_layers.worklist", return_value=worklist))
-        stack.enter_context(patch("review_repair_waves._assessment",
+        stack.enter_context(patch("review_waves_state._assessment",
                                   return_value={"checks": [], "file_reviews": []}))
         return stack
 
@@ -142,9 +140,9 @@ class RepairWavesSecurityTests(unittest.TestCase):
                 "rule_tasks": [{"rule_id": "AC-01"}], "sample_tasks": []})
             with patch("review_safety.stage", return_value="staged") as stage, \
                  patch("review_safety.integrate", return_value={"applied": 1}) as integrate, \
-                 patch("review_repair_waves._evidence_state", return_value={"sha": "after"}), \
-                 patch("review_repair_waves._formal_fingerprints", return_value=fingerprints()), \
-                 patch("review_repair_waves._write_state"):
+                 patch("review_waves_state._evidence_state", return_value={"sha": "after"}), \
+                 patch("review_waves_state._formal_fingerprints", return_value=fingerprints()), \
+                 patch("review_waves_state._write_state"):
                 result = apply_second_pass(root, p)
             stage.assert_called_once()
             integrate.assert_called_once()

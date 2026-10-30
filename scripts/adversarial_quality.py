@@ -11,7 +11,8 @@ from typing import Any
 import re
 
 from review_decision import load_decision_matrix
-from review_core import snapshot_fingerprint
+from review_core import read_json as _read, snapshot_fingerprint
+from adversarial_evidence import HIGH_RISK_RULES, SNAPSHOT, _evidence_errors
 
 VERSION = 1
 ATTACK_VECTORS = frozenset({
@@ -78,8 +79,6 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                    baseline: dict[str, Any], decision_audits: dict[str, Any], *,
                    snapshot_override: dict | None = None) -> list[str]:
     """Q4 僅在新索引啟用；不修改任何 assessment、Finding 或第二輪資料。"""
-    from adversarial_recheck import _evidence_errors, HIGH_RISK_RULES
-    from adversarial_recheck import SNAPSHOT, _read
 
     snapshot = snapshot_override if snapshot_override is not None else _read(target / SNAPSHOT, {})
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("source_hashes"), dict):

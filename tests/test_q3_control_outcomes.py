@@ -15,7 +15,8 @@ from analysis_prepare import prepare
 from control_effectiveness import (REQUIRED_SCENARIOS, VERIFICATIONS,
                                    guidance, snapshot_fingerprint, verification_errors)
 from quality_baseline import PROJECT_FILE, load_catalog
-from review_safety import _write, report_dir
+from review_safety import _write
+from review_snapshot import report_dir
 
 
 class ControlOutcomeTests(unittest.TestCase):

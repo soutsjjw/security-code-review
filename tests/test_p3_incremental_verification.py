@@ -109,7 +109,7 @@ class IncrementalTests(unittest.TestCase):
               {"category": "control_trace", "rule_ids": ["AU-01"]}],
               "blocked_count": 1}), \
              patch("evidence_integrity.errors", return_value=[]), \
-             patch("review_safety.snapshot_errors", return_value=[]):
+             patch("review_snapshot.snapshot_errors", return_value=[]):
             output = p3.full_comparison(self.root, incremental)
         self.assertFalse(output["full_gate_passed"])
         self.assertFalse(output["ready_for_second_pass"])

@@ -14,7 +14,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from adversarial_quality import quality_errors
 from control_effectiveness import snapshot_fingerprint
 from quality_baseline import load_catalog, PROJECT_FILE
-from review_safety import _write, report_dir
+from review_safety import _write
+from review_snapshot import report_dir
 
 
 class AdversarialQualityTests(unittest.TestCase):

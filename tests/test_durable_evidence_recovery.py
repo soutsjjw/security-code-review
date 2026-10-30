@@ -14,7 +14,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import evidence_integrity as ledger
 from review_evidence_recovery import archive_for_recheck, plan
-from review_safety import _write, integrate, report_dir, stage
+from review_safety import _write, integrate, stage
+from review_snapshot import report_dir
 
 
 class DurableEvidenceRecoveryTests(unittest.TestCase):
@@ -175,7 +176,7 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
         amended["decision_reason"] = "重新閱讀原始碼後補充具體的控制失效原因；維持 fail 與既有 Finding。"
         draft = self.report / "amended-completed.json"
         _write(draft, {"checks": [amended]})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.target, draft)
             with self.assertRaisesRegex(ValueError, "明確人工允許修訂"):
                 integrate(self.target)
@@ -196,7 +197,7 @@ class DurableEvidenceRecoveryTests(unittest.TestCase):
             "reason": "重新核對真實控制責任及安全判定依據，因原始標題過大而建議修改，但本案例未授權改動 Finding。",
             "reviewer": "test-reviewer",
         }}})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.target, draft)
             with self.assertRaisesRegex(ValueError, "須明確授權"):
                 integrate(self.target, allow_revision=True)

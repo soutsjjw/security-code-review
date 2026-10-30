@@ -9,15 +9,16 @@ from pathlib import Path
 import json
 import subprocess
 import sys
+import review_waves_state as ws
+from review_core import file_sha256 as _file_sha
 
 DELIVERY = Path("reports/security-code-review/logs/repair-waves/delivery.json")
 
 
 def agent_next(target: Path) -> dict:
-    from review_repair_waves import _load_state, _assert_state_current
     from review_waves_contracts import work_contract
-    state = _load_state(target)
-    _assert_state_current(target, state)
+    state = ws._load_state(target)
+    ws._assert_state_current(target, state)
     work = None
     if state["phase"] == "second_pass":
         from second_pass_layers import worklist
@@ -32,17 +33,12 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
     """
     if not acknowledged:
         raise ValueError("必須明確承認已調查中斷的正式交易")
-    from review_repair_waves import (
-        _assessment, _evidence_state, _formal_fingerprints, _formal_diff,
-        _load_state, _write_state, STATE, _batch_blockers, _blocker_keys,
-        _all_completed,
-    )
     from rule_repair_tasks import compare_rule_repair_diagnostics
-    state = _load_state(target)
+    state = ws._load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
         raise ValueError("沒有待對帳的正式交易意圖")
-    evidence = _evidence_state(target)
+    evidence = ws._evidence_state(target)
     if evidence["source_snapshot_sha256"] != intent["prior_evidence"]["source_snapshot_sha256"]:
         raise ValueError("來源快照已改變，須重新定義審查基準")
     before_tracks = intent["prior_evidence"].get("tracked_sha256") or {}
@@ -60,14 +56,14 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
     }
     if modified_tracks - scopes.get(intent.get("phase"), set()):
         raise ValueError("正式工件異動超出本次交易允許範圍，禁止自動對帳")
-    current_fps = _formal_fingerprints(target)
+    current_fps = ws._formal_fingerprints(target)
     prior = intent["prior_fingerprints"]
     if current_fps == prior:
         raise ValueError("未觀察到完成的正式證據變動；應調查 staged 與 Journal，不得重播")
-    changed, mandatory = _formal_diff(prior, current_fps)
+    changed, mandatory = ws._formal_diff(prior, current_fps)
     if intent["phase"] == "first_pass":
         from review_blockers import diagnose
-        current = diagnose(target, _assessment(target))
+        current = diagnose(target, ws._assessment(target))
         reg = compare_rule_repair_diagnostics(state["observed_diagnostic"], current)
         if reg["should_pause"]:
             raise ValueError("正式交易完成後仍有新增阻塞／完整性風險：" +
@@ -78,14 +74,14 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
             raise ValueError("實際修改規則超出批次授權範圍，拒絕自動恢復")
         state["changed_rules"] = sorted(set(state["changed_rules"]) | changed)
         state["mandatory_rules"] = sorted(set(state["mandatory_rules"]) | mandatory)
-        remaining = _batch_blockers(batch, state["tasks"]) & _blocker_keys(current)
+        remaining = ws._batch_blockers(batch, state["tasks"]) & ws._blocker_keys(current)
         if current["blocker_signature"] == state["observed_signature"]:
             raise ValueError("正式變更沒有改善權威診斷，需人工調查")
         if not remaining and intent["batch_id"] not in state["completed_batches"]:
             state["completed_batches"].append(intent["batch_id"])
         state["observed_diagnostic"] = current
         state["observed_signature"] = current["blocker_signature"]
-        if _all_completed(state):
+        if ws._all_completed(state):
             if current.get("ready_for_second_pass"):
                 state["phase"] = "sample"
             else:
@@ -115,7 +111,7 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
     state["inflight"] = None
     state["last_evidence"] = evidence
     state["formal_fingerprints"] = current_fps
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return {"status": "reconciled", **result,
             "read_only_recovery": True,
             "note": "沒有重新執行 Stage／Integrate；以正式權威紀錄對帳結案"}
@@ -123,14 +119,12 @@ def reconcile(target: Path, *, acknowledged: bool) -> dict:
 
 def finalize(target: Path) -> dict:
     """Final handoff is contingent on all the PREEXISTING official gates."""
-    from review_repair_waves import (_assert_state_current, _assessment,
-                                     _load_state, _file_sha, STATE)
     from second_pass_layers import worklist
     from review_queue import load_rules, build_queue
     from review_safety import safety_errors
     from review_waves_contracts import independence_metadata, verify_sample_chain
-    state = _load_state(target)
-    _assert_state_current(target, state)
+    state = ws._load_state(target)
+    ws._assert_state_current(target, state)
     if state["phase"] != "second_pass" or state.get("paused"):
         raise ValueError("完整 Wave 審查尚未進入正式第二輪結案")
     chain = state.get("sample_chain")
@@ -143,7 +137,7 @@ def finalize(target: Path) -> dict:
     if not (work.get("ready") and work.get("rules_total") == 70
             and work.get("rules_pending") == 0 and work.get("samples_pending") == 0):
         raise ValueError("70 條反向複核與固定來源抽樣尚未全部完成")
-    assessment = _assessment(target)
+    assessment = ws._assessment(target)
     _, rules = load_rules()
     full = build_queue(assessment, rules, 10, source_root=target, compact=False)
     if not full.get("ready_for_report"):
@@ -154,8 +148,7 @@ def finalize(target: Path) -> dict:
     report_root = target / "reports/security-code-review"
     if (target / DELIVERY).exists():
         raise ValueError("既有交付紀錄不可覆寫；先人工核對")
-    from review_repair_waves import _stage_clean
-    _stage_clean(target)
+    ws._stage_clean(target)
     proc = subprocess.run(
         [sys.executable, str(Path(__file__).with_name("complete_review.py")),
          "--target", str(target)],
@@ -179,6 +172,5 @@ def finalize(target: Path) -> dict:
               "report_path": report.relative_to(target).as_posix(),
               "html_path": html.relative_to(target).as_posix(),
               "note": "此交付旁錄不是正式 Journal 項目；L0 不代表獨立驗證"}
-    from review_repair_waves import _write_state
-    _write_state(target / DELIVERY, result)
+    ws._write_state(target / DELIVERY, result)
     return result

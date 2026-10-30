@@ -9,7 +9,6 @@ import re
 import subprocess
 import sys
 import time
-import yaml
 from system_baseline import source_review_hints
 from web_guide import web_guide_review_hints
 from web_appendix1 import appendix_review_hints
@@ -27,50 +26,17 @@ from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from analysis_candidates import candidate_hits
 from source_reader import read_source_text
-from review_safety import safety_errors, scope_tasks
+from review_safety import safety_errors
+from review_snapshot import scope_tasks
 from review_core import write_json_atomic
+from standard_guides import STANDARD_GUIDES, load_owasp_2025_categories, load_tacert_v2_checks
+from partial_review import (initialize as init_partial, integrate as integrate_partial,
+                            queue as partial_queue, stage as stage_partial)
+from partial_review_safety import (begin_second_pass as begin_partial_second_pass,
+                                   prepare_index as prepare_partial_index, validate as validate_partial)
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPORT_RELATIVE = Path("reports/security-code-review")
-TACERT_V2_FILE = SKILL_ROOT / "standards" / "tacert-v2-checklist.yaml"
-OWASP_2025_FILE = SKILL_ROOT / "standards" / "owasp-top10-2025.yaml"
-
-
-def load_owasp_2025_categories(rules: list[dict]) -> dict[str, list[dict]]:
-    """將 OWASP Top 10:2025 官方分類對應至 70 項規則（非符合判定）。"""
-    document = yaml.safe_load(OWASP_2025_FILE.read_text(encoding="utf-8"))
-    mapped = {rule["id"]: [] for rule in rules}
-    for category in document["categories"]:
-        for rid in category["related_rule_ids"]:
-            if rid not in mapped:
-                raise ValueError(f"OWASP 2025 分類對應未知規則：{rid}")
-            mapped[rid].append({
-                "id": category["id"],
-                "title": category["title"],
-                "review_steps": category["review_steps"],
-                "coverage_gap": category["coverage_gap"],
-                "source_url": category["url"],
-                "mapping_type": category["mapping_type"],
-            })
-    return mapped
-
-
-def load_tacert_v2_checks(rules: list[dict]) -> dict[str, list[dict]]:
-    """將 TACERT V2 各補充要求掛到既有規則；不變更 70 項身分與進度模型。"""
-    data = yaml.safe_load(TACERT_V2_FILE.read_text(encoding="utf-8"))
-    mapped = {rule["id"]: [] for rule in rules}
-    for entry in data["checks"]:
-        for rid in entry["related_rule_ids"]:
-            if rid not in mapped:
-                raise ValueError(f"TACERT V2 檢核對應未知規則：{rid}")
-            mapped[rid].append({
-                "id": entry["id"], "title": entry["title"],
-                "pdf_page": entry["pdf_page"],
-                "verification_mode": entry["verification_mode"],
-                "review_steps": entry["review_steps"],
-                "expected_evidence": entry["expected_evidence"],
-            })
-    return mapped
 
 
 def load_rules() -> tuple[dict, list[dict]]:
@@ -127,17 +93,6 @@ def initialize(target: Path, report_dir: Path, ruleset: dict, rules: list[dict])
         from evidence_integrity import enabled as integrity_enabled, initialize as seal
         if integrity_enabled(target):
             seal(target)
-
-
-# 與 SKILL.md「標準文件按需載入」一致；路徑一律相對 SKILL_ROOT。
-STANDARD_GUIDES = {
-    "tacert_v2_checks": "docs/tacert-v2-review.md",
-    "owasp_2025_categories": "docs/owasp-top10-2025-review.md",
-    "system_baseline_v13_controls": "docs/system-baseline-v1.3-review.md",
-    "web_guide_v32_checks": "docs/web-guide-v3.2-review.md",
-    "web_guide_v32_appendix1": "docs/web-guide-v3.2-appendix1-review.md",
-    "web_guide_v32_appendix3": "docs/web-guide-v3.2-appendix3-review.md",
-}
 
 
 def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: Path | None = None,
@@ -404,22 +359,17 @@ def main() -> int:
     out = target / REPORT_RELATIVE
     if args.categories:
         from review_scope import parse_categories, load_catalog
-        from partial_review import initialize as init_partial, queue as partial_queue
-        from partial_review import stage as stage_partial, integrate as integrate_partial
         try:
             selected = parse_categories(args.categories[0])
             catalog = load_catalog()
             if args.prepare:
-                from partial_review_safety import prepare_index
-                result = prepare_index(target, catalog)
+                result = prepare_partial_index(target, catalog)
             elif args.begin_second_pass:
-                from partial_review_safety import begin_second_pass
                 if len(selected) != 1:
                     raise ValueError("--begin-second-pass 每次只能指定單一分類")
-                result = begin_second_pass(target, selected[0], catalog)
+                result = begin_partial_second_pass(target, selected[0], catalog)
             elif args.validate:
-                from partial_review_safety import validate
-                results = [validate(target, cat, catalog) for cat in selected]
+                results = [validate_partial(target, cat, catalog) for cat in selected]
                 result = {"review_mode": "partial", "category_validation": results,
                           "safety_valid": all(r["safety_valid"] for r in results),
                           "ready_for_report": False}

@@ -14,6 +14,8 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+import review_waves_state as ws
+from review_core import canonical_digest as _digest, file_sha256 as _file_sha
 
 QUARANTINE = Path("reports/security-code-review/logs/repair-waves/aborted")
 RECEIPT_VERSION = 1
@@ -56,11 +58,10 @@ def _safe_folder(root: Path) -> Path:
 
 
 def _verify_official_unchanged(target: Path, state: dict, intent: dict) -> tuple[dict, dict]:
-    from review_repair_waves import _evidence_state, _formal_fingerprints
     from evidence_integrity import MANIFEST, PENDING
     if (target / PENDING).exists() or (target / PENDING).is_symlink():
         raise ValueError("存在完整性待提交交易，禁止取消；先處理正式復原")
-    evidence = _evidence_state(target)  # checks Journal chain and ALL tracked hashes
+    evidence = ws._evidence_state(target)  # checks Journal chain and ALL tracked hashes
     old = intent.get("prior_evidence")
     if (not isinstance(old, dict) or evidence != old
             or evidence != state.get("last_evidence")):
@@ -69,7 +70,7 @@ def _verify_official_unchanged(target: Path, state: dict, intent: dict) -> tuple
     if (not isinstance(manifest.get("head"), str)
             or type(manifest.get("sequence")) is not int or manifest["sequence"] < 0):
         raise ValueError("Manifest sequence/head 格式不合法")
-    fingerprints = _formal_fingerprints(target)
+    fingerprints = ws._formal_fingerprints(target)
     if (fingerprints != intent.get("prior_fingerprints")
             or fingerprints != state.get("formal_fingerprints")):
         raise ValueError("正式逐條證據已變更，禁止取消")
@@ -77,13 +78,12 @@ def _verify_official_unchanged(target: Path, state: dict, intent: dict) -> tuple
 
 
 def _check_original(target: Path, state: dict, intent: dict, batch_id: str) -> None:
-    from review_repair_waves import _next_batch
     if (state.get("phase") != "first_pass" or intent.get("phase") != "first_pass"
             or intent.get("batch_id") != batch_id
             or not isinstance(intent.get("payload_sha256"), str)
             or len(intent["payload_sha256"]) != 64):
         raise ValueError("僅允許取消明確指定的第一輪未提交 Wave 2 批次")
-    expected = _next_batch(state)
+    expected = ws._next_batch(state)
     if not expected or expected.get("batch_id") != batch_id:
         raise ValueError("取消批次已結案、依賴不符或不是目前執行批次")
 
@@ -92,21 +92,20 @@ def _validate_staged(target: Path, state: dict, intent: dict,
                      staged: Path, payload_path: Path | None, manifest: dict,
                      *, expected_staged_sha256: str | None = None,
                      allow_unbound_legacy: bool = False) -> dict:
-    from review_repair_waves import REPORT, _read, _file_sha, _digest
-    from review_safety import STAGED, SNAPSHOT
-    source = target / REPORT / STAGED
+    from review_snapshot import STAGED, SNAPSHOT
+    source = target / ws.REPORT / STAGED
     if source.is_symlink() or staged.is_symlink() or not staged.is_file():
         raise ValueError("staged 不是可信的一般檔案")
     if staged.parent.resolve() != source.resolve() or staged.suffix != ".json":
         raise ValueError("staged 檔案不在正式暫存目錄")
-    record = _read(staged)
+    record = ws._read(staged)
     if set(record) != {"snapshot_git_revision", "source_hashes", "payload", "integrity_head"}:
         raise ValueError("staged 欄位異常，不得取消")
     serialized = json.dumps(record, ensure_ascii=False, sort_keys=True)
     expected_name = hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:24] + ".json"
     if staged.name != expected_name:
         raise ValueError("staged 檔名與正式 Stage 內容指紋不一致")
-    snapshot = _read(target / REPORT / SNAPSHOT)
+    snapshot = ws._read(target / ws.REPORT / SNAPSHOT)
     if (record["snapshot_git_revision"] != snapshot.get("git_revision")
             or record["source_hashes"] != snapshot.get("source_hashes")
             or record["integrity_head"] != manifest["head"]):
@@ -125,7 +124,7 @@ def _validate_staged(target: Path, state: dict, intent: dict,
     if payload_path is not None:
         if (payload_path.is_symlink() or not payload_path.is_file()
                 or _file_sha(payload_path) != intent["payload_sha256"]
-                or _read(payload_path) != record["payload"]):
+                or ws._read(payload_path) != record["payload"]):
             raise ValueError("原始 payload SHA256／內容與 staged 或 inflight 不一致")
     return {"file_sha256": _file_sha(staged),
             "payload_digest": _digest(record["payload"]),
@@ -144,16 +143,15 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
     inflight may be well-formed yet unabortable until its exact source payload
     bytes are supplied.
     """
-    from review_repair_waves import REPORT, _load_state, _file_sha
-    from review_safety import STAGED
+    from review_snapshot import STAGED
     target = target.resolve()
-    state = _load_state(target)
+    state = ws._load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
         raise ValueError("不存在可核對的 inflight 交易")
     _check_original(target, state, intent, batch_id)
     manifest, evidence = _verify_official_unchanged(target, state, intent)
-    staging = target / REPORT / STAGED
+    staging = target / ws.REPORT / STAGED
     if staging.is_symlink() or not staging.is_dir():
         raise ValueError("正式 staged 目錄不存在或包含 symbolic link")
     files = list(staging.iterdir())
@@ -166,10 +164,8 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
     # Verify all non-payload properties even when legacy raw bytes are missing;
     # this cannot authorize cancellation until the raw payload is supplied.
     if needs_original and not legacy_authorized:
-        from review_repair_waves import _read
-        from review_safety import SNAPSHOT
-        from review_repair_waves import _digest
-        record = _read(stage)
+        from review_snapshot import SNAPSHOT
+        record = ws._read(stage)
         if (stage.is_symlink() or not stage.is_file()
                 or set(record) != {"snapshot_git_revision", "source_hashes",
                                    "payload", "integrity_head"}):
@@ -177,7 +173,7 @@ def inspect_uncommitted(target: Path, batch_id: str, *,
         serialization = json.dumps(record, ensure_ascii=False, sort_keys=True)
         if stage.name != hashlib.sha256(serialization.encode("utf-8")).hexdigest()[:24] + ".json":
             raise ValueError("staged 的檔名與內容指紋不同")
-        snapshot = _read(target / REPORT / SNAPSHOT)
+        snapshot = ws._read(target / ws.REPORT / SNAPSHOT)
         if (record["integrity_head"] != manifest["head"]
                 or record["snapshot_git_revision"] != snapshot["git_revision"]
                 or record["source_hashes"] != snapshot["source_hashes"]):
@@ -223,11 +219,9 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
     """
     if not acknowledged:
         raise ValueError("必須明確 --acknowledge-investigation 才可隔離未提交暫存")
-    from review_repair_waves import (REPORT, STATE, _load_state, _write_state,
-                                     _digest, _file_sha)
-    from review_safety import STAGED
+    from review_snapshot import STAGED
     target = target.resolve()
-    state = _load_state(target)
+    state = ws._load_state(target)
     intent = state.get("inflight")
     if not isinstance(intent, dict):
         # Retries are read-only, and must still verify the archived bytes,
@@ -236,8 +230,7 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
                     if x.get("batch_id") == batch_id]
         if not matching:
             raise ValueError("沒有可取消的 inflight 交易")
-        from review_repair_waves import _assert_state_current
-        _assert_state_current(target, state)
+        ws._assert_state_current(target, state)
         last = matching[-1]
         event_id = last.get("event_id")
         if (not isinstance(event_id, str) or len(event_id) != 32
@@ -271,7 +264,7 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
     if folder.is_symlink():
         raise ValueError("隔離交易目錄不可為 symbolic link")
     folder.mkdir(exist_ok=True)
-    stage = target / REPORT / STAGED
+    stage = target / ws.REPORT / STAGED
     if stage.is_symlink():
         raise ValueError("staged 目錄不可為 symbolic link")
     original_files = list(stage.iterdir()) if stage.is_dir() else []
@@ -373,7 +366,7 @@ def abort_uncommitted(target: Path, batch_id: str, *, payload_path: Path | None 
                                        "receipt": receipt_path.relative_to(target).as_posix(),
                                        "staged_sha256": prepared["staged_sha256"]}]
     state["inflight"] = None
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return {"status": "aborted_uncommitted", "batch_id": batch_id,
             "manifest_sequence_unchanged": manifest["sequence"],
             "completed_batches_unchanged": len(state["completed_batches"]),

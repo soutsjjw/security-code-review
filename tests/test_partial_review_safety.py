@@ -44,7 +44,7 @@ class PartialSafetyTests(unittest.TestCase):
             return prepare_index(self.root, self.catalog)
 
     def test_multiple_cross_file_rules_keep_independent_candidate_maps(self):
-        from review_safety import closure_errors
+        from review_snapshot import closure_errors
         index = {
             "schema_version": 3, "cross_file_evidence_version": 0,
             "typed_relationships": [],

@@ -17,7 +17,8 @@ from control_effectiveness import (REQUIRED_SCENARIOS, VERIFICATIONS,
                                    guidance, snapshot_fingerprint, verification_errors)
 from quality_baseline import PROJECT_FILE, load_catalog
 from review_queue import load_rules, initialize
-from review_safety import _write, integrate, report_dir, stage
+from review_safety import _write, integrate, stage
+from review_snapshot import report_dir
 
 
 class ControlEffectivenessTests(unittest.TestCase):

@@ -6,10 +6,8 @@ P3/P4 守門尚未接入前，ready_for_report 永遠為 False。
 """
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
-import subprocess
 from datetime import date
 from typing import Any
 
@@ -22,66 +20,15 @@ from analysis_candidates import candidate_hits
 from assessment_consistency import detect_language_framework
 from scope_inventory import detect_projects
 from review_core import canonical_digest as _digest, write_json_atomic as _atomic, write_json_exclusive
+from partial_review_store import (BASELINE, EVIDENCE_FILES, HISTORY, SNAPSHOT_FILE, STAGED_FILE,
+                                  _artifact, _assert_assessment, _category_dir, _category_rules,
+                                  _load, _snapshot, _verify_snapshot, read_category)
+from partial_review_safety import validate as validate_partial
+from standard_guides import STANDARD_GUIDES, load_owasp_2025_categories, load_tacert_v2_checks
 
-STAGED_FILE = Path("analysis/staged/pending.json")
-SNAPSHOT_FILE = Path("analysis/source-snapshot.json")
 EVIDENCE_KEYS = frozenset({"closures", "control_verifications", "decision_audits",
                            "adversarial_reviews"})
 WRITE_KEYS = frozenset({"checks", "file_reviews", "findings"}) | EVIDENCE_KEYS
-
-
-def _load(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _git_revision(root: Path) -> str:
-    result = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
-                            capture_output=True, text=True, check=False)
-    return result.stdout.strip() if result.returncode == 0 else "not-a-git-repository"
-
-
-def _snapshot(root: Path) -> dict[str, Any]:
-    # 使用正式來源盤點的相同排除範圍，不把 reports/ 或 Skill 當成受測檔案。
-    coverage = build_source_coverage({"checks": [], "file_reviews": []}, root)
-    files = {path: hashlib.sha256((root / path).read_bytes()).hexdigest()
-             for path in coverage["source_paths"]}
-    revision = _git_revision(root)
-    return {"git_revision": revision, "source_hashes": files,
-            "fingerprint": _digest({"git_revision": revision, "source_hashes": files})}
-
-
-def _category_dir(root: Path, category: str) -> Path:
-    if category not in CATEGORY_COUNTS:
-        raise ScopeError(f"未支援分類：{category}")
-    root = root.resolve()
-    directory = root / PARTIAL_ROOT / category
-    # 禁止 reports/、partial/ 或分類目錄的 symlink 導向受測專案外部。
-    current = directory
-    while current != root:
-        if current.is_symlink():
-            raise ScopeError(f"分類輸出路徑不允許 symbolic link：{current}")
-        current = current.parent
-    if not directory.resolve().is_relative_to(root):
-        raise ScopeError("分類輸出路徑超出受測專案")
-    return directory
-
-
-def _artifact(root: Path, category: str, relative: Path | str) -> Path:
-    """只可寫入分類私有目錄；拒絕任何中間 symlink。"""
-    directory = _category_dir(root, category)
-    path = directory / relative
-    if path == directory or not path.resolve().is_relative_to(directory.resolve()):
-        raise ScopeError("分類工件路徑無效")
-    current = path
-    while current != directory:
-        if current.is_symlink():
-            raise ScopeError(f"分類工件路徑不允許 symbolic link：{current}")
-        current = current.parent
-    return path
-
-
-def _category_rules(catalog: dict, category: str) -> list[dict]:
-    return [rule for rule in catalog["rules"] if rule["category"] == category]
 
 
 def _pending_check(rule: dict) -> dict:
@@ -93,23 +40,6 @@ def _pending_check(rule: dict) -> dict:
         "execution": {"state": "pending", "methods": [],
                       "summary": "尚未執行審查，必須查核原始碼與控制流程"},
     }
-
-
-def _assert_assessment(data: Any, category: str, catalog: dict) -> None:
-    expected = [r["id"] for r in _category_rules(catalog, category)]
-    if not isinstance(data, dict) or data.get("review_mode") != "partial" or data.get("category") != category:
-        raise ScopeError(f"{category}: assessment 的分類身分無效")
-    checks = data.get("checks")
-    if (not isinstance(checks, list) or len(checks) != len(expected)
-            or [c.get("id") for c in checks if isinstance(c, dict)] != expected):
-        raise ScopeError(f"{category}: checks 必須按規則主檔順序精確涵蓋 {len(expected)} 項")
-    if data.get("ruleset_version") != catalog["ruleset_version"]:
-        raise ScopeError(f"{category}: 規則版本不符")
-    if (not isinstance(data.get("findings"), list)
-            or not isinstance(data.get("file_reviews"), list)):
-        raise ScopeError(f"{category}: findings/file_reviews 格式錯誤")
-    if data.get("source_snapshot_sha256") is None:
-        raise ScopeError(f"{category}: 缺少來源快照識別")
 
 
 def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[str]:
@@ -147,33 +77,6 @@ def initialize(root: Path, categories: tuple[str, ...], catalog: dict) -> list[s
             _atomic(project_file, {"name": root.name, "language_framework": detect_language_framework(root)})
         created.append(cat)
     return created
-
-
-def _verify_snapshot(root: Path, directory: Path, assessment: dict) -> None:
-    stored_path = _artifact(root, assessment["category"], SNAPSHOT_FILE)
-    if not stored_path.is_file():
-        raise ScopeError("缺少分類來源快照；不可沿用舊有 completed")
-    stored = _load(stored_path)
-    if (not isinstance(stored, dict) or stored.get("fingerprint") != _digest({
-            "git_revision": stored.get("git_revision"),
-            "source_hashes": stored.get("source_hashes"),
-        })):
-        raise ScopeError("分類來源快照內容損壞")
-    if assessment["source_snapshot_sha256"] != stored["fingerprint"]:
-        raise ScopeError("assessment 與來源快照識別不一致")
-    if _snapshot(root) != stored:
-        raise ScopeError("來源檔案或 Git Revision 已異動；拒絕沿用分類審查證據")
-
-
-def read_category(root: Path, category: str, catalog: dict) -> dict:
-    directory = _category_dir(root, category)
-    path = directory / "assessment.json"
-    if not path.is_file():
-        raise ScopeError(f"{category}: 尚無分類進度，請先指定 --init")
-    assessment = _load(path)
-    _assert_assessment(assessment, category, catalog)
-    _verify_snapshot(root, directory, assessment)
-    return assessment
 
 
 def _validate_payload(payload: Any, category: str, catalog: dict) -> None:
@@ -237,14 +140,12 @@ def stage(root: Path, category: str, input_path: Path, catalog: dict) -> Path:
     directory = _category_dir(root, category)
     pending = _artifact(root, category, STAGED_FILE)
     if "adversarial_reviews" in payload:
-        from partial_review_safety import BASELINE
         if not _artifact(root, category, BASELINE).is_file():
             raise ScopeError("第二輪證據須先固定第一輪結論：--begin-second-pass")
     if pending.exists():
         raise ScopeError(f"{category}: 已有未整合的 staged 交易；請先 --integrate")
     # O_EXCL 阻擋兩個 Agent 同時啟動 staging（不允許失敗時覆寫）。
     pending.parent.mkdir(parents=True, exist_ok=True)
-    from partial_review_safety import EVIDENCE_FILES
     evidence_sha = {key: _digest(_load(_artifact(root, category, rel)))
                     if _artifact(root, category, rel).is_file() else None
                     for key, rel in EVIDENCE_FILES.items()}
@@ -267,7 +168,6 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
         raise ScopeError("分類暫存版本與目前來源／assessment 不一致，拒絕整合")
     payload = staged["payload"]
     _validate_payload(payload, category, catalog)
-    from partial_review_safety import EVIDENCE_FILES
     evidence_paths = {key: _artifact(root, category, rel)
                       for key, rel in EVIDENCE_FILES.items()}
     actual_evidence = {key: _load(path) if path.is_file() else {}
@@ -277,7 +177,6 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
         expected_sha.get(key) != (_digest(actual_evidence[key]) if evidence_paths[key].is_file() else None)
         for key in EVIDENCE_FILES):
         raise ScopeError("分類安全證據已由其他工作異動，拒絕覆寫 staged 交易")
-    from partial_review_safety import BASELINE
     from adversarial_recheck import digest as rule_digest
     baseline_path = _artifact(root, category, BASELINE)
     baseline = _load(baseline_path) if baseline_path.is_file() else None
@@ -343,7 +242,6 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
     _assert_assessment(merged, category, catalog)
     # 未完成逐檔核驗的資料可以分批保存，但不可因此輸出任何完成報告。
     if revisions:
-        from partial_review_safety import HISTORY
         archive = {
             "category": category, "source_snapshot_sha256": current["source_snapshot_sha256"],
             "previous_checks": revisions,
@@ -374,8 +272,6 @@ def integrate(root: Path, category: str, catalog: dict, *, allow_revision: bool 
 
 def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: int,
           *, detail_id: str | None = None, compact: bool = False) -> dict:
-    from review_queue import (load_tacert_v2_checks, load_owasp_2025_categories,
-                              STANDARD_GUIDES)
     from review_decision import load_decision_matrix
     from control_effectiveness import guidance as control_guidance
     from decision_adjudication import guidance as adjudication_guidance
@@ -446,7 +342,6 @@ def queue(root: Path, categories: tuple[str, ...], catalog: dict, batch_size: in
             next_checks.append(item)
         complete = len(remaining) == 0 and not coverage["missing_source_file_count"]
         complete = complete and not coverage["review_integrity_errors"] and not quality
-        from partial_review_safety import validate as validate_partial
         safety = validate_partial(root, category, catalog)
         results.append({
             "category": category, "total": len(checks),

@@ -16,7 +16,7 @@ from decision_adjudication import guidance as decision_guidance
 from quality_acceptance import report_artifact_errors
 from review_decision import load_decision_matrix
 from review_queue import build_queue, load_rules
-from review_safety import rule_scopes
+from review_snapshot import rule_scopes
 from review_core import write_json_atomic
 
 VERSION = 1

@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import evidence_integrity as ledger
-from review_safety import stage, integrate, report_dir, _read, _write
+from review_safety import stage, integrate, _write
+from review_snapshot import report_dir, _read
 
 
 class EvidenceIntegrityTests(unittest.TestCase):
@@ -55,7 +56,7 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.assertIn("缺少完整性封存", str(ledger.errors(self.root)))
         draft = self.report / "draft.json"
         _write(draft, {"findings": []})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             with self.assertRaisesRegex(ValueError, "缺少完整性封存"):
                 stage(self.root, draft)
         self.assessment["checks"][0]["execution"]["state"] = "completed"
@@ -176,7 +177,7 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.seal()
         draft = self.report / "typo.json"
         _write(draft, {"adversarial_review": {"AC-08": {}}})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             with self.assertRaisesRegex(ValueError, "未知欄位"):
                 stage(self.root, draft)
         self.assertEqual(ledger.errors(self.root), [])
@@ -199,7 +200,7 @@ class EvidenceIntegrityTests(unittest.TestCase):
         self.seal()
         draft = self.report / "draft.json"
         _write(draft, {"findings": []})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.root, draft)
             ledger.commit(self.root, {"assessment.json": {**self.assessment, "changed": True}},
                           event="manual-reconciliation")
@@ -212,7 +213,7 @@ class EvidenceIntegrityTests(unittest.TestCase):
         finding = {"id": "F-1", "title": "Controller authentication bypass",
                    "check_ids": ["AC-08"], "evidence": []}
         _write(draft, {"findings": [finding]})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.root, draft)
             outcome = integrate(self.root)
         self.assertEqual(outcome["findings"], 1)
@@ -235,9 +236,9 @@ class EvidenceIntegrityTests(unittest.TestCase):
     def test_source_refresh_is_an_audited_transaction_and_keeps_findings(self):
         from review_safety import refresh_snapshot
         self.seal()
-        with (patch("review_safety.current_hashes",
+        with (patch("review_snapshot.current_hashes",
                     return_value={"Program.cs": "updated-source-hash"}),
-              patch("review_safety._revision", return_value="updated-git-revision")):
+              patch("review_snapshot._revision", return_value="updated-git-revision")):
             refresh_snapshot(self.root)
         self.assertEqual(ledger.errors(self.root), [])
         manifest = json.loads((self.root / ledger.MANIFEST).read_text("utf-8"))
@@ -263,9 +264,9 @@ class EvidenceIntegrityTests(unittest.TestCase):
                                   "analysis/control-verifications.json": proof},
                       event="integrate")
         self.assertEqual(ledger.errors(self.root), [])
-        with (patch("review_safety.current_hashes",
+        with (patch("review_snapshot.current_hashes",
                     return_value=dict(self.snapshot["source_hashes"])),
-              patch("review_safety._revision", return_value="new-git-revision")):
+              patch("review_snapshot._revision", return_value="new-git-revision")):
             refresh_snapshot(self.root)
         self.assertEqual(ledger.errors(self.root), [])
         self.assertFalse((self.report / "analysis/recheck-required.json").exists())
@@ -282,9 +283,9 @@ class EvidenceIntegrityTests(unittest.TestCase):
         from review_safety import refresh_snapshot
         self.seal()
         (self.root / ledger.MANIFEST).unlink()
-        with (patch("review_safety.current_hashes",
+        with (patch("review_snapshot.current_hashes",
                     return_value=dict(self.snapshot["source_hashes"])),
-              patch("review_safety._revision", return_value="new-git-revision")):
+              patch("review_snapshot._revision", return_value="new-git-revision")):
             with self.assertRaises(ValueError):
                 refresh_snapshot(self.root)
         self.assertEqual(_read(self.report / "analysis/review-snapshot.json"), self.snapshot)

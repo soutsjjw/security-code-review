@@ -9,231 +9,20 @@ untrusted operational checkpoint under logs/, not a signed Journal.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 from datetime import date
 import hashlib
 import json
 import math
-import os
 from pathlib import Path
 import sys
-from typing import Any
 
-from review_core import canonical_digest as _digest, file_sha256 as _file_sha, write_json_exclusive
+from review_core import canonical_digest as _digest, file_sha256 as _file_sha
+import review_waves_state as ws
+from review_waves_abort import abort_uncommitted, inspect_uncommitted
+from review_waves_lifecycle import agent_next, finalize, reconcile
 
-REPORT = Path("reports/security-code-review")
-STATE = REPORT / "logs/repair-waves/state.json"
-SNAPSHOT = REPORT / "analysis/source-snapshot.json"
-VERSION = 2
+SNAPSHOT = ws.REPORT / "analysis/source-snapshot.json"
 RISK_PREFIXES = ("AC", "AU", "CR", "DP", "IN")
-
-
-def _read(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"{path.name}: 必須是 JSON 物件")
-    return data
-
-
-def _assessment(target: Path) -> dict[str, Any]:
-    return _read(target / REPORT / "assessment.json")
-
-
-def _evidence_state(target: Path) -> dict[str, Any]:
-    from review_safety import snapshot_errors
-    from evidence_integrity import errors as integrity_errors
-    failures = snapshot_errors(target) + integrity_errors(target)
-    if failures:
-        raise ValueError("正式來源／完整性守門未通過：" + "；".join(failures[:8]))
-    assessment = target / REPORT / "assessment.json"
-    from review_safety import SNAPSHOT as FORMAL_SNAPSHOT
-    snap_path = target / REPORT / FORMAL_SNAPSHOT
-    if not assessment.is_file() or not snap_path.is_file():
-        raise ValueError("缺少正式 assessment 或來源快照")
-    from evidence_integrity import TRACKED, MANIFEST
-    manifest = target / MANIFEST
-    # The integrity validator above is authoritative. These raw hashes serve
-    # only to invalidate stale operational checkpoints after legitimate writes.
-    tracked = {relative: (_file_sha(target / REPORT / relative)
-                          if (target / REPORT / relative).is_file() else None)
-               for relative in TRACKED}
-    return {"assessment_sha256": _file_sha(assessment),
-            "source_snapshot_sha256": _file_sha(snap_path),
-            "tracked_sha256": tracked,
-            "manifest_sha256": _file_sha(manifest) if manifest.is_file() else None}
-
-
-def _rule_ids_from_file(row: dict) -> set[str]:
-    """Collect owners without assigning rules from generic path heuristics."""
-    owners = {rr.get("rule_id") for rr in row.get("rule_reviews", [])
-              if isinstance(rr, dict) and isinstance(rr.get("rule_id"), str)}
-    screening = row.get("category_screening")
-    if isinstance(screening, list):
-        for item in screening:
-            if isinstance(item, dict):
-                owners.update(r for r in item.get("rule_ids", [])
-                              if isinstance(r, str))
-    elif isinstance(screening, dict):
-        for item in screening.values():
-            if isinstance(item, dict):
-                owners.update(r for r in item.get("rule_ids", [])
-                              if isinstance(r, str))
-    return owners
-
-
-def _formal_fingerprints(target: Path) -> dict[str, Any]:
-    """Digests of real formal records; checkpoint is not itself formal proof."""
-    assessment = _assessment(target)
-    analysis = target / REPORT / "analysis"
-    snapshots: dict[str, Any] = {}
-    for section, filename in (("closures", "rule-closures.json"),
-                              ("control_verifications", "control-verifications.json"),
-                              ("decision_audits", "decision-audits.json")):
-        file = analysis / filename
-        rows = _read(file) if file.is_file() else {}
-        if not isinstance(rows, dict):
-            raise ValueError(f"{filename} 必須是物件")
-        snapshots[section] = {rid: _digest(item) for rid, item in rows.items()}
-    checks = assessment.get("checks") or []
-    files = assessment.get("file_reviews") or []
-    findings = assessment.get("findings") or []
-    if not all(isinstance(x, dict) for x in checks + files + findings):
-        raise ValueError("正式 assessment 紀錄格式錯誤")
-    snapshots["checks"] = {c["id"]: {"digest": _digest(c), "status": c.get("status")}
-                           for c in checks}
-    snapshots["file_reviews"] = {f["path"]: {"digest": _digest(f),
-                                             "owners": sorted(_rule_ids_from_file(f))}
-                                  for f in files}
-    snapshots["findings"] = {f["id"]: {"digest": _digest(f),
-                                       "owners": sorted(set(f.get("check_ids") or []))}
-                              for f in findings}
-    # Capture second-pass-only formal commits as well. Without these hashes,
-    # an interrupted adversarial-review transaction appears to have no effect.
-    for key, filename in (("adversarial_reviews", "adversarial-reviews.json"),
-                          ("first_pass_baseline", "first-pass-baseline.json")):
-        path = analysis / filename
-        snapshots[key] = _file_sha(path) if path.is_file() else None
-    return snapshots
-
-
-def _formal_diff(previous: dict, current: dict) -> tuple[set[str], set[str]]:
-    """Conservatively include externally changed evidence in sampling."""
-    changed: set[str] = set()
-    mandatory: set[str] = set()
-    all_rules = set(previous["checks"]) | set(current["checks"])
-    for section in ("checks", "closures", "control_verifications", "decision_audits"):
-        old, new = previous[section], current[section]
-        for rid in set(old) | set(new):
-            if old.get(rid) == new.get(rid):
-                continue
-            changed.add(rid)
-            if section in {"closures", "decision_audits", "control_verifications"}:
-                mandatory.add(rid)
-            if section == "checks":
-                a = (old.get(rid) or {}).get("status")
-                b = (new.get(rid) or {}).get("status")
-                if a != b and "fail" in (a, b):
-                    mandatory.add(rid)
-    for section in ("file_reviews", "findings"):
-        old, new = previous[section], current[section]
-        for key in set(old) | set(new):
-            if old.get(key) == new.get(key):
-                continue
-            owners = set((old.get(key) or {}).get("owners") or []) | set(
-                (new.get(key) or {}).get("owners") or [])
-            if not owners:
-                owners = all_rules  # unknown scope must not silently disappear
-            changed.update(owners)
-            if section == "findings":
-                mandatory.update(owners)
-    return changed, mandatory
-
-
-def _stage_clean(target: Path) -> None:
-    from review_safety import STAGED
-    directory = target / REPORT / STAGED
-    if directory.is_dir() and list(directory.glob("*.json")):
-        raise ValueError("存在其他待整合暫存資料；先合法處理，不得混入本批")
-
-
-def _diagnose_and_plan(target: Path) -> tuple[dict, dict]:
-    from review_blockers import diagnose
-    from first_pass_repair import repair_plan
-    assessment = _assessment(target)
-    diagnosis = diagnose(target, assessment)
-    plan = repair_plan(assessment, diagnosis)
-    return diagnosis, plan
-
-
-def _write_state(path: Path, state: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink() or path.parent.is_symlink():
-        raise ValueError("不接受指向外部的 checkpoint 符號連結")
-    temp = path.with_name(path.name + ".pending")
-    if temp.exists() or temp.is_symlink():
-        raise ValueError("發現未完成的 checkpoint 暫存；需先人工排除")
-    write_json_exclusive(temp, state, sort_keys=True)
-    os.replace(temp, path)
-
-
-@contextmanager
-def _single_writer(target: Path):
-    lock = target / STATE.parent / ".writer.lock"
-    lock.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError as exc:
-        raise ValueError("已有修復協調器正在寫入，或舊鎖尚未人工調查") from exc
-    try:
-        os.close(fd)
-        yield
-    finally:
-        lock.unlink(missing_ok=True)
-
-
-def _load_state(target: Path) -> dict:
-    path = target / STATE
-    if path.is_symlink():
-        raise ValueError("不接受 checkpoint 符號連結")
-    state = _read(path)
-    if state.get("schema_version") != VERSION or not isinstance(state.get("batches"), list):
-        raise ValueError("不認得的修復 checkpoint 版本")
-    return state
-
-
-def _assert_state_current(target: Path, state: dict) -> None:
-    if state.get("inflight"):
-        raise ValueError("存在待對帳的正式交易；禁止重放，先執行 --reconcile")
-    from review_waves_contracts import verify_sample_chain
-    if state.get("sample_chain") is not None:
-        verify_sample_chain(state["sample_chain"])
-    current = _evidence_state(target)
-    if current != state.get("last_evidence"):
-        raise ValueError("正式資料或來源快照已在協調器外變更；停止並人工核對")
-
-
-def _all_completed(state: dict) -> bool:
-    return len(state["completed_batches"]) == len(state["batches"])
-
-
-def _next_batch(state: dict) -> dict | None:
-    done = set(state["completed_batches"])
-    for batch in state["batches"]:
-        if batch["batch_id"] not in done and set(batch["depends_on_batch_ids"]) <= done:
-            return batch
-    return None
-
-
-def _batch_blockers(batch: dict, tasks: list[dict]) -> set[tuple[str, tuple[str, ...]]]:
-    ids = set(batch["task_ids"])
-    return {(item["message"], tuple(sorted(item["rule_ids"])))
-            for task in tasks if task["task_id"] in ids
-            for item in task["blocker_details"]}
-
-
-def _blocker_keys(diagnostic: dict) -> set[tuple[str, tuple[str, ...]]]:
-    return {(str(b["message"]), tuple(sorted(b.get("rule_ids") or [])))
-            for b in diagnostic.get("blockers", [])}
 
 
 def _sample_policy(changed: list[str], mandatory: list[str], initial_signature: str,
@@ -282,8 +71,8 @@ def _sample_policy(changed: list[str], mandatory: list[str], initial_signature: 
 
 
 def _result(state: dict, *, include_plan: bool = False) -> dict:
-    pending = _next_batch(state)
-    return {"schema_version": VERSION, "phase": state["phase"],
+    pending = ws._next_batch(state)
+    return {"schema_version": ws.VERSION, "phase": state["phase"],
             "paused": state.get("paused", False),
             "pause_reasons": state.get("pause_reasons", []),
             "initial_blocker_signature": state["initial_signature"],
@@ -299,13 +88,13 @@ def _result(state: dict, *, include_plan: bool = False) -> dict:
 
 def start(target: Path) -> dict:
     """Wave 0 preflight + Wave 1 freeze a read-only execution schedule."""
-    if (target / STATE).exists():
+    if (target / ws.STATE).exists():
         raise ValueError("已有 checkpoint；使用 --next 續跑，禁止重新初始化覆蓋")
-    _stage_clean(target)
-    evidence = _evidence_state(target)
+    ws._stage_clean(target)
+    evidence = ws._evidence_state(target)
     if not isinstance(evidence.get("manifest_sha256"), str) or len(evidence["manifest_sha256"]) != 64:
         raise ValueError("Wave 0 必須先建立並驗證正式 Manifest／Journal；不得使用未封存來源")
-    diag, plan = _diagnose_and_plan(target)
+    diag, plan = ws._diagnose_and_plan(target)
     if not plan["task_coverage"]["valid"]:
         raise ValueError("權威阻塞無法完整排程，禁止啟動：" +
                          json.dumps(plan["task_coverage"], ensure_ascii=False)[:1500])
@@ -313,24 +102,24 @@ def start(target: Path) -> dict:
     if not batches and not diag.get("ready_for_second_pass"):
         raise ValueError("第一輪仍有阻塞但沒有可執行任務；需要人工處理未知缺口")
     initial_phase = "sample" if not batches else "first_pass"
-    state = {"schema_version": VERSION, "phase": initial_phase,
+    state = {"schema_version": ws.VERSION, "phase": initial_phase,
              "initial_signature": diag["blocker_signature"],
              "observed_signature": diag["blocker_signature"],
              "observed_diagnostic": diag,
              "last_evidence": evidence,
-             "formal_fingerprints": _formal_fingerprints(target),
+             "formal_fingerprints": ws._formal_fingerprints(target),
              "batches": batches, "tasks": plan["rule_repair_tasks"],
              "completed_batches": [],
              "changed_rules": [], "mandatory_rules": [], "sample_records": {},
              "sample_chain": None, "inflight": None,
              "paused": False, "pause_reasons": []}
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return _result(state, include_plan=True)
 
 
 def next_work(target: Path) -> dict:
-    state = _load_state(target)
-    _assert_state_current(target, state)
+    state = ws._load_state(target)
+    ws._assert_state_current(target, state)
     if state["phase"] == "second_pass":
         from second_pass_layers import worklist
         return {"phase": "second_pass", "second_pass": worklist(target),
@@ -380,12 +169,12 @@ def _payload_scope(payload: dict, batch: dict, *, allow_finding_revision: bool,
         # Category screening is a file-wide claim: changing it can affect any
         # rule. Restrict changes when the file has external rule owners.
         if row.get("category_screening") != old.get("category_screening"):
-            screening_owners = _rule_ids_from_file(row) | _rule_ids_from_file(old)
+            screening_owners = ws._rule_ids_from_file(row) | ws._rule_ids_from_file(old)
             if not screening_owners or not screening_owners <= allowed:
                 raise ValueError("跨批次 category_screening 變更須分開授權及核對")
         # File-level metadata (including hashes and general summary) cannot be
         # rewritten while carrying other owners' already completed evidence.
-        all_owners = _rule_ids_from_file(row) | _rule_ids_from_file(old)
+        all_owners = ws._rule_ids_from_file(row) | ws._rule_ids_from_file(old)
         if row != old and not all_owners:
             raise ValueError("file_reviews 缺少可核對的規則歸屬，禁止跨批次寫入")
         external_owners = all_owners - allowed
@@ -413,16 +202,16 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
     """Wave 2: consumes explicit agent evidence; delegates ALL writes to formal guard."""
     if not allow_revision:
         raise ValueError("修改 completed 證據必須明確 --allow-revision，且已獲審查者授權")
-    state = _load_state(target)
+    state = ws._load_state(target)
     if state["phase"] != "first_pass" or state.get("paused"):
         raise ValueError("不在可執行第一輪，或已有未處理的停止條件")
-    _assert_state_current(target, state)
-    expected = _next_batch(state)
+    ws._assert_state_current(target, state)
+    expected = ws._next_batch(state)
     if not expected or expected["batch_id"] != batch_id:
         raise ValueError("指定批次不符合依賴或順序")
-    _stage_clean(target)
-    before = _assessment(target)
-    payload = _read(payload_path)
+    ws._stage_clean(target)
+    before = ws._assessment(target)
+    payload = ws._read(payload_path)
     _payload_scope(payload, expected, allow_finding_revision=allow_finding_revision,
                    previous=before)
     current = state["observed_diagnostic"]
@@ -441,7 +230,7 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
         "prior_evidence": state["last_evidence"],
         "prior_fingerprints": state["formal_fingerprints"],
     }
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     # A stage failure leaves existing formal data intact. A successful stage
     # followed by integration failure is intentionally left for manual repair.
     stage(target, payload_path)
@@ -449,16 +238,16 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
                         allow_finding_revision=allow_finding_revision)
     if not outcome.get("applied"):
         raise ValueError("正式整合未套用任何證據")
-    after = _assessment(target)
+    after = ws._assessment(target)
     updated = diagnose(target, after)
     from rule_repair_tasks import compare_rule_repair_diagnostics
     regression = compare_rule_repair_diagnostics(current, updated)
-    after_fingerprints = _formal_fingerprints(target)
-    changed, mandatory = _formal_diff(before_fingerprints, after_fingerprints)
+    after_fingerprints = ws._formal_fingerprints(target)
+    changed, mandatory = ws._formal_diff(before_fingerprints, after_fingerprints)
     state["changed_rules"] = sorted(set(state["changed_rules"]) | changed | mandatory)
     state["mandatory_rules"] = sorted(set(state["mandatory_rules"]) | mandatory)
     state["formal_fingerprints"] = after_fingerprints
-    remaining = _batch_blockers(expected, state["tasks"]) & _blocker_keys(updated)
+    remaining = ws._batch_blockers(expected, state["tasks"]) & ws._blocker_keys(updated)
     no_progress = current["blocker_signature"] == updated["blocker_signature"]
     reasons = list(regression["pause_reasons"])
     if no_progress:
@@ -470,15 +259,15 @@ def apply_batch(target: Path, batch_id: str, payload_path: Path, *,
         state["completed_batches"].append(batch_id)
     state["observed_diagnostic"] = updated
     state["observed_signature"] = updated["blocker_signature"]
-    state["last_evidence"] = _evidence_state(target)
+    state["last_evidence"] = ws._evidence_state(target)
     state["inflight"] = None
-    if _all_completed(state) and not state["paused"]:
+    if ws._all_completed(state) and not state["paused"]:
         if updated.get("ready_for_second_pass"):
             state["phase"] = "sample"
         else:
             state["paused"] = True
             state["pause_reasons"] = ["所有原始批次已完成，但權威第一輪仍未通過"]
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return {**_result(state), "formal_integration": outcome,
             "regression": regression, "original_blockers_remaining": len(remaining),
             "batch_completed": batch_id in state["completed_batches"]}
@@ -492,19 +281,19 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     """
     if not acknowledged:
         raise ValueError("續跑須明確確認已調查阻塞原因")
-    state = _load_state(target)
+    state = ws._load_state(target)
     if state.get("inflight") is not None:
         raise ValueError("待完成正式交易必須先執行 --reconcile，不能 --resume")
     if state["phase"] != "first_pass" or not state.get("paused"):
         raise ValueError("目前沒有可續跑的第一輪暫停狀態")
-    evidence = _evidence_state(target)
+    evidence = ws._evidence_state(target)
     if evidence["source_snapshot_sha256"] != state["last_evidence"]["source_snapshot_sha256"]:
         raise ValueError("來源快照版本變動，不能沿用舊的修復批次")
     from review_blockers import diagnose
     from rule_repair_tasks import compare_rule_repair_diagnostics
-    current = diagnose(target, _assessment(target))
-    current_fingerprints = _formal_fingerprints(target)
-    external_changed, external_mandatory = _formal_diff(
+    current = diagnose(target, ws._assessment(target))
+    current_fingerprints = ws._formal_fingerprints(target)
+    external_changed, external_mandatory = ws._formal_diff(
         state["formal_fingerprints"], current_fingerprints)
     regression = compare_rule_repair_diagnostics(state["observed_diagnostic"], current)
     if regression["should_pause"]:
@@ -523,39 +312,39 @@ def resume_after_investigation(target: Path, *, acknowledged: bool) -> dict:
     state["pause_reasons"] = []
     # Reconcile pending tasks only against actual authoritative disappearance
     # of their original blocker identities. A mere acknowledgement clears none.
-    present = _blocker_keys(current)
+    present = ws._blocker_keys(current)
     completed = set(state["completed_batches"])
     for batch in state["batches"]:
         if batch["batch_id"] in completed:
             continue
         if (set(batch["depends_on_batch_ids"]) <= completed
-                and not (_batch_blockers(batch, state["tasks"]) & present)):
+                and not (ws._batch_blockers(batch, state["tasks"]) & present)):
             completed.add(batch["batch_id"])
     state["completed_batches"] = [b["batch_id"] for b in state["batches"]
                                   if b["batch_id"] in completed]
-    if _all_completed(state):
+    if ws._all_completed(state):
         if current.get("ready_for_second_pass"):
             state["phase"] = "sample"
         else:
             state["paused"] = True
             state["pause_reasons"] = ["原始任務已完，但權威診斷仍存在缺口"]
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return {**_result(state), "regression": regression,
             "note": "已在完整性核對及權威診斷改變後續跑；不構成新的安全結論"}
 
 
 def sample_plan(target: Path) -> dict:
     """Wave 3: select only real changed rules, enforce high-risk full coverage."""
-    state = _load_state(target)
-    _assert_state_current(target, state)
+    state = ws._load_state(target)
+    ws._assert_state_current(target, state)
     if state.get("paused") or state["phase"] not in {"sample", "second_pass"}:
         raise ValueError("第一輪尚未正式結案，或協調器被停止")
     policy = _sample_policy(state["changed_rules"], state["mandatory_rules"],
-                            state["initial_signature"], _assessment(target))
+                            state["initial_signature"], ws._assessment(target))
     if state.get("sample_policy") is not None and state["sample_policy"] != policy:
         raise ValueError("固定抽樣計畫與現況不一致，禁止靜默換樣")
     state["sample_policy"] = policy
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return {"phase": state["phase"], "sampling": policy,
             "remaining_rules": sorted(set(policy["selected_rules"]) -
                                       set(state["sample_records"])),
@@ -564,11 +353,11 @@ def sample_plan(target: Path) -> dict:
 
 def record_sample(target: Path, receipt_file: Path) -> dict:
     """Record reviewer-supplied verification; does not attest reviewer identity."""
-    state = _load_state(target)
-    _assert_state_current(target, state)
+    state = ws._load_state(target)
+    ws._assert_state_current(target, state)
     if state["phase"] != "sample" or state.get("paused") or not state.get("sample_policy"):
         raise ValueError("未到抽樣階段，或尚未固定抽樣計畫")
-    receipt = _read(receipt_file)
+    receipt = ws._read(receipt_file)
     rule = receipt.get("rule_id")
     if rule not in state["sample_policy"]["selected_rules"] or rule in state["sample_records"]:
         raise ValueError("規則不在固定樣本內或已簽認")
@@ -584,8 +373,8 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
     proof = receipt.get("evidence")
     if not isinstance(proof, dict) or not isinstance(proof.get("path"), str):
         raise ValueError("缺少來源證據")
-    from review_safety import SNAPSHOT as FORMAL_SNAPSHOT
-    snapshot = _read(target / REPORT / FORMAL_SNAPSHOT)
+    from review_snapshot import SNAPSHOT as FORMAL_SNAPSHOT
+    snapshot = ws._read(target / ws.REPORT / FORMAL_SNAPSHOT)
     path = proof["path"]
     source_hash = (snapshot.get("source_hashes") or {}).get(path)
     original = target / path
@@ -602,7 +391,7 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
     source_text, _ = read_source_text(candidate)
     if end > len(source_text.splitlines()):
         raise ValueError("抽樣證據超出實際來源行號")
-    assessment = _assessment(target)
+    assessment = ws._assessment(target)
     check = next((r for r in assessment.get("checks", [])
                   if isinstance(r, dict) and r.get("id") == rule), None)
     anchors = set()
@@ -612,7 +401,7 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
         anchors.update(e.get("path") for e in check.get("evidence", [])
                        if isinstance(e, dict) and isinstance(e.get("path"), str))
     for row in assessment.get("file_reviews") or []:
-        if isinstance(row, dict) and rule in _rule_ids_from_file(row):
+        if isinstance(row, dict) and rule in ws._rule_ids_from_file(row):
             anchors.add(row.get("path"))
     if path not in anchors:
         raise ValueError("抽樣路徑未與本規則正式來源證據建立關聯")
@@ -625,7 +414,7 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
                                      "receipt_sha256": _digest(receipt),
                                      "source_sha256": source_hash,
                                      "claimed_independence": "unverified"}
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     return {"verified_sample_rules": sorted(state["sample_records"]),
             "remaining_rules": sorted(set(state["sample_policy"]["selected_rules"]) -
                                       set(state["sample_records"])),
@@ -634,9 +423,9 @@ def record_sample(target: Path, receipt_file: Path) -> dict:
 
 def begin_second_pass(target: Path) -> dict:
     """Wave 4: transition ONLY through existing first-pass security gate."""
-    state = _load_state(target)
-    _assert_state_current(target, state)
-    if state.get("paused") or state["phase"] != "sample" or not _all_completed(state):
+    state = ws._load_state(target)
+    ws._assert_state_current(target, state)
+    if state.get("paused") or state["phase"] != "sample" or not ws._all_completed(state):
         raise ValueError("第一輪批次尚未全部完成或有未處理停止條件")
     policy = state.get("sample_policy")
     if not isinstance(policy, dict) or set(policy["selected_rules"]) != set(state["sample_records"]):
@@ -654,7 +443,7 @@ def begin_second_pass(target: Path) -> dict:
                 for entry in chain["entries"])):
         raise ValueError("抽樣收據鏈未完整綁定目前 Manifest；不可啟動第二輪")
     from review_blockers import diagnose
-    assessment = _assessment(target)
+    assessment = ws._assessment(target)
     current = diagnose(target, assessment)
     if (current["blocker_signature"] != state["observed_signature"]
             or not current["ready_for_second_pass"]):
@@ -665,15 +454,15 @@ def begin_second_pass(target: Path) -> dict:
         "prior_evidence": state["last_evidence"],
         "prior_fingerprints": state["formal_fingerprints"],
     }
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     result = formal_begin(target, assessment)
     # Baseline and fixed sampling are formal Journal-protected data; this local
     # sidecar is not. It only records the handoff.
     state["phase"] = "second_pass"
-    state["last_evidence"] = _evidence_state(target)
-    state["formal_fingerprints"] = _formal_fingerprints(target)
+    state["last_evidence"] = ws._evidence_state(target)
+    state["formal_fingerprints"] = ws._formal_fingerprints(target)
     state["inflight"] = None
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     from second_pass_layers import worklist
     return {"formal_baseline": result, "second_pass": worklist(target),
             "claim": "已呼叫正式固定第一輪錨點；未宣稱已完成反向覆核或獨立盲審"}
@@ -686,18 +475,18 @@ def apply_second_pass(target: Path, payload_path: Path, *,
 
     This is NOT an L1/L2 agent and cannot generate findings or judgments.
     """
-    state = _load_state(target)
+    state = ws._load_state(target)
     if state["phase"] != "second_pass" or state.get("paused"):
         raise ValueError("第二輪未正式啟動或已暫停")
-    _assert_state_current(target, state)
-    _stage_clean(target)
+    ws._assert_state_current(target, state)
+    ws._stage_clean(target)
     from second_pass_layers import worklist
     available = worklist(target)
     if not available.get("ready"):
         raise ValueError("第二輪正式工作清單尚未建立或無效")
     allowed_rules = {t["rule_id"] for t in available.get("rule_tasks", [])}
     allowed_paths = {t["path"] for t in available.get("sample_tasks", [])}
-    payload = _read(payload_path)
+    payload = ws._read(payload_path)
     if not payload:
         raise ValueError("第二輪必須提供已查核的正式證據")
     if set(payload) - {"adversarial_reviews", "second_pass_samples", "checks",
@@ -711,7 +500,7 @@ def apply_second_pass(target: Path, payload_path: Path, *,
         items = payload.get(field) or {}
         if not isinstance(items, dict) or not set(items) <= allowed:
             raise ValueError(f"{field} 不在目前第二輪工作批次")
-    prior = _assessment(target)
+    prior = ws._assessment(target)
     _payload_scope({k: v for k, v in payload.items()
                     if k not in {"adversarial_reviews", "second_pass_samples"}},
                    {"rule_ids": sorted(allowed_rules)},
@@ -724,16 +513,16 @@ def apply_second_pass(target: Path, payload_path: Path, *,
         "prior_evidence": state["last_evidence"],
         "prior_fingerprints": state["formal_fingerprints"],
     }
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     stage(target, payload_path)
     outcome = integrate(target, allow_revision=allow_revision,
                         allow_finding_revision=allow_finding_revision)
     if not outcome.get("applied"):
         raise ValueError("第二輪正式交易未整合任何紀錄")
-    state["last_evidence"] = _evidence_state(target)
-    state["formal_fingerprints"] = _formal_fingerprints(target)
+    state["last_evidence"] = ws._evidence_state(target)
+    state["formal_fingerprints"] = ws._formal_fingerprints(target)
     state["inflight"] = None
-    _write_state(target / STATE, state)
+    ws._write_state(target / ws.STATE, state)
     updated = worklist(target)
     return {"phase": "second_pass", "formal_integration": outcome,
             "rules_pending": updated.get("rules_pending"),
@@ -744,14 +533,14 @@ def apply_second_pass(target: Path, payload_path: Path, *,
 
 def verify_second_pass(target: Path) -> dict:
     """Observe actual formal adversarial records; never marks rules completed."""
-    state = _load_state(target)
+    state = ws._load_state(target)
     if state["phase"] != "second_pass":
         raise ValueError("尚未進入正式第二輪")
-    _assert_state_current(target, state)
+    ws._assert_state_current(target, state)
     from second_pass_layers import worklist
     work = worklist(target)
     from review_safety import safety_errors
-    problems = safety_errors(target, _assessment(target))
+    problems = safety_errors(target, ws._assessment(target))
     return {"phase": "second_pass", "formal_second_pass": work,
             "safety_valid": not problems,
             "safety_errors": problems[:30],
@@ -788,11 +577,10 @@ def main(argv: list[str] | None = None) -> int:
         if (args.start or args.apply_batch or args.apply_second_pass or args.record_sample
                 or args.sample_plan or args.begin_second_pass or args.resume
                 or args.reconcile or args.finalize or args.abort_uncommitted):
-            with _single_writer(target):
+            with ws._single_writer(target):
                 if args.start:
                     result = start(target)
                 elif args.abort_uncommitted:
-                    from review_waves_abort import abort_uncommitted
                     result = abort_uncommitted(
                         target, args.abort_uncommitted,
                         payload_path=args.payload,
@@ -800,10 +588,8 @@ def main(argv: list[str] | None = None) -> int:
                         expected_staged_sha256=args.expected_staged_sha256,
                         allow_unbound_legacy=args.allow_unbound_legacy_stage)
                 elif args.reconcile:
-                    from review_waves_lifecycle import reconcile
                     result = reconcile(target, acknowledged=args.acknowledge_investigation)
                 elif args.finalize:
-                    from review_waves_lifecycle import finalize
                     result = finalize(target)
                 elif args.resume:
                     result = resume_after_investigation(
@@ -827,7 +613,6 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     result = begin_second_pass(target)
         elif args.inspect_uncommitted:
-            from review_waves_abort import inspect_uncommitted
             result = inspect_uncommitted(
                 target, args.inspect_uncommitted, payload_path=args.payload,
                 expected_staged_sha256=args.expected_staged_sha256,
@@ -835,7 +620,6 @@ def main(argv: list[str] | None = None) -> int:
         elif args.next:
             result = next_work(target)
         elif args.agent_next:
-            from review_waves_lifecycle import agent_next
             result = agent_next(target)
         else:
             result = verify_second_pass(target)

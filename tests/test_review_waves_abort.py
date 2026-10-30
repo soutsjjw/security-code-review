@@ -11,8 +11,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from review_repair_waves import REPORT, STATE, _read, _write_state
-from review_safety import SNAPSHOT
+from review_waves_state import REPORT, STATE, _read, _write_state
+from review_snapshot import SNAPSHOT
 from review_waves_abort import abort_uncommitted, inspect_uncommitted
 
 
@@ -69,9 +69,9 @@ class AbortWave2Tests(unittest.TestCase):
 
     @contextmanager
     def verified(self, *, evidence=None, fingerprints=None):
-        with patch("review_repair_waves._evidence_state",
+        with patch("review_waves_state._evidence_state",
                    return_value=evidence if evidence is not None else self.evidence), \
-             patch("review_repair_waves._formal_fingerprints",
+             patch("review_waves_state._formal_fingerprints",
                    return_value=fingerprints if fingerprints is not None else self.fp):
             yield
 
@@ -168,7 +168,7 @@ class AbortWave2Tests(unittest.TestCase):
     def test_staged_only_crash_recovery_requires_same_explicit_sha(self):
         original_sha = hashlib.sha256(self.staged_path.read_bytes()).hexdigest()
         with self.verified():
-            with patch("review_repair_waves._write_state", side_effect=RuntimeError("crash")):
+            with patch("review_waves_state._write_state", side_effect=RuntimeError("crash")):
                 with self.assertRaisesRegex(RuntimeError, "crash"):
                     self.abort(payload_path=None, allow_unbound_legacy=True,
                                expected_staged_sha256=original_sha)
@@ -314,9 +314,9 @@ class AbortWave2Tests(unittest.TestCase):
             self.assertFalse(self.staged_path.exists())
 
     def test_restart_after_move_but_before_checkpoint_write(self):
-        from review_repair_waves import _write_state as real_write
+        from review_waves_state import _write_state as real_write
         with self.verified():
-            with patch("review_repair_waves._write_state",
+            with patch("review_waves_state._write_state",
                        side_effect=RuntimeError("simulated crash")):
                 with self.assertRaisesRegex(RuntimeError, "simulated crash"):
                     self.abort()
@@ -326,14 +326,14 @@ class AbortWave2Tests(unittest.TestCase):
             receipt_files = list((self.target / REPORT /
                                   "logs/repair-waves/aborted").glob("*/receipt.json"))
             self.assertEqual(len(receipt_files), 1)
-            with patch("review_repair_waves._write_state", side_effect=real_write):
+            with patch("review_waves_state._write_state", side_effect=real_write):
                 result = self.abort()
         self.assertEqual(result["status"], "aborted_uncommitted")
         self.assertIsNone(_read(self.target / STATE)["inflight"])
 
     def test_refuses_archive_modified_before_recovery(self):
         with self.verified():
-            with patch("review_repair_waves._write_state", side_effect=RuntimeError("crash")):
+            with patch("review_waves_state._write_state", side_effect=RuntimeError("crash")):
                 with self.assertRaises(RuntimeError):
                     self.abort()
             archived = next((self.target / REPORT /

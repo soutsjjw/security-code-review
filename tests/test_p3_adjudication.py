@@ -19,7 +19,8 @@ from decision_adjudication import (AUDITS, CATEGORIES, _meaningful_static_source
                                    adjudication_errors, guidance)
 from quality_baseline import PROJECT_FILE, load_catalog
 from review_queue import build_queue, initialize, load_rules
-from review_safety import _write, integrate, report_dir, stage
+from review_safety import _write, integrate, stage
+from review_snapshot import report_dir
 
 
 class P3AdjudicationTests(unittest.TestCase):

@@ -14,7 +14,7 @@ from security_level import infer_security_level
 from report_enrichment import (
     resolve_personal_data, detect_reviewer, build_overall_risk, build_pending_information,
 )
-from review_queue import load_owasp_2025_categories
+from standard_guides import load_owasp_2025_categories
 from system_baseline import build_system_baseline, review_from_report
 from web_guide import build_web_guide_index
 from web_appendix1 import build_appendix1, review_from_report as appendix_review_from_report

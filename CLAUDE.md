@@ -9,10 +9,13 @@
 - Quality Acceptance: `python scripts/quality_acceptance.py`
 
 ## Where Things Live
-- `scripts/review_safety.py`: single-agent review gates (source snapshot, rule ownership, evidence closure, staged integration and replay). It never creates or launches sub-agents.
+- `scripts/review_safety.py`: single-agent review gates (staging, integration, snapshot refresh and replay). It never creates or launches sub-agents.
+- `scripts/review_snapshot.py`: source inventory hashes, review snapshot, rule scopes and evidence closure, below `review_safety`.
 - `scripts/multi_agent_contract.py`, `scripts/multi_agent_guard.py`: multi-agent work contracts and admission gates.
-- `scripts/review_core.py` (canonical digest, SHA256, JSON read, snapshot fingerprint), `scripts/scope_paths.py`, `scripts/control_proofs.py`: base layers that must not import upper modules; `tests/test_module_layering.py` enforces this and blocks new import cycles.
-- Rule review scope (`local` / `cross_file` / `project`) lives in `inspection.review_scope` of `rules.json` / `rules.yaml` / `rules/*.yaml`; `review_safety.rule_scopes()` reads it.
+- `scripts/review_core.py` (canonical digest, SHA256, JSON read, snapshot fingerprint), `scripts/scope_paths.py`, `scripts/control_proofs.py`: base layers that must not import upper modules; `tests/test_module_layering.py` enforces this and fails on any import cycle, lazy imports included.
+- Shared lower layers per subsystem: `review_waves_state.py` (repair-wave checkpoint state), `partial_review_store.py` (category artifacts), `adversarial_evidence.py` (second-pass evidence), `standard_guides.py` (TACERT / OWASP mappings).
+- Patch a function in the module that defines it (for example `review_snapshot.snapshot_errors`, `review_waves_state._load_state`); callers reach those through the module attribute or a call-time import so one patch covers every call site.
+- Rule review scope (`local` / `cross_file` / `project`) lives in `inspection.review_scope` of `rules.json` / `rules.yaml` / `rules/*.yaml`; `review_snapshot.rule_scopes()` reads it.
 - `scripts/review_waves_abort.py`: quarantine of uncommitted staged batches, including the SHA256-bound legacy staged-only exception and crash recovery.
 
 ## Line Endings

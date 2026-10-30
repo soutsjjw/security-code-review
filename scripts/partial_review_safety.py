@@ -14,24 +14,17 @@ from review_scope import PARTIAL_ROOT, ScopeError
 from review_completion import completion_errors
 from review_decision import decision_quality_errors
 from source_coverage import build_source_coverage
-from review_safety import closure_errors, rule_scopes
+from review_snapshot import closure_errors, rule_scopes
 from control_effectiveness import verification_errors
 from decision_adjudication import adjudication_errors
 from adversarial_recheck import second_pass_errors, digest
-from partial_review import (_artifact, _category_dir, _category_rules, _load, _atomic,
-                            _digest, _snapshot, read_category, STAGED_FILE)
+from partial_review_store import (BASELINE, EVIDENCE_FILES, STAGED_FILE, _artifact, _category_dir,
+                                  _category_rules, _load, _snapshot, read_category)
+from review_core import canonical_digest as _digest, write_json_atomic as _atomic
 from review_core import snapshot_fingerprint
 
 STRUCTURE = PARTIAL_ROOT / "_shared/analysis/structure-index.json"
 INDEX_SEAL = PARTIAL_ROOT / "_shared/analysis/index-integrity.json"
-BASELINE = Path("analysis/first-pass-baseline.json")
-CLOSURES = Path("analysis/rule-closures.json")
-VERIFICATIONS = Path("analysis/control-verifications.json")
-AUDITS = Path("analysis/decision-audits.json")
-REVIEWS = Path("analysis/adversarial-reviews.json")
-HISTORY = Path("analysis/second-pass-history")
-EVIDENCE_FILES = {"closures": CLOSURES, "control_verifications": VERIFICATIONS,
-                  "decision_audits": AUDITS, "adversarial_reviews": REVIEWS}
 
 
 def _shared_path(root: Path) -> Path:

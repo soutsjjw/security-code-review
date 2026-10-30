@@ -12,7 +12,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
-from review_safety import rule_scopes
+from review_snapshot import rule_scopes
 from review_blockers import diagnose
 from review_core import sha256_bytes as _sha, snapshot_fingerprint
 
@@ -252,7 +252,7 @@ def full_comparison(target: Path, plan_data: dict, *, selected_blocker_ids: list
     if not isinstance(assessment, dict):
         raise ValueError("正式 assessment 不存在")
     from evidence_integrity import errors as integrity_errors
-    from review_safety import snapshot_errors
+    from review_snapshot import snapshot_errors
     integrity = integrity_errors(target) + snapshot_errors(target)
     diagnostics = diagnose(target, assessment)
     scope = set(plan_data["affected_rules"]) | set(plan_data["sample_rules"])

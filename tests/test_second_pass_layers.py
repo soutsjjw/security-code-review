@@ -11,7 +11,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from second_pass_layers import RESERVED, build_plan, layered_errors, record_errors, worklist
 from adversarial_recheck import digest
 from control_effectiveness import snapshot_fingerprint
-from review_safety import _write, report_dir, stage, integrate
+from review_safety import _write, stage, integrate
+from review_snapshot import report_dir
 
 
 class LayeredTests(unittest.TestCase):
@@ -92,7 +93,7 @@ class LayeredTests(unittest.TestCase):
         path = self.plan["sampling"][0]["path"]
         draft = report_dir(self.root) / "sample-draft.json"
         _write(draft, {"second_pass_samples": {path: self.sample(path)}})
-        with patch("review_safety.snapshot_errors", return_value=[]):
+        with patch("review_snapshot.snapshot_errors", return_value=[]):
             stage(self.root, draft)
             integrate(self.root)
             updated = self.sample(path)

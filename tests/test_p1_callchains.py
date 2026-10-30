@@ -13,7 +13,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from analysis_adapters import probe_roslyn
 from analysis_prepare import cross_file_call_hints, prepare
 from review_relationships import build_relationships
-from review_safety import CLOSURES, INDEX, SNAPSHOT, _write, closure_errors, report_dir
+from review_safety import _write
+from review_snapshot import CLOSURES, INDEX, SNAPSHOT, closure_errors, report_dir
 
 
 class P1CallchainTests(unittest.TestCase):

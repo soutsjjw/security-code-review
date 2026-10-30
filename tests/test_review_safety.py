@@ -10,9 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from analysis_prepare import prepare
-from review_safety import (CLOSURES, _write, closure_errors, integrate,
-                           refresh_snapshot, report_dir, rule_scopes,
-                           safety_errors, scope_tasks, snapshot_errors, stage)
+from review_safety import _write, integrate, refresh_snapshot, safety_errors, stage
+from review_snapshot import CLOSURES, closure_errors, report_dir, rule_scopes, scope_tasks, snapshot_errors
 
 
 class P0ReviewSafetyTests(unittest.TestCase):
@@ -95,7 +94,7 @@ class P0ReviewSafetyTests(unittest.TestCase):
              patch("analysis_prepare.probe_codegraph", return_value={"available": False}):
             prepare(self.root, "full")
         self.assertEqual(snapshot_errors(self.root), [])
-        with patch("review_safety._revision", return_value="different-revision"):
+        with patch("review_snapshot._revision", return_value="different-revision"):
             self.assertTrue(snapshot_errors(self.root))
 
     def test_crossfile_and_project_closure_block_early_completion(self):

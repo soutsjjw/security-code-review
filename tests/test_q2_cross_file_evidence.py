@@ -11,7 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from review_safety import CLOSURES, INDEX, SNAPSHOT, _write, closure_errors, report_dir
+from review_safety import _write
+from review_snapshot import CLOSURES, INDEX, SNAPSHOT, closure_errors, report_dir
 from cross_file_evidence import trace_errors
 
 

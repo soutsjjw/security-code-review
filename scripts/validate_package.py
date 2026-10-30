@@ -23,7 +23,7 @@ if assessment_schema['properties']['ruleset_version'].get('enum')!=['2.0.0','2.0
  errors.append('assessment schema must support stable v2.0.0 and prior rc1 progress')
 
 ids=[r['id'] for r in j['rules']]
-from review_safety import rule_scopes
+from review_snapshot import rule_scopes
 try:
  scopes=rule_scopes()
  if set(scopes)!=set(ids) or any(mode not in ('local','cross_file','project') for mode in scopes.values()):

@@ -14,12 +14,10 @@ from pathlib import Path
 
 from analysis_adapters import ADAPTERS, probe_codegraph, probe_roslyn
 from analysis_candidates import DOTNET_EXTENSIONS, candidate_hits
-from source_reader import source_digest
 from source_reader import read_source_text
 from review_relationships import build_relationships
-from review_safety import initialize_snapshot
-from scope_paths import EXCLUDED_DIRS, _default_rule, relative_path
-from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
+from review_snapshot import initialize_snapshot, source_files
+from scope_paths import relative_path
 from review_core import write_json_atomic
 
 INDEX_VERSION = 10
@@ -27,28 +25,6 @@ ROSLYN_VERSION = "roslyn-symbol-candidates-v4"
 CANDIDATE_VERSION = 2
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
-
-
-def source_files(root: Path, excluded: list[str] | None = None) -> dict[str, str]:
-    """和既有來源覆蓋清單共用副檔名與排除原則，雜湊由本機計算。"""
-    excluded = excluded or []
-    files: dict[str, str] = {}
-    for current, dirs, names in os.walk(root, followlinks=False):
-        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".codegraph-") and not (Path(current) / d).is_symlink()
-                  and not _default_rule((Path(current) / d).relative_to(root).as_posix())
-                  and not any((Path(current) / d).relative_to(root).as_posix() == p or
-                              (Path(current) / d).relative_to(root).as_posix().startswith(p.rstrip("/") + "/")
-                              for p in excluded)]
-        for name in names:
-            path = Path(current) / name
-            if not path.is_file() or path.is_symlink():
-                continue
-            rel = path.relative_to(root).as_posix()
-            if _default_rule(rel) or any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in excluded):
-                continue
-            if path.suffix.lower() in SOURCE_SUFFIXES or name in SOURCE_FILENAMES or path.suffix.lower() == ".vue":
-                files[rel] = source_digest(path.read_bytes())
-    return dict(sorted(files.items()))
 
 
 def _run_roslyn(root: Path, pending: list[str], probe: dict, *, no_cache: bool = False) -> tuple[dict, list[str]]:

@@ -74,9 +74,9 @@ class BlockerDiagnosticsTests(unittest.TestCase):
             "unverified_inspected_paths": {"total": 0, "by_rule": {}},
             "verified_na_inspection_paths": {},
         }
-        with patch("review_safety.snapshot_errors", return_value=[]), \
+        with patch("review_snapshot.snapshot_errors", return_value=[]), \
              patch("source_coverage.build_source_coverage", return_value=coverage), \
-             patch("review_safety.closure_errors", return_value=[]), \
+             patch("review_snapshot.closure_errors", return_value=[]), \
              patch("control_effectiveness.verification_errors", return_value=[]), \
              patch("decision_adjudication.adjudication_errors", return_value=[]):
             result = diagnose(Path("."), data)
@@ -98,9 +98,9 @@ class BlockerDiagnosticsTests(unittest.TestCase):
                     "review_integrity_errors": [],
                     "unverified_inspected_paths": {"total": 0, "by_rule": {}},
                     "verified_na_inspection_paths": {}}
-        with patch("review_safety.snapshot_errors", return_value=[]), \
+        with patch("review_snapshot.snapshot_errors", return_value=[]), \
              patch("source_coverage.build_source_coverage", return_value=coverage), \
-             patch("review_safety.closure_errors", return_value=[]), \
+             patch("review_snapshot.closure_errors", return_value=[]), \
              patch("control_effectiveness.verification_errors", return_value=[]), \
              patch("decision_adjudication.adjudication_errors", return_value=[]):
             result = diagnose(Path("."), {"checks": checks, "file_reviews": []})
