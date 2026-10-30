@@ -27,6 +27,20 @@ SKILL_ROOT = Path(__file__).resolve().parents[1]
 INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
 
 
+def _private_mkdir(path: Path, *, windows: bool | None = None) -> None:
+    """POSIX 以 0o700 限制快取僅本人可用；Windows 改依家目錄繼承的 ACL。
+
+    Python 3.13+ 在 Windows 的 mode=0o700 會套用僅建立者可存取的 ACL，sandbox 等其他
+    身分建立的快取之後連使用者本人都無法讀取或刪除，而家目錄預設 ACL 已限於本人、SYSTEM 與管理員。
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if windows:
+        path.mkdir(parents=True, exist_ok=True)
+    else:
+        path.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+
 def _run_roslyn(root: Path, pending: list[str], probe: dict, *, no_cache: bool = False) -> tuple[dict, list[str]]:
     """Use exactly the SDK shipping the Roslyn DLLs; cache permission fails open to scratch,
     never to unverified symbol evidence."""
@@ -76,7 +90,7 @@ def _run_roslyn_work(root: Path, pending: list[str], probe: dict, *,
         manifest = scratch / "manifest.json"
         manifest.write_text(json.dumps(pending, ensure_ascii=False), encoding="utf-8")
         work = cache if use_cache else scratch
-        work.mkdir(parents=True, exist_ok=True, mode=0o700)
+        _private_mkdir(work)
         proj_file = work / "roslyn-indexer.csproj"
         program_file = work / "Program.cs"
         dll = work / "bin" / "Release" / probe["target_framework"] / "roslyn-indexer.dll"

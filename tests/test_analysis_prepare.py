@@ -4,13 +4,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from analysis_adapters import ModernDotNetAdapter, probe_codegraph
-from analysis_prepare import INDEX_NAME, prepare, source_files
+from analysis_prepare import INDEX_NAME, _private_mkdir, prepare, source_files
 from token_metrics import record_usage
 from review_safety import refresh_snapshot
 
@@ -22,6 +22,13 @@ class AnalysisPrepareTests(unittest.TestCase):
             encoding="utf-8")
         (root / "Service.cs").write_text("public class Service { public void Run() {} }", encoding="utf-8")
         return root
+
+    def test_roslyn_cache_dir_is_private_on_posix_and_inherits_acl_on_windows(self):
+        posix, windows = MagicMock(), MagicMock()
+        _private_mkdir(posix, windows=False)
+        _private_mkdir(windows, windows=True)
+        posix.mkdir.assert_called_once_with(parents=True, exist_ok=True, mode=0o700)
+        windows.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
     def test_modern_and_legacy_detection(self):
         with tempfile.TemporaryDirectory() as temp:
