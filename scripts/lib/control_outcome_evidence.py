@@ -7,7 +7,7 @@ from typing import Any
 
 from decision_adjudication import DELEGATED_KIND, DELEGATED_RESULT, external_responsibility_errors
 from control_proofs import _proofs, REQUIRED_SCENARIOS
-from review_core import snapshot_fingerprint
+from review_core import ANALYSIS_ROOT, REPORT_ROOT, snapshot_fingerprint
 from review_decision import _is_weak_source_evidence, load_decision_matrix
 
 VERSION = 1
@@ -121,9 +121,9 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
     if not isinstance(known_hashes, dict):
         return ["Q3: 缺少完整來源快照，不得宣稱控制有效性已查核"]
     known = set(known_hashes)
-    audit_file = target / "reports/security-code-review/analysis/decision-audits.json"
+    audit_file = target / ANALYSIS_ROOT / "decision-audits.json"
     audits = audits_override if audits_override is not None else _read_json(audit_file)
-    assessment = assessment_override if assessment_override is not None else _read_json(target / "reports/security-code-review/assessment.json")
+    assessment = assessment_override if assessment_override is not None else _read_json(target / REPORT_ROOT / "assessment.json")
     findings = {r["id"]: r for r in assessment.get("findings", [])
                 if isinstance(r, dict) and isinstance(r.get("id"), str)}
     errors: list[str] = []

@@ -8,8 +8,9 @@ import os
 from pathlib import Path
 
 from execution_boundary import scripts
+from review_core import REPORT_ROOT
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 
 def plan(target):
     records = scripts(target)

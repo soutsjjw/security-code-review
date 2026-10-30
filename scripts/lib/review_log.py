@@ -12,9 +12,9 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from review_core import write_json_atomic as _atomic
+from review_core import REPORT_ROOT, write_json_atomic as _atomic
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 PHASES = ("initialization", "structure_index", "queue", "first_pass",
           "cross_file_analysis", "second_pass", "validation", "report")
 COUNTERS = ("completed_rules", "reviewed_files", "verified_callsites",

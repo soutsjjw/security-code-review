@@ -16,12 +16,13 @@ SKILL_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SKILL_ROOT / 'scripts' / 'lib'))
 from source_coverage import build_source_coverage
 from assessment_consistency import project_placeholder_errors
+from review_core import REPORT_ROOT
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description='完成受測專案的資安報告；輸出到該專案的 reports/security-code-review/')
     p.add_argument('--target', type=Path, default=Path.cwd(), help='受測專案根目錄（預設：目前工作目錄）')
-    p.add_argument('--output-dir', default='reports/security-code-review', help='受測專案內報告目錄，相對路徑')
+    p.add_argument('--output-dir', default=REPORT_ROOT.as_posix(), help='受測專案內報告目錄，相對路徑')
     p.add_argument('--source-encodings', default='cp950,cp1252', help='舊式來源編碼回退順序')
     p.add_argument('--categories', action='append', metavar='AC,AU', help='產生各分類獨立 HTML/JSON，僅部分審查')
     return p.parse_args()
@@ -37,7 +38,7 @@ def main() -> int:
         if len(args.categories) != 1:
             print('ERROR: --categories 僅能指定一次', file=sys.stderr)
             return 2
-        if args.output_dir != 'reports/security-code-review':
+        if args.output_dir != REPORT_ROOT.as_posix():
             print('ERROR: 分類報告固定儲存於 partial/<分類>，不得自訂 --output-dir', file=sys.stderr)
             return 2
         from partial_report import main as complete_partial

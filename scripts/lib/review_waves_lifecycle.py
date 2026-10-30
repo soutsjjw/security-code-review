@@ -10,9 +10,9 @@ import json
 import subprocess
 import sys
 import review_waves_state as ws
-from review_core import file_sha256 as _file_sha
+from review_core import file_sha256 as _file_sha, REPORT_ROOT
 
-DELIVERY = Path("reports/security-code-review/logs/repair-waves/delivery.json")
+DELIVERY = REPORT_ROOT / "logs/repair-waves/delivery.json"
 
 
 def agent_next(target: Path) -> dict:
@@ -145,7 +145,7 @@ def finalize(target: Path) -> dict:
     issues = safety_errors(target, assessment)
     if issues:
         raise ValueError("正式安全守門未通過：" + "；".join(issues[:8]))
-    report_root = target / "reports/security-code-review"
+    report_root = target / REPORT_ROOT
     if (target / DELIVERY).exists():
         raise ValueError("既有交付紀錄不可覆寫；先人工核對")
     ws._stage_clean(target)

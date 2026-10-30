@@ -10,10 +10,10 @@ from review_decision import load_decision_matrix
 from control_outcome_evidence import outcome_errors
 from control_proofs import REQUIRED_SCENARIOS, _location_errors, _proofs
 from decision_adjudication import external_responsibility_errors, EXTERNAL_PROOF_KINDS
-from review_core import read_json as _read_json, snapshot_fingerprint
+from review_core import read_json as _read_json, REPORT_ROOT, snapshot_fingerprint
 
 CONTRACT_VERSION = 1
-RELATIVE = Path("reports/security-code-review")
+RELATIVE = REPORT_ROOT
 INDEX = RELATIVE / "analysis/structure-index.json"
 SNAPSHOT = RELATIVE / "analysis/review-snapshot.json"
 VERIFICATIONS = RELATIVE / "analysis/control-verifications.json"

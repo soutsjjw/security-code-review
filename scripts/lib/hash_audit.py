@@ -12,6 +12,7 @@ from typing import Any
 
 from scope_paths import relative_path
 from source_reader import digest_matches, source_digest
+from review_core import REPORT_ROOT
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -70,7 +71,7 @@ def main() -> int:
     parser.add_argument("--assessment", type=Path, help="預設 <target>/reports/security-code-review/assessment.json")
     args = parser.parse_args()
     root = args.target.resolve()
-    path = args.assessment or root / "reports/security-code-review/assessment.json"
+    path = args.assessment or root / REPORT_ROOT / "assessment.json"
     try:
         assessment = json.loads(path.read_text(encoding="utf-8"))
         result = audit_hashes(assessment, root)

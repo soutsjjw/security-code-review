@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 from jsonschema import Draft202012Validator, FormatChecker
+from review_core import REPORT_ROOT
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads((ROOT / "schemas/execution-boundary-event-v1.schema.json").read_text("utf-8"))
@@ -44,7 +45,7 @@ def fingerprint(value):
 def events_dir(target, run_id):
     if not isinstance(run_id, str) or not run_id or any(x in run_id for x in "/\\."):
         raise ValueError("run_id 不合法")
-    return Path(target).resolve() / "reports/security-code-review/logs/boundary-events" / run_id
+    return Path(target).resolve() / REPORT_ROOT / "logs/boundary-events" / run_id
 
 def batch_path(target, run_id, batch_id):
     if not isinstance(batch_id, str) or not batch_id or len(batch_id) > 128 or any(

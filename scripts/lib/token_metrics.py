@@ -6,6 +6,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from review_core import ANALYSIS_ROOT
 
 
 def record_usage(path: Path, *, executor: str, run_id: str, input_tokens: int,
@@ -38,7 +39,7 @@ def main() -> int:
     parser.add_argument("--cached-input-tokens", type=int, default=0)
     parser.add_argument("--tool-calls", type=int)
     args = parser.parse_args()
-    path = args.target.resolve() / "reports/security-code-review/analysis/token-usage.jsonl"
+    path = args.target.resolve() / ANALYSIS_ROOT / "token-usage.jsonl"
     try:
         row = record_usage(path, executor=args.executor, run_id=args.run_id,
                            input_tokens=args.input_tokens, output_tokens=args.output_tokens,

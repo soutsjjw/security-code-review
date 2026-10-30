@@ -9,6 +9,7 @@ from typing import Any
 
 from review_decision import _is_weak_source_evidence, load_decision_matrix
 from source_reader import read_source_text
+from review_core import ANALYSIS_ROOT
 
 CONTRACT_VERSION = 1
 NODE_ROLES = frozenset({"entry", "enforcement", "operation", "configuration", "support"})
@@ -71,7 +72,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
     if check.get("review_kind") == "external_responsibility_pending" and status == "review":
         import json
         from decision_adjudication import external_responsibility_errors, DELEGATED_RESULT
-        file = target / "reports/security-code-review/analysis/decision-audits.json"
+        file = target / ANALYSIS_ROOT / "decision-audits.json"
         try:
             audits = json.loads(file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -88,7 +89,7 @@ def trace_errors(target: Path, index: dict, snapshot: dict, check: dict,
     if status == "pass":
         import json
         from control_effectiveness import _external_pass_errors, REQUIRED_SCENARIOS
-        file = target / "reports/security-code-review/analysis/control-verifications.json"
+        file = target / ANALYSIS_ROOT / "control-verifications.json"
         try:
             records = json.loads(file.read_text(encoding="utf-8"))
         except (OSError, ValueError):

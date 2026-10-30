@@ -18,13 +18,13 @@ from source_reader import read_source_text
 from review_relationships import build_relationships
 from review_snapshot import initialize_snapshot, source_files
 from scope_paths import relative_path
-from review_core import write_json_atomic
+from review_core import ANALYSIS_ROOT, REPORT_ROOT, write_json_atomic
 
 INDEX_VERSION = 10
 ROSLYN_VERSION = "roslyn-symbol-candidates-v4"
 CANDIDATE_VERSION = 2
 SKILL_ROOT = Path(__file__).resolve().parents[2]
-INDEX_NAME = "reports/security-code-review/analysis/structure-index.json"
+INDEX_NAME = (ANALYSIS_ROOT / "structure-index.json").as_posix()
 
 
 def _private_mkdir(path: Path, *, windows: bool | None = None) -> None:
@@ -262,7 +262,7 @@ def prepare(root: Path, mode: str = "full") -> dict:
         raise ValueError("受測專案路徑不存在或指向 Skill 本身")
     adapter = ADAPTERS[0]  # 第一階段僅啟用現代 .NET；往後可由 registry 選擇。
     detection = adapter.detect(root)
-    report_dir = root / "reports/security-code-review"
+    report_dir = root / REPORT_ROOT
     assessment_path = report_dir / "assessment.json"
     excluded: list[str] = []
     if assessment_path.is_file():

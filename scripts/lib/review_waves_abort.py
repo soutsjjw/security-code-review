@@ -15,9 +15,9 @@ import os
 from pathlib import Path
 from typing import Any
 import review_waves_state as ws
-from review_core import canonical_digest as _digest, file_sha256 as _file_sha
+from review_core import canonical_digest as _digest, file_sha256 as _file_sha, REPORT_ROOT
 
-QUARANTINE = Path("reports/security-code-review/logs/repair-waves/aborted")
+QUARANTINE = REPORT_ROOT / "logs/repair-waves/aborted"
 RECEIPT_VERSION = 1
 
 
@@ -48,9 +48,9 @@ def _read_record(path: Path) -> dict:
 def _safe_folder(root: Path) -> Path:
     base = root / QUARANTINE
     # Reject symlinks in every existing component, not only at the leaf.
-    for folder in (root / "reports", root / "reports/security-code-review",
-                   root / "reports/security-code-review/logs",
-                   root / "reports/security-code-review/logs/repair-waves", base):
+    for folder in (root / "reports", root / REPORT_ROOT,
+                   root / REPORT_ROOT / "logs",
+                   root / REPORT_ROOT / "logs/repair-waves", base):
         if folder.is_symlink():
             raise ValueError("隔離目錄包含 symbolic link")
     base.mkdir(parents=True, exist_ok=True)

@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
-from review_core import write_json_atomic
+from review_core import REPORT_ROOT, write_json_atomic
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CATALOG = ROOT / "tests/fixtures/p0-quality-baseline/cases.json"
@@ -110,7 +110,7 @@ def assessment_predictions(target: Path, catalog: dict[str, Any]) -> dict[str, A
     """讀取每個隔離專案真實產出的 assessment.json；缺少的結果保持 missing。"""
     predictions = []
     for case in catalog["cases"]:
-        path = target / case["id"] / "reports/security-code-review/assessment.json"
+        path = target / case["id"] / REPORT_ROOT / "assessment.json"
         if not path.is_file():
             continue
         data = json.loads(path.read_text(encoding="utf-8"))

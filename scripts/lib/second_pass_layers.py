@@ -10,11 +10,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from review_core import read_json as _read
+from review_core import ANALYSIS_ROOT, read_json as _read
 
 VERSION = 1
 RESERVED = "__layered__"
-RELATIVE = Path("reports/security-code-review/analysis")
+RELATIVE = ANALYSIS_ROOT
 RISK_PATTERNS = (
     ("entry", re.compile(r"controller|endpoint|middleware|handler|route|api", re.I)),
     ("authorization", re.compile(r"auth|identity|permission|role|policy|access", re.I)),

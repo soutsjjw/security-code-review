@@ -12,12 +12,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from review_core import write_json_atomic as _write
+from review_core import REPORT_ROOT, write_json_atomic as _write
 from scope_paths import EXCLUDED_DIRS, _default_rule
 from source_coverage import SOURCE_FILENAMES, SOURCE_SUFFIXES
 from source_reader import source_digest
 
-RELATIVE = Path("reports/security-code-review")
+RELATIVE = REPORT_ROOT
 SNAPSHOT = Path("analysis/review-snapshot.json")
 CLOSURES = Path("analysis/rule-closures.json")
 STAGED = Path("analysis/staged")

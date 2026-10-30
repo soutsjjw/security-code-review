@@ -28,7 +28,7 @@ from analysis_candidates import candidate_hits
 from source_reader import read_source_text
 from review_safety import safety_errors
 from review_snapshot import scope_tasks
-from review_core import write_json_atomic
+from review_core import REPORT_ROOT, write_json_atomic
 from standard_guides import STANDARD_GUIDES, load_owasp_2025_categories, load_tacert_v2_checks
 from partial_review import (initialize as init_partial, integrate as integrate_partial,
                             queue as partial_queue, stage as stage_partial)
@@ -36,7 +36,7 @@ from partial_review_safety import (begin_second_pass as begin_partial_second_pas
                                    prepare_index as prepare_partial_index, validate as validate_partial)
 
 SKILL_ROOT = Path(__file__).resolve().parents[2]
-REPORT_RELATIVE = Path("reports/security-code-review")
+REPORT_RELATIVE = REPORT_ROOT
 
 
 def load_rules() -> tuple[dict, list[dict]]:
@@ -401,14 +401,14 @@ def main() -> int:
             assessment = json.loads((target / REPORT_RELATIVE / "assessment.json").read_text(encoding="utf-8"))
             diagnostics = diagnose(target, assessment)
             # 僅在已有正式 Run 日誌時記錄差異；診斷不能自行建立審查狀態。
-            if (target / "reports/security-code-review/logs/latest.json").is_file():
+            if (target / REPORT_ROOT / "logs/latest.json").is_file():
                 try:
                     from review_log import observe_blockers
                     observe_blockers(target, diagnostics)
                 except (OSError, ValueError, KeyError, TypeError) as log_exc:
                     print(f"WARNING: 無法記錄 blocker 指紋變化：{type(log_exc).__name__}", file=sys.stderr)
             if (os.environ.get("SECURITY_CODE_REVIEW_EXECUTION_MODE") == "optimized"
-                    and (target / "reports/security-code-review/logs/latest.json").is_file()):
+                    and (target / REPORT_ROOT / "logs/latest.json").is_file()):
                 try:
                     from convergence_controller import observe_diagnostics
                     diagnostics["convergence"] = observe_diagnostics(target, diagnostics)

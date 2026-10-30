@@ -11,8 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import evidence_integrity as ledger
+from review_core import REPORT_ROOT
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 ARCHIVES = Path("reports/security-code-review-archives")
 
 

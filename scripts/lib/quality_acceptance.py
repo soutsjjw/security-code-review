@@ -14,10 +14,10 @@ from typing import Any
 from quality_baseline import (DEFAULT_CATALOG, PROJECT_FILE, assessment_predictions,
                               evaluate, load_catalog)
 from review_queue import build_queue, load_rules
-from review_core import write_json_atomic
+from review_core import REPORT_ROOT, write_json_atomic
 
 VERSION = 1
-REPORT_DIR = Path("reports/security-code-review")
+REPORT_DIR = REPORT_ROOT
 SOURCE_EXTS = frozenset({".cs", ".csproj", ".json", ".yaml", ".yml"})
 LOWER_IS_BETTER = ("missed_fail", "false_positive_fail")
 HIGHER_IS_BETTER = ("passed_count", "status_correct", "review_correct",

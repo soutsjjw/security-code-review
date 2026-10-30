@@ -13,7 +13,7 @@ from pathlib import Path
 
 from review_blockers import FIXES, diagnose
 import review_log
-from review_core import canonical_digest as _digest
+from review_core import canonical_digest as _digest, REPORT_ROOT
 
 # Each strategy changes the actual type/verification of evidence; none fabricates evidence.
 STRATEGIES = {
@@ -172,7 +172,7 @@ def run(target: Path, *, category=None, group_key=None, strategy_id=None, receip
     observed = review_log._load(latest)
     if not observed or observed.get("status") not in ("running", "stalled"):
         raise ValueError("請先建立有效 Run；此命令不會啟動新審查")
-    assessment = target / "reports/security-code-review/assessment.json"
+    assessment = target / REPORT_ROOT / "assessment.json"
     if not assessment.is_file():
         raise ValueError("尚無正式 assessment")
     diagnostics = diagnose(target, json.loads(assessment.read_text("utf-8")))

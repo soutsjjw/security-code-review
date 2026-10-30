@@ -14,9 +14,9 @@ from typing import Any
 
 from review_snapshot import high_tier_rules, rule_scopes
 from review_blockers import diagnose
-from review_core import sha256_bytes as _sha, snapshot_fingerprint
+from review_core import REPORT_ROOT, sha256_bytes as _sha, snapshot_fingerprint
 
-BASE = Path("reports/security-code-review")
+BASE = REPORT_ROOT
 CONTRACT_FILES = (
     "rules.json", "policies/review-decision-matrix.json",
     "schemas/assessment.schema.json", "scripts/lib/analysis_prepare.py",

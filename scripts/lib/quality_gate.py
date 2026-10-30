@@ -17,10 +17,10 @@ from quality_acceptance import report_artifact_errors
 from review_decision import load_decision_matrix
 from review_queue import build_queue, load_rules
 from review_snapshot import rule_scopes
-from review_core import write_json_atomic
+from review_core import REPORT_ROOT, write_json_atomic
 
 VERSION = 1
-REPORT_DIR = Path("reports/security-code-review")
+REPORT_DIR = REPORT_ROOT
 RULE_FIELDS = ("pass_condition", "expected_evidence", "manual_boundary", "applicability")
 QUALITY_VERSIONS = (
     "decision_quality_version", "cross_file_evidence_version", "control_outcome_version",

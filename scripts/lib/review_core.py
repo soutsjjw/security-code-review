@@ -12,6 +12,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+# 受測專案內的審查工件根目錄（相對 TARGET_ROOT）；各模組由此推得自己的檔案路徑。
+REPORT_ROOT = Path("reports/security-code-review")
+ANALYSIS_ROOT = REPORT_ROOT / "analysis"
+
 
 def sha256_bytes(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()

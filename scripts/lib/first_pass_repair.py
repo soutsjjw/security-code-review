@@ -11,8 +11,9 @@ from typing import Any
 
 from review_completion import _template
 from rule_repair_tasks import build_rule_repair_tasks, compare_rule_repair_diagnostics
+from review_core import REPORT_ROOT
 
-REPORT = Path("reports/security-code-review/assessment.json")
+REPORT = REPORT_ROOT / "assessment.json"
 RULE_ID = r"(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}"
 # Verifier emits both "path: RULE: details" and "RULE: path:line details".
 FILE_RULE = re.compile(rf"^(?P<path>[^:\n]+): (?P<rule>{RULE_ID}):")

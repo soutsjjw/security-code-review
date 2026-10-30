@@ -16,9 +16,9 @@ from evidence_integrity import errors as integrity_errors
 from review_snapshot import snapshot_errors
 from quality_gate import measure as quality_measure
 from execution_boundary_events import verify_run
-from review_core import snapshot_fingerprint, write_json_atomic
+from review_core import REPORT_ROOT, snapshot_fingerprint, write_json_atomic
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 KEYS = ("ready_for_second_pass", "pending_rule_ids", "missing_source_file_count",
         "recheck_rule_ids")
 

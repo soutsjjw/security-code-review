@@ -8,9 +8,9 @@ from typing import Any
 
 from review_decision import load_decision_matrix, _is_weak_source_evidence
 from source_reader import read_source_text
-from review_core import read_json as _read_json, snapshot_fingerprint
+from review_core import ANALYSIS_ROOT, read_json as _read_json, snapshot_fingerprint
 
-RELATIVE = Path("reports/security-code-review/analysis")
+RELATIVE = ANALYSIS_ROOT
 INDEX = RELATIVE / "structure-index.json"
 SNAPSHOT = RELATIVE / "review-snapshot.json"
 AUDITS = RELATIVE / "decision-audits.json"

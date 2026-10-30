@@ -11,8 +11,9 @@ from typing import Any
 from control_proofs import _location_errors
 from review_decision import _is_weak_source_evidence
 from review_snapshot import high_tier_rules
+from review_core import ANALYSIS_ROOT
 
-RELATIVE = Path("reports/security-code-review/analysis")
+RELATIVE = ANALYSIS_ROOT
 INDEX = RELATIVE / "structure-index.json"
 SNAPSHOT = RELATIVE / "review-snapshot.json"
 BASELINE = RELATIVE / "first-pass-baseline.json"

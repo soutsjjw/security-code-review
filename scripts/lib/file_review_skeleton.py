@@ -12,8 +12,9 @@ from analysis_candidates import candidate_hits
 from review_queue import REPORT_RELATIVE
 from source_coverage import provisional_source_coverage
 from source_reader import read_source_text, source_digest
+from review_core import ANALYSIS_ROOT
 
-INDEX = Path("reports/security-code-review/analysis/structure-index.json")
+INDEX = ANALYSIS_ROOT / "structure-index.json"
 
 
 def skeleton(target: Path, *, batch_size: int = 30, workers: int = 1,

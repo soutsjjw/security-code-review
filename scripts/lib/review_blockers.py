@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from rule_repair_tasks import classify_repair_work
+from review_core import ANALYSIS_ROOT, REPORT_ROOT
 
 RULE_ID = re.compile(r"\b(?:AC|AU|IN|CR|EH|LG|DP|PD|BC|SI)-\d{2}\b")
-ASSESSMENT = Path("reports/security-code-review/assessment.json")
+ASSESSMENT = REPORT_ROOT / "assessment.json"
 FIXES: dict[str, str] = {
     "unrelated_evidence": "重新核對此規則的控制責任和實際來源；無關證據只能經合法修訂流程取代",
     "weak_source_evidence": "重新取得真正能證明規則結論的執行邏輯、版本／漏洞掃描或外部工件，不能重用套件宣告",
@@ -143,7 +144,7 @@ def diagnose(target: Path, assessment: dict[str, Any]) -> dict[str, Any]:
                      and (c.get("execution") or {}).get("state") != "completed")
     if pending:
         messages.append(f"第一輪：尚有 {len(pending)} 項規則未完成")
-    recheck_path = target / "reports/security-code-review/analysis/recheck-required.json"
+    recheck_path = target / ANALYSIS_ROOT / "recheck-required.json"
     recheck = json.loads(recheck_path.read_text(encoding="utf-8")) if recheck_path.exists() else {}
     authoritative = recheck.get("rule_ids") or [] if isinstance(recheck, dict) else []
     result = summarize(messages, link_diagnostics=details.get("unverified_inspected_paths"),

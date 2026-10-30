@@ -17,14 +17,14 @@ from multi_agent_guard import (CHECKS, challenges_for, exclusive_ledger, probe_e
 from source_reader import source_digest
 from source_coverage import expected_paths
 from scope_paths import relative_path
-from review_core import write_json_atomic
+from review_core import ANALYSIS_ROOT, REPORT_ROOT, write_json_atomic
 
-ANALYSIS = Path("reports/security-code-review/analysis")
+ANALYSIS = ANALYSIS_ROOT
 LEDGER = ANALYSIS / "multi-agent/ledger.json"
 PROBE = ANALYSIS / "multi-agent/capability-probe.json"
 SNAPSHOT = ANALYSIS / "review-snapshot.json"
 INDEX = ANALYSIS / "structure-index.json"
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 HIGH_RISK = re.compile(r"auth|identity|session|credential|permission|access|"
                        r"controller|endpoint|request|input|upload|serializ|"
                        r"deserializ|middleware|token|password|config", re.I)
@@ -63,7 +63,7 @@ def _git_state(root: Path) -> dict:
     entries = status.stdout.split(b"\x00")
     # Reports are controlled review artifacts and do not count as changed target source.
     filtered = sorted(e for e in entries if e and not (
-        e[3:].replace(b"\\", b"/").startswith(b"reports/security-code-review/")
+        e[3:].replace(b"\\", b"/").startswith(REPORT_ROOT.as_posix().encode() + b"/")
     ))
     return {"head": head.stdout.strip(), "worktree_digest":
             hashlib.sha256(b"\x00".join(filtered)).hexdigest()}

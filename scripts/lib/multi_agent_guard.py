@@ -9,13 +9,13 @@ import subprocess
 import time
 from pathlib import Path
 from source_reader import read_source_text
-from review_core import canonical_digest as digest, sha256_bytes as sha
+from review_core import canonical_digest as digest, REPORT_ROOT, sha256_bytes as sha
 
 CHECKS = ("parallel_dispatch", "independent_context", "single_layer",
           "enforced_read_only", "structured_result", "failure_recovery",
           "first_pass_result_isolation")
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 PROBE_TTL_SECONDS = 24 * 3600
 
 def exclusive_ledger(function):

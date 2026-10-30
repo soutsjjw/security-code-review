@@ -11,10 +11,10 @@ import json
 from pathlib import Path
 import sys
 from typing import Any
+from review_core import REPORT_ROOT
 
 SKILL_ROOT = Path(__file__).resolve().parents[2]
 RULES_FILE = SKILL_ROOT / "rules.json"
-REPORT_ROOT = Path("reports/security-code-review")
 PARTIAL_ROOT = REPORT_ROOT / "partial"
 CATEGORY_COUNTS = {
     "AC": 8, "AU": 10, "IN": 8, "CR": 6, "EH": 6,

@@ -12,9 +12,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-from review_core import file_sha256 as _file_sha, write_json_exclusive
+from review_core import file_sha256 as _file_sha, REPORT_ROOT, write_json_exclusive
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 STATE = REPORT / "logs/repair-waves/state.json"
 VERSION = 2
 

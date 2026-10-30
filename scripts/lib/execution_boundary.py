@@ -11,9 +11,9 @@ import json
 from pathlib import Path
 
 from execution_boundary_events import append_violation, verify_run, fingerprint, snapshot_run_summary
-from review_core import write_json_exclusive
+from review_core import REPORT_ROOT, write_json_exclusive
 
-REPORT = Path("reports/security-code-review")
+REPORT = REPORT_ROOT
 SCRIPT_EXT = {".py", ".sh", ".js", ".ps1", ".cmd", ".bat", ".exe", ".dll"}
 
 def inventory(target):
