@@ -252,7 +252,8 @@ def validate_data(
                 result.errors.append(f'{fid}: 不存在的檢核項目 {cid}')
             elif cid not in master:
                 result.errors.append(f'{fid}: 不屬於目前規則主檔的項目 {cid}')
-        if not any(checks.get(cid, {}).get('status') == 'fail' for cid in f['check_ids']):
+        if f.get('severity') != 'info' and not any(
+                checks.get(cid, {}).get('status') == 'fail' for cid in f['check_ids']):
             result.warnings.append(f'{fid}: 沒有關聯不符合的檢核項，請人工確認是否為資訊性建議')
 
     for c in assessment['checks']:

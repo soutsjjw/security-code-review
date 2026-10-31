@@ -38,6 +38,13 @@ def consistency_errors(data: dict[str, Any]) -> list[str]:
         linked = [checks[i] for i in finding.get("check_ids", []) if i in checks]
         if not linked:
             continue
+        # info 只記錄寫法或技術債提醒，不是缺陷，可關聯 pass 而不改變規則結論。
+        if finding.get("severity") == "info":
+            pending = [c["id"] for c in linked if c.get("status") == "review"]
+            if pending:
+                errors.append(f"{finding.get('id')}: info Finding 不得關聯 review 檢核 {'、'.join(pending)}；"
+                              "應先依證據將規則判為 pass 或 fail")
+            continue
         passed = [c["id"] for c in linked if c.get("status") == "pass"]
         if passed:
             errors.append(f"{finding.get('id')}: 已確認 Finding 關聯的檢核 {'、'.join(passed)} 卻為 pass")

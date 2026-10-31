@@ -39,6 +39,18 @@ class FindingStatusLinkTests(unittest.TestCase):
                 "findings": [finding("F-1", ["CR-05", "IN-02"])]}
         self.assertEqual(consistency_errors(data), [])
 
+    def test_info_finding_may_link_pass_check(self):
+        data = {"checks": [check("AU-03", "pass")],
+                "findings": [finding("F-1", ["AU-03"], severity="info")]}
+        self.assertEqual(consistency_errors(data), [])
+
+    def test_info_finding_with_review_check_is_rejected(self):
+        data = {"checks": [check("AU-03", "review")],
+                "findings": [finding("F-1", ["AU-03"], severity="info")]}
+        errors = consistency_errors(data)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("AU-03", errors[0])
+
     def test_unconfirmed_finding_may_stay_review(self):
         data = {"checks": [check("IN-02", "review")],
                 "findings": [finding("F-1", ["IN-02"], confidence="medium")]}
