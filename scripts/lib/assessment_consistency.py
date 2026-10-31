@@ -207,7 +207,7 @@ def finding_quality_issues(data: dict[str, Any], source_root: Path) -> tuple[lis
         types = finding.get("impact_type")
         if not types:
             missing_type += 1
-        elif finding.get("severity") in ("critical", "high") and set(types) == {"availability"}:
+        elif finding.get("severity") == "high" and set(types) == {"availability"}:
             warnings.append(f"{fid}: 嚴重度 {finding.get('severity')} 但 impact_type 只有可用性；"
                             "請確認是否真的達到該等級，或補上機密性／完整性影響")
     if missing_type:

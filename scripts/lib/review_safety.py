@@ -298,7 +298,8 @@ def integrate(target: Path, *, allow_revision: bool = False,
                     raise ValueError(f"{fid}: 不得降低已確認 Finding 的證據信心")
                 if not set(old.get("check_ids", [])).issubset(record.get("check_ids", [])):
                     raise ValueError(f"{fid}: 不得解除 Finding 既有規則關聯")
-                levels = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+                # 舊紀錄的 critical 已併入 high，改為 high 不算降級。
+                levels = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 3}
                 if levels.get(record.get("severity"), -1) < levels.get(old.get("severity"), -1):
                     raise ValueError(f"{fid}: 不得在一般修訂中降低既有 Finding 嚴重度")
                 if not record.get("evidence"):

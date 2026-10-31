@@ -58,7 +58,6 @@
           },
           "severity": {
             "enum": [
-              "critical",
               "high",
               "medium",
               "low",

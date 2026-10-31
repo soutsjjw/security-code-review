@@ -180,7 +180,6 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <h2 id="findings">發現與改善建議</h2>
   <div class="filters" id="sevFilter" aria-label="風險等級篩選">
     <button type="button" class="on" data-f="all" aria-pressed="true">全部</button>
-    <button type="button" data-f="critical" aria-pressed="false">重大</button>
     <button type="button" data-f="high" aria-pressed="false">高</button>
     <button type="button" data-f="medium" aria-pressed="false">中</button>
     <button type="button" data-f="low" aria-pressed="false">低</button>
@@ -198,7 +197,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
 (() => {
   'use strict';
   const STATUS = {pass:['符合','st-pass'], fail:['不符合','st-fail'], review:['待確認','st-review'], na:['不適用','st-na'], missing:['未評估','st-na']};
-  const SEVERITY = {critical:['重大','sev-high'], high:['高','sev-high'], medium:['中','sev-med'], low:['低','sev-low'], info:['資訊','sev-info']};
+  const SEVERITY = {high:['高','sev-high'], medium:['中','sev-med'], low:['低','sev-low'], info:['資訊','sev-info']};
   const CATEGORIES = [
     ['AC','一、存取控制（Access Control）'], ['AU','二、身分鑑別與認證（Authentication）'],
     ['IN','三、注入攻擊防護（Injection Prevention）'], ['CR','四、加密機制與傳輸安全（Cryptography）'],
@@ -294,7 +293,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     const st=el('div','stat '+STATUS[key][1]); st.append(el('div','n',n),el('div','l',label)); $('statusStats').append(st);
   }
   $('findingCountTitle').textContent='發現項目（共 '+findings.length+' 項）';
-  const sevKeys=severity('critical')?['critical','high','medium','low','info']:['high','medium','low','info'];
+  const sevKeys=['high','medium','low','info'];
   for(const key of sevKeys){ const st=el('div','stat '+SEVERITY[key][1]); st.append(el('div','n',severity(key)),el('div','l',SEVERITY[key][0])); $('severityStats').append(st); }
   $('severityStats').style.gridTemplateColumns='repeat('+sevKeys.length+',minmax(0,1fr))';
   const overall=presentation.overall_risk||{}; const level=overall.level||'review';
@@ -320,7 +319,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   let groups=asArray(presentation.priorities);
   if (!groups.length && findings.length) {
     groups=[
-      {label:'優先（重大／高）',finding_ids:findings.filter(f=>['critical','high'].includes(f.severity)).map(f=>f.id),description:'依風險等級初步分組，處理期限須依公司政策核定。'},
+      {label:'優先（高）',finding_ids:findings.filter(f=>f.severity==='high').map(f=>f.id),description:'依風險等級初步分組，處理期限須依公司政策核定。'},
       {label:'次要（中）',finding_ids:findings.filter(f=>['medium','med'].includes(f.severity)).map(f=>f.id),description:'確認影響範圍並排入改善計畫。'},
       {label:'例行（低／資訊）',finding_ids:findings.filter(f=>['low','info'].includes(f.severity)).map(f=>f.id),description:'納入版本改善與維護工作。'}
     ].filter(g=>g.finding_ids.length);
@@ -366,7 +365,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   if(!findings.length) $('findingDetails').append(empty('無可展示的已確認發現。'));
   for(const f of findings){
     const sev=f.severity==='medium'?'med':f.severity;
-    const article=el('article','finding sevb-'+(sev==='critical'?'high':sev));article.id=safeId(f.id)||''; article.dataset.sev=f.severity;
+    const article=el('article','finding sevb-'+sev);article.id=safeId(f.id)||''; article.dataset.sev=f.severity;
     const header=el('header');header.append(el('span','fid mono',f.id),chip((SEVERITY[f.severity]||SEVERITY.info)[0],(SEVERITY[f.severity]||SEVERITY.info)[1]),el('h3',null,f.title));article.append(header);
     const dl=el('dl','meta');
     const meta=[['對應檢核',asArray(f.check_ids).join('、')||'—']];

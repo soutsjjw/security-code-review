@@ -35,7 +35,7 @@ LIMITATIONS = [
     "本報告不代表完整 70 項審查，也不代表附件或外部防護基準已通過。",
 ]
 STATUSES = {"pass": "通過", "fail": "不符合", "review": "待確認", "na": "不適用"}
-SEVERITIES = {"critical": "重大", "high": "高", "medium": "中", "low": "低", "info": "資訊"}
+SEVERITIES = {"high": "高", "medium": "中", "low": "低", "info": "資訊"}
 
 
 def _schema_validator() -> Draft202012Validator:

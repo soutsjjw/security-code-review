@@ -26,7 +26,7 @@ report.json
 
 ## 詳細檢核結果的兩套等級
 
-- **弱點等級**為 Finding 的 `severity`（`critical`＝重大、`high`＝高、`medium`／舊值 `med`＝中、`low`＝低、`info`＝資訊），只反映實際發現，依 `findings[].check_ids` 與規則關聯顯示最高級別。若沒有關聯 Finding 顯示「—」，不自動認定低風險或通過。
+- **弱點等級**為 Finding 的 `severity`（`high`＝高、`medium`／舊值 `med`＝中、`low`＝低、`info`＝資訊；不設重大等級，舊值 `critical` 報告與風險初判一律視為高），只反映實際發現，依 `findings[].check_ids` 與規則關聯顯示最高級別。若沒有關聯 Finding 顯示「—」，不自動認定低風險或通過。
 - **適用防護等級**是 `rules[].origin.legacy_levels`（普／中／高的適用集合），僅表示該規則對應的防護需求，不是弱點風險。
 - 保留既有 JSON 欄位和 `assessment.checks[].status`，不新增虛構的規則嚴重程度；HTML 獨立顯示兩欄。Finding 嚴重度不得由普／中／高換算。
 

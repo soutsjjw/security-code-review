@@ -80,7 +80,7 @@
    - **建立 Finding 前的自我檢查（驗證器會抽查其中可機械判斷者）**：
      - **追查使用處**：引用某變數或方法作為風險證據前，確認它真的被傳出、儲存或執行；宣告後從未使用的變數是死碼，不是風險路徑。驗證器遇到 Finding 點名（以名稱或單行行號）的局部變數在檔案中只宣告一次，會拒絕；已追查確實有使用時，於 `verification.usage_traced` 說明。
      - **讀相鄰註解與文件**：判定前先讀引用片段前後的註解、README 與設計文件，已說明的刻意設計或已知限制要納入判斷（如供應商不支援 SRI、標頭明確標為選配），並於 `verification.design_notes` 記錄；驗證器對片段附近含說明性註解者警示。
-     - **標示 `impact_type`**：`confidentiality`／`integrity`／`availability` 擇一或多個，嚴重度須對應。僅影響可用性（例如驗證流程永遠失敗而非被繞過）不宜列為 high；僅有可用性且為 high／critical 時驗證器警示。
+     - **標示 `impact_type`**：`confidentiality`／`integrity`／`availability` 擇一或多個，嚴重度須對應。僅影響可用性（例如驗證流程永遠失敗而非被繞過）不宜列為 high；僅有可用性且為 high 時驗證器警示。
      - **證據要點出具體欄位**：日誌、個資、機敏資料類 Finding 須列出實際受影響的屬性或欄位（例如 `UserLoginCommand.Password` 經 `{@Request}` 寫入 Serilog），不可只寫「完整 request 物件」。
      - **部署假設不是 Finding**：僅因「程式碼看不出部署層有無限制」（如來源網路、VPN）而無具體缺陷時，記為對應規則的 `review` 並寫明待補工件，不建立 Finding。
    - 僅在通過「標記 `review` 前的自檢」三題時才標記已完成靜態查核的 `review`，並說明仍待確認的範圍；不得因該項缺證據而停止其餘檢核。

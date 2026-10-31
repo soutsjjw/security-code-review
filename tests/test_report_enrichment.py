@@ -60,13 +60,22 @@ class ReportEnrichmentTests(unittest.TestCase):
     def test_risk_uses_maximum_confirmed_severity_not_count(self):
         risk = build_overall_risk({"findings": [
             {"id": "F-01", "severity": "low", "impact": "有限影響"},
-            {"id": "F-02", "severity": "critical", "impact": "可能存取核心資料", "confidence": "high"},
+            {"id": "F-02", "severity": "high", "impact": "可能存取核心資料", "confidence": "high"},
             {"id": "F-03", "severity": "low", "impact": "輕微"}
         ], "checks": [{"status": "review"}]})
-        self.assertEqual(risk["level"], "critical")
+        self.assertEqual(risk["level"], "high")
         self.assertIn("F-02", risk["summary"])
         self.assertIn("可利用性", risk["summary"])
         self.assertIn("1 項規則", risk["summary"])
+
+    def test_legacy_critical_merges_into_high(self):
+        risk = build_overall_risk({"findings": [
+            {"id": "F-01", "severity": "critical", "impact": "可能存取核心資料"},
+            {"id": "F-02", "severity": "high", "impact": "可繞過授權"}
+        ], "checks": []})
+        self.assertEqual(risk["level"], "high")
+        self.assertIn("高 2 筆", risk["summary"])
+        self.assertNotIn("重大", risk["summary"])
 
     def test_no_findings_does_not_mean_low_risk(self):
         risk = build_overall_risk({"findings": [], "checks": []})

@@ -115,7 +115,8 @@ class ReportingTests(unittest.TestCase):
     def test_checklist_severity_and_applicability_are_separate(self):
         page = render_html(self.template, self.fresh())
         self.assertIn("'弱點等級','適用防護等級'", page)
-        self.assertIn("const sevKeys=['critical','high','medium','low','info']", page)
+        self.assertIn("const sevKeys=['high','medium','low','info']", page)
+        self.assertNotIn('data-f="critical"', page)
         self.assertIn("asArray(f.check_ids).includes(r.id)", page)
         self.assertIn("const highest=order.find(level=>foundLevels.includes(level))", page)
         self.assertIn("沒有對應的已記錄弱點，不等於低風險", page)

@@ -22,8 +22,10 @@ SOURCE_SUFFIXES = {".cs", ".cshtml", ".ts", ".tsx", ".js", ".jsx", ".py", ".go",
                    ".rb", ".sql", ".json", ".yaml", ".yml", ".xml", ".config"}
 EXCLUDED_PARTS = {"test", "tests", "__tests__", "fixtures", "samples", "examples",
                   "node_modules", "vendor", "bin", "obj"}
-RISK_ORDER = {"info": 0, "low": 1, "medium": 2, "med": 2, "high": 3, "critical": 4}
-RISK_LEVEL = {"info": "資訊", "low": "低", "medium": "中", "high": "高", "critical": "重大"}
+RISK_ORDER = {"info": 0, "low": 1, "medium": 2, "med": 2, "high": 3, "critical": 3}
+RISK_LEVEL = {"info": "資訊", "low": "低", "medium": "中", "high": "高"}
+# 舊值別名：med 即 medium；critical 已併入 high。
+RISK_ALIAS = {"med": "medium", "critical": "high"}
 
 
 def _inspected_paths(assessment: dict[str, Any]) -> list[str]:
@@ -128,7 +130,7 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
                        "仍需確認系統暴露情況、業務影響、部署防護與動態測試。",
         }
     most = max(findings, key=lambda f: RISK_ORDER[f["severity"]])
-    level = "medium" if most["severity"] == "med" else most["severity"]
+    level = RISK_ALIAS.get(most["severity"], most["severity"])
     confidence = most.get("confidence", "未記錄")
     impact = clip_text(most.get("impact") or "影響範圍尚待核實", 120)
     type_label = impact_type_label(most)
@@ -136,8 +138,9 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
         impact = f"{impact}（影響面向：{type_label}）"
     still_review = sum(c.get("status") == "review" for c in assessment.get("checks", []))
     supplement = f"；另有 {still_review} 項規則需補證據" if still_review else ""
-    counts = {s: sum(f.get("severity") == s for f in findings) for s in RISK_ORDER}
-    breakdown = "、".join(f"{RISK_LEVEL['medium' if s == 'med' else s]} {n} 筆" for s, n in counts.items() if n)
+    counts = {s: sum(RISK_ALIAS.get(f["severity"], f["severity"]) == s for f in findings)
+              for s in RISK_LEVEL}
+    breakdown = "、".join(f"{RISK_LEVEL[s]} {n} 筆" for s, n in counts.items() if n)
     if len(findings) > 1 and breakdown:
         supplement = f"；共 {len(findings)} 筆已記錄弱點（{breakdown}）" + supplement
     return {
