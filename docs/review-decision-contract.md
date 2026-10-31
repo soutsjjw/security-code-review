@@ -10,7 +10,7 @@
 
 1. **`fail` + Finding**：來源／設定／呼叫鏈已證實缺陷、規則間矛盾、不安全預設值，或規則要求的控制在儲存庫中應有而不存在（須記錄搜尋範圍與責任分析）。控制存在但不完整者同為 `fail`，以較低嚴重度表達。
 2. **`pass`**：適用控制已由實際控制邏輯、設定與呼叫鏈證實有效，且符合該規則 `pass_condition`。
-3. **控制成立但缺測試／文件**：依控制本身判 `pass`（或第 1 項 `fail`），在 `decision_reason` 註明「儲存庫無對應測試」，必要時建立 Low／Info Finding；**不得因此 `review`**。
+3. **控制成立但缺測試／文件**：依控制本身判 `pass`（或第 1 項 `fail`），在 `decision_reason` 註明「儲存庫無對應測試」，必要時建立 Low／Info Finding；**不得因此 `review`**。`pass` 理由若寫到改善建議（例如「建議縮短 Token 有效期」）、未使用的安全元件或只在開發環境的弱設定，須另建 `info` Finding 關聯本規則，驗證器會拒絕含「建議」卻無 Finding 的 `pass`；`info` Finding 不改變 `pass` 結論。
 4. **`review`**：僅限下列「可接受的外部缺口」，且須指名所缺工件。
 5. **`na`**：已核對不適用理由與控制責任歸屬。
 
@@ -28,6 +28,7 @@
 - 缺角色／權限／ownership 矩陣：Agent 須逐 Controller／Handler 讀碼自行建立，不得要求使用者提供。
 - 自承尚未完成的盤點（資料流、Handler／Repository 清單、反序列化點）：應完成後再判定；無法完成時 `execution.state` 保持 `pending`／`blocked`，不得標 `completed`＋`review`。
 - `decision_reason` 已描述缺陷、矛盾或不安全預設值（如演算法不一致、清空 `KnownProxies`、`DateTime.Now`、註解掉的標頭、固定金鑰路徑、placeholder 密碼）：必須 `fail`。
+- 自述缺陷的 `review` 理由由驗證器攔截，例如「空 catch 吞掉」「未設定 retainedFileCountLimit／保存期限」「無清理機制」「金鑰存放本機 C:\…」「沒有個資刪除功能」；控制責任即使在部署端，儲存庫內的缺陷仍須 `fail`。
 - 「無法證明」「未見控制」類措辭：須改寫為明確結論（控制缺席＝`fail`，控制存在＝`pass`）。
 - 儲存庫中通常以檔案表達的控制缺席（CI 設定、相依更新設定、安全標頭實作、稽核寫入、rate limit、log 保留組態）：記 `fail`，並註明「若於平台層另有控制，提供工件後可更新」，不以 `review` 迴避。
 

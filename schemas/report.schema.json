@@ -195,6 +195,156 @@
           "minLength": 1,
           "description": "普／中／高分級來源、核定或可核對之具體依據"
         },
+        "protection_demand_level_assessment": {
+          "type": "object",
+          "description": "依附表九四構面的初步研判或待確認原因；不代表正式核定，亦不改變 V1.3／附件1 適用性",
+          "required": [
+            "status",
+            "level",
+            "basis",
+            "aspects",
+            "evidence",
+            "missing_information"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "preliminary",
+                "undetermined"
+              ]
+            },
+            "level": {
+              "type": "string",
+              "enum": [
+                "普",
+                "中",
+                "高",
+                "待確認"
+              ]
+            },
+            "basis": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "aspects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "aspect",
+                  "level",
+                  "basis"
+                ],
+                "properties": {
+                  "aspect": {
+                    "type": "string",
+                    "enum": [
+                      "機密性",
+                      "完整性",
+                      "可用性",
+                      "法律遵循性"
+                    ]
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "普",
+                      "中",
+                      "高",
+                      "待確認"
+                    ]
+                  },
+                  "basis": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "line_start",
+                  "line_end"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "line_start": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "line_end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "missing_information": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "const": "preliminary"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "level": {
+                    "enum": [
+                      "普",
+                      "中",
+                      "高"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "const": "undetermined"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "level": {
+                    "const": "待確認"
+                  }
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
         "personal_data_assessment": {
           "type": "object",
           "description": "從已完成的逐檔靜態審查產生的個資初判，或原專案提供的個資聲明",

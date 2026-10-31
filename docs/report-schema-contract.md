@@ -19,7 +19,7 @@ report.json
 
 | 部分 | 必要欄位 | 補充說明 |
 | --- | --- | --- |
-| `project` | `name` | 可選 `language_framework`、`security_level`、`security_level_basis`、`security_level_assessment`、`personal_data`、`personal_data_assessment`、`attributes`；法定 A～E 級須有核定依據，個資初判須附依據與已讀來源（若有）。 |
+| `project` | `name` | 可選 `language_framework`、`security_level`、`security_level_basis`、`security_level_assessment`、`protection_demand_level`、`protection_demand_level_basis`、`protection_demand_level_assessment`、`personal_data`、`personal_data_assessment`、`attributes`；法定 A～E 級須有核定依據，個資初判須附依據與已讀來源（若有）。 |
 | `assessment` | 原有七項必要欄位 | 核心 `assessment.schema.json` 已增加各項檢核的必要 `execution` 欄位；Finding、證據及例外繼續保存於核心結構。 |
 | `rules` | `id`、`title`、`category`（70 筆） | 必須涵蓋目前完整 70 個規則 ID，且每個只能出現一次；允許完整規則物件額外欄位。 |
 | `presentation` | 物件可為 `{}` | 所有視覺欄位均可選；不得為了美觀捏造不存在的內容。 |
@@ -33,8 +33,9 @@ report.json
 ## 機關資通安全責任等級
 
 - 依《資通安全責任等級分級辦法》（115 年 1 月 7 日修正）第 2 至 10 條，機關依業務與維運責任區分 A～E 級；同時符合多個等級者依第 9 條以最高等級為原則，實際核定／調整程序依第 3、10 條辦理。
-- 執行 70 項審查時自動初判：Agent 檢查已讀取的程式碼、設定、權限控管及業務文件，寫入 `project.security_level_assessment`；缺少資料時記錄未能判定原因，不中斷審查。若 Agent 未填，`scripts/lib/security_level.py` 依 completed 的 `inspected_paths` 自動擷取明確的角色／權限程式碼作 C 級技術線索；無證據顯示待確認，不以 absence 推定 D／E 級。
+- 執行 70 項審查時自動初判：Agent 檢查已讀取的程式碼、設定、權限控管及業務文件，寫入 `project.security_level_assessment`；缺少資料時記錄未能判定原因，不中斷審查。若 Agent 未填或填 `undetermined`，`scripts/lib/security_level.py` 依 completed 的 `inspected_paths` 自動擷取明確的角色／權限程式碼作 C 級技術線索；無證據顯示待確認，不以 absence 推定 D／E 級。
 - `security_level_assessment` 格式：`{status: "preliminary"|"undetermined", level:"A"|"B"|"C"|"D"|"E"|"待確認", basis:string, evidence:[{path,line_start,line_end}], missing_information:string[]}`。preliminary 必須有已完成審查的真實來源檔與行號；初判不代表法定核定，且不能排除較高級別。
+- `protection_demand_level_assessment` 格式：`{status, level:"普"|"中"|"高"|"待確認", basis, aspects:[{aspect:"機密性"|"完整性"|"可用性"|"法律遵循性", level, basis}], evidence, missing_information}`，依附表九取四構面最高者；evidence 須在 completed 的 inspected_paths。未填時由產生器依個資初判提出線索，不改變 V1.3／附件1 適用性。
 - `project.security_level` 僅代表**已取得正式認定／核定的機關等級**；無可核對資料時填「待確認」或省略，不適用對象填「不適用」。正式核定優先於初判顯示。
 - 指定 A～E 級時須填 `project.security_level_basis`（認定／核定佐證）；資通系統防護需求分級（第 11 條及附表九）及程式碼整體風險 `presentation.overall_risk` 應分別判斷。
 - 法規：https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=A0030304

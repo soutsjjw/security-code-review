@@ -56,7 +56,7 @@ th { font-size:13px; color:var(--muted); font-weight:600; }
 .info { table-layout:fixed; }
 .info td { overflow-wrap:anywhere; word-break:normal; }
 .info td:first-child { width:43%; color:var(--muted); white-space:normal; }
-.info td:last-child { width:57%; white-space:normal; }
+.info td:last-child { width:57%; white-space:pre-line; }
 @media (max-width:420px) { .panel { padding:12px; } .info td { padding:8px 6px; } }
 .tablewrap { overflow-x:auto; }
 .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
@@ -84,6 +84,7 @@ details.cl { background:var(--panel); border:1px solid var(--line); border-radiu
 details.cl summary { cursor:pointer; padding:12px 16px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-weight:600; }
 details.cl table { border-top:1px solid var(--line); }
 .checklist td:first-child { width:64px; } .checklist td:nth-child(4) { width:76px; }
+.checklist th { white-space:nowrap; }
 .filters { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
 .filters button { font:inherit; font-size:13px; padding:4px 12px; border-radius:999px; border:1px solid var(--line);
   background:var(--panel); color:var(--ink); cursor:pointer; }
@@ -312,6 +313,17 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
       : text(prelim.basis,'缺乏機關業務、維運及核定資料，無法僅依程式碼判斷法定等級。');
   const levelEvidence = asArray(prelim.evidence).map(e=>e.path+':'+e.line_start).join('、');
   const levelMissing = asArray(prelim.missing_information).join('；');
+  // 系統防護需求分級（附表九）：正式核定優先，初判只作參考，不改變 V1.3／附件1 適用性。
+  const demandOfficial = ['普','中','高'].includes(project.protection_demand_level);
+  const demandPrelim = project.protection_demand_level_assessment||{};
+  const demandDisplay = demandOfficial ? project.protection_demand_level+' 級（已提供正式分級）'
+      : demandPrelim.status==='preliminary' ? demandPrelim.level+' 級（初步研判，非正式核定）' : '待確認';
+  const demandAspects = asArray(demandPrelim.aspects).map(a=>a.aspect+' '+a.level).join('、');
+  const demandBasis = demandOfficial ? text(project.protection_demand_level_basis,'未提供正式分級依據')
+      : [text(demandPrelim.basis,'尚缺適用等級及其可核對依據'),
+         demandAspects?'構面初判：'+demandAspects:'',
+         asArray(demandPrelim.missing_information).length?'正式判定需提供：'+asArray(demandPrelim.missing_information).join('；'):'']
+        .filter(Boolean).join('\n');
   const versionNow = report.current_ruleset_version || assessment.ruleset_version;
   const versionText = assessment.ruleset_version===versionNow ? versionNow
     : versionNow+'（現行規則集）；審查紀錄 '+assessment.ruleset_version+'（歷史版，新增對照須補查）';
@@ -345,8 +357,8 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     ['排除檔案數',coverage ? coverage.excluded_file_count : '未提供'],
     ['已審查檔案類型',coverage ? asArray(coverage.file_types).join('、')||'未記錄' : '未提供'],
     ['資通安全責任等級（A～E）',levelDisplay],
-    ['資通系統防護需求等級（普／中／高）',report.system_baseline?.demand_level||'待確認'],
-    ['系統防護需求分級依據',report.system_baseline?.demand_level_basis||'尚缺適用等級及其可核對依據'],
+    ['資通系統防護需求等級（普／中／高）',demandDisplay],
+    ['系統防護需求分級依據',demandBasis],
     ['安全等級判斷說明',levelExplanation],
     ['尚待確認資訊',asArray(presentation.pending_information).join('；')||
       (!official&&!notApplicable?(levelMissing||'機關業務與核定資料'):'目前無自動彙整之待確認事項')],

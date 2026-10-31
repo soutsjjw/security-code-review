@@ -11,7 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE / 'scripts/lib'))
 from report_common import load_json, render_html, validate_data, validate_html, extract_html_report
-from security_level import infer_security_level
+from security_level import infer_protection_demand_level, infer_security_level, merge_preliminary
 
 
 class ReportingTests(unittest.TestCase):
@@ -242,6 +242,37 @@ class ReportingTests(unittest.TestCase):
             data['assessment']['checks'][0]['execution']['inspected_paths'] = []
             self.assertIn('inspected_paths', ' '.join(
                 validate_data(data, allow_demo=True, source_root=root).errors))
+
+    def test_undetermined_agent_level_yields_to_code_clue(self):
+        supplied = {'status': 'undetermined', 'level': '待確認', 'basis': '無法確認機關屬性',
+                    'evidence': [], 'missing_information': ['主管機關核定資料']}
+        inferred = {'status': 'preliminary', 'level': 'C', 'basis': '角色程式碼',
+                    'evidence': [{'path': 'a.cs', 'line_start': 1, 'line_end': 1}],
+                    'missing_information': ['正式核定']}
+        merged = merge_preliminary(supplied, inferred)
+        self.assertEqual(merged['level'], 'C')
+        self.assertEqual(merged['missing_information'], ['正式核定', '主管機關核定資料'])
+        agent = dict(inferred, level='B')
+        self.assertIs(merge_preliminary(agent, inferred), agent)
+        self.assertIs(merge_preliminary(supplied, dict(supplied)), supplied)
+
+    def test_protection_demand_preliminary_from_personal_data(self):
+        data = self.fresh()
+        data['project']['personal_data'] = '是'
+        data['project']['personal_data_assessment'] = {
+            'status': '是', 'basis': '專案聲明', 'evidence': []}
+        demand = infer_protection_demand_level(data['project'])
+        self.assertEqual((demand['status'], demand['level']), ('preliminary', '中'))
+        self.assertEqual([a['aspect'] for a in demand['aspects']],
+                         ['機密性', '完整性', '可用性', '法律遵循性'])
+        data['project']['protection_demand_level_assessment'] = demand
+        self.assertEqual(validate_data(data, allow_demo=True).errors, [])
+        page = render_html(self.template, data)
+        self.assertIn('正式判定需提供：', page)
+        self.assertIn("級（初步研判，非正式核定）", page)
+        unknown = infer_protection_demand_level({'personal_data': '待確認'})
+        self.assertEqual(unknown['level'], '待確認')
+        self.assertTrue(any('RTO' in item for item in unknown['missing_information']))
 
     def test_auto_security_level_unknown_when_unreviewed(self):
         with tempfile.TemporaryDirectory() as tmp:

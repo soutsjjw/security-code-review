@@ -122,9 +122,11 @@ def assessment_predictions(target: Path, catalog: dict[str, Any]) -> dict[str, A
         if (check.get("execution") or {}).get("state") != "completed":
             continue
         finding_ids = set(check.get("finding_ids") or [])
+        # Info Finding 只記錄 pass 控制的改善建議，不算作規則缺陷。
         has_finding = any(
             finding.get("id") in finding_ids or case["rule_id"] in (finding.get("check_ids") or [])
-            for finding in data.get("findings", []) if isinstance(finding, dict)
+            for finding in data.get("findings", [])
+            if isinstance(finding, dict) and finding.get("severity") != "info"
         )
         predictions.append({
             "case_id": case["id"], "status": check.get("status"),

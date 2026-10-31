@@ -162,7 +162,11 @@ def build_pending_information(
         preliminary = project.get("security_level_assessment") or {}
         pending.extend(preliminary.get("missing_information") or ["機關正式責任等級及核定依據"])
     if project.get("protection_demand_level") not in ("普", "中", "高"):
-        pending.append("資通系統防護需求分級（普／中／高）及其可核對依據")
+        demand = project.get("protection_demand_level_assessment") or {}
+        if demand.get("status") == "preliminary":
+            pending.append(f"資通系統防護需求分級正式核定（目前初判 {demand.get('level')} 級）及其可核對依據")
+        else:
+            pending.append("資通系統防護需求分級（普／中／高）及其可核對依據")
     if project.get("personal_data") == "待確認":
         pending.append("實際個資處理範圍、資料流與儲存情況")
     review_ids = [c["id"] for c in assessment.get("checks", []) if c.get("status") == "review"]

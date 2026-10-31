@@ -10,7 +10,7 @@ from pathlib import Path
 from report_common import ROOT, load_json, render_html, validate_data, validate_html
 from source_reader import DEFAULT_LEGACY_ENCODINGS
 from scope_inventory import build_scope_inventory
-from security_level import infer_security_level
+from security_level import infer_protection_demand_level, infer_security_level, merge_preliminary
 from report_enrichment import (
     resolve_personal_data, detect_reviewer, build_overall_risk, build_pending_information,
 )
@@ -137,15 +137,21 @@ def main() -> int:
         # 若尚未提供正式分級，根據已完成的逐檔審查自動產生初判或待確認說明。
         project = data['project']
         if project.get('security_level') not in ('A', 'B', 'C', 'D', 'E', '不適用'):
-            if 'security_level_assessment' not in project:
-                encodings = tuple(x.strip() for x in a.source_encodings.split(',') if x.strip())
-                project['security_level_assessment'] = infer_security_level(
-                    data['assessment'], a.source_root, encodings
-                )
+            # Agent 記為待確認時仍核對程式碼線索，避免已讀到的角色／權限程式碼被忽略。
+            encodings = tuple(x.strip() for x in a.source_encodings.split(',') if x.strip())
+            project['security_level_assessment'] = merge_preliminary(
+                project.get('security_level_assessment'),
+                infer_security_level(data['assessment'], a.source_root, encodings),
+            )
         # 使用真實審查紀錄生成一致的 HTML／JSON 摘要，不改寫原始 assessment／project。
         if not a.report:
             encodings = tuple(x.strip() for x in a.source_encodings.split(',') if x.strip())
             resolve_personal_data(project, data['assessment'], a.source_root, encodings)
+            if project.get('protection_demand_level') not in ('普', '中', '高'):
+                project['protection_demand_level_assessment'] = merge_preliminary(
+                    project.get('protection_demand_level_assessment'),
+                    infer_protection_demand_level(project),
+                )
             presentation = data['presentation']
             presentation['reviewer'] = detect_reviewer(presentation.get('reviewer'))
             # init 預設的內部名稱不是實際執行介面；僅在報告資料中統一，不改寫原始 assessment.json。

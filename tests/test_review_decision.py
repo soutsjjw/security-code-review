@@ -75,6 +75,22 @@ class EvidenceQualityTests(unittest.TestCase):
         c["decision_reason"] = "已追查檔案 API 路徑約束；仍待確認主機符號連結與 Volume 掛載權限設定"
         self.assertEqual(decision_quality_errors([c]), [])
 
+    def test_review_describing_defect_must_fail(self):
+        for reason in ("程式碼已確認 MSSqlServer sink 建立失敗被空 catch 吞掉。待確認：告警政策文件",
+                       "File sink 未設定 retainedFileCountLimit。待確認：正式主機日誌保存政策",
+                       "DataProtection 金鑰存放本機 C:\\keys。待確認：高可用架構圖",
+                       "沒有使用者帳號或客戶個資的刪除功能。待確認：個資保存期限政策"):
+            c = row("LG-09", status="review", review_kind="static_done_external_pending")
+            c["decision_reason"] = reason
+            self.assertTrue(any("改判 fail" in e for e in decision_quality_errors([c])), reason)
+
+    def test_pass_with_advice_needs_finding(self):
+        c = row("AU-06")
+        c["decision_reason"] = "重設碼單次有效且綁定 SecurityStamp；Token 沿用預設 1 天有效期，建議縮短"
+        self.assertTrue(any("Info" in e for e in decision_quality_errors([c])))
+        c["finding_ids"] = ["F-90"]
+        self.assertEqual(decision_quality_errors([c]), [])
+
     def test_static_rule_with_generic_external_pending_is_rejected(self):
         c = row("IN-07", status="review", review_kind="static_done_external_pending")
         c["decision_reason"] = "已完成路徑檢核；目前缺少需補動態測試結果及邊界案例紀錄"

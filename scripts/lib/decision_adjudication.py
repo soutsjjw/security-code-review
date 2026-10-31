@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from review_decision import load_decision_matrix, is_weak_source_evidence
+from review_decision import CONFIRMED_DEFECT, load_decision_matrix, is_weak_source_evidence
 from source_reader import read_source_text
 from review_core import ANALYSIS_ROOT, read_json as _read_json, snapshot_fingerprint
 
@@ -63,11 +63,6 @@ VAGUE_ARTIFACTS = frozenset({
     "待確認資料", "相關文件", "相關證據", "外部證據", "部署或政策證據",
     "部署／政策證據", "待確認外部工件", "待補證據", "policy evidence",
 })
-CONFIRMED_DEFECT = re.compile(
-    r"(?:已確認|已證實|已發現).{0,24}(?:弱點|漏洞|缺陷|繞過)"
-    r"|(?:缺少|沒有|未實作)伺服端.{0,20}(?:控制|驗證|檢查)"
-    r"|(?:驗證|控制|授權).{0,12}(?:可繞過|已失效|存在漏洞)"
-)
 
 
 def _quality_gap_errors(rule_id: str, rule: dict[str, Any],

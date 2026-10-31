@@ -24,6 +24,15 @@ MISSING_CONTEXT = [
     '是否另符合第四條 A 級或第五條 B 級的較高等級條件',
     '權責機關正式分級認定或核定結果',
 ]
+# 《資通安全責任等級分級辦法》附表九：四構面中最高者即系統防護需求等級。
+DEMAND_ASPECTS = ('機密性', '完整性', '可用性', '法律遵循性')
+DEMAND_REQUIREMENTS = [
+    '機關核定的資通系統防護需求分級紀錄（系統資產清冊或分級表，含核定單位、日期、文號）',
+    '機密性：系統處理的資料類型與數量（一般／特種個資、機敏公務資料）及外洩對機關營運、資產或信譽的影響程度',
+    '完整性：資料遭未經授權修改或破壞時對業務（交易、核發、決策）的影響程度',
+    '可用性：服務對象範圍與使用者規模、是否屬核心業務及可容忍中斷時間（RTO／MTPD）',
+    '法律遵循性：系統適用的法令（如個人資料保護法、資通安全管理法）及未遵循時的影響程度',
+]
 
 
 def infer_security_level(
@@ -97,4 +106,56 @@ def infer_security_level(
         ),
         'evidence': [],
         'missing_information': list(MISSING_CONTEXT),
+    }
+
+
+def merge_preliminary(supplied: dict[str, Any] | None, inferred: dict[str, Any]) -> dict[str, Any]:
+    """Agent 已初判者保留；只在 Agent 記為待確認而程式碼有線索時改採初判並併入其待確認事項。"""
+    if not supplied:
+        return inferred
+    if supplied.get('status') != 'undetermined' or inferred.get('status') != 'preliminary':
+        return supplied
+    merged = dict(inferred)
+    missing = list(inferred.get('missing_information') or [])
+    missing.extend(supplied.get('missing_information') or [])
+    merged['missing_information'] = list(dict.fromkeys(missing))
+    return merged
+
+
+def infer_protection_demand_level(project: dict[str, Any]) -> dict[str, Any]:
+    """依已解析的個資初判提出附表九構面線索；不改變 V1.3／附件1 的正式適用性。"""
+    personal = project.get('personal_data_assessment') or {}
+    if project.get('personal_data') != '是':
+        return {
+            'status': 'undetermined',
+            'level': '待確認',
+            'basis': (
+                '已審查程式碼未確認處理個人資料，其餘構面需依業務影響判定；'
+                '缺少線索不代表普級。'
+            ),
+            'aspects': [{'aspect': a, 'level': '待確認', 'basis': '缺少業務影響資料'}
+                        for a in DEMAND_ASPECTS],
+            'evidence': [],
+            'missing_information': list(DEMAND_REQUIREMENTS),
+        }
+    source = ('已審查程式碼處理個人資料' if personal.get('evidence')
+              else '受測專案聲明處理個人資料')
+    clue = (f'{source}；個資外洩或未遵循個人資料保護法，通常對機關營運或信譽產生嚴重影響，'
+            '初判至少為中級，是否達高級需依資料量、特種個資與服務範圍判定。')
+    return {
+        'status': 'preliminary',
+        'level': '中',
+        'basis': (
+            f'依《資通安全責任等級分級辦法》附表九，系統防護需求等級取機密性、完整性、可用性、'
+            f'法律遵循性四構面中最高者。{clue}此結果不是正式核定，'
+            '不改變防護基準 V1.3 與 V3.2 附件1 的適用項目。'
+        ),
+        'aspects': [
+            {'aspect': '機密性', 'level': '中', 'basis': clue},
+            {'aspect': '完整性', 'level': '待確認', 'basis': '需依資料遭竄改對業務的影響判定'},
+            {'aspect': '可用性', 'level': '待確認', 'basis': '需依服務範圍與可容忍中斷時間判定'},
+            {'aspect': '法律遵循性', 'level': '中', 'basis': clue},
+        ],
+        'evidence': list(personal.get('evidence') or [])[:3],
+        'missing_information': list(DEMAND_REQUIREMENTS),
     }

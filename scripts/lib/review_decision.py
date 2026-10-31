@@ -35,6 +35,21 @@ GENERIC_DECISIONS = (
     "控制邏輯足以支持本次靜態判定，未確認到可繞過的缺陷",
     "結論依靜態證據與外部證據缺口判定",
 )
+# review 理由已自述缺陷時應改判 fail；判定細則「不得作為 review 理由」所列樣態。
+CONFIRMED_DEFECT = re.compile(
+    r"(?:已確認|已證實|已發現).{0,24}(?:弱點|漏洞|缺陷|繞過)"
+    r"|(?:缺少|沒有|未實作)伺服端.{0,20}(?:控制|驗證|檢查)"
+    r"|(?:驗證|控制|授權).{0,12}(?:可繞過|已失效|存在漏洞)"
+    r"|空\s*catch|catch.{0,12}吞|被.{0,16}吞掉"
+    r"|未(?:設定|啟用).{0,24}(?:retainedFileCountLimit|fileSizeLimitBytes|保存期限|保留期限)"
+    r"|(?:無|沒有).{0,8}(?:清理|保留)機制"
+    r"|(?:沒有|未提供|缺少|未實作).{0,24}(?:刪除|清除)(?:功能|機制|排程)"
+    r"|金鑰.{0,16}(?:存放|寫入|保存)(?:於)?\s*(?:本機|固定路徑|[A-Za-z]:\\)"
+    r"|固定金鑰路徑|清空\s*KnownProxies|註解掉的.{0,8}標頭|(?:placeholder|佔位).{0,4}密碼",
+    re.IGNORECASE,
+)
+# pass 理由內含改善建議卻沒有 Finding：判定階梯要求以 Low／Info Finding 保存。
+UNRECORDED_ADVICE = re.compile(r"建議(?!另列)")
 
 
 def load_decision_matrix() -> dict[str, dict[str, str]]:
@@ -107,6 +122,10 @@ def decision_quality_errors(
             )
             if not (real_external or config_proof):
                 errors.append(f"{rid}: 外部／制度控制不可以一般業務原始碼宣稱 pass；須取得本規則的部署、制度或測試證據")
+        if status == "review" and CONFIRMED_DEFECT.search(reason):
+            errors.append(f"{rid}: review 理由已描述缺陷、不安全預設或應有而缺席的控制，須改判 fail 並建立 Finding")
+        if status == "pass" and not check.get("finding_ids") and UNRECORDED_ADVICE.search(reason):
+            errors.append(f"{rid}: pass 理由含改善建議但未關聯 Finding，須建立 Info（或 Low）Finding，或確認屬缺陷時改判 fail")
         if status in {"pass", "fail", "review"} and source_root is not None:
             source_evidence = [
                 ev for ev in evidence if ev.get("kind") in {"source", "configuration"}

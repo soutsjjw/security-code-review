@@ -230,6 +230,18 @@ def validate_data(
             if rel not in inspected:
                 result.errors.append(f'個資初判證據 {rel}: 不在已完成檢核的 inspected_paths')
             _verify_line(ev, '個資處理初判', source_root, result, strict_sources, source_encodings)
+    demand = data['project'].get('protection_demand_level_assessment')
+    if demand:
+        inspected = {
+            str(path).replace('\\', '/')
+            for check in assessment['checks'] if check.get('execution', {}).get('state') == 'completed'
+            for path in check.get('execution', {}).get('inspected_paths', [])
+        }
+        for ev in demand['evidence']:
+            rel = ev['path'].replace('\\', '/')
+            if rel not in inspected:
+                result.errors.append(f'防護需求分級初判證據 {rel}: 不在已完成檢核的 inspected_paths')
+            _verify_line(ev, '防護需求分級初判', source_root, result, strict_sources, source_encodings)
     findings = {f['id']: f for f in assessment['findings']}
     for f in assessment['findings']:
         fid = f['id']
