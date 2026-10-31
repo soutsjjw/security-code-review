@@ -27,6 +27,10 @@ PROGRESS = ("completed_rules", "reviewed_files", "verified_callsites",
             "second_pass_rules", "integrated_transactions")
 STALL_CHECKPOINTS = 4
 STALL_SECONDS = 900
+# 兩次 Log 呼叫之間超過此秒數即記為閒置空檔；只供觀測，不觸發停滯或改變守門。
+IDLE_GAP_SECONDS = 900
+# 只有 CLI 會自動回報的計數器才預設為 0；其餘未回報前保持缺席，避免 0 被誤讀為實測值。
+AUTO_PROGRESS = ("completed_rules", "reviewed_files", "integrated_transactions")
 RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{8}$")
 
 
@@ -94,46 +98,73 @@ def start(target: Path, *, new_review: bool = False) -> dict:
                 outcome="interrupted")
         _atomic(folder / (previous["run_id"] + "-summary.json"), previous)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
+    same_review = bool(previous) and not new_review
     state = {
-        "review_id": (previous.get("review_id") if previous and not new_review
-                      else uuid.uuid4().hex),
+        "review_id": previous.get("review_id") if same_review else uuid.uuid4().hex,
         "run_id": run_id, "status": "running", "phase": "initialization",
         "started_at": _iso(), "started_epoch": _clock(), "finished_at": None,
         "last_progress_epoch": _clock(), "no_progress_checkpoints": 0,
-        "progress": {name: 0 for name in PROGRESS},
+        "progress": {name: 0 for name in AUTO_PROGRESS},
         "commands": 0, "command_seconds": {}, "phase_wall_seconds": {},
         "last_event_epoch": _clock(), "checkpoints": 0,
-        "token_usage": {"input_tokens": 0, "output_tokens": 0},
+        "token_usage": {},
         "note": "執行 Log 非審查證據；必須通過既有來源與安全完整性守門",
     }
+    if same_review:
+        # latest.json 只指向最新 run；保留前一 run 的指標，避免短暫續跑遮蔽真正的審查回合。
+        state["previous_run"] = {key: previous.get(key) for key in
+                                 ("run_id", "status", "started_at", "finished_at",
+                                  "elapsed_seconds")}
+        if previous.get("second_pass_started"):
+            state["second_pass_started"] = True
     append_event(folder, state, "run_started", "initialization")
     save_metadata(folder, state)
     return state
 
 
-def _active(target: Path) -> tuple[Path, dict]:
+def _active(target: Path, *, attach: bool = False) -> tuple[Path, dict]:
+    """attach=True 時，唯讀查詢與事後註記沿用已完成的 run，不另開新 run 覆寫 latest.json。"""
     folder, latest = log_paths(target)
     state = load_metadata(latest)
+    if state is not None and attach and state.get("status") == "completed":
+        return folder, state
     if state is None or state.get("status") in ("completed", "failed", "interrupted"):
         state = start(target)
     return folder, state
 
 
-def _advance_phase(state: dict, phase: str) -> None:
+def _advance_phase(folder: Path, state: dict, phase: str) -> None:
     now = _clock()
     previous = state.get("phase", "initialization")
     seconds = max(0.0, now - state.get("last_event_epoch", now))
     wall = state.setdefault("phase_wall_seconds", {})
     wall[previous] = round(wall.get(previous, 0.0) + seconds, 3)
+    if seconds >= IDLE_GAP_SECONDS:
+        # 無背景心跳：Agent 長時間沒有呼叫任何 CLI 時，只能在下一次呼叫時補記這段空檔。
+        idle = state.setdefault("idle_observation",
+                                {"count": 0, "total_seconds": 0.0, "longest_seconds": 0.0})
+        idle["count"] += 1
+        idle["total_seconds"] = round(idle["total_seconds"] + seconds, 3)
+        idle["longest_seconds"] = round(max(idle["longest_seconds"], seconds), 3)
+        append_event(folder, state, "idle_gap", previous, outcome="review",
+                metrics={"seconds": round(seconds, 3), "next_phase": phase})
     state["last_event_epoch"] = now
     state["phase"] = phase
 
 
-def command(target: Path, phase: str, operation: str, seconds: float, exit_code: int) -> None:
+def command(target: Path, phase: str, operation: str, seconds: float, exit_code: int,
+            *, readonly: bool = False) -> str:
+    """記錄一次 CLI 耗時與退出碼，回傳實際歸類的階段。"""
     if phase not in PHASES:
         raise ValueError("未知 Log 階段")
-    folder, state = _active(target)
-    _advance_phase(state, phase)
+    folder, state = _active(target, attach=readonly)
+    if phase == "first_pass" and state.get("second_pass_started"):
+        # 第二輪沿用 review_safety --stage／--integrate，依本次審查是否已開始第二輪歸類。
+        phase = "second_pass"
+    if state["status"] != "completed":
+        _advance_phase(folder, state, phase)
+    if operation in ("begin-second-pass", "restart-second-pass") and exit_code == 0:
+        state["second_pass_started"] = True
     state["commands"] += 1
     durations = state["command_seconds"]
     durations[operation] = round(durations.get(operation, 0.0) + max(0.0, seconds), 3)
@@ -141,6 +172,7 @@ def command(target: Path, phase: str, operation: str, seconds: float, exit_code:
             outcome="ok" if exit_code == 0 else "error",
             metrics={"exit_code": exit_code})
     save_metadata(folder, state)
+    return phase
 
 
 def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
@@ -149,19 +181,27 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     if not metrics or any(key not in COUNTERS or type(value) is not int or value < 0
                           for key, value in metrics.items()):
         raise ValueError("Log 只允許已觀測的非負整數進度／Token 數值")
-    folder, state = _active(target)
+    folder, state = _active(target, attach=True)
     if state["status"] == "stalled":
         # 必須另開一個 run 才能重試，防止永遠繞過停滯。
         return state
-    _advance_phase(state, phase)
+    if state["status"] == "completed" and any(
+            metrics[k] < state["progress"].get(k, 0) for k in PROGRESS if k in metrics):
+        # 計數倒退代表已開始新的審查工作（例如重新 --init），不可改寫已完成 run 的摘要。
+        state = start(target)
+    if state["status"] == "completed":
+        # 完成後補記的最終進度寫回同一 run，不再計時、不參與停滯判定。
+        _record_counters(state, metrics)
+        append_event(folder, state, "checkpoint", phase, outcome="completed", metrics=metrics)
+        save_metadata(folder, state)
+        return state
+    _advance_phase(folder, state, phase)
     state["checkpoints"] += 1
+    # 舊版 run 或未回報過的計數器以 0 比較，但不寫入未觀測的欄位。
     before = state["progress"]
-    for key in PROGRESS:
-        # 舊版 run 的 progress 沒有後來新增的計數器。
-        before.setdefault(key, 0)
-    regressions = {key: {"before": before[key], "after": metrics[key]}
-                   for key in PROGRESS if key in metrics and metrics[key] < before[key]}
-    advance = any(metrics.get(k, before[k]) > before[k] for k in PROGRESS)
+    regressions = {key: {"before": before.get(key, 0), "after": metrics[key]}
+                   for key in PROGRESS if key in metrics and metrics[key] < before.get(key, 0)}
+    advance = any(metrics[k] > before.get(k, 0) for k in PROGRESS if k in metrics)
     if regressions:
         append_event(folder, state, "progress_regression", phase, outcome="review",
                 metrics={"counters": regressions})
@@ -170,16 +210,7 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
         state["no_progress_checkpoints"] = 0
     else:
         state["no_progress_checkpoints"] += 1
-    for key in PROGRESS:
-        if key in metrics:
-            before[key] = metrics[key]
-    for key in ("input_tokens", "output_tokens"):
-        if key in metrics:
-            # 只有 Agent/執行器明確提供時才統計；不得推估。
-            state["token_usage"][key] = metrics[key]
-    for key in ("recorded_file_reviews", "verified_file_reviews", "invalid_file_reviews"):
-        if key in metrics:
-            state.setdefault("coverage_observation", {})[key] = metrics[key]
+    _record_counters(state, metrics)
     stopped_for = max(0.0, _clock() - state["last_progress_epoch"])
     stalled = (state["no_progress_checkpoints"] >= STALL_CHECKPOINTS
                and stopped_for >= STALL_SECONDS)
@@ -198,11 +229,28 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     return state
 
 
+def _record_counters(state: dict, metrics: dict[str, int]) -> None:
+    progress = state["progress"]
+    for key in PROGRESS:
+        if key in metrics:
+            progress[key] = metrics[key]
+    for key in ("input_tokens", "output_tokens"):
+        if key in metrics:
+            # 只有 Agent/執行器明確提供時才統計；不得推估。
+            state.setdefault("token_usage", {})[key] = metrics[key]
+    for key in ("recorded_file_reviews", "verified_file_reviews", "invalid_file_reviews"):
+        if key in metrics:
+            state.setdefault("coverage_observation", {})[key] = metrics[key]
+
+
 def finish(target: Path, status: str) -> dict:
     if status not in ("completed", "failed", "interrupted", "blocked"):
         raise ValueError("不支援的執行結束狀態")
-    folder, state = _active(target)
-    _advance_phase(state, state["phase"])
+    folder, state = _active(target, attach=status == "completed")
+    if state["status"] == "completed":
+        # 報告 CLI 已自動結束此 run；重複的 finish --status completed 不另開空 run。
+        return state
+    _advance_phase(folder, state, state["phase"])
     state["status"] = status
     state["finished_at"] = _iso()
     state["elapsed_seconds"] = round(max(0.0, _clock() - state["started_epoch"]), 3)
@@ -216,7 +264,7 @@ def observe_blockers(target: Path, diagnostics: dict) -> dict:
     """P4-A：只記錄權威 blocker 指紋差異，不修改安全判定或修復次數上限。"""
     if not isinstance(diagnostics, dict) or not isinstance(diagnostics.get("blockers"), list):
         raise ValueError("blocker diagnostics 格式錯誤")
-    folder, state = _active(target)
+    folder, state = _active(target, attach=True)
     current = sorted({
         hashlib.sha256(json.dumps(
             {"category": b.get("category"), "rule_ids": b.get("rule_ids"),
@@ -241,7 +289,7 @@ def record_profile(target: Path, phase: str, operation: str, durations: dict[str
     """僅記錄計時，不參與完成進度、檔案證據或 SHA256 完整性判定。"""
     if phase not in PHASES or not durations:
         return
-    folder, state = _active(target)
+    folder, state = _active(target, attach=True)
     if state["status"] == "stalled":
         return
     safe = {name: round(max(0.0, seconds), 3)
@@ -255,7 +303,7 @@ def observe_coverage(target: Path, *, recorded: int, verified: int) -> None:
     """正式完整驗證之後保存可觀測覆蓋數，不推導任何安全判定。"""
     if recorded < 0 or verified < 0:
         raise ValueError("覆蓋數不能為負")
-    folder, state = _active(target)
+    folder, state = _active(target, attach=True)
     if state["status"] == "stalled":
         return
     previous = state.get("coverage_observation", {})
@@ -303,20 +351,31 @@ def logged_main(main, phase: str) -> int:
                       and part not in ("--target", "--compact", "--batch-size", "--detail-id",
                                        "--mode", "--output-dir", "--source-encodings",
                                        "--source-batch-size", "--workers", "--worker-id")), "query")
+    # 佇列查詢與重產報告不開新 run；已完成的審查回合仍是 latest.json。
+    readonly = readonly_diagnostic or (operation == "query" and phase in ("queue", "report"))
     try:
         exit_code = main()
     except Exception:
-        _log_best_effort(target, phase, operation, time.perf_counter() - start_at, 2)
+        _log_best_effort(target, phase, operation, time.perf_counter() - start_at, 2,
+                         readonly=readonly)
         raise
-    _log_best_effort(target, phase, operation, time.perf_counter() - start_at, exit_code)
+    _log_best_effort(target, phase, operation, time.perf_counter() - start_at, exit_code,
+                     readonly=readonly)
     return exit_code
 
 
-def _log_best_effort(target: Path, phase: str, operation: str, seconds: float, code: int) -> None:
+def _log_best_effort(target: Path, phase: str, operation: str, seconds: float, code: int,
+                     *, readonly: bool = False) -> None:
     if not (target / REPORT).is_dir():
         return
     try:
-        command(target, phase, operation, seconds, code)
+        phase = command(target, phase, operation, seconds, code, readonly=readonly)
+        if operation == "integrate" and code == 0:
+            # 成功整合即同步交易序號，不必等下一次 --compact 查詢，第二輪摘要才不會停在舊值。
+            from evidence_integrity import integrated_sequence
+            sequence = integrated_sequence(target)
+            if sequence is not None:
+                checkpoint(target, phase, {"integrated_transactions": sequence})
         if phase == "report" and code == 0:
             finish(target, "completed")
     except (OSError, ValueError, KeyError) as exc:

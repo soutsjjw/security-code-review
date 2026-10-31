@@ -146,6 +146,92 @@ class ReviewLogTests(unittest.TestCase):
             self.assertEqual(json.loads((root / "reports/security-code-review/logs/latest.json")
                                          .read_text("utf-8"))["status"], "completed")
 
+    def test_idle_gap_is_observed_without_stalling(self):
+        # 沒有背景心跳；Agent 長時間沒呼叫 CLI 時，下一次呼叫補記空檔但不改變執行狀態。
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with patch("review_log._clock", return_value=0.0):
+                review_log.start(root)
+                review_log.command(root, "queue", "query", 1, 0)
+            with patch("review_log._clock", return_value=100.0):
+                review_log.command(root, "queue", "query", 1, 0)
+            with patch("review_log._clock", return_value=27000.0):
+                review_log.command(root, "validation", "snapshot-refresh", 1, 0)
+            state = review_log.load_metadata(review_log.log_paths(root)[1])
+            self.assertEqual(state["status"], "running")
+            self.assertEqual(state["idle_observation"],
+                             {"count": 1, "total_seconds": 26900.0, "longest_seconds": 26900.0})
+            rows = [json.loads(line) for line in (review_log.log_paths(root)[0] /
+                    (state["run_id"] + ".jsonl")).read_text("utf-8").splitlines()]
+            gaps = [row for row in rows if row["event"] == "idle_gap"]
+            self.assertEqual(len(gaps), 1)
+            self.assertEqual(gaps[0]["phase"], "queue")
+
+    def test_stage_and_integrate_after_second_pass_begins_are_second_pass(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            review_log.start(root)
+            self.assertEqual(review_log.command(root, "first_pass", "integrate", 1, 0), "first_pass")
+            review_log.command(root, "second_pass", "begin-second-pass", 1, 0)
+            self.assertEqual(review_log.command(root, "first_pass", "stage", 1, 0), "second_pass")
+            # 中斷後續跑同一審查仍維持第二輪歸類；新審查則重新開始。
+            review_log.finish(root, "interrupted")
+            review_log.start(root)
+            self.assertEqual(review_log.command(root, "first_pass", "integrate", 1, 0), "second_pass")
+            review_log.start(root, new_review=True)
+            self.assertEqual(review_log.command(root, "first_pass", "integrate", 1, 0), "first_pass")
+
+    def test_successful_integrate_syncs_transaction_sequence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "reports/security-code-review").mkdir(parents=True)
+            review_log.start(root)
+            with patch("evidence_integrity.integrated_sequence", return_value=9):
+                review_log._log_best_effort(root, "first_pass", "integrate", 1, 1)
+                state = review_log.load_metadata(review_log.log_paths(root)[1])
+                self.assertEqual(state["progress"]["integrated_transactions"], 0)
+                review_log._log_best_effort(root, "first_pass", "integrate", 1, 0)
+            state = review_log.load_metadata(review_log.log_paths(root)[1])
+            self.assertEqual(state["progress"]["integrated_transactions"], 9)
+
+    def test_unreported_counters_stay_absent(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = review_log.start(root)
+            self.assertNotIn("verified_callsites", state["progress"])
+            self.assertEqual(state["token_usage"], {})
+            state = review_log.checkpoint(root, "first_pass", {"completed_rules": 3})
+            self.assertNotIn("verified_callsites", state["progress"])
+            state = review_log.checkpoint(root, "cross_file_analysis", {"verified_callsites": 5,
+                                                                        "input_tokens": 10})
+            self.assertEqual(state["progress"]["verified_callsites"], 5)
+            self.assertEqual(state["token_usage"], {"input_tokens": 10})
+
+    def test_queries_and_annotations_after_completion_keep_completed_run(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "reports/security-code-review").mkdir(parents=True)
+            first = review_log.start(root)
+            review_log.checkpoint(root, "queue", {"completed_rules": 70})
+            review_log._log_best_effort(root, "report", "query", 2, 0)
+            # 完成後的唯讀查詢、補記 checkpoint、重複 finish 與重產報告都不另開 run。
+            review_log._log_best_effort(root, "queue", "query", 1, 0, readonly=True)
+            review_log.checkpoint(root, "report", {"completed_rules": 70, "second_pass_rules": 70})
+            review_log.finish(root, "completed")
+            review_log._log_best_effort(root, "report", "query", 2, 0, readonly=True)
+            latest = review_log.load_metadata(review_log.log_paths(root)[1])
+            self.assertEqual(latest["run_id"], first["run_id"])
+            self.assertEqual(latest["status"], "completed")
+            self.assertEqual(latest["progress"]["second_pass_rules"], 70)
+            # 修改型指令或計數倒退代表新工作，另開 run 並指回前一 run。
+            review_log.checkpoint(root, "queue", {"completed_rules": 0})
+            latest = review_log.load_metadata(review_log.log_paths(root)[1])
+            self.assertNotEqual(latest["run_id"], first["run_id"])
+            self.assertEqual(latest["previous_run"]["run_id"], first["run_id"])
+            self.assertEqual(latest["previous_run"]["status"], "completed")
+            self.assertEqual(review_log.load_metadata(review_log.log_paths(root)[0] /
+                             (first["run_id"] + "-summary.json"))["progress"]["completed_rules"], 70)
+
 
 class PerformanceSafetyTests(unittest.TestCase):
     def test_compact_is_provisional_never_calls_complete_gate(self):
