@@ -280,7 +280,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     report=JSON.parse(container.textContent);
     if (!report || typeof report !== 'object' || !report.assessment) throw Error('報告須包含 assessment 物件');
   } catch(err) {
-    notice('這是通用 HTML 模板，目前尚未注入有效報告資料。請開啟 examples/security-report-preview.html 預覽完整格式。');
+    notice('這是通用 HTML 模板，目前尚未注入有效報告資料。正式報告須由 complete_review.py 依審查結果注入資料產生。');
     $('subtitle').textContent='通用 HTML 報告模板｜未載入資料';
     for(const id of ['findingSummary','priorityContent','strengthsContent','checklistContent','owasp2025Content','systemBaselineContent','webGuideContent','webAppendixContent','webHeadersContent','findingDetails','scopeContent','scopeFilesContent']) $(id).append(empty('尚無報告資料'));
     initTheme(); return;

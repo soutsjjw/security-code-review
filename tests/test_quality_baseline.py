@@ -86,6 +86,11 @@ class QualityBaselineTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     load_catalog(path)
 
+    def test_missing_catalog_explains_upload_zip_has_no_fixtures(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(ValueError, "上傳用 Zip"):
+                load_catalog(Path(temp) / "cases.json")
+
     def test_materialized_case_projects_are_isolated_and_supported(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "isolated"

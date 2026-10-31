@@ -39,6 +39,10 @@ def _relative_path(value: Any) -> str:
 
 
 def load_catalog(path: Path = DEFAULT_CATALOG) -> dict[str, Any]:
+    if not path.is_file():
+        # 上傳用 Zip 不含 tests/，題庫只隨完整儲存庫提供。
+        raise ValueError(f"找不到固定題庫 {path}；品質驗收須在含 tests/fixtures 的完整儲存庫執行，"
+                         "上傳用 Zip 不含開發驗收檔案")
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("schema_version") != 1:
         raise ValueError("P0 案例集版本錯誤")
