@@ -7,8 +7,10 @@ from typing import Any
 
 from decision_adjudication import DELEGATED_KIND, DELEGATED_RESULT, external_responsibility_errors
 from control_proofs import check_source_proofs, REQUIRED_SCENARIOS
+from dependency_scan_evidence import SCAN_PROVEN_RULES, is_dependency_manifest, scan_proven_errors
 from review_core import ANALYSIS_ROOT, REPORT_ROOT, snapshot_fingerprint
 from review_decision import is_weak_source_evidence, load_decision_matrix
+from source_reader import read_source_text
 
 VERSION = 1
 FAILURE_MODES = frozenset({"control_absent", "ineffective_enforcement",
@@ -110,6 +112,34 @@ def _scenarios(target: Path, known: set[str], inspected: set[str],
     return errors, cited, observed
 
 
+def _scan_proven_fail_errors(target: Path, rid: str, check: dict, record: dict,
+                             failure: set[tuple[str, int, int]]) -> list[str]:
+    """DP-01／DP-04 以套件清單行為缺陷位置時，須由已保存的掃描工件證實，並有對應的確認情境。"""
+    points = {p for p in failure if is_dependency_manifest(p[0])}
+    if not points:
+        return []
+    errors: list[str] = []
+    for path, lo, hi in sorted(points):
+        try:
+            lines = read_source_text(target / path)[0].splitlines()[lo - 1:hi]
+        except (OSError, UnicodeError, ValueError):
+            errors.append(f"{rid}: Q3 無法讀取套件清單 {path}")
+            continue
+        errors.extend(f"{rid}: Q3 failure_points {path}:{lo}-{hi} " + issue
+                      for issue in scan_proven_errors(target, rid, check.get("status"), path,
+                                                      lines, check.get("evidence")))
+    expected = set(REQUIRED_SCENARIOS[rid])
+    rows = record.get("bypass_scenarios")
+    if not any(isinstance(row, dict) and row.get("outcome") == "confirmed_vulnerability"
+               and row.get("scenario") in expected
+               and any(_overlap(proof, point) for proof in _formal_locations(row.get("evidence"))
+                       for point in points)
+               for row in (rows if isinstance(rows, list) else [])):
+        errors.append(f"{rid}: Q3 須有 " + "／".join(sorted(expected)) +
+                      " 的 confirmed_vulnerability 情境，且證據指向同一套件清單行")
+    return errors
+
+
 def outcome_errors(target: Path, index: dict, snapshot: dict,
                    checks: list[dict], records: dict, *,
                    audits_override: dict | None = None,
@@ -193,6 +223,8 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
                 ))
                 if not any(_overlap(p, q) for p in failure for q in evidence):
                     errors.append(f"{rid}: Q3 Fail 缺陷來源與 Finding 證據不一致")
+            if rid in SCAN_PROVEN_RULES:
+                errors.extend(_scan_proven_fail_errors(target, rid, check, record, failure))
         else:
             errors.extend(_text_errors(record, ("control_condition", "failure_behavior",
                                                  "search_summary"), rid))

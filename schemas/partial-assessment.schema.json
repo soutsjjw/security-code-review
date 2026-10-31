@@ -132,6 +132,11 @@
                 },
                 "redacted": {
                   "type": "boolean"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$",
+                  "description": "kind=scan 時保存於 reports/security-code-review/artifacts/ 的工件 SHA256；DP-01／DP-04 掃描證實相依弱點路徑必填。"
                 }
               },
               "additionalProperties": false

@@ -31,6 +31,20 @@
 - 「無法證明」「未見控制」類措辭：須改寫為明確結論（控制缺席＝`fail`，控制存在＝`pass`）。
 - 儲存庫中通常以檔案表達的控制缺席（CI 設定、相依更新設定、安全標頭實作、稽核寫入、rate limit、log 保留組態）：記 `fail`，並註明「若於平台層另有控制，提供工件後可更新」，不以 `review` 迴避。
 
+### DP-01／DP-04 的掃描證實相依弱點（只支持 `fail`）
+
+受測專案沒有 Dependabot、Renovate 或 CI 掃描設定時，Agent 實際執行的掃描輸出加上套件清單的實際行，可以作為 DP-01／DP-04 `fail` 的完成證據；這條路徑**不能支持 `pass` 或 `review`**，套件清單行也不能證明已有掃描機制。條件全部成立才接受（`scripts/lib/dependency_scan_evidence.py`）：
+
+1. **規則與判定**：只限 DP-01、DP-04；`checks[].status` 與該檔 `rule_reviews[].result` 都必須是 `fail`，並已建立 Finding。
+2. **來源檔**：`**/packages.lock.json`、`Directory.Packages.props`、`*.csproj`、`libman.json`、`package-lock.json`。
+3. **片段內容**：`rule_reviews` 或 `checks[].evidence`（kind=source）的行號範圍最多 30 行，且須解析出「套件名稱 + 解析版本」，例如 lockfile 的 `"System.Security.Cryptography.Pkcs": {` 與其下 `"resolved": "10.0.0"`；`<PackageReference Include="X" Version="1.2.3" />`／`<PackageVersion …>` 的版本須為字面值，`$(變數)`、版本範圍不算。只引用 `ManagePackageVersionsCentrally` 等集中版本開關解析不出套件，一律拒絕。
+4. **掃描工件**：同一 `checks[].evidence` 至少一筆 `{"kind":"scan","artifact_id":"scan:<名稱>","sha256":"<64 位小寫十六進位>"}`。`scan:<名稱>` 對應受測專案 `reports/security-code-review/artifacts/scan-<名稱>.txt`（或 `.json`，兩者不可並存），例如 `scan-dotnet-list-package-vulnerable-20261031.txt` ↔ `scan:dotnet-list-package-vulnerable-20261031`。名稱只用小寫英數與連字號；工件不可為 symbolic link。
+5. **SHA256**：`sha256` 須等於工件原始位元組的 SHA256，記錄在受 `integrity-manifest`／Journal 納管的 `assessment.json` 內，所以工件變更或證據被改寫都會被發現。任一筆 `scan:` 工件不存在、SHA256 不符或內文不合格，整條路徑拒絕。
+6. **工件內文**：須是實際命令輸出，含 `has the following vulnerable packages`、`has the following updates to its packages`、GHSA／CVE 識別碼，或 outdated 的 `Resolved`／`Latest` 欄位標頭之一；片段的套件名稱與版本須出現在工件**同一行**。只寫描述文字不算。
+7. **Q3**：`control-verifications.json` 的 `failure_points` 可指向該套件清單行，仍須與 `checks[].evidence` 及 Finding evidence 行號交集；`bypass_scenarios` 至少一條 `confirmed_vulnerability`，情境為 DP-01 的 `vulnerable_dependency`／`transitive_dependency` 或 DP-04 的 `unsupported_version`／`unpatched_dependency`，其 evidence 指向同一套件清單行。
+
+`review` 的 `external_scan` 類別不變：只限已嘗試執行但失敗的掃描，須附 `attempted_command` 與 `failure_detail`。
+
 ### 標記 `review` 前的自檢（三題皆須通過）
 
 1. 取得完整部署環境與營運文件後，結論是否可能改變？否 → 不得 `review`。

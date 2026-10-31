@@ -12,6 +12,7 @@ from typing import Any
 from source_reader import digest_matches, read_source_text
 from analysis_candidates import (candidate_hits, has_executable_control, meaningful_source_excerpt,
                                  RULE_EVIDENCE_SIGNALS, source_relevant_to_rule)
+from dependency_scan_evidence import SCAN_PROVEN_RULES, is_dependency_manifest, scan_proven_errors
 from review_completion import template_signature
 from scope_paths import relative_path
 
@@ -147,6 +148,19 @@ def _semantic_relevance_verified(rr: dict, check: dict, path: str) -> bool:
         and ev["line_start"] <= end and start <= ev["line_end"]
         for ev in check.get("evidence") or []
     )
+
+
+def _scan_proven_issues(root: Path, rid: str, result: Any, check: dict, path: str,
+                        excerpt: list[str]) -> list[str] | None:
+    """None：不屬於 DP-01／DP-04 掃描證實路徑；[]：符合；否則為拒絕原因。
+
+    只對套件清單片段生效，且逐檔結論與整體判定都必須是 fail。
+    """
+    if rid not in SCAN_PROVEN_RULES or not is_dependency_manifest(path):
+        return None
+    if result != "fail":
+        return [f"{rid}: 套件清單行只能以 fail 支持掃描證實的相依弱點，不能支持 pass／review"]
+    return scan_proven_errors(root, rid, check.get("status"), path, excerpt, check.get("evidence"))
 
 
 def verified_file_rule_reviews(
@@ -297,11 +311,17 @@ def verified_file_rule_reviews(
                         and 1 <= start <= end <= len(lines)
                         and not source_relevant_to_rule(rid, path, lines[start - 1:end])
                         and not _semantic_relevance_verified(rr, check_by_id.get(rid, {}), path)):
-                    faults.append(
-                        f"{rid}: rule_reviews 第 {start}-{end} 行只有宣告／無關程式碼，"
-                        "或自訂控制缺少與正式來源證據交集的 semantic_review；"
-                        "須人工核對實際控制呼叫鏈，不能僅以行號和關鍵字完成"
-                    )
+                    scan_issues = _scan_proven_issues(root, rid, rr.get("result"), check_by_id.get(rid, {}),
+                                                      path, lines[start - 1:end])
+                    if scan_issues is None:
+                        faults.append(
+                            f"{rid}: rule_reviews 第 {start}-{end} 行只有宣告／無關程式碼，"
+                            "或自訂控制缺少與正式來源證據交集的 semantic_review；"
+                            "須人工核對實際控制呼叫鏈，不能僅以行號和關鍵字完成"
+                        )
+                    else:
+                        faults.extend(f"rule_reviews 第 {start}-{end} 行未符合掃描證實相依弱點路徑：{issue}"
+                                      for issue in scan_issues)
         if recorded != selected:
             faults.append("category_screening.rule_ids 與逐條 rule_reviews 不一致")
         # 語意候選僅用來發現「零規則」或遺漏關聯，不自動宣稱規則適用／符合。
@@ -427,7 +447,8 @@ def verified_file_rule_reviews(
                     and rr["line_start"] <= end and start <= rr["line_end"]
                     for rr in rows_for_path.get("rule_reviews", [])
                 )
-                if not manually_linked:
+                if not manually_linked and _scan_proven_issues(
+                        root, rid, check.get("status"), check, path, excerpt) != []:
                     errors.append(f"{rid}: {path}:{start}-{end} 引用程式碼與本規則的控制行為無關；需核對實際實作或掃描工件")
                     continue
             meaningful = True
