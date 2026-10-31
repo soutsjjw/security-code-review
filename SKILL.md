@@ -7,17 +7,12 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 # Security Code Review
 
-> 核心 70 項規則集已發布 **v2.0.0 正式版**，不以公司資安簽核作為本套件發布前提；正式版不等同機關法定分級核定、資安認證或所有適用控制均已通過。舊版 `2.0.0-rc1` 審查紀錄可沿用，需依實際證據補查新增的規範對照。
-
 ## 一句話使用
 
 - Codex：`$security-code-review`（完整 70 項、預設單代理）、`$security-code-review --multi-agent --agents 3`（完整模式選用主代理自動調度最多 3 個唯讀子代理）、`$security-code-review --categories AC`（僅 AC 8 項）、`$security-code-review --categories AC,AU`（分別審查 AC 8 與 AU 10 項）。可附加受測專案路徑。
 - Claude Code：`/security-code-review`；指定分類時明確輸入 `--categories AC,AU`。
-- **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。完整模式另可明確指定 `--multi-agent [--agents N]` 啟用**受控唯讀分工**；分類模式不得同時使用。未明確指定時維持單代理。
+- **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。完整模式另可明確指定 `--multi-agent [--agents N]`（Skill 參數，非 `review_queue.py` 參數）啟用**受控唯讀分工**：主代理**自動呼叫原生工具**建立、派工及回收，依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 先試跑、驗證唯讀及身分；能力不足即記錄原因並降級單代理，不得虛構 ID／trace。分類模式不得同時使用；未明確指定時維持單代理。
 - 使用者**不需要**自行執行 Python 指令；Agent 負責呼叫必要的工具。
-
-- `--multi-agent [--agents N]` 是 Agent 解析的 Skill 參數，非 `review_queue.py` 參數。完整模式指定時主代理須**自動呼叫原生工具**建立、派工及回收，Python 管理 Ledger。依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 先試跑、驗證唯讀及身分；能力不足即記錄原因並降級單代理，不得虛構 ID／trace。
-
 
 ## 解析受測目標（優先處理）
 
@@ -35,7 +30,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 - **沒有 `--categories`：完整模式。** 執行 70 項正式規則，依 [完整審查流程](docs/full-review-workflow.md) 初始化、分批取證、驗證並產出正式 HTML／JSON。不得借用分類模式的獨立初始化或部分報告。
 - **有 `--categories`：分類模式。** **立即必讀** [分類審查操作契約](docs/category-review.md)，先執行 `review_scope.py --categories <指定分類>` 核對主檔，再使用 `review_queue.py --categories ... --init --compact` 及 `--prepare`；**不得**執行正式 `analysis_prepare.py`、不帶分類參數的 `--init` 或正式 `review_safety.py --stage/--integrate`。只判定指定分類；AC、AU 等逐分類獨立保存及驗證，輸出 `partial/<分類>/` 的**部分審查**報告。即使十類全選，也不是單份正式完整報告；分類 `ready_for_report=false` 為正常設計。
-- 任一模式均以 `TARGET_ROOT` 為真實受測目錄、`SKILL_ROOT` 為 Skill 安裝目錄；指定子目錄或檔案是審查重點，**不可默默縮小應審查來源範圍**。先保留既有評估與 Finding，不重設歷史結果。
+- 兩種模式都**不可默默縮小應審查來源範圍**，並先保留既有評估與 Finding，不重設歷史結果。
 
 ## 按階段載入（必須依時機實際讀取）
 
@@ -71,7 +66,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 **完整判定階梯、外部缺口範圍、三題自檢必須在第一個規則判定前讀取 [共同判定細則](docs/review-decision-contract.md)。** 每條規則依矩陣 `static/hybrid/external` 的 `pass_condition`、`manual_boundary`、`expected_evidence` 核對：
 
 1. `fail` ＋ Finding：真實程式碼、設定或控制責任搜尋已證明漏洞、矛盾、控制不完整／應有而缺席；缺動態測試不延遲缺陷判定。
-2. `pass`：已定位證據，完整控制鏈及可繞過情境均已核對，符合該規則安全條件。欠缺**非必要**測試不自動轉為 `review`。
+2. `pass`：已定位證據，完整控制鏈及可繞過情境均已核對，符合該規則安全條件。欠缺**非必要**測試不自動轉為 `review`。程式碼沒錯也無立即風險、但寫法過時或屬技術債時，仍判 `pass` 並另建 `info` Finding（見細則「弱點等級判定」）。
 3. `review`：靜態部分已完成，只有具體外部部署／政策／營運工件會左右最終結論，寫明「待確認：」及工件、責任、不同條件下的判定。不得以缺測試、未查完呼叫鏈、未建立權限矩陣作為理由。
 4. `na`：已核對不適用條件、控制責任及必要的搜尋／證據；不以沒有關鍵字為據。
 
@@ -90,24 +85,16 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 | `web_guide_v32_appendix1` | [V3.2 附件 1](docs/web-guide-v3.2-appendix1-review.md) |
 | `web_guide_v32_appendix3` | [V3.2 附件 3](docs/web-guide-v3.2-appendix3-review.md) |
 
-- 同一工作階段可快取已讀且未變更的文件，不必逐條重複讀取；但每一條規則仍須按自身映射、`review_steps`／`coverage_gap` 與來源證據獨立核對，不能因讀過文件就標記完成。
+- 每條規則仍須按自身映射、`review_steps`／`coverage_gap` 與來源證據獨立核對，不能因讀過文件就標記完成。
 - 若一條規則有多個非空對照，須載入全部相關文件；附件內容不能取代 V3.2 主文，必要時同時載入 [V3.2 主文](docs/web-guide-v3.2-review.md)。檔案讀取失敗時須記錄未完成的對照與原因，不能聲稱已完成該項查核。
-- 正式範圍目前仍限定 .NET Core／現代 .NET；延伸 .NET Framework／Vue 以前沿用可擴充分析器架構，不改動 70 項規則與 JSON／HTML 資料契約。
-
 
 **證據與授權**：`/goal` 授權段落可一次預先授權下列全部操作：重查 completed 用 `--integrate --allow-revision`；Finding 修訂用 `--allow-finding-revision`；誤判 fail 以反證及 `--allow-fail-withdrawal` 撤回並保留全文，不得繞過 SHA256／Manifest／Journal。證據遺失先 `review_evidence_recovery.py --plan`，可信備份用 `--restore`；無備份須確認後封存重審，不可重封。詳見 [證據完整性](docs/evidence-integrity.md) 與 [授權](docs/advanced-usage.md#預先授權邊界)。
 
 ## 正式完整模式執行與交付
 
-先讀 [完整審查迴圈](docs/full-review-workflow.md)，從已固定的 Python 執行器執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`，再 `review_safety.py --plan`。重跑只有符合索引／SHA256 契約才能用 `--mode incremental`；不要自動重置既有 Findings 或審查進度。
+依序執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`、`review_safety.py --plan`；增量重跑條件見 [完整審查迴圈](docs/full-review-workflow.md)。Agent 依 `--compact` 與 `--detail-id` 逐條讀取真實來源並查證，分批 Stage／Integrate；未完成不能聲稱 Pass。`stalled` 必須停止空跑、保留進度，查明後才續行。第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證，見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
-Agent 依 `--compact` 與 `--detail-id` 逐條讀取真實來源並查證，分批 Stage／Integrate；未完成不能聲稱 Pass。`stalled` 必須停止空跑、保留進度，查明後才續行。
-
-第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證。見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
-
-
-
-第一輪確實完成全部 70 項、100% 逐檔來源及呼叫鏈／控制守門後，使用 `review_safety.py --begin-second-pass` 固定基準與分層抽樣計畫，再使用 `second_pass_layers.py --target "<TARGET_ROOT>"` 取得下一批原始證據錨點及抽樣檔案。第二輪逐條推翻式驗證並提交抽樣證據與矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
+第一輪全部完成後以 `review_safety.py --begin-second-pass` 固定基準，依上述「第二輪不可省略」以 `second_pass_layers.py` 逐批複核並提交矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
 
 ## 發佈前品質驗收及進階操作
 
