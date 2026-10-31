@@ -117,6 +117,8 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("'弱點等級','適用防護等級'", page)
         self.assertIn("const sevKeys=['high','medium','low','info']", page)
         self.assertNotIn('data-f="critical"', page)
+        # 審查檔案明細篇幅大，預設合攏，點選 summary 展開。
+        self.assertIn('<details class="cl" id="scopeFilesDetails">', page)
         self.assertIn("asArray(f.check_ids).includes(r.id)", page)
         self.assertIn("const highest=order.find(level=>foundLevels.includes(level))", page)
         self.assertIn("沒有對應的已記錄弱點，不等於低風險", page)

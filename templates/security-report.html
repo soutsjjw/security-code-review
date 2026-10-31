@@ -57,7 +57,7 @@ th { font-size:13px; color:var(--muted); font-weight:600; }
 .info td { overflow-wrap:anywhere; word-break:normal; }
 .info td:first-child { width:43%; color:var(--muted); white-space:normal; }
 .info td:last-child { width:57%; white-space:pre-line; }
-@media (max-width:420px) { .panel { padding:12px; } .info td { padding:8px 6px; } }
+@media (max-width:420px) { .panel, .scope-files { padding:12px; } .info td { padding:8px 6px; } }
 .tablewrap { overflow-x:auto; }
 .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
 .stat { border-radius:8px; padding:12px; text-align:center; }
@@ -83,6 +83,9 @@ th { font-size:13px; color:var(--muted); font-weight:600; }
 details.cl { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:12px; }
 details.cl summary { cursor:pointer; padding:12px 16px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-weight:600; }
 details.cl table { border-top:1px solid var(--line); }
+.scope-files { border-top:1px solid var(--line); padding:20px; }
+#scopeFilesDetails .toggle-label::after { content:'（點選展開）'; font-weight:400; color:var(--muted); }
+#scopeFilesDetails[open] .toggle-label::after { content:'（點選收合）'; }
 .checklist td:first-child { width:64px; } .checklist td:nth-child(4) { width:76px; }
 .checklist th { white-space:nowrap; }
 .filters { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
@@ -165,7 +168,10 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   </div>
 
   <h2 id="scopeFiles">審查檔案明細</h2>
-  <div class="panel" id="scopeFilesContent"></div>
+  <details class="cl" id="scopeFilesDetails">
+    <summary><span class="toggle-label">審查專案、排除範圍與逐檔清單</span><span class="muted small" id="scopeFilesSummary"></span></summary>
+    <div class="scope-files" id="scopeFilesContent"></div>
+  </details>
 
   <h2 id="high">發現摘要</h2>
   <div class="panel tablewrap" id="findingSummary"></div>
@@ -402,6 +408,9 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     });
     table.append(body); wrap.append(table); return wrap;
   };
+  $('scopeFilesSummary').textContent=coverage
+    ?'已審查 '+text(coverage.reviewed_file_count,'—')+' / eligible '+text(coverage.eligible_file_count,'—')+' 個檔案'
+    :'未提供統計';
   if(!coverage) {
     scopeFiles.append(empty('未提供實際審查檔案統計；不可由審查範圍文字推定已檢查整個專案。'));
   } else {
