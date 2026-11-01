@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""P0 已知答案基準：隔離案例、比對實際審查結果，不替 Agent 判定安全性。"""
+"""品質基準（已知答案題庫）：隔離案例、比對實際審查結果，不替 Agent 判定安全性。"""
 from __future__ import annotations
 
 import argparse
@@ -45,10 +45,10 @@ def load_catalog(path: Path = DEFAULT_CATALOG) -> dict[str, Any]:
                          "上傳用 Zip 不含開發驗收檔案")
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("schema_version") != 1:
-        raise ValueError("P0 案例集版本錯誤")
+        raise ValueError("品質基準題庫版本錯誤")
     rows = data.get("cases")
     if not isinstance(rows, list) or not rows:
-        raise ValueError("P0 案例集不可為空")
+        raise ValueError("品質基準題庫不可為空")
     rule_ids = {r["id"] for r in json.loads((ROOT / "rules.json").read_text(encoding="utf-8"))["rules"]}
     ids: set[str] = set()
     for row in rows:
@@ -252,7 +252,7 @@ def evaluate(catalog: dict[str, Any], predictions: dict[str, Any]) -> dict[str, 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="P0 正確性基準，不改動受測專案原始碼")
+    parser = argparse.ArgumentParser(description="品質基準正確性對照，不改動受測專案原始碼")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--materialize", type=Path, metavar="EMPTY_DIR")
     group.add_argument("--evaluate", type=Path, metavar="PREDICTIONS_JSON")
@@ -276,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return code
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
-        print(f"P0 quality baseline error: {exc}", file=sys.stderr)
+        print(f"品質基準執行失敗：{exc}", file=sys.stderr)
         return 2
 
 
