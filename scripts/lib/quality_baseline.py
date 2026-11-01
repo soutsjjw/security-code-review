@@ -11,7 +11,7 @@ from typing import Any
 from review_core import REPORT_ROOT, write_json_atomic
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CATALOG = ROOT / "tests/fixtures/p0-quality-baseline/cases.json"
+DEFAULT_CATALOG = ROOT / "tests/fixtures/quality-baseline/cases.json"
 PROJECT_FILE = """<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>

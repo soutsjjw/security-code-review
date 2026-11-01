@@ -4,7 +4,7 @@
 
 ## 基準內容
 
-`tests/fixtures/p0-quality-baseline/cases.json` 有 16 個隔離案例：
+`tests/fixtures/quality-baseline/cases.json` 有 16 個隔離案例：
 
 | 領域 | 規則 | 對照 |
 |---|---|---|
