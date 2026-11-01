@@ -87,10 +87,18 @@ def save_metadata(folder: Path, state: dict) -> None:
     _atomic(folder / "latest.json", state)
 
 
-def start(target: Path, *, new_review: bool = False) -> dict:
+def start(target: Path, *, new_review: bool = False, implicit: bool = False) -> dict:
     folder, latest = log_paths(target)
     folder.mkdir(parents=True, exist_ok=True)
     previous = load_metadata(latest)
+    if (not implicit and not new_review and previous and previous.get("implicit_start")
+            and previous.get("status") == "running"
+            and not any(previous.get("progress", {}).get(k, 0) for k in PROGRESS)):
+        # 修改型指令先於明確 start 自動開的 run 尚無進展：直接接手，不留下 1 秒的 interrupted 紀錄。
+        previous.pop("implicit_start")
+        append_event(folder, previous, "run_adopted", previous.get("phase", "initialization"))
+        save_metadata(folder, previous)
+        return previous
     if previous and previous.get("status") in ("running", "stalled"):
         previous["status"] = "interrupted"
         previous["finished_at"] = _iso()
@@ -110,6 +118,8 @@ def start(target: Path, *, new_review: bool = False) -> dict:
         "token_usage": {},
         "note": "執行 Log 非審查證據；必須通過既有來源與安全完整性守門",
     }
+    if implicit:
+        state["implicit_start"] = True
     if same_review:
         # latest.json 只指向最新 run；保留前一 run 的指標，避免短暫續跑遮蔽真正的審查回合。
         state["previous_run"] = {key: previous.get(key) for key in
@@ -129,7 +139,7 @@ def _active(target: Path, *, attach: bool = False) -> tuple[Path, dict]:
     if state is not None and attach and state.get("status") == "completed":
         return folder, state
     if state is None or state.get("status") in ("completed", "failed", "interrupted"):
-        state = start(target)
+        state = start(target, implicit=True)
     return folder, state
 
 
@@ -188,7 +198,7 @@ def checkpoint(target: Path, phase: str, metrics: dict[str, int]) -> dict:
     if state["status"] == "completed" and any(
             metrics[k] < state["progress"].get(k, 0) for k in PROGRESS if k in metrics):
         # 計數倒退代表已開始新的審查工作（例如重新 --init），不可改寫已完成 run 的摘要。
-        state = start(target)
+        state = start(target, implicit=True)
     if state["status"] == "completed":
         # 完成後補記的最終進度寫回同一 run，不再計時、不參與停滯判定。
         _record_counters(state, metrics)

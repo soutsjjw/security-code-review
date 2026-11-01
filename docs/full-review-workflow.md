@@ -23,7 +23,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 - 連續至少 4 次無進展且距上次進展至少 15 分鐘，checkpoint 設為 `stalled`、退出碼 3。Agent 必須保存已核對證據、列出卡住的規則／跨檔候選與下一個實際調查動作；不可重複空跑，也不可把 STALLED 改為 Pass。查明後再次 `start` 續跑，必要時 `finish --status blocked` 或 `finish --status interrupted`。
 - Log 只記錄實際回報的值：`verified_callsites` 與 `token_usage` 未回報前不出現在摘要，不是 0。`review_safety.py --integrate` 成功後自動同步 `integrated_transactions`；`--begin-second-pass` 之後的 Stage／Integrate 歸入 `second_pass` 階段。
 - 兩次 CLI 或 checkpoint 之間相隔 15 分鐘以上時，下一次呼叫補記 `idle_gap` 事件並累計 `idle_observation`；這只是事後觀測，不會判定停滯。
-- 報告完成後，唯讀佇列查詢、補記 checkpoint、重複 `finish --status completed` 與重產報告都寫回已完成的 run，`latest.json` 仍指向它；修改型指令（例如 `--init`、`--stage`）或計數倒退才會另開新 run，新 run 以 `previous_run` 指回前一回合。
+- 報告完成後，唯讀佇列查詢、補記 checkpoint、重複 `finish --status completed` 與重產報告都寫回已完成的 run，`latest.json` 仍指向它；修改型指令（例如 `--init`、`--stage`）或計數倒退才會另開新 run，新 run 以 `previous_run` 指回前一回合。這種自動開的 run 尚無進展時，緊接的明確 `start` 會直接接手，不另開 run，也不留下 interrupted 紀錄。
 - `--compact` 與 `--detail-id` 是**未執行完整驗證的進度預覽**：`validation_deferred=true`、`ready_for_report=false`；`source_coverage.verified=false` 的檔案數僅供排序。規則及檔案全部完成後，必須執行**不帶 `--compact` / `--detail-id`** 的 `review_queue.py`、`review_safety.py --validate` 及正式報告驗證。不可用預覽值宣稱 100%。
 - 首次結構分析使用 `--mode full`；來源快照未變且索引版本一致的續跑使用 `--mode incremental`，才重用 Roslyn 與跨檔索引。來源、規則或分析器版本異動，一律回到完整重新核對與原先的快照守門；快取永遠不代替程式碼證據。
 - Log **不是安全證據或交易完整性紀錄**，不屬於 `assessment.json` 的受控交易；不記錄來源全文、密碼、Token、Prompt 或未過濾例外訊息。不可刪除舊 Finding、弱化 70 項／跨檔／第二輪／100% 來源驗證。完整報告成功驗證才自動記錄 `completed`。
@@ -59,15 +59,19 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 
 ### 必須執行的佇列迴圈（Codex／Claude Code）
 
-1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**先檢查執行環境，再立即啟動佇列**。Agent 應判斷實際使用的 Shell，並先按上方規定解析、固定 Python：
+1. 以 `SKILL_ROOT` 為腳本位置、`TARGET_ROOT` 為受測專案，**先檢查執行環境，依序執行 Log `start` 與結構分析，再立即啟動佇列**（逐一執行，不可並行或顛倒）。Agent 應判斷實際使用的 Shell，並先按上方規定解析、固定 Python：
    - macOS／Linux（Bash／sh）：
      ```bash
      sh "<SKILL_ROOT>/scripts/run-python.sh" --check
+     sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --target "<TARGET_ROOT>" start
+     sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
      sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
    - Windows（PowerShell）：
      ```powershell
      & "<SKILL_ROOT>\scripts\run-python.cmd" --check
+     & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_log.py" --target "<TARGET_ROOT>" start
+     & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\analysis_prepare.py" --target "<TARGET_ROOT>" --mode full
      & "<SKILL_ROOT>\scripts\run-python.cmd" "<SKILL_ROOT>\scripts\review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
      ```
    `--resolve` 與 `--check` 在開始時執行並固定同一支 Python。啟動器搜尋可用 Python 3.10+ 與 `requirements.txt` 套件；後續呼叫使用 `SECURITY_CODE_REVIEW_PYTHON_PINNED`，不得每次重新選版。此命令只在檔案不存在時建立 70 項 pending 草稿；已存在的 assessment.json、findings、project.json 一律保留。**pending 是待執行工作清單，不是完成結果**。

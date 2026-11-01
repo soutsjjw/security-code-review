@@ -234,6 +234,43 @@ class ReviewLogTests(unittest.TestCase):
 
 
 class PerformanceSafetyTests(unittest.TestCase):
+    def test_explicit_start_adopts_implicit_run_without_progress(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first = review_log.start(root)
+            review_log.finish(root, "completed")
+            # --init 先於 start：自動開的 run 由緊接的明確 start 接手，不留下 interrupted。
+            review_log.command(root, "queue", "init", 7, 0)
+            implicit = review_log.load_metadata(review_log.log_paths(root)[1])
+            self.assertTrue(implicit["implicit_start"])
+            adopted = review_log.start(root)
+            self.assertEqual(adopted["run_id"], implicit["run_id"])
+            self.assertNotIn("implicit_start", adopted)
+            self.assertEqual(adopted["status"], "running")
+            self.assertEqual(adopted["command_seconds"]["init"], 7)
+            self.assertEqual(adopted["previous_run"]["run_id"], first["run_id"])
+            # 接手後再次 start 照舊中斷並另開 run。
+            resumed = review_log.start(root)
+            self.assertNotEqual(resumed["run_id"], adopted["run_id"])
+            self.assertEqual(resumed["previous_run"]["status"], "interrupted")
+
+    def test_explicit_start_interrupts_implicit_run_with_progress_or_new_review(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            review_log.start(root)
+            review_log.finish(root, "completed")
+            review_log.command(root, "first_pass", "integrate", 1, 0)
+            implicit = review_log.checkpoint(root, "first_pass", {"completed_rules": 3})
+            resumed = review_log.start(root)
+            self.assertNotEqual(resumed["run_id"], implicit["run_id"])
+            self.assertEqual(resumed["previous_run"]["status"], "interrupted")
+            review_log.finish(root, "completed")
+            review_log.command(root, "queue", "init", 1, 0)
+            implicit = review_log.load_metadata(review_log.log_paths(root)[1])
+            fresh = review_log.start(root, new_review=True)
+            self.assertNotEqual(fresh["run_id"], implicit["run_id"])
+            self.assertNotEqual(fresh["review_id"], implicit["review_id"])
+
     def test_compact_is_provisional_never_calls_complete_gate(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
