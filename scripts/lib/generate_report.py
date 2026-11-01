@@ -160,8 +160,7 @@ def main() -> int:
                     check['reviewer'] = presentation['reviewer']
             presentation['overall_risk'] = build_overall_risk(data['assessment'])
             presentation['pending_information'] = build_pending_information(
-                project, data['assessment'], presentation.get('limitations', []),
-                presentation.get('review_ratio_explanation')
+                project, data['assessment'], presentation.get('review_ratio_explanation')
             )
         ignored_artifacts = (a.report, a.save_report, a.output)
         if a.source_root is not None:

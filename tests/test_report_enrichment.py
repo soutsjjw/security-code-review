@@ -91,11 +91,10 @@ class ReportEnrichmentTests(unittest.TestCase):
             {"id": "AC-01", "status": "review"},
             {"id": "AU-01", "status": "pass"},
         ]}
-        pending = build_pending_information(project, assessment, ["尚缺實機回應", "尚缺實機回應"])
+        pending = build_pending_information(project, assessment)
         self.assertIn("機關正式等級", pending)
         self.assertTrue(any("個資" in s for s in pending))
         self.assertTrue(any("AC-01" in s for s in pending))
-        self.assertEqual(pending.count("尚缺實機回應"), 1)
 
 
 if __name__ == "__main__":

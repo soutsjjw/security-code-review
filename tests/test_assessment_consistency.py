@@ -125,6 +125,13 @@ class TruncationTests(unittest.TestCase):
         self.assertIn("共 3 筆", risk["summary"])
         self.assertIn("高 2 筆", risk["summary"])
 
+    def test_overall_risk_lists_highest_severity_first(self):
+        risk = build_overall_risk({"findings": [
+            {"id": "F-1", "severity": "info", "impact": "甲"},
+            {"id": "F-2", "severity": "medium", "impact": "乙"},
+            {"id": "F-3", "severity": "high", "impact": "丙"}], "checks": []})
+        self.assertIn("（高 1 筆、中 1 筆、資訊 1 筆）", risk["summary"])
+
 
 class ReviewRatioTests(unittest.TestCase):
     def _assessment(self, review, other, **extra):
@@ -149,6 +156,7 @@ class ReviewRatioTests(unittest.TestCase):
         self.assertIn("僅缺部署／政策／動態佐證 1 項", text)
         self.assertIn("外部或制度證據 1 項", text)
         self.assertIn("未分類 1 項", text)
+        self.assertNotIn("已確認外部責任", text)
 
     def test_pending_information_includes_ratio_note(self):
         pending = build_pending_information(

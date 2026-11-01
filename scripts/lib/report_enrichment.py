@@ -140,7 +140,7 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
     supplement = f"；另有 {still_review} 項規則需補證據" if still_review else ""
     counts = {s: sum(RISK_ALIAS.get(f["severity"], f["severity"]) == s for f in findings)
               for s in RISK_LEVEL}
-    breakdown = "、".join(f"{RISK_LEVEL[s]} {n} 筆" for s, n in counts.items() if n)
+    breakdown = "、".join(f"{RISK_LEVEL[s]} {n} 筆" for s, n in reversed(counts.items()) if n)
     if len(findings) > 1 and breakdown:
         supplement = f"；共 {len(findings)} 筆已記錄弱點（{breakdown}）" + supplement
     return {
@@ -157,7 +157,6 @@ def build_overall_risk(assessment: dict[str, Any]) -> dict[str, str]:
 
 def build_pending_information(
     project: dict[str, Any], assessment: dict[str, Any],
-    limitations: list[str] | None = None,
     review_ratio_note: str | None = None,
 ) -> list[str]:
     pending: list[str] = []
@@ -177,18 +176,17 @@ def build_pending_information(
         listed = "、".join(review_ids[:8])
         kinds = review_breakdown(assessment.get("checks", []))
         if kinds["static"] or kinds["external"] or kinds["delegated"]:
-            pending.append(
-                f"{len(review_ids)} 項 review：靜態查核已完成、僅缺部署／政策／動態佐證 {kinds['static']} 項；"
-                f"本質上需外部或制度證據 {kinds['external']} 項；"
-                f"已確認外部責任但缺運作證據 {kinds['delegated']} 項；"
-                f"未分類 {kinds['unclassified']} 項（例如 {listed}）")
+            labels = {"static": "靜態查核已完成、僅缺部署／政策／動態佐證",
+                      "external": "本質上需外部或制度證據",
+                      "delegated": "已確認外部責任但缺運作證據",
+                      "unclassified": "未分類"}
+            parts = "；".join(f"{label} {kinds[key]} 項" for key, label in labels.items() if kinds[key])
+            pending.append(f"{len(review_ids)} 項 review：{parts}（例如 {listed}）")
         else:
             pending.append(f"{len(review_ids)} 項檢核尚缺部署／政策／動態佐證（例如 {listed}）")
     review, total = review_ratio(assessment)
     if total and review / total > REVIEW_RATIO_WARN:
         note = (review_ratio_note or "").strip() or "尚未說明比例偏高的原因"
         pending.append(f"review 占 {review}/{total}，超過 {int(REVIEW_RATIO_WARN * 100)}% 警示門檻：{note}")
-    for item in limitations or []:
-        if isinstance(item, str) and item.strip():
-            pending.append(item.strip())
+    # presentation.limitations 已在「審查方法與限制」逐條呈現，不再併入，以免同一句出現兩次。
     return list(dict.fromkeys(pending))
