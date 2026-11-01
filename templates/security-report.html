@@ -57,7 +57,7 @@ th { font-size:13px; color:var(--muted); font-weight:600; }
 .info td { overflow-wrap:anywhere; word-break:normal; }
 .info td:first-child { width:43%; color:var(--muted); white-space:normal; }
 .info td:last-child { width:57%; white-space:pre-line; }
-@media (max-width:420px) { .panel, .scope-files { padding:12px; } .info td { padding:8px 6px; } }
+@media (max-width:420px) { .panel, .section-body { padding:12px; } .info td { padding:8px 6px; } }
 .tablewrap { overflow-x:auto; }
 .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
 .stat { border-radius:8px; padding:12px; text-align:center; }
@@ -83,9 +83,9 @@ th { font-size:13px; color:var(--muted); font-weight:600; }
 details.cl { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:12px; }
 details.cl summary { cursor:pointer; padding:12px 16px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-weight:600; }
 details.cl table { border-top:1px solid var(--line); }
-.scope-files { border-top:1px solid var(--line); padding:20px; }
-#scopeFilesDetails .toggle-label::after { content:'（點選展開）'; font-weight:400; color:var(--muted); }
-#scopeFilesDetails[open] .toggle-label::after { content:'（點選收合）'; }
+.section-body { border-top:1px solid var(--line); padding:20px; }
+details.cl > summary .toggle-label::after { content:'（點選展開）'; font-weight:400; color:var(--muted); }
+details.cl[open] > summary .toggle-label::after { content:'（點選收合）'; }
 .checklist td:first-child { width:64px; } .checklist td:nth-child(4) { width:76px; }
 .checklist th { white-space:nowrap; }
 .filters { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
@@ -170,7 +170,7 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <h2 id="scopeFiles">審查檔案明細</h2>
   <details class="cl" id="scopeFilesDetails">
     <summary><span class="toggle-label">審查專案、排除範圍與逐檔清單</span><span class="muted small" id="scopeFilesSummary"></span></summary>
-    <div class="scope-files" id="scopeFilesContent"></div>
+    <div class="section-body" id="scopeFilesContent"></div>
   </details>
 
   <h2 id="high">發現摘要</h2>
@@ -195,19 +195,34 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
   <div id="checklistContent"></div>
 
   <h2 id="owasp2025">OWASP Top 10:2025 風險分類對照</h2>
-  <div class="panel" id="owasp2025Content"></div>
+  <details class="cl" id="owasp2025Details">
+    <summary><span class="toggle-label">風險類別與關聯檢核</span></summary>
+    <div class="section-body" id="owasp2025Content"></div>
+  </details>
 
   <h2 id="baselineV13">資通系統防護基準 V1.3（獨立驗證）</h2>
-  <div class="panel" id="systemBaselineContent"></div>
+  <details class="cl" id="systemBaselineDetails">
+    <summary><span class="toggle-label">控制措施逐項狀態</span></summary>
+    <div class="section-body" id="systemBaselineContent"></div>
+  </details>
 
   <h2 id="webGuide32">WEB 應用程式安全參考指引 V3.2 技術對照</h2>
-  <div class="panel" id="webGuideContent"></div>
+  <details class="cl" id="webGuideDetails">
+    <summary><span class="toggle-label">安全構面與技術主題</span></summary>
+    <div class="section-body" id="webGuideContent"></div>
+  </details>
 
   <h2 id="webAppendix3">V3.2 附件 3 HTTP 安全標頭防護設定（6 項）</h2>
-  <div class="panel" id="webHeadersContent"></div>
+  <details class="cl" id="webHeadersDetails">
+    <summary><span class="toggle-label">標頭設定逐項狀態</span></summary>
+    <div class="section-body" id="webHeadersContent"></div>
+  </details>
 
   <h2 id="webAppendix1">V3.2 附件 1 Web 應用程式安全查檢表（55 項）</h2>
-  <div class="panel" id="webAppendixContent"></div>
+  <details class="cl" id="webAppendixDetails">
+    <summary><span class="toggle-label">查檢表逐項狀態</span></summary>
+    <div class="section-body" id="webAppendixContent"></div>
+  </details>
 
   <h2 id="findings">發現與改善建議</h2>
   <div class="filters" id="sevFilter" aria-label="風險等級篩選">

@@ -119,6 +119,9 @@ class ReportingTests(unittest.TestCase):
         self.assertNotIn('data-f="critical"', page)
         # 審查檔案明細篇幅大，預設合攏，點選 summary 展開。
         self.assertIn('<details class="cl" id="scopeFilesDetails">', page)
+        # 標準對照與附件區塊同樣預設合攏。
+        for section in ('owasp2025', 'systemBaseline', 'webGuide', 'webHeaders', 'webAppendix'):
+            self.assertIn(f'<details class="cl" id="{section}Details">', page)
         self.assertIn("asArray(f.check_ids).includes(r.id)", page)
         self.assertIn("const highest=order.find(level=>foundLevels.includes(level))", page)
         self.assertIn("沒有對應的已記錄弱點，不等於低風險", page)
