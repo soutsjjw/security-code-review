@@ -294,7 +294,7 @@ def second_pass_errors(target: Path, assessment: dict[str, Any], *,
             errors += evidence_errors(target, contradiction.get("evidence"), rid,
                                        f"矛盾[{i}]", inspected_set, known, status,
                                        decision_audits.get(rid), check.get("evidence") or [])
-    # 新索引啟用 Q4，驗證真正重讀控制分支、反例可區分性及跨規則模板。
+    # 新索引啟用第二輪複核品質守門，驗證真正重讀控制分支、反例可區分性及跨規則模板。
     structure_index = index_override if index_override is not None else _read(target / INDEX, {})
     if (isinstance(structure_index, dict)
             and structure_index.get("adversarial_quality_version") == 1):

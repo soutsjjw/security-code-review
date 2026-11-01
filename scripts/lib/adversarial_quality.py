@@ -79,20 +79,20 @@ def _locations(items: Any) -> set[tuple[str, int, int]]:
 def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, Any],
                    baseline: dict[str, Any], decision_audits: dict[str, Any], *,
                    snapshot_override: dict | None = None) -> list[str]:
-    """Q4 僅在新索引啟用；不修改任何 assessment、Finding 或第二輪資料。"""
+    """第二輪複核品質守門僅在新索引啟用；不修改任何 assessment、Finding 或第二輪資料。"""
 
     snapshot = snapshot_override if snapshot_override is not None else _read(target / SNAPSHOT, {})
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("source_hashes"), dict):
-        return ["第二輪 Q4: 無有效來源快照"]
+        return ["第二輪複核品質：無有效來源快照"]
     if baseline.get("snapshot_fingerprint") != snapshot_fingerprint(snapshot):
-        return ["第二輪 Q4: 第一輪與來源快照指紋不一致"]
+        return ["第二輪複核品質：第一輪與來源快照指紋不一致"]
     layered_mode = (isinstance(records.get(RESERVED), dict)
                     and isinstance(records[RESERVED].get("plan"), dict))
     matrix = load_decision_matrix()
     checks = assessment.get("checks", [])
     originals = baseline.get("checks", {})
     if not isinstance(checks, list) or not isinstance(originals, dict):
-        return ["第二輪 Q4: 檢核結論或第一輪資料格式錯誤"]
+        return ["第二輪複核品質：檢核結論或第一輪資料格式錯誤"]
     findings = {f.get("id"): f for f in assessment.get("findings", [])
                 if isinstance(f, dict) and isinstance(f.get("id"), str)}
     known = set(snapshot["source_hashes"])
@@ -119,13 +119,13 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
         first_claim = original.get("decision_reason")
         review = record.get("reassessment")
         if not layered_mode and (not isinstance(first_claim, str) or len(first_claim.strip()) < 20):
-            errors.append(f"{rid}: 第二輪 Q4 第一輪錨點缺少原始判定理由，須重建不可變錨點")
+            errors.append(f"{rid}: 第二輪複核品質：第一輪錨點缺少原始判定理由，須重建不可變錨點")
         if not isinstance(review, dict):
-            errors.append(f"{rid}: 第二輪 Q4 缺少獨立於第一輪摘要的 reassessment")
+            errors.append(f"{rid}: 第二輪複核品質：缺少獨立於第一輪摘要的 reassessment")
         else:
             claim = review.get("first_pass_claim")
             if not layered_mode and (not isinstance(claim, str) or claim != first_claim):
-                errors.append(f"{rid}: 第二輪 Q4 反向核對未引用第一輪固定的原始判定")
+                errors.append(f"{rid}: 第二輪複核品質：反向核對未引用第一輪固定的原始判定")
             if layered_mode:
                 blind = record.get("blind_challenge")
                 if not isinstance(blind, dict):
@@ -148,9 +148,9 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                     and isinstance(review.get("conclusion_basis"), str)
                     and _normalized(review["reinspection_summary"]) ==
                     _normalized(review["conclusion_basis"])):
-                errors.append(f"{rid}: 第二輪 Q4 重查與裁決摘要完全相同，未展現新查證")
+                errors.append(f"{rid}: 第二輪複核品質：重查與裁決摘要完全相同，未展現新查證")
             proof = review.get("verification_evidence")
-            errors.extend(evidence_errors(target, proof, rid, "Q4 重查來源", inspected,
+            errors.extend(evidence_errors(target, proof, rid, "重查來源", inspected,
                                            known, status, audit, formal))
             location = _location(proof)
             if location is not None:
@@ -166,7 +166,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
         for pos, item in enumerate(hypotheses):
             if not isinstance(item, dict):
                 continue
-            label = f"Q4 反例[{pos}]"
+            label = f"反例[{pos}]"
             vector = item.get("vector")
             if not isinstance(vector, str) or vector not in ATTACK_VECTORS:
                 errors.append(f"{rid}: 第二輪 {label} 缺少具體攻擊向量 vector")
@@ -203,13 +203,13 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                          or len(item["same_line_explanation"].strip()) < 30)):
                 errors.append(f"{rid}: 第二輪 {label} 重查與攻擊證據同一行，須具體解釋該行如何同時證實兩者")
         if rid in HIGH_RISK_RULES and len(vectors) < 2:
-            errors.append(f"{rid}: 第二輪 Q4 高風險規則須有至少兩種不同攻擊向量")
+            errors.append(f"{rid}: 第二輪複核品質：高風險規則須有至少兩種不同攻擊向量")
         if len(surfaces) < min(2, len(hypotheses)) and len(hypotheses) > 1:
-            errors.append(f"{rid}: 第二輪 Q4 不同反例的攻擊面缺乏實質區別")
+            errors.append(f"{rid}: 第二輪複核品質：不同反例的攻擊面缺乏實質區別")
         if rid in HIGH_RISK_RULES and len(proofs) > 1 and len(set(proofs)) == 1:
             note = record.get("shared_evidence_justification")
             if not isinstance(note, str) or len(note.strip()) < 35:
-                errors.append(f"{rid}: 第二輪 Q4 多個攻擊向量引用完全相同來源，須說明其控制交會點")
+                errors.append(f"{rid}: 第二輪複核品質：多個攻擊向量引用完全相同來源，須說明其控制交會點")
         if (record.get("outcome") == "corrected" and status == "fail"
                 and original.get("status") != "fail"):
             confirmed = [_location(h.get("evidence")) for h in hypotheses
@@ -221,7 +221,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
                        for proof in confirmed if proof is not None
                        for finding in related
                        for evidence in _locations(finding.get("evidence"))):
-                errors.append(f"{rid}: 第二輪 Q4 修正為 Fail 的反例未連到本規則 Finding 來源")
+                errors.append(f"{rid}: 第二輪複核品質：修正為 Fail 的反例未連到本規則 Finding 來源")
         if record.get("outcome") == "corrected":
             contradictions = record.get("contradictions", [])
             if isinstance(contradictions, list):
@@ -241,7 +241,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
             ]
             if insufficient:
                 errors.append(
-                    f"第二輪 Q4: {len(rule_ids)} 項規則的重查證據都指向"
+                    f"第二輪複核品質：{len(rule_ids)} 項規則的重查證據都指向"
                     f" {location[0]}:{location[1]}，需逐規則說明這個共用來源"
                     "與控制要求的真實關聯"
                 )
@@ -249,7 +249,7 @@ def quality_errors(target: Path, assessment: dict[str, Any], records: dict[str, 
     for (field, pattern), rule_ids in repeated.items():
         if len(rule_ids) >= 5 and len(pattern) >= 24:
             errors.append(
-                f"第二輪 Q4: {len(rule_ids)} 項規則共用制式 {field} 敘述（"
+                f"第二輪複核品質：{len(rule_ids)} 項規則共用制式 {field} 敘述（"
                 + "、".join(sorted(rule_ids)[:5]) + "），應逐規則重新查證"
             )
     return errors

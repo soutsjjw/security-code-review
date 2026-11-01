@@ -235,7 +235,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     }
     first_pass_blocked = bool(
         rule_errors or integrity_errors or unreviewed or
-        [e for e in safety_issues if not (e.startswith(("第二輪：", "第二輪抽樣：", "第二輪 Q4:"))
+        [e for e in safety_issues if not (e.startswith(("第二輪：", "第二輪抽樣：", "第二輪複核品質："))
                                           or ": 第二輪" in e)]
     )
     if not remaining and first_pass_blocked:

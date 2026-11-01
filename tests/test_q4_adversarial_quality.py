@@ -267,7 +267,7 @@ class AdversarialQualityTests(unittest.TestCase):
             index["adversarial_quality_version"] = 1
             _write(index_path, index)
             issues = second_pass_errors(legacy.root, legacy.assessment)
-            self.assertTrue(any("Q4" in issue for issue in issues), issues[:5])
+            self.assertTrue(any("第二輪複核品質" in issue for issue in issues), issues[:5])
         finally:
             legacy.doCleanups()
 

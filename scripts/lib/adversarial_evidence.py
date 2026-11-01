@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""第二輪反向複核的路徑、高風險規則清單與單筆證據核對；供複核與 Q4 品質守門共用。
+"""第二輪反向複核的路徑、高風險規則清單與單筆證據核對；供複核與複核品質守門共用。
 
 本模組不得匯入 adversarial_recheck／adversarial_quality。
 """
