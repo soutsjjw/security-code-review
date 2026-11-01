@@ -101,6 +101,17 @@ class ReportingTests(unittest.TestCase):
         result = validate_data(data)
         self.assertIn('尚未完成實際檢核', ' '.join(result.errors))
 
+    def test_formal_high_medium_without_after_code_warns(self):
+        data = load_json(HERE / 'examples/demo-with-finding.report.json')
+        data['presentation']['demo'] = False
+        findings = [f for f in data['assessment']['findings'] if f['severity'] in ('high', 'medium')]
+        self.assertTrue(findings)
+        data['presentation']['finding_details'] = {}
+        warnings = ' '.join(validate_data(data).warnings)
+        self.assertIn('未提供 after_code 修正範例', warnings)
+        data['presentation']['finding_details'] = {f['id']: {'after_code': '// 修正後'} for f in findings}
+        self.assertNotIn('after_code', ' '.join(validate_data(data).warnings))
+
     def test_formal_mass_placeholder_rejected(self):
         data = self.fresh()
         data['presentation']['demo'] = False

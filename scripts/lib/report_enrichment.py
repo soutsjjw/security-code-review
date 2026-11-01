@@ -1,8 +1,9 @@
-"""報告摘要自動補充：執行工具、個資線索、待確認事項與靜態風險初判。"""
+"""報告摘要自動補充：執行工具、個資線索、待確認事項、靜態風險初判與 Before 原始碼摘錄。"""
 from __future__ import annotations
 
 import os
 import re
+import textwrap
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -26,6 +27,16 @@ RISK_ORDER = {"info": 0, "low": 1, "medium": 2, "med": 2, "high": 3, "critical":
 RISK_LEVEL = {"info": "資訊", "low": "低", "medium": "中", "high": "高"}
 # 舊值別名：med 即 medium；critical 已併入 high。
 RISK_ALIAS = {"med": "medium", "critical": "high"}
+# Before 只逐字擷取證據行號內的原始碼；過長或疑似含密鑰的片段不擷取，避免報告外洩機敏值。
+BEFORE_MAX_LINES = 60
+SECRET_LITERAL = re.compile(
+    r"(?i)(?:password|passwd|pwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|"
+    r"client[_-]?secret|connection[_-]?string|signing[_-]?key|encryption[_-]?key)"
+    r"[\w.\[\]\"']*\s*[:=]\s*[@$]?[\"'][^\"']{4,}[\"']"
+    r"|\"[\w:.-]*(?:key|secret|pass(?:word|phrase)?|pwd|token)\"\s*:\s*\"[^\"]{4,}\""
+    r"|\b(?:password|pwd)=[^;\"'\s=]+"
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+)
 
 
 def _inspected_paths(assessment: dict[str, Any]) -> list[str]:
@@ -190,3 +201,55 @@ def build_pending_information(
         pending.append(f"review 占 {review}/{total}，超過 {int(REVIEW_RATIO_WARN * 100)}% 警示門檻：{note}")
     # presentation.limitations 已在「審查方法與限制」逐條呈現，不再併入，以免同一句出現兩次。
     return list(dict.fromkeys(pending))
+
+
+def _evidence_snippet(evidence: Mapping[str, Any], root: Path,
+                      source_encodings: tuple[str, ...]) -> str | None:
+    if evidence.get("kind") != "source" or evidence.get("redacted") or not evidence.get("path"):
+        return None
+    start, end = evidence.get("line_start"), evidence.get("line_end")
+    if not isinstance(start, int) or not isinstance(end, int) or start < 1 or end < start:
+        return None
+    if end - start + 1 > BEFORE_MAX_LINES:
+        return None
+    absolute = (root / str(evidence["path"]).replace("\\", "/")).resolve()
+    if not absolute.is_relative_to(root) or not absolute.is_file():
+        return None
+    try:
+        lines = read_source_text(absolute, source_encodings)[0].splitlines()
+    except (OSError, UnicodeError, LookupError):
+        return None
+    if end > len(lines):
+        return None
+    snippet = textwrap.dedent("\n".join(lines[start - 1:end])).strip("\n")
+    if not snippet.strip() or SECRET_LITERAL.search(snippet):
+        return None
+    return snippet
+
+
+def fill_before_code(
+    assessment: dict[str, Any], presentation: dict[str, Any], source_root: Path | None,
+    source_encodings: tuple[str, ...] = DEFAULT_LEGACY_ENCODINGS,
+) -> None:
+    """未填 before_code 的 Finding，以第一段可讀、未遮蔽且無疑似密鑰的來源證據補上逐字摘錄。"""
+    if source_root is None:
+        return
+    root = source_root.resolve()
+    details = presentation.setdefault("finding_details", {})
+    for finding in assessment.get("findings", []):
+        fid = finding.get("id")
+        extra = details.get(fid) or {}
+        if not fid or (extra.get("before_code") or "").strip():
+            continue
+        for evidence in finding.get("evidence", []):
+            snippet = _evidence_snippet(evidence, root, source_encodings)
+            if snippet:
+                extra["before_code"] = snippet
+                extra["before_location"] = {
+                    "path": str(evidence["path"]).replace("\\", "/"),
+                    "line_start": evidence["line_start"], "line_end": evidence["line_end"],
+                }
+                details[fid] = extra
+                break
+    if not details:
+        presentation.pop("finding_details")

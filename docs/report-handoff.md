@@ -11,6 +11,7 @@
    - **系統防護需求分級（普／中／高）**：未提供正式 `protection_demand_level` 時，Agent 可依附表九四構面（機密性、完整性、可用性、法律遵循性，取最高者）寫入 `project.protection_demand_level_assessment`：`{status,level,basis,aspects:[{aspect,level,basis}],evidence,missing_information}`。未填時，報告產生器於確認處理個資時初判「中」（機密性、法律遵循性），否則待確認。初判不改變 V1.3 80 項與附件1 55 項的適用性，仍顯示「分級待確認」。正式判定需要：機關核定的分級紀錄（核定單位、日期、文號）、處理資料類型與數量、資料遭竄改的業務影響、服務範圍與可容忍中斷時間、適用法令及未遵循的影響。
    - `security_level`（A～E）只用於已提供的**正式**認定／核定資料，並需 `security_level_basis`；AI 初判不得寫入此欄。正式分級優先顯示，與程式碼整體風險、資通系統防護需求分級分開。
    - `presentation.json`（選用）：真實審查方法／限制、改善優先序及 Before / After。不可補造程式碼、風險或安全優點。
+   - **After 修正範例**：每筆高／中風險 Finding 須在 `presentation.json` 的 `finding_details.<Finding ID>.after_code` 寫入修正後的程式碼片段，依該 Finding 的 `remediation` 與實際讀到的原始碼撰寫，只改與弱點相關的行並以註解標示關鍵差異；不得含真實密鑰、密碼或個資。低／資訊等級可選填。`before_code` 不必手寫，報告產生器會從來源證據逐字擷取（見 [報告資料契約](data-contract.md)）；手寫時必須與來源行號內容逐字一致。
 2. **只有 70 項均有真實證據且已完成、來源覆蓋率達 100%、兩類完整性錯誤均為空，且 `review_queue.py` 回傳 `ready_for_report=true`，才能開始報告階段。** 從 `TARGET_ROOT` 作為工作目錄，由 Agent 自動呼叫：
 
    ```bash

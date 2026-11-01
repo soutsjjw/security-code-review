@@ -304,7 +304,8 @@ def validate_data(
         if fid not in findings:
             result.errors.append(f'finding_details: 不存在的 {fid}')
             continue
-        for loc in extra.get('locations', []):
+        before_location = [extra['before_location']] if extra.get('before_location') else []
+        for loc in [*extra.get('locations', []), *before_location]:
             _verify_line(loc, fid + ' 顯示位置', source_root, result, strict_sources, source_encodings)
             supported = any(
                 e.get('kind') == 'source' and e.get('path', '').replace('\\', '/') == loc['path'].replace('\\', '/')
@@ -316,6 +317,15 @@ def validate_data(
                 (result.warnings if pres.get('demo') else result.errors).append(
                     f'{fid}: 顯示位置 {loc["path"]}:{loc["line_start"]}-{loc["line_end"]} 未被 Finding 原始證據涵蓋'
                 )
+    # After 由審查代理撰寫；高／中風險缺修正範例只提醒，不阻擋報告。
+    if not pres.get('demo'):
+        missing_after = [fid for fid, f in findings.items()
+                         if f.get('severity') in ('high', 'medium', 'critical', 'med')
+                         and not (pres.get('finding_details', {}).get(fid, {}).get('after_code') or '').strip()]
+        if missing_after:
+            result.warnings.append(
+                f'{len(missing_after)} 筆高／中風險 Finding 未提供 after_code 修正範例'
+                f'（例如 {"、".join(missing_after[:5])}）；請於 presentation.json 的 finding_details 補寫')
     # Before 程式碼須與來源證據相符；標示 redacted 的截圖／遮蔽摘錄無法逐字驗證。
     for fid, extra in pres.get('finding_details', {}).items():
         snippet = extra.get('before_code', '').strip()

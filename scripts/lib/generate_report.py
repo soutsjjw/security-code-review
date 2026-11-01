@@ -13,6 +13,7 @@ from scope_inventory import build_scope_inventory
 from security_level import infer_protection_demand_level, infer_security_level, merge_preliminary
 from report_enrichment import (
     resolve_personal_data, detect_reviewer, build_overall_risk, build_pending_information,
+    fill_before_code,
 )
 from standard_guides import load_owasp_2025_categories
 from system_baseline import build_system_baseline, review_from_report
@@ -162,6 +163,7 @@ def main() -> int:
             presentation['pending_information'] = build_pending_information(
                 project, data['assessment'], presentation.get('review_ratio_explanation')
             )
+            fill_before_code(data['assessment'], presentation, a.source_root, encodings)
         ignored_artifacts = (a.report, a.save_report, a.output)
         if a.source_root is not None:
             data['scope_inventory'] = build_scope_inventory(

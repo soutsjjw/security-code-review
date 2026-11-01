@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from report_enrichment import (
     infer_personal_data, resolve_personal_data, detect_reviewer,
-    build_overall_risk, build_pending_information,
+    build_overall_risk, build_pending_information, fill_before_code,
 )
 
 
@@ -96,6 +96,39 @@ class ReportEnrichmentTests(unittest.TestCase):
         self.assertTrue(any("個資" in s for s in pending))
         self.assertTrue(any("AC-01" in s for s in pending))
 
+
+    def test_before_code_copies_first_safe_source_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Login.cs").write_text(
+                "class Login {\n"
+                "    void Run() {\n"
+                "        var apiKey = \"sk-live-123456\";\n"
+                "        _log.Info(\"{@Request}\", request);\n"
+                "    }\n"
+                "}\n", encoding="utf-8")
+            def source(start, end, **extra):
+                return {"kind": "source", "path": "Login.cs", "line_start": start, "line_end": end, **extra}
+            assessment = {"findings": [
+                {"id": "F-01", "evidence": [source(2, 4), source(4, 4)]},
+                {"id": "F-02", "evidence": [source(4, 4, redacted=True), source(1, 999)]},
+                {"id": "F-03", "evidence": [source(4, 4)]},
+            ]}
+            presentation = {"finding_details": {"F-03": {"before_code": "手寫摘錄"}}}
+            fill_before_code(assessment, presentation, root)
+            details = presentation["finding_details"]
+            # 第一段含疑似密鑰字面值而略過，改用下一段證據。
+            self.assertEqual(details["F-01"]["before_code"], '_log.Info("{@Request}", request);')
+            self.assertEqual(details["F-01"]["before_location"],
+                             {"path": "Login.cs", "line_start": 4, "line_end": 4})
+            # 已遮蔽或超出檔案行數的證據不擷取。
+            self.assertNotIn("F-02", details)
+            self.assertEqual(details["F-03"], {"before_code": "手寫摘錄"})
+
+    def test_before_code_needs_source_root(self):
+        presentation = {}
+        fill_before_code({"findings": [{"id": "F-01", "evidence": []}]}, presentation, None)
+        self.assertEqual(presentation, {})
 
 if __name__ == "__main__":
     unittest.main()

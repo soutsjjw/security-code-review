@@ -104,7 +104,7 @@ details.cl[open] > summary .toggle-label::after { content:'（點選收合）'; 
 .ba { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
 @media (max-width:860px) { .ba { grid-template-columns:1fr; } }
 .ba > div { min-width:0; }
-.ba-h { font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px 6px 0 0; }
+.ba-h { font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px 6px 0 0; overflow-wrap:anywhere; }
 .ba-h.before { background:var(--fail-bg); color:var(--fail); }
 .ba-h.after { background:var(--pass-bg); color:var(--pass); }
 pre { margin:0; background:var(--code-bg); padding:12px; border-radius:0 0 6px 6px; overflow-x:auto;
@@ -768,14 +768,18 @@ footer { margin-top:48px; color:var(--muted); font-size:13px; }
     paragraph(article,'問題描述',extra.description||f.description||f.impact);
     paragraph(article,'風險',extra.risk||f.impact);
     const before=extra.before_code??f.before_code, after=extra.after_code??f.after_code;
+    const bl=extra.before_location;
+    const beforeLabel='Before'+(bl&&bl.path?'（'+bl.path+':'+bl.line_start+(bl.line_end!==bl.line_start?'-'+bl.line_end:'')+'）':'');
     if(before||after){const ba=el('div','ba');
-      for(const [k,label,value] of [['before','Before',before],['after','After（建議）',after]]){
+      for(const [k,label,value,missing] of [
+        ['before',beforeLabel,before,'此項證據片段過長、已遮蔽或可能含機敏值，未擷取原始碼，請依上方程式碼位置查閱。'],
+        ['after','After（建議，須人工複核）',after,'審查時未撰寫修正範例，請依下方修正建議調整。']]){
         const col=el('div');col.append(el('div','ba-h '+k,label));
         if(value){const pre=el('pre');pre.append(el('code',null,value));col.append(pre);}
-        else col.append(el('div','omitted','未提供'+label+'程式碼'));
+        else col.append(el('div','omitted',missing));
         ba.append(col);
       } article.append(ba);
-    } else article.append(empty('未提供 Before / After 程式碼，請勿自動捏造範例。'));
+    } else article.append(empty('此項未附原始碼摘錄或修正範例，請依上方程式碼位置與下方修正建議處理。'));
     paragraph(article,'修正建議',f.remediation);
     $('findingDetails').append(article);
   }

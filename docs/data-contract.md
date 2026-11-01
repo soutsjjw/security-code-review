@@ -71,6 +71,9 @@
 
 `before_code` 和 `after_code` **只可使用真實佐證與經檢查的修正建議**；缺值時模板會顯示「未提供」，不會自行填充假程式碼。
 
+- `before_code`：未填時，`generate_report.py`（含 `complete_review.py`）在提供 `--source-root` 時，自動從該 Finding 第一段可讀、未標 `redacted`、不超過 60 行且不含疑似密鑰字面值的 `kind=source` 證據逐字擷取，並寫入 `before_location`（`{path,line_start,line_end}`）標示出處。找不到合適片段時保持空白，報告提示讀者依程式碼位置查閱。
+- `after_code`：只能由審查代理依 `remediation` 撰寫，工具不會自動產生。高／中風險 Finding 應提供，缺少時報告驗證會列出警告，但不阻擋報告。
+
 ## 安全注入規則
 
 `templates/security-report.html` 具有：
