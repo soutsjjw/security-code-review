@@ -8,6 +8,7 @@ name／description／license／allowed-tools／metadata。因此只收錄審查�
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import sys
 import zipfile
@@ -20,9 +21,14 @@ SKILL_NAME = "security-code-review"
 DEFAULT_OUTPUT = ROOT / "dist" / f"{SKILL_NAME}.zip"
 MAX_FILES = 200
 ALLOWED_FRONTMATTER = {"name", "description", "license", "allowed-tools", "metadata"}
-# 開發與驗收用檔案；審查執行期不讀取。
-DEV_ONLY_DIRS = {"tests", "examples"}
-DEV_ONLY_FILES = {"CLAUDE.md"}
+# 開發與驗收用檔案；審查執行期不讀取。rules.yaml 與 rules/*.yaml 是 rules.json 的
+# 對照副本，只有 validate_package 會比對；執行期只讀 rules.json。
+DEV_ONLY_DIRS = {"tests", "examples", "rules"}
+DEV_ONLY_FILES = {"CLAUDE.md", "README.md", "rules.yaml"}
+# 套件維護 CLI：需要 Git 工作樹、SHA256SUMS.txt 或 rules.yaml，在上傳 Zip 內本來就無法執行。
+# 連同 scripts/<name>.py wrapper 與 scripts/lib/<name>.py 一起排除。
+DEV_ONLY_SCRIPTS = {"build_skill_zip", "package_manifest", "render_rules_markdown",
+                    "validate_package", "validate_skill_docs"}
 _DOC_PATH = re.compile(r"docs/([\w.-]+)")
 _RELATIVE_LINK = re.compile(r"\]\((?:\./)?([\w.-]+)[)#]")
 # 固定時間戳，相同內容產生相同 Zip。
@@ -51,12 +57,39 @@ def _referenced_docs(root: Path, seeds: list[str], docs: set[str]) -> set[str]:
     return found
 
 
+def _dev_only(rel: str) -> bool:
+    if rel.split("/")[0] in DEV_ONLY_DIRS or rel in DEV_ONLY_FILES:
+        return True
+    return any(rel in (f"scripts/{name}.py", f"scripts/lib/{name}.py") for name in DEV_ONLY_SCRIPTS)
+
+
 def upload_files(root: Path = ROOT) -> list[str]:
-    files = [rel for rel in package_files(root)
-             if rel.split("/")[0] not in DEV_ONLY_DIRS and rel not in DEV_ONLY_FILES]
+    files = [rel for rel in package_files(root) if not _dev_only(rel)]
     docs = {rel for rel in files if rel.startswith("docs/")}
     seeds = [rel for rel in files if rel not in docs]
     return sorted(set(seeds) | _referenced_docs(root, seeds, docs))
+
+
+def missing_imports(root: Path, files: list[str]) -> list[str]:
+    """收錄的 scripts/lib 模組若 import 了未收錄的 lib 模組（含函式內延遲 import），逐一列出。"""
+    lib = root / "scripts" / "lib"
+    available = {path.stem for path in lib.glob("*.py")}
+    shipped = {Path(rel).stem for rel in files if rel.startswith("scripts/lib/") and rel.endswith(".py")}
+    errors: list[str] = []
+    for rel in sorted(rel for rel in files if rel.startswith("scripts/lib/") and rel.endswith(".py")):
+        tree = ast.parse((root / rel).read_bytes(), filename=rel)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module]
+            else:
+                continue
+            for name in names:
+                top = name.split(".")[0]
+                if top in available and top not in shipped:
+                    errors.append(f"{rel} imports {top}, which is excluded from the upload zip")
+    return errors
 
 
 def upload_skill_md(text: str) -> str:
@@ -83,6 +116,9 @@ def build(output: Path, root: Path = ROOT) -> list[str]:
     files = upload_files(root)
     if len(files) > MAX_FILES:
         raise ValueError(f"上傳檔案 {len(files)} 個，超過上限 {MAX_FILES}")
+    broken = missing_imports(root, files)
+    if broken:
+        raise ValueError("; ".join(broken))
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for rel in files:

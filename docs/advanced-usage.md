@@ -603,7 +603,7 @@ PYTHON="$(sh scripts/run-python.sh --resolve)"
 "$PYTHON" -m unittest discover -s tests -v
 ```
 
-核心檔案包括 `rules.json`、`rules.yaml`、`rules/`、`schemas/`、`templates/security-report.html` 及 `scripts/`。規則集 v2.0.0 的正式發布**不需公司資安簽核**；個別專案的實際法規適用、風險接受與制度文件，仍須依其權責與證據確認。
+核心檔案包括 `rules.json`、`rules.yaml`、`rules/`、`schemas/`、`templates/security-report.html` 及 `scripts/`。以上維護命令需在 Git 儲存庫中執行；`build_skill_zip.py` 產生的上傳 Zip 只含執行期檔案，不含 `tests/`、`rules.yaml`、`rules/` 及 `validate_package.py` 等套件維護腳本。規則集 v2.0.0 的正式發布**不需公司資安簽核**；個別專案的實際法規適用、風險接受與制度文件，仍須依其權責與證據確認。
 
 
 ### 已存在 Finding 的證據更正
