@@ -51,4 +51,4 @@ python "<SKILL_ROOT>/scripts/file_review_skeleton.py" --target "<TARGET_ROOT>" -
 
 ## 建議驗證
 
-使用相同 Git Revision、相同模型與執行器設定比較：Query 耗時分布、執行命令數、實測 Token、逐檔正式覆蓋率、70 條規則查核與 Finding、跨檔查證、第二輪與報告結果。未取得真實完整案例不得宣稱已達到特定加速比例。
+使用相同 Git Revision、相同模型與執行器設定比較：Query 耗時分布、執行命令數、實測 Token、逐檔正式覆蓋率、70 條規則查核與 Finding、跨檔查證、第二輪與報告結果。未取得真實完整案例不得宣稱已達到特定加速比例。在 Claude Code 執行時，實測 Token 與階段分佈以 `scripts/transcript_usage.py --target "<TARGET_ROOT>"` 從對話紀錄取得（見 [進階使用](advanced-usage.md#claude-code-對話紀錄-token-統計)）。

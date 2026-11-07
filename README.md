@@ -125,7 +125,7 @@ Python 負責佇列、輸出及驗證，**不是由 Python 自動完成原始碼
 - **Roslyn 選用**：安裝 .NET SDK 8+ 時，Agent 會在暫存目錄利用 SDK 內附 Roslyn 建立 C# 語法／方法／呼叫候選索引，不修改受測原始碼；沒有 SDK 則降級查核。Roslyn 索引不是弱點結論。
 - **完整＋增量**：結構結果保存在 `reports/security-code-review/analysis/structure-index.json`；未變動檔案重用語法索引，有來源變更且缺乏可信跨檔案依賴閉包時保守列出全部重新檢查。既有 `assessment.json`、Findings 不會由索引覆寫。
 - **精簡佇列**：預設由 Agent 使用 `review_queue.py --compact`，實際處理規則時再用 `--detail-id <規則ID>` 取完整查核方向。
-- **Token 統計**：僅記錄執行器實際提供的 Token 計數，不提供虛構的節省比例。
+- **Token 統計**：僅記錄執行器實際提供的 Token 計數，不提供虛構的節省比例。在 Claude Code 執行時，可用 `scripts/transcript_usage.py --target "<TARGET_ROOT>"` 從對話紀錄統計實際用量、階段分佈、子代理數與 CodeGraph 查詢數；詳見 [進階使用](docs/advanced-usage.md#claude-code-對話紀錄-token-統計)。
 
 索引前置命令由 Skill 自動呼叫；進階參數及限制請見 [進階使用說明](docs/advanced-usage.md)。
 

@@ -88,6 +88,21 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/token_metrics.py" 
 
 數字必須是實際 API／執行器回傳資料，上述僅示範命令格式。統計位於 `reports/security-code-review/analysis/token-usage.jsonl`，不包含程式碼或推論出的 Token 值。
 
+### Claude Code 對話紀錄 Token 統計
+
+在 Claude Code 執行審查時，不必手動輸入數字：審查結束後直接讀取 Claude Code 自己的對話紀錄（`~/.claude/projects/<專案路徑>/*.jsonl`）統計實際用量：
+
+```bash
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/transcript_usage.py" --target "<TARGET_ROOT>"
+```
+
+Windows：`& "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\transcript_usage.py" --target "<TARGET_ROOT>"`。
+
+- 預設只列出有呼叫本 Skill 的 session；`--session <ID 前綴>` 只看單一 session，`--all` 包含其他 session，`--json` 輸出完整結構，`--transcripts <目錄>` 可直接指定紀錄目錄。
+- 每個 session 列出 API 呼叫數、cache 讀寫、輸出、最大／平均 context，以及各階段（`source_read`、`authoring`、`skill:<腳本>` 等）的用量分佈；同一則訊息被拆成多行時以 message id 去重。
+- 同時統計子代理紀錄數與 CodeGraph 查詢數，並在要求多代理卻沒有子代理紀錄（`multi_agent_without_subagents`），或 CodeGraph 可用卻從未查詢（`codegraph_available_but_unused`）時發出警告。
+- 只讀紀錄，不寫入受測專案；輸出只有數字與階段名稱，不含對話或程式碼內容。階段歸屬為啟發式，只供成本比較，不計入來源覆蓋，也不是安全結論。
+
 ## 審查完整性檢查與受控唯讀分工
 
 執行 `analysis_prepare.py` 後，先以 `review_safety.py --target "<TARGET_ROOT>" --plan` 取得 70 項的最小責任範圍及需追查的來源／關聯候選。每檔依序完整篩選全部規則；`cross_file` 和 `project` 類別須補足結案證據。透過 `--stage <JSON路徑>`、`--integrate` 進行工作中結果的獨立暫存與有衝突檢查的整合，並以 `--validate` 確認結案及工作樹版本；正式結果仍維持原有 assessment Schema。
