@@ -270,7 +270,7 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
                                     "不可根據本查詢宣布完成或交付報告。")
         elif remaining:
             queue["instruction"] = ("以本機分析索引定位來源與呼叫鏈；每條規則須真實查核，"
-                                    "需要詳細規範時使用 --detail-id <規則ID>，並依 decision_guidance、control_effectiveness_guidance、decision_adjudication_guidance 與 standard_documents 查核。逐檔紀錄、控制繞過證據與 Finding 仍不可省略。")
+                                    "需要詳細規範時使用 --detail-ids <ID1,ID2,…> 一次取得整批（或 --detail-id <規則ID>），並依 decision_guidance、control_effectiveness_guidance、decision_adjudication_guidance 與 standard_documents 查核。逐檔紀錄、控制繞過證據與 Finding 仍不可省略。")
         elif ids_to_recheck:
             queue["instruction"] = (
                 "70 項執行紀錄雖已 completed，仍有實際程式碼證據／適用性檢查失敗。"
@@ -285,6 +285,69 @@ def build_queue(data: dict, rules: list[dict], batch_size: int, *, source_root: 
     return queue
 
 
+MAX_DETAIL_BATCH = 20
+
+
+def parse_detail_ids(raw: str) -> list[str]:
+    """逗號分隔規則 ID，保留順序並去重。"""
+    ids = list(dict.fromkeys(part.strip().upper() for part in raw.split(",") if part.strip()))
+    if not 1 <= len(ids) <= MAX_DETAIL_BATCH:
+        raise ValueError(f"--detail-ids 須列出 1 到 {MAX_DETAIL_BATCH} 條規則")
+    return ids
+
+
+def build_detail_batch(data: dict, rules: list[dict], detail_ids: list[str]) -> dict:
+    """一次取出多條規則的完整規範；70 條相同的裁決指引只在 shared_guidance 出現一次。
+
+    內容與逐條 --detail-id 等價：每條規則的 *_guidance 只列與 shared_guidance 不同的欄位，
+    pass_condition／manual_boundary／mode 以 decision_guidance 為準。不執行任何安全守門。
+    """
+    checks = data.get("checks")
+    if not isinstance(checks, list):
+        raise ValueError("assessment.json 缺少 checks 陣列")
+    indexed = {c.get("id"): c for c in checks if isinstance(c, dict)}
+    by_id = {r["id"]: r for r in rules}
+    unknown = [rid for rid in detail_ids if rid not in by_id]
+    if unknown:
+        raise ValueError("未知規則 ID：" + ", ".join(unknown))
+    maps = rule_guidance.standard_maps(rules)
+    matrix = load_decision_matrix()
+    shared = rule_guidance.shared_guidance()
+    items = []
+    for rid in detail_ids:
+        rule = by_id[rid]
+        inspection = rule.get("inspection", {})
+        item = {
+            "id": rid,
+            "title": rule["title"],
+            "current_state": ((indexed.get(rid) or {}).get("execution") or {}).get("state", "pending"),
+            "search_targets": inspection.get("search_targets", []),
+            "inspection_hints": inspection.get("legacy_inspection_hints", []),
+            "verification_method": inspection.get("verification_method", ""),
+            "applicable_when": rule.get("applicability", {}).get("must_assess_when", ""),
+            "na_when": rule.get("applicability", {}).get("may_be_not_applicable_when", ""),
+            "decision_guidance": matrix[rid],
+            **rule_guidance.specific_guidance(rid, shared),
+            **{field: mapping[rid] for field, mapping in maps.items()},
+        }
+        item["standard_documents"] = rule_guidance.standard_documents(item)
+        items.append(item)
+    documents = list(dict.fromkeys(doc for item in items for doc in item["standard_documents"]))
+    return {
+        "detail_ids": detail_ids,
+        "validation_deferred": True,
+        "shared_guidance": shared,
+        "rules": items,
+        "standard_documents": documents,
+        "instruction": ("shared_guidance 適用於本批每一條規則；各規則的 control_effectiveness_guidance、"
+                        "decision_adjudication_guidance、adversarial_guidance 只列與共用不同的欄位，"
+                        "pass_condition、manual_boundary、mode 以 decision_guidance 為準。"
+                        "standard_documents 為本批實際有對照內容的標準文件，已讀過的同版文件不必重讀。"
+                        "規範明細不執行安全守門；正式結案請重新執行不帶 --detail-ids 的 review_queue.py，"
+                        "再執行 review_safety.py --validate。"),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="查詢與初始化 70 項審查待辦佇列")
     parser.add_argument("--target", type=Path, default=Path.cwd())
@@ -294,6 +357,8 @@ def main() -> int:
                         help="每批來源檔案路徑數（1～200），不影響審查覆蓋要求")
     parser.add_argument("--compact", action="store_true", help="僅回傳精簡檢核工作清單；詳細規範另查")
     parser.add_argument("--detail-id", help="僅查詢一條規則的詳細提示（包括已完成規則）")
+    parser.add_argument("--detail-ids", metavar="AC-01,AC-02",
+                        help=f"一次查詢最多 {MAX_DETAIL_BATCH} 條規則的詳細提示；共用指引只輸出一次")
     parser.add_argument("--diagnose-first-pass", action="store_true", help="唯讀取得進入第二輪前的完整阻斷與定向補查建議")
     parser.add_argument("--repair-plan", action="store_true", help="唯讀將第一輪阻斷整理為 P0～P3 的逐檔優先補查清單")
     parser.add_argument("--categories", action="append", metavar="AC,AU",
@@ -327,6 +392,9 @@ def main() -> int:
         parser.error("第一輪診斷／修復計畫不可與初始化、分類或其他操作混用")
     if args.compact and args.detail_id:
         parser.error("--compact 與 --detail-id 不可同時指定")
+    if args.detail_ids and (args.detail_id or args.compact or args.init or args.categories
+                            or args.diagnose_first_pass or args.repair_plan):
+        parser.error("--detail-ids 不可與 --detail-id、--compact、--init、分類或診斷操作混用")
     if not 1 <= args.batch_size <= 70:
         parser.error("--batch-size 必須介於 1 到 70")
     if not 1 <= args.source_batch_size <= 200:
@@ -363,6 +431,18 @@ def main() -> int:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 2
         print(json.dumps(diagnostics, ensure_ascii=False, indent=2))
+        return 0
+    if args.detail_ids:
+        try:
+            ids = parse_detail_ids(args.detail_ids)
+            payload = json.loads((out / "assessment.json").read_text(encoding="utf-8"))
+            batch = build_detail_batch(payload, load_rules()[1], ids)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        print(json.dumps(batch, ensure_ascii=False, separators=(",", ":")))
         return 0
     profile: dict[str, float] = {}
     started = time.perf_counter()

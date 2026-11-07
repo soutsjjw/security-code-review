@@ -74,7 +74,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 ## 標準文件按需載入（必須執行）
 
-以下文件保存標準專屬審查限制；原 `standards/*.yaml` 清冊與 `rules.json` 仍是機械化對照及規則主檔，**不以 Markdown 取代**。對每條規則先用 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 取得完整內容，查看對應欄位；**欄位有適用項目時，須在做該規則結論之前讀取對應 Markdown 文件與 YAML 查核方向**，不可只因 `--compact` 沒有顯示細節而省略。
+以下文件保存標準專屬審查限制；原 `standards/*.yaml` 清冊與 `rules.json` 仍是機械化對照及規則主檔，**不以 Markdown 取代**。對每條規則先用 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 取得完整內容（同批多條規則改用 `--detail-ids <ID1,ID2,…>` 一次取得，最多 20 條；`shared_guidance` 只出現一次並適用於整批），查看對應欄位；**欄位有適用項目時，須在做該規則結論之前讀取對應 Markdown 文件與 YAML 查核方向**，不可只因 `--compact` 沒有顯示細節而省略。
 
 | `--detail-id` 標準欄位（非空時） | 必讀文件（相對 `SKILL_ROOT`） |
 | --- | --- |
@@ -92,7 +92,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 
 ## 正式完整模式執行與交付
 
-依序執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`、`review_safety.py --plan`；增量重跑條件見 [完整審查迴圈](docs/full-review-workflow.md)。Agent 依 `--compact` 與 `--detail-id` 逐條讀取真實來源並查證，分批 Stage／Integrate；未完成不能聲稱 Pass。`stalled` 必須停止空跑、保留進度，查明後才續行。第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證，見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
+依序執行 `review_log.py start`、`analysis_prepare.py --mode full`、`review_queue.py --init --compact`、`review_safety.py --plan`；增量重跑條件見 [完整審查迴圈](docs/full-review-workflow.md)。Agent 依 `--compact` 與 `--detail-ids`（整批）或 `--detail-id` 逐條讀取真實來源並查證，分批 Stage／Integrate；未完成不能聲稱 Pass。`stalled` 必須停止空跑、保留進度，查明後才續行。第一輪以 `--diagnose-first-pass`／`--repair-plan` 定向補查，禁止模板補證，見 [逐檔修復](docs/advanced-usage.md#第一輪既有證據修復逐檔證據關聯控制鏈及正式驗證)。
 
 第一輪全部完成後以 `review_safety.py --begin-second-pass` 固定基準，依上述「第二輪不可省略」以 `second_pass_layers.py` 逐批複核並提交矛盾裁決；不能把預算耗盡當作通過。再執行**不帶 `--compact`／`--detail-id`** 的 `review_queue.py`、`review_safety.py --validate`、`complete_review.py` 與嚴格 HTML／JSON 驗證；必須全部返回成功且 `ready_for_report=true` 才能稱為完成。交付來源範圍、真實弱點、最終 HTML／JSON 路徑與限制；不得自動修改受測程式。
 

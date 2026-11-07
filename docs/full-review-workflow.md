@@ -43,7 +43,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_log.py" --t
 - 此步驟唯讀盤點來源，將 Roslyn 產出的 C# 語法結構索引與 SHA256 保存到受測專案 `reports/security-code-review/analysis/structure-index.json`。Roslyn 由已安裝的 .NET SDK 8+ 提供（暫存目錄編譯，不變更受測專案、不自動安裝套件），不存在時降級為來源閱讀。**這只是符號／語法索引，不是 Roslyn 安全掃描或 SAST 結論**。
 - 自動偵測 CodeGraph CLI 與既有 `.codegraph/` 索引；可用時優先以 `codegraph_explore` MCP 或 `codegraph explore` 查詢結構、方法與跨檔案呼叫鏈。失敗、未安裝、未索引或索引過期時使用原有來源讀取／搜尋，不得自行執行 `codegraph init`。CodeGraph 索引**不能取代程式碼、組態、資料流及測試證據**，來源異動後須確認索引新鮮度。
 - 增量模式只重用**未改變的語法結構索引**，不是自動重用 `pass/completed`。當任何已盤點來源新增、修改、刪除時，未取得可驗證的完整跨檔案影響閉包前，保守重新檢核全部來源；保留原有 Findings，但須覆核受影響的既有判斷。
-- 執行佇列優先 `--compact` 以節省回傳 Token；其結果只為未驗證進度預覽，不代表正式完整性守門通過；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
+- 執行佇列優先 `--compact` 以節省回傳 Token；其結果只為未驗證進度預覽，不代表正式完整性守門通過；每處理一條規則須以 `review_queue.py --target "<TARGET_ROOT>" --detail-id <RULE_ID>` 按需取出該條的完整補充規範；同批規則優先以 `--detail-ids <ID1,ID2,…>`（最多 20 條）一次取出，三種裁決指引中 70 條相同的欄位只在 `shared_guidance` 出現一次，可省下重複送入上下文的 Token，不可因精簡佇列而略過適用的標準及步驟。整合同檔案的分析結果供多規則共用，但保留每個檔案的 10 類篩選、每條規則的個別理由與可定位真實證據。
 - 僅在 Codex／Claude 等執行器可取得**實際 Token 數**時，使用 `scripts/token_metrics.py` 記錄 input/output/cached tokens 與工具呼叫數；不可臆測成本數字。在 Claude Code 執行時，審查結束後可用 `scripts/transcript_usage.py --target "<TARGET_ROOT>"` 從 Claude Code 對話紀錄統計每個 session 的實際 Token、各階段分佈、子代理數與 CodeGraph 呼叫數；它只讀紀錄、輸出不含對話內容，並在要求多代理卻沒有子代理紀錄，或 CodeGraph 可用卻從未查詢時發出警告。結構索引、Token 統計與快取**不計入來源覆蓋，不寫入 assessment 的安全結論**。
 
 ## 可選受控多代理分工（僅完整模式）

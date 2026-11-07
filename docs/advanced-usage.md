@@ -67,6 +67,7 @@ Token 優化佇列與來源批次：
 ```bash
 sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --init --batch-size 10 --compact
 sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-id CR-05
+sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --detail-ids AC-01,AC-02,AC-03
 sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/review_queue.py" --target "<TARGET_ROOT>" --compact --source-batch-size 60
 ```
 
@@ -78,7 +79,7 @@ sh "<SKILL_ROOT>/scripts/run-python.sh" "<SKILL_ROOT>/scripts/analysis_candidate
 
 若出現 `AC-04`、`IN-03`、`AU-09` 等候選，必須核對實作、呼叫端和資料流，將所有真正適用的規則建立多對多 `file_reviews[].rule_reviews`／`checks[].execution.inspected_paths` 關聯；不適用時可使用 `candidate_exclusions` 按規則記錄至少 40 字的具體理由。不可讓候選工具自行完成檢核。只有 `using`、註解、方法宣告的來源不算完成證據。缺外部佐證的 `review` 應指定缺少的工件和查核範圍，不得套用部署／政策／動態測試通用清單。
 
-精簡佇列列出待辦、有限的來源候選與未驗證進度；唯在 70/70 狀態下補查既有的規則／逐檔證據錯誤，不進行全量安全守門；逐條檢核前以 `--detail-id` 取得所有標準對照，結案時不帶兩參數重新完整驗證。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
+精簡佇列列出待辦、有限的來源候選與未驗證進度；唯在 70/70 狀態下補查既有的規則／逐檔證據錯誤，不進行全量安全守門；逐條檢核前以 `--detail-id` 取得所有標準對照（整批規則可用 `--detail-ids` 一次取得：每條規則的內容與逐條查詢相同，只是 70 條相同的裁決指引移到 `shared_guidance` 只列一次，`pass_condition`／`manual_boundary`／`mode` 以 `decision_guidance` 為準；最多 20 條，不可與 `--compact`／`--detail-id`／分類操作混用），結案時不帶兩參數重新完整驗證。其餘逐檔 10 類篩選、70 項完成證據、Finding 與原有報告驗證均**不可略過**。
 
 執行器若提供實際 Token 數，可選擇寫入統計：
 

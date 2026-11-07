@@ -24,7 +24,7 @@ def main() -> int:
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
     for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "claim-batch", "fail", "followup", "accept-followup", "accept-followup-stdin", "renew-budget", "accept", "accept-stdin",
-                 "status", "blind-tasks"):
+                 "status", "blind-tasks", "brief"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--task-id")
@@ -110,6 +110,11 @@ def main() -> int:
             answer = accept(root, args.result)
         elif args.status:
             answer = summary(root)
+        elif args.brief:
+            if not args.task_id:
+                raise ValueError("--brief 必須指定 --task-id")
+            from worker_brief import write_brief
+            answer = write_brief(root, args.task_id)
         else:
             answer = blind_tasks(root)
         print(json.dumps(answer, ensure_ascii=False, separators=(",", ":")))
