@@ -40,6 +40,19 @@
 
 原生代理的最大並行數由執行器設定與 `Ledger.workers` **共同限制**；`--agents 3` 不能自行啟用不存在的協作工具或提高工具權限。**此流程是主代理的必執行操作契約，不表示在任何 Codex 版本已經過真實端對端驗收。**
 
+## Claude Code 子代理調度（僅第一輪）
+
+Claude Code 沒有 Codex 的 `spawn_agent`／`followup_task`；主代理改用 **Agent 工具**搭配 Skill 附帶的唯讀子代理定義。只開放**第一輪**分片：Claude Code 的工具白名單能強制唯讀，卻無法限制 `Read` 的路徑，不能保證第二輪 Worker 看不到第一輪結論，因此 `multi_agent_second_pass.py` 會拒絕 Claude Code 的 probe，第二輪由主代理依 `second_pass_layers.py` 執行。
+
+1. **安裝唯讀 Worker 定義（由使用者決定）**：把 `<SKILL_ROOT>/agents/security-review-worker.md` 複製到 `~/.claude/agents/` 或受測專案的 `.claude/agents/`。它的 `tools` 只有 `Read`、`Grep`、`Glob` 與 `mcp__codegraph__codegraph_explore`，沒有 Bash 或寫入工具，唯讀由 Claude Code 的工具白名單強制，不是靠 prompt。Skill 不會自行安裝；未安裝時不得以內建 Explore（含 Bash）或一般子代理代替。
+2. **能力試跑**：以 `multi_agent.py --probe-template --executor claude-code` 取得範本（6 項檢查，不含 `first_pass_result_isolation`）。`executor_version` 必須等於主代理當下實際執行器版本：由 `CLAUDE_CODE_EXECPATH` 取得（例如 `2.1.317 (Claude Code)`），取不到時才用 `claude --version`；PATH 上的 `claude` 可能與桌面 app 內建版本不同。在微型測試專案以同一則訊息平行啟動兩個 `security-review-worker`，確認寫入嘗試因工具不存在而失敗、惡意註解不被遵從、故意失敗能復原；`trace_path` 指向該次試跑的子代理 JSONL 紀錄（`~/.claude/projects/<專案>/<session>/subagents/agent-*.jsonl`）。之後用 `--record-probe` 登記，24 小時期限與續期規則和 Codex 相同。
+3. **派工**：`--plan`、`--next` 與 Codex 相同。Agent 工具啟動時就會送出 prompt，沒有「待命」階段，所以主代理先為每個分片產生唯一的 `agent_instance_id`（例如 `cc-<TASK_ID 前 8 碼>-<序號>`），以 `--claim-batch` 原子綁定，再對每個分片執行 `--brief --task-id <TASK_ID>`。然後在**同一則訊息**平行呼叫 N 個 Agent 工具（`subagent_type: security-review-worker`），prompt 只寫 brief 路徑；`agent_instance_id` 已在 brief 的 `TASK_JSON` 內。主代理不讀 brief 內容。
+4. **回收**：Agent 工具的結果會附上子代理的 agentId。以 `multi_agent.py --accept-transcript --transcript <…/subagents/agent-<agentId>.jsonl>` 直接從子代理紀錄取出最後一則訊息驗收，**不要把 Worker JSON 重新貼到命令或 heredoc**，以免整份 JSON 再輸出一次。紀錄格式不符時會明確報錯，才改用 `--accept-stdin`。
+5. **協調者保持精簡**：主代理不整份閱讀已分派的原始碼。整合時只讀 Finding、控制鏈與排除理由所引用的行號區間（約前後 20 行），並核對 `line_hash` 與來源 SHA256；區間不足以裁決時，以 `--followup` 派新的 Worker 深入追查，而不是自己讀整個檔案。正式 Stage／Integrate、裁決與第二輪仍只由主代理執行。
+6. **事後確認**：審查結束後執行 `transcript_usage.py --target "<TARGET_ROOT>"`。要求多代理卻沒有任何子代理紀錄時會出現 `multi_agent_without_subagents` 警告，表示這次其實是在單一上下文完成。
+
+**沒有子代理能力時**（未安裝 Worker 定義、試跑未通過，或執行器不是 Codex／Claude Code）：不得在同一個上下文中扮演多個 Worker。記錄原因並告知使用者；若要降低單一上下文的負擔，建議改用 `--categories` 把審查拆成多個獨立 session（例如 `AC,AU`、`IN,CR`、`EH,LG`、`DP,PD`、`BC,SI`），每個 session 的上下文自然較小。
+
 ## Worker 證據契約與信任邊界
 
 檔案：`schemas/multi-agent-worker-result.schema.json` 與 `scripts/lib/multi_agent_contract.py`。

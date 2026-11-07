@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -13,6 +14,12 @@ from review_core import REPORT_ROOT, sha256_bytes as sha
 CHECKS = ("parallel_dispatch", "independent_context", "single_layer",
           "enforced_read_only", "structured_result", "failure_recovery",
           "first_pass_result_isolation")
+# Claude Code 的工具白名單能強制唯讀，卻無法限制 Read 的路徑，因此不能保證第二輪
+# Worker 看不到第一輪結論；Claude Code 只核可第一輪分片，第二輪由主代理執行。
+EXECUTORS = ("codex", "claude-code")
+REQUIRED_CHECKS = {"codex": CHECKS,
+                   "claude-code": tuple(c for c in CHECKS if c != "first_pass_result_isolation")}
+_CLAUDE_EXECPATH_VERSION = re.compile(r"[\\/]claude-code[\\/](\d+\.\d+\.\d+)[\\/]")
 
 REPORT = REPORT_ROOT
 PROBE_TTL_SECONDS = 24 * 3600
@@ -42,24 +49,61 @@ def exclusive_ledger(function):
     return guarded
 
 
-def runtime_binding() -> str | None:
-    # A host without a verifiable Codex executable must use the single-agent path.
+def runtime_binding(executor: str = "codex") -> str | None:
+    """回傳目前實際執行器的版本識別；無法核實時回傳 None，主代理須走單代理流程。"""
+    if executor == "claude-code":
+        # 只在 Claude Code 程序內（含其啟動的子程序）才可核可；優先取實際執行檔版本，
+        # 因為 PATH 上的 claude CLI 可能與桌面 app 內建的執行器版本不同。
+        if os.environ.get("CLAUDECODE") != "1":
+            return None
+        match = _CLAUDE_EXECPATH_VERSION.search(os.environ.get("CLAUDE_CODE_EXECPATH", ""))
+        if match:
+            return f"{match.group(1)} (Claude Code)"
+        command = ["claude", "--version"]
+    elif executor == "codex":
+        command = ["codex", "--version"]
+    else:
+        return None
     try:
-        run = subprocess.run(["codex", "--version"], capture_output=True,
-                             text=True, timeout=8, check=False)
+        run = subprocess.run(command, capture_output=True, text=True, timeout=8, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return run.stdout.strip() if run.returncode == 0 and run.stdout.strip() else None
 
+
+def probe_executor(probe: dict) -> str:
+    """舊版 probe 沒有 executor 欄位，一律視為 Codex。"""
+    executor = probe.get("executor", "codex") if isinstance(probe, dict) else "codex"
+    return executor if executor in EXECUTORS else "unknown"
+
+
+def probe_version(probe: dict) -> str | None:
+    key = "codex_version" if probe_executor(probe) == "codex" else "executor_version"
+    value = probe.get(key) if isinstance(probe, dict) else None
+    return value if isinstance(value, str) else None
+
+
+def second_pass_executor_errors(probe: dict) -> list[str]:
+    """第二輪 Worker 必須能強制隔離第一輪結果；目前只有 Codex 的工作目錄隔離符合。"""
+    if probe_executor(probe) != "codex":
+        return ["此執行器無法強制隔離第一輪結果；第二輪由主代理依 second_pass_layers.py 執行"]
+    return []
+
+
 def probe_errors(root: Path, probe: dict, *, required: bool = True) -> list[str]:
     errors = []
     if not isinstance(probe, dict) or probe.get("verified") is not True:
-        return ["沒有已核實的 Codex 唯讀能力試跑"] if required else []
-    if any(probe.get("checks", {}).get(k) is not True for k in CHECKS):
+        return ["沒有已核實的唯讀能力試跑"] if required else []
+    executor = probe_executor(probe)
+    if executor not in REQUIRED_CHECKS:
+        return ["能力試跑的執行器不受支援"]
+    checks = probe.get("checks")
+    if (not isinstance(checks, dict) or set(checks) != set(REQUIRED_CHECKS[executor])
+            or any(checks.get(k) is not True for k in REQUIRED_CHECKS[executor])):
         errors.append("能力試跑條件不完整")
-    observed = runtime_binding()
-    if not observed or observed != probe.get("codex_version"):
-        errors.append("Codex 執行器版本不符或無法核實")
+    observed = runtime_binding(executor)
+    if not observed or observed != probe_version(probe):
+        errors.append("執行器版本不符或無法核實")
     issued = probe.get("verified_at")
     if type(issued) not in (float, int) or time.time() - issued > PROBE_TTL_SECONDS or issued > time.time() + 30:
         errors.append("能力試跑已過期或時間無效")

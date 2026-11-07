@@ -113,6 +113,52 @@ def accept_stdin(root: Path, raw: str) -> dict:
     return _accept_payload(root, json.loads(raw))
 
 
+TRANSCRIPT_LIMIT = 50_000_000
+_FENCE = re.compile(r"^\s*```(?:json)?\s*\n(.*?)\n\s*```\s*$", re.S)
+
+
+def transcript_final_text(path: Path) -> str:
+    """取出 Claude Code 子代理紀錄中最後一則 assistant 訊息的文字；格式不符即拒絕。"""
+    projects = (Path.home() / ".claude" / "projects").resolve()
+    if path.is_symlink() or not path.is_file() or path.suffix != ".jsonl":
+        raise ValueError("子代理紀錄必須是實際存在的 .jsonl 檔案")
+    resolved = path.resolve()
+    if projects not in resolved.parents or resolved.parent.name != "subagents":
+        raise ValueError("只接受 ~/.claude/projects/**/subagents/ 底下的子代理紀錄")
+    if resolved.stat().st_size > TRANSCRIPT_LIMIT:
+        raise ValueError("子代理紀錄超出大小限制")
+    final: dict[str, list[str]] = {}
+    order: list[str] = []
+    with resolved.open(encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            message = row.get("message") if isinstance(row, dict) else None
+            if row.get("type") != "assistant" or not isinstance(message, dict):
+                continue
+            texts = [b.get("text", "") for b in message.get("content") or []
+                     if isinstance(b, dict) and b.get("type") == "text"]
+            if not any(t.strip() for t in texts):
+                continue
+            key = message.get("id") or str(len(order))
+            if key not in final:
+                order.append(key)
+                final[key] = []
+            final[key].extend(texts)
+    if not order:
+        raise ValueError("子代理紀錄沒有可驗收的最終文字訊息；請改用 --accept-stdin")
+    text = "".join(final[order[-1]]).strip()
+    fenced = _FENCE.match(text)
+    return fenced.group(1) if fenced else text
+
+
+def accept_transcript(root: Path, path: Path) -> dict:
+    """主代理不必重新輸出 Worker JSON：直接從子代理紀錄取出後走與 --accept-stdin 相同的驗收。"""
+    return accept_stdin(root, transcript_final_text(path))
+
+
 def _accept_payload(root: Path, result: dict) -> dict:
     state, snap = ml.active_plan(root)
     if not isinstance(result, dict):

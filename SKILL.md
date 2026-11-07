@@ -10,7 +10,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 ## 一句話使用
 
 - Codex：`$security-code-review`（完整 70 項、預設單代理）、`$security-code-review --multi-agent --agents 3`（完整模式選用主代理自動調度最多 3 個唯讀子代理）、`$security-code-review --categories AC`（僅 AC 8 項）、`$security-code-review --categories AC,AU`（分別審查 AC 8 與 AU 10 項）。可附加受測專案路徑。
-- Claude Code：`/security-code-review`；指定分類時明確輸入 `--categories AC,AU`。
+- Claude Code：`/security-code-review`；指定分類時明確輸入 `--categories AC,AU`。`--multi-agent --agents N` 在 Claude Code 只開放第一輪，須先安裝 `agents/security-review-worker.md` 並完成試跑，見 [Claude Code 子代理調度](docs/multi-agent-review.md#claude-code-子代理調度僅第一輪)；沒有子代理能力時不得在同一上下文模擬 Worker，改建議以 `--categories` 拆成多個 session。
 - **模式互斥**：只有明確提供 `--categories` 才進入分類審查流程；沒有此參數一律沿用原正式完整流程。完整模式另可明確指定 `--multi-agent [--agents N]`（Skill 參數，非 `review_queue.py` 參數）啟用**受控唯讀分工**：主代理**自動呼叫原生工具**建立、派工及回收，依 [原生調度契約](docs/multi-agent-review.md#原生-codex-子代理自動調度完整模式) 先試跑、驗證唯讀及身分；能力不足即記錄原因並降級單代理，不得虛構 ID／trace。分類模式不得同時使用；未明確指定時維持單代理。
 - 使用者**不需要**自行執行 Python 指令；Agent 負責呼叫必要的工具。
 

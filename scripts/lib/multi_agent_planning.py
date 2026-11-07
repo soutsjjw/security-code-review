@@ -8,24 +8,33 @@ import time
 from pathlib import Path
 
 from multi_agent_contract import SECRET, VERSION, digest
-from multi_agent_guard import CHECKS, exclusive_ledger, probe_errors, protected_report_digest, runtime_binding, sha
+from multi_agent_guard import (EXECUTORS, REQUIRED_CHECKS, exclusive_ledger, probe_errors,
+                               protected_report_digest, runtime_binding, sha)
 from evidence_integrity import MANIFEST
 import multi_agent_ledger as ml
 from review_core import load_json_object
 
 
-def probe_template() -> dict:
-    return {"schema_version": VERSION, "codex_version": "",
-            "execution_id": "", "checks": {key: False for key in CHECKS},
+def probe_template(executor: str = "codex") -> dict:
+    if executor not in EXECUTORS:
+        raise ValueError("不支援的執行器：" + str(executor))
+    head = ({"codex_version": ""} if executor == "codex"
+            else {"executor": executor, "executor_version": ""})
+    return {"schema_version": VERSION, **head,
+            "execution_id": "", "checks": {key: False for key in REQUIRED_CHECKS[executor]},
             "evidence_note": "必須填寫實際執行的獨立子代理試跑觀察，不得只以文件推定", "trace_path": ""}
 
 
 def record_probe(root: Path, submitted: dict) -> dict:
     checks = submitted.get("checks")
+    executor = submitted.get("executor", "codex")
+    if executor not in EXECUTORS:
+        raise ValueError("不支援的執行器：" + str(executor))
+    version_key = "codex_version" if executor == "codex" else "executor_version"
     if (submitted.get("schema_version") != VERSION
-            or not isinstance(checks, dict) or set(checks) != set(CHECKS)
+            or not isinstance(checks, dict) or set(checks) != set(REQUIRED_CHECKS[executor])
             or any(type(x) is not bool for x in checks.values())
-            or not isinstance(submitted.get("codex_version"), str)
+            or not isinstance(submitted.get(version_key), str)
             or not isinstance(submitted.get("execution_id"), str)
             or len(submitted["execution_id"].strip()) < 4
             or not isinstance(submitted.get("evidence_note"), str)
@@ -33,13 +42,13 @@ def record_probe(root: Path, submitted: dict) -> dict:
         raise ValueError("P0 試跑紀錄缺少實測資訊")
     # A declaration is not proof: the main agent must retain the independent
     # experiment outputs for review; this gate only refuses missing/failed checks.
-    if all(checks.values()) and not submitted["codex_version"].strip():
-        raise ValueError("全數核可的 P0 試跑必須填入實際 Codex 版本")
+    if all(checks.values()) and not submitted[version_key].strip():
+        raise ValueError("全數核可的 P0 試跑必須填入實際執行器版本")
     trace = submitted.get("trace_path")
-    current_runtime = runtime_binding()
+    current_runtime = runtime_binding(executor)
     if all(checks.values()) and (
-            not current_runtime or submitted["codex_version"] != current_runtime):
-        raise ValueError("Codex 實際執行器版本無法核實或與 probe 不符")
+            not current_runtime or submitted[version_key] != current_runtime):
+        raise ValueError("實際執行器版本無法核實或與 probe 不符")
     try:
         trace_file = Path(trace).resolve(strict=True) if isinstance(trace, str) else None
         if (not trace_file or not trace_file.is_file() or trace_file.is_symlink()
@@ -50,8 +59,10 @@ def record_probe(root: Path, submitted: dict) -> dict:
         if all(checks.values()):
             raise ValueError("已核可試跑必須保留實際執行器 trace")
         trace_file, trace_sha = None, None
-    safe = {key: submitted[key] for key in ("schema_version", "codex_version",
+    safe = {key: submitted[key] for key in ("schema_version", version_key,
                                             "execution_id", "checks", "evidence_note")}
+    if executor != "codex":
+        safe["executor"] = executor
     safe.update(trace_path=str(trace_file) if trace_sha else None,
                 trace_sha256=trace_sha, verified_at=time.time())
     raw = json.dumps(safe, ensure_ascii=False)

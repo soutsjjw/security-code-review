@@ -14,7 +14,7 @@ from pathlib import Path
 
 from multi_agent_ledger import ANALYSIS, LEDGER, PROBE, write_ledger_json, source_snapshot, ledger_fingerprint, git_state
 from multi_agent_contract import VERSION, SECRET, digest
-from multi_agent_guard import (probe_errors, protected_report_digest,
+from multi_agent_guard import (probe_errors, protected_report_digest, second_pass_executor_errors,
                                challenges_for, proof_line_hash, exclusive_ledger)
 from review_core import load_json_object
 
@@ -46,6 +46,9 @@ def plan(root: Path, *, advance: bool = False) -> dict:
     probe = load_json_object(root / PROBE)
     if probe_errors(root, probe) or first.get("probe_digest") != digest(probe):
         raise ValueError("第二輪不得沿用失效的 Codex 唯讀 probe")
+    executor_errors = second_pass_executor_errors(probe)
+    if executor_errors:
+        raise ValueError("；".join(executor_errors))
     if first.get("snapshot_fingerprint") != ledger_fingerprint(snap):
         raise ValueError("第一輪及第二輪來源快照不符")
     if any(x.get("status") != "completed" for x in first["tasks"].values()):
@@ -140,6 +143,7 @@ def _active(root: Path) -> tuple[dict, dict]:
     if (state["snapshot_fingerprint"] != ledger_fingerprint(snap)
             or state["probe_digest"] != digest(probe)
             or probe_errors(root, probe)
+            or second_pass_executor_errors(probe)
             or state["git_state"] != git_state(root)
             or first.get("integration") is not None
             or (recorded != observed and not authorized_update)):
