@@ -24,7 +24,7 @@ def main() -> int:
     parser.add_argument("--target", type=Path, default=Path.cwd())
     mode = parser.add_mutually_exclusive_group(required=True)
     for name in ("probe-template", "record-probe", "renew-probe", "plan", "begin-integration", "commit-integration", "resolve-main", "next", "claim", "claim-batch", "fail", "followup", "accept-followup", "accept-followup-stdin", "renew-budget", "accept", "accept-stdin",
-                 "status", "blind-tasks", "brief", "accept-transcript"):
+                 "status", "blind-tasks", "brief", "accept-transcript", "rule-summary"):
         mode.add_argument("--" + name, action="store_true")
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--task-id")
@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument("--result", type=Path)
     parser.add_argument("--executor", choices=("codex", "claude-code"), default="codex",
                         help="--probe-template 的執行器；Claude Code 只核可第一輪 Worker")
+    parser.add_argument("--rule-ids", help="--rule-summary 只彙整這些規則（逗號分隔）")
     parser.add_argument("--transcript", type=Path,
                         help="--accept-transcript 使用的 Claude Code 子代理 JSONL 紀錄")
     parser.add_argument("--max-agents", type=int, default=3)
@@ -114,6 +115,10 @@ def main() -> int:
             answer = accept(root, args.result)
         elif args.status:
             answer = summary(root)
+        elif args.rule_summary:
+            from multi_agent_workers import rule_evidence_summary
+            ids = [x.strip().upper() for x in (args.rule_ids or "").split(",") if x.strip()]
+            answer = rule_evidence_summary(root, ids or None)
         elif args.accept_transcript:
             if args.transcript is None:
                 raise ValueError("--accept-transcript 必須指定 --transcript")

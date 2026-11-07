@@ -171,7 +171,8 @@ def probe_codegraph(root: Path) -> dict:
         return {"available": False, "reason": "受測根目錄尚未建立 .codegraph 索引"}
     try:
         status = subprocess.run([executable, "status", str(root)], capture_output=True,
-                                text=True, timeout=12, check=False, cwd=root)
+                                text=True, encoding="utf-8", errors="replace",
+                                timeout=12, check=False, cwd=root)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"available": False, "reason": f"CodeGraph 狀態檢查失敗：{type(exc).__name__}"}
     if status.returncode != 0:
