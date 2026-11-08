@@ -57,7 +57,7 @@ argument-hint: "[專案路徑] [--categories AC,AU]"
 - 已確認缺陷建立 `Finding`、關聯 `fail`，並**繼續**其他規則；不修改受測程式、不要求先修補。不能為通過驗證造假工件、補寫模板、消除已確認 Finding 或把 `pass`／`na` 當預設結果。
 - 只有已完成必要靜態查核且**真正有會改變結論的外部工件缺口**才可標 `completed+review`；查核尚未完成保持 `pending/blocked`。通過 Schema 或報告工具不等於真實安全控制有效。
 - 只有主代理可正式 Stage/Integrate、修改 assessment／Manifest／Journal 與裁決。`--multi-agent` 須通過強制唯讀試跑，按 [原生調度契約](docs/multi-agent-review.md) 建立 Agent、claim、派工、驗證及主代理整合；第二輪仍須反向複核。**Prompt 禁寫不等於唯讀隔離**；無法隔離須降級單代理。**非 Git 專案不得直接降級**；仍須核對來源 SHA256、原生唯讀能力並明示 Git Revision 不可得。
-- **第二輪不可省略**：第一輪 70 項、100% 來源與跨檔／控制證據完成後固定 baseline。完整模式採**分層反向複核**：70 項逐條針對性重讀證據並提出反例、抽查未引用的高風險來源及調和矛盾；不得對整個來源樹進行無目的第二次全掃。批次由 `second_pass_layers.py --target "<TARGET_ROOT>"` 唯讀產生；有界延伸追查不得跳過必要來源，資源上限時保存進度並續跑，未完成不得交付。分類模式沿用各分類第二輪守門。
+- **第二輪不可省略**：第一輪 70 項、100% 來源與跨檔／控制證據完成後固定 baseline。完整模式採**分層反向複核**：70 項逐條針對性重讀證據並提出反例、抽查未引用的高風險來源及調和矛盾；不得對整個來源樹進行無目的第二次全掃。批次由 `second_pass_layers.py --target "<TARGET_ROOT>"` 唯讀產生；有界延伸追查不得跳過必要來源，資源上限時保存進度並續跑，未完成不得交付。分類模式沿用各分類第二輪守門。第二輪紀錄是**防禦面驗證**：只寫威脅主體身分／入口、被破壞的安全性質與重讀的控制分支，不寫逐步利用流程或 Payload，Fail 項質疑是否有漏看的補償控制並以 F-編號引用影響；每批寫完即整合，輸出被中斷時改寫該批續跑（見[撰寫界線](docs/adversarial-second-pass.md#撰寫界線防禦面驗證紀錄)）。
 - **外部控制不得假造本地證據**：只有查得正式外部責任工件或真正的責任交接程式碼／設定，才可依 [外部責任判定契約](docs/review-decision-adjudication.md#可查證的外部控制責任適用全-70-項) 記錄 `external_responsibility_pending`；已證實外部控制生效才可使用 `external_verified` Pass。缺少檔案、Scan 或外部工件本身不構成 Pass／Review。
 - 環境僅支援 .NET Core／現代 .NET（含 net10.0）；遇 .NET Framework、Vue／混合專案或未能可靠解析 TFM，須明確阻擋，不得縮小來源範圍假裝完成。匯入／條件式 MSBuild 屬性須用實際 `dotnet msbuild -getProperty` 評估；不得修改受測專案以迎合分析器。
 

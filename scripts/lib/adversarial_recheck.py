@@ -15,6 +15,21 @@ from second_pass_layers import build_plan, layered_errors, RESERVED
 
 CONTRACT_VERSION = 1
 
+# 第二輪紀錄是防禦面驗證紀錄，不是利用說明；大量逐條撰寫利用步驟會被模型的安全機制中斷。
+WRITING_BOUNDARY = (
+    "以防禦面驗證撰寫：attacker_precondition 只寫威脅主體具備的身分／權限／可達入口，"
+    "expected_violation 只寫會被破壞的安全性質（機密性、完整性、授權邊界等）與受影響資源；"
+    "不寫逐步利用流程、請求內容、Payload、繞過技巧、工具指令或串接手法。"
+    "inspection_steps／observed_behavior 描述重讀的控制分支、拒絕條件與實際程式行為。"
+    "已有 Finding 的影響以 F-編號引用，不在第二輪重述利用方式")
+STATUS_FOCUS = {
+    "pass": "質疑控制是否有替代入口、例外分支或組態覆寫未經過；找到即修訂為 fail",
+    "fail": "質疑弱點是否其實被第一輪漏看的補償控制、前置檢查或部署邊界阻斷；"
+            "反例結果維持 confirmed_vulnerability 時引用既有 Finding 證據，不展開利用細節",
+    "review": "質疑外部缺口是否其實能由程式碼或設定判定；維持時引用既有 external_gap",
+    "na": "質疑不適用範圍是否漏列實際存在的功能、入口或設定",
+}
+
 
 def guidance(rule_id: str) -> dict[str, Any]:
     matrix = load_decision_matrix()
@@ -35,6 +50,8 @@ def guidance(rule_id: str) -> dict[str, Any]:
         "method": "依固定錨點針對性重讀、對抗性尋找反例，另依分層計畫獨立抽樣；不全面重掃",
         "evidence_contract": "第一輪固定摘要、反例來源、修訂後結論、矛盾裁決與未結問題",
         "cannot_skip": "任何已完成規則，包括 pass/fail/review/na，均需第二輪複核",
+        "writing_boundary": WRITING_BOUNDARY,
+        "status_focus": STATUS_FOCUS,
     }
 
 

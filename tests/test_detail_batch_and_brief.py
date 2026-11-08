@@ -43,6 +43,17 @@ class SharedGuidanceTests(unittest.TestCase):
             self.assertNotIn("manual_boundary", specific[field])
 
 
+    def test_second_pass_writing_boundary_is_shared_once(self):
+        everything = rule_guidance.shared_guidance()
+        shared = everything["adversarial_guidance"]
+        self.assertIn("不寫逐步利用流程", shared["writing_boundary"])
+        self.assertEqual(set(shared["status_focus"]), {"pass", "fail", "review", "na"})
+        self.assertIn("補償控制", shared["status_focus"]["fail"])
+        for rid in IDS:
+            specific = rule_guidance.specific_guidance(rid, everything)
+            self.assertNotIn("writing_boundary", specific["adversarial_guidance"])
+
+
 class DetailBatchTests(unittest.TestCase):
     def test_parse_detail_ids_dedupes_and_limits(self):
         self.assertEqual(parse_detail_ids("ac-01, AC-02,AC-01"), ["AC-01", "AC-02"])

@@ -2,6 +2,27 @@
 
 此程序要求**單一主代理負責兩個分離階段及最終裁決**：先完成 70 項規則與 100% 來源查核，再重新閱讀程式碼，以攻擊者視角挑戰先前結論。預設同一代理可能有共同偏誤；僅在已完成 [受控多代理 受控多代理](multi-agent-review.md) 的能力試跑後，可另讓唯讀子代理在不知道第一輪結論的情況下提出反例，但仍不能稱為獨立稽核或替代主代理重讀。
 
+## 撰寫界線：防禦面驗證紀錄
+
+第二輪的目的是**檢驗第一輪結論能否被推翻**，不是撰寫攻擊手冊。驗證器只檢查欄位具體、彼此可區分且證據可定位，不需要利用細節。逐條替數十項已確認弱點寫出攻擊者如何利用，會被模型的安全機制判定為攻擊內容而中斷整個工作階段，所以一律依下列界線撰寫（`--detail-id` 的 `adversarial_guidance.writing_boundary`／`status_focus` 提供同一規則）：
+
+- `attacker_perspective`、`attacker_precondition`：只寫威脅主體的**身分、權限與可達入口**，例如「已登入的 Administrator 角色使用者可呼叫角色編輯命令」。
+- `expected_violation`：只寫**會被破壞的安全性質與受影響資源**，例如「SystemAdmin 角色的權限完整性與授權邊界」。
+- `attempt`、`inspection_steps`、`observed_behavior`：寫重讀了哪個入口、控制分支、拒絕條件，以及程式實際行為。
+- **不寫**：逐步利用流程、請求或 Payload 內容、繞過技巧、工具指令、串接多個弱點的操作順序。
+- 已有 Finding 的影響以 `F-編號` 引用即可，不在第二輪重述。
+
+依第一輪狀態決定質疑方向：
+
+| 第一輪狀態 | 第二輪要質疑的事 |
+|---|---|
+| `pass` | 控制是否有替代入口、例外分支或組態覆寫未經過；找到即修訂為 `fail`＋Finding |
+| `fail` | 弱點是否其實被第一輪漏看的補償控制、前置檢查或部署邊界阻斷；維持時 `result=confirmed_vulnerability` 並引用既有 Finding 證據 |
+| `review` | 外部缺口是否其實能由程式碼或設定判定；維持時引用既有 `external_gap` |
+| `na` | 不適用範圍是否漏列實際存在的功能、入口或設定 |
+
+**分批與中斷續行**：依 `second_pass_layers.py` 的批次（每批最多 8 項）直接撰寫 `review_safety.py --stage` JSON，每批寫完就 `--integrate`，不要先用腳本一次產生 70 項。若某批輸出被中斷，該批改用上述界線**重新撰寫**後續跑；不可跳過該批，也不可宣稱第二輪完成。
+
 ## 執行順序與完成條件
 
 1. 第一輪照既有 SKILL 流程，逐項完成 70 項規則、逐檔 10 類評估、跨檔關聯與控制責任結案、控制有效性查核、review 外部證據裁決，以及 Finding／來源快照確認。**不得先填第二輪紀錄再補做第一輪**。
@@ -29,7 +50,7 @@
       "final_status": "pass",
       "snapshot_fingerprint": "<first-pass-baseline.json 的 snapshot_fingerprint>",
       "outcome": "confirmed",
-      "attacker_perspective": "說明若攻擊者改變物件 ID、身分主體或直接呼叫服務會如何試圖繞過",
+      "attacker_perspective": "說明威脅主體的身分、權限與可達入口，例如可指定物件 ID 的一般登入使用者",
       "search_summary": "說明本次重新閱讀的入口、服務分派、查詢分支與實際檢查方法",
       "hypotheses": [
         {
@@ -62,7 +83,7 @@
 以下均屬現有 `adversarial_reviews[rule_id]` 工作中證據的新增欄位，**不修改正式 assessment Schema**：
 
 - **舊版 Baseline 相容模式**的 `reassessment.first_pass_claim`：須逐字對應不可變第一輪判定理由；新分層模式改用 `blind_challenge` 事實主張先行，正式裁決仍須與不可變 Baseline 對帳。`challenge_question` 指出可能推翻判定的具體條件；`reinspection_summary` 記錄再次查閱的入口、分支、DI／設定；`conclusion_basis` 說明為何維持或修訂；`verification_evidence` 必須能重新定位至已查核來源或真正外部工件。
-- 每個 `hypotheses[]` 除原有攻擊面、追查方法、結果及來源外，新增 `vector`、`attacker_precondition`、`expected_violation`、`inspection_steps`、`observed_behavior`、`inspection_evidence`。分別回答**攻擊者需具備什麼、試圖破壞什麼、實際重讀哪一個分支、查核後看到什麼**。僅更換規則編號或序號、重複同一攻擊敘述，不算不同反例。
+- 每個 `hypotheses[]` 除原有攻擊面、追查方法、結果及來源外，新增 `vector`、`attacker_precondition`、`expected_violation`、`inspection_steps`、`observed_behavior`、`inspection_evidence`。分別回答**威脅主體需具備什麼、會破壞哪個安全性質、實際重讀哪一個分支、查核後看到什麼**（撰寫界線見上方「撰寫界線」）。僅更換規則編號或序號、重複同一攻擊敘述，不算不同反例。
 - `vector` 應選具體攻擊類別，包括 `alternate_entry`、`authorization_bypass`、`identity_substitution`、`expired_or_reused_credential`、`configuration_override`、`direct_storage_access`、`untrusted_input`、`output_encoding`、`state_change`、`exception_path`、`dependency_injection`、`third_party_boundary`、`operational_override`、`scope_challenge`；`other_specific` 需另附 `vector_explanation`。高風險規則（`rules.json` 中 `inspection.review_tier=high`，`--detail-id` 的 `adversarial_guidance.required_hypotheses=2`）仍需至少兩個**不同 vector**。
 - `evidence` 指向攻擊入口或缺失，`inspection_evidence` 指向重新閱讀的控制或拒絕分支。若兩者恰好同一來源行，提供 `same_line_explanation`（具體說明同一行如何承擔兩種責任）；若兩個高風險反例都用完全相同證據組，補 `shared_evidence_justification` 說明不同攻擊如何匯入共同控制。
 - 不同規則如共用相同攻擊前提、預期破壞、查核結果或同一來源行，驗證器會偵測模板化紀錄。真正存在共享安全控制時，需逐規則說明控制關聯，例如 `cross_rule_proof_justification`；不可用「已檢查各項安全機制」之類制式理由。
@@ -84,11 +105,11 @@
   "hypotheses": [{
     "attack_surface": "direct_order_lookup",
     "vector": "direct_storage_access",
-    "attacker_precondition": "描述能指定他人訂單識別值並繞過正常 UI 呼叫的前提",
-    "expected_violation": "描述若未檢查主體擁有者資訊將如何取得他人訂單",
+    "attacker_precondition": "描述威脅主體的身分與可達入口，例如可直接呼叫查詢 API 的一般登入使用者",
+    "expected_violation": "描述會被破壞的安全性質與資源，例如他人訂單資料的機密性",
     "inspection_steps": "描述重新閱讀的直接查詢、授權分支和 Repository 呼叫",
     "observed_behavior": "描述真實程式碼中有無擁有者驗證及會執行的查詢條件",
-    "attempt": "描述此入口的反例重現方式",
+    "attempt": "描述重讀此入口時檢查的授權條件與查詢分支",
     "result": "blocked",
     "evidence": {
       "kind": "source", "path": "<真實入口檔案>", "line_start": 20, "line_end": 20
