@@ -40,7 +40,7 @@
 
 - 檔案批次或規則批次交給全新 context 的子代理處理，子代理只回傳結構化結果（verdict、行號、hash）。協調者不讀整份原始碼，也不讀完整 guidance。
 - 協調者複核 finding 或排除理由時，只讀被引用的行號區間（約前後 20 行）並驗證 hash；不足以判斷時，再派新的 worker 深入檢查。
-- `local` 規則依檔案批次派發；`cross_file`／`project` 規則每條（或同類小組）一個專屬 worker，沿呼叫鏈讀檔。
+- ~~`local` 規則依檔案批次派發；`cross_file`／`project` 規則每條（或同類小組）一個專屬 worker，沿呼叫鏈讀檔。~~ **修訂（2026-11-08）**：70 項中只有 1 項是 `local`（`cross_file` 38、`project` 31），規則專屬 worker 會讓同一批檔案被逐檔覆蓋與呼叫鏈追查各讀一次，且需要新的結果合約。改為：worker 一律以檔案分片為單位；跨檔沿用 `unresolved_symbols` → `--followup`，補查 brief 附預查呼叫鏈；`project` 規則由協調者以 `--rule-summary` 彙整各 worker 的逐檔 `rule_states` 後裁決。若量測顯示協調者彙整成本過高，再評估依分類分組的 `project` 規則 worker。
 - 派發前由腳本對相關進入點執行 `codegraph explore`，結果附進 worker brief（上限約 8K 字元）；索引不存在或過期時改用 Roslyn 的 `cross_file_call_hints`。Roslyn 仍是 C# 跨檔呼叫點結案 gate 的正式依據；CodeGraph 只負責導航，不列入 gate，也不作為證據。
 - Worker 不讀 `SKILL.md` 與完整文件。由腳本為每個批次產生精簡 brief（目標 15K 字元以內）：適用規則的精簡 guidance（共用部分只送一次）、結果 schema、輸出格式。完整標準文件只在判斷不確定時按需讀取。`--detail-id` 改為可一次查詢整批規則。
 - Worker 先沿用與協調者相同的模型；降級為較便宜模型列為之後的獨立實驗。
@@ -61,7 +61,7 @@
 1. 量測腳本與 baseline（本 ADR 同批交付）
 2. 精簡 worker brief、共用 guidance 只送一次、`--detail-id` 批次查詢
 3. 子代理派發與協調者瘦身（含 Claude Code 的 Agent 工具派工指引）
-4. 依 `review_scope` 分流派發與 CodeGraph 預查
+4. 呼叫鏈預查（CodeGraph／Roslyn）、補查 brief、`--rule-summary`；並修正 Claude Code worker 無法計算行雜湊的問題（驗收端由行原文換算）
 5. 預設模式切換與快篩模式
 6. 輸出優化與模型降級實驗
 

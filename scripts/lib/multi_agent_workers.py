@@ -6,9 +6,11 @@ import json
 import re
 import time
 from pathlib import Path
+from typing import Any
 
 from multi_agent_contract import SECRET, digest, validate_worker_result, finding_key
-from multi_agent_guard import challenges_for, exclusive_ledger, proof_line_hash
+from multi_agent_guard import challenges_for, exclusive_ledger, probe_executor, proof_line_hash, sha
+from source_reader import read_source_text
 from evidence_integrity import MANIFEST
 import multi_agent_ledger as ml
 from review_core import load_json_object
@@ -154,9 +156,93 @@ def transcript_final_text(path: Path) -> str:
     return fenced.group(1) if fenced else text
 
 
+SENSITIVE_LINE = "SENSITIVE_LINE"
+LINE_TEXT_MISMATCH = "line_text_mismatch"
+_HEX64 = re.compile(r"^[a-f0-9]{64}$")
+
+
+def _quoted_line_hash(root: Path, path: Any, line: Any, value: Any) -> Any:
+    """Claude Code Worker 沒有可計算 SHA256 的工具，改填該行原文；在此比對後換算為雜湊。
+
+    原文須與實際來源行（去除前後空白）完全一致；若該行本身含憑證等機敏內容，Worker 填
+    SENSITIVE_LINE，只有腳本確認該行確實符合機敏樣式時才採信。比對失敗時換成無效值，
+    讓既有驗證拒絕；Worker 引用的原文不會落地保存。
+    """
+    if not isinstance(value, str) or _HEX64.match(value):
+        return value
+    if not isinstance(path, str) or type(line) is not int or line < 1:
+        return LINE_TEXT_MISMATCH
+    base = root.resolve()
+    source = (base / path).resolve()
+    if not source.is_relative_to(base) or not source.is_file() or source.is_symlink():
+        return LINE_TEXT_MISMATCH
+    try:
+        lines = read_source_text(source)[0].splitlines()
+    except (OSError, UnicodeError):
+        return LINE_TEXT_MISMATCH
+    if line > len(lines):
+        return LINE_TEXT_MISMATCH
+    actual = lines[line - 1]
+    if value == SENSITIVE_LINE:
+        matched = bool(SECRET.search(actual))
+    else:
+        matched = value.strip() == actual.strip()
+        if matched and SECRET.search(value):
+            raise ValueError("Worker 引用的來源行疑似含憑證，尚未落地即拒絕；機敏行請填 SENSITIVE_LINE")
+    return sha(actual.encode("utf-8")) if matched else LINE_TEXT_MISMATCH
+
+
+def _materialize_proof(root: Path, proof: Any) -> None:
+    if isinstance(proof, dict):
+        proof["line_hash"] = _quoted_line_hash(root, proof.get("path"), proof.get("line_start"),
+                                               proof.get("line_hash"))
+
+
+def materialize_line_hashes(root: Path, payload: Any) -> Any:
+    """把 Claude Code Worker 回報的行原文換算成 line_hash／挑戰 sha256；其他欄位不動。"""
+    if not isinstance(payload, dict):
+        return payload
+    for entry in payload.get("files") or []:
+        if not isinstance(entry, dict):
+            continue
+        for challenge in entry.get("line_challenges") or []:
+            if isinstance(challenge, dict):
+                challenge["sha256"] = _quoted_line_hash(root, entry.get("path"), challenge.get("line"),
+                                                        challenge.get("sha256"))
+        for state in entry.get("rule_states") or []:
+            for proof in (state.get("evidence") or []) if isinstance(state, dict) else []:
+                _materialize_proof(root, proof)
+        for finding in entry.get("findings") or []:
+            if not isinstance(finding, dict):
+                continue
+            finding["line_hash"] = _quoted_line_hash(root, finding.get("path"), finding.get("line_start"),
+                                                     finding.get("line_hash"))
+            for proof in finding.get("evidence") or []:
+                _materialize_proof(root, proof)
+    for item in payload.get("resolved") or []:
+        if isinstance(item, dict):
+            _materialize_proof(root, item.get("evidence"))
+    return payload
+
+
 def accept_transcript(root: Path, path: Path) -> dict:
-    """主代理不必重新輸出 Worker JSON：直接從子代理紀錄取出後走與 --accept-stdin 相同的驗收。"""
-    return accept_stdin(root, transcript_final_text(path))
+    """主代理不必重新輸出 Worker JSON：直接從子代理紀錄取出後走與 --accept-stdin 相同的驗收。
+
+    Claude Code 的 probe 時先把行原文換算為雜湊；含 round 欄位的是跨檔補查回報。
+    """
+    text = transcript_final_text(path)
+    probe_path = root / ml.PROBE
+    probe = load_json_object(probe_path) if probe_path.is_file() else {}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("子代理最終訊息不是 JSON") from exc
+    if probe_executor(probe) == "claude-code":
+        payload = materialize_line_hashes(root, payload)
+        text = json.dumps(payload, ensure_ascii=False)
+    if isinstance(payload, dict) and "round" in payload:
+        return accept_followup_stdin(root, text)
+    return accept_stdin(root, text)
 
 
 def _accept_payload(root: Path, result: dict) -> dict:
@@ -458,6 +544,68 @@ def summary(root: Path) -> dict:
             "work_results_accepted": not missing and not duplicate and not unresolved,
             "formal_review_completed": False,
             "notice": "Worker 自述覆蓋不等於正式逐檔審查；仍需 70 規則、跨檔閉包、第二輪及正式守門。"}
+
+
+RULE_SUMMARY_HIT_LIMIT = 30
+
+
+def rule_evidence_summary(root: Path, rule_ids: list[str] | None = None) -> dict:
+    """把已驗收 Worker 結果依規則彙整，供主代理裁決 project／cross_file 規則時不必重讀整份結果。
+
+    只彙整 Worker 自述的候選與證據定位，不是安全結論；主代理仍須讀引用區間並正式裁決。
+    """
+    from review_snapshot import rule_scopes
+    state, _ = ml.active_plan(root)
+    scopes = rule_scopes()
+    wanted = set(rule_ids) if rule_ids else None
+    if wanted and not wanted <= set(scopes):
+        raise ValueError("未知規則 ID：" + ", ".join(sorted(wanted - set(scopes))))
+    rules: dict[str, dict] = {}
+
+    def bucket(rule_id: str) -> dict:
+        return rules.setdefault(rule_id, {
+            "rule_id": rule_id, "scope": scopes.get(rule_id), "files_with_state": 0,
+            "hit_count": 0, "hits": [], "not_applicable_count": 0,
+            "unassessed_paths": [], "findings": []})
+
+    accepted = 0
+    for row in state["tasks"].values():
+        relative = row.get("result_path")
+        if not row.get("result_digest") or not isinstance(relative, str):
+            continue
+        accepted += 1
+        result = load_json_object(root / relative)
+        for entry in result.get("files", []):
+            for item in entry.get("rule_states", []):
+                rid = item.get("rule_id") if isinstance(item, dict) else None
+                if not isinstance(rid, str) or (wanted and rid not in wanted):
+                    continue
+                data = bucket(rid)
+                data["files_with_state"] += 1
+                if item.get("status") == "hit":
+                    data["hit_count"] += 1
+                    if len(data["hits"]) < RULE_SUMMARY_HIT_LIMIT:
+                        data["hits"].append({
+                            "path": entry.get("path"), "reason": str(item.get("reason", ""))[:200],
+                            "evidence": [{k: proof.get(k) for k in ("path", "line_start", "line_end")}
+                                         for proof in item.get("evidence", []) if isinstance(proof, dict)]})
+                elif item.get("status") == "not_applicable":
+                    data["not_applicable_count"] += 1
+                else:
+                    data["unassessed_paths"].append(entry.get("path"))
+            for finding in entry.get("findings", []):
+                rid = finding.get("rule_id") if isinstance(finding, dict) else None
+                if not isinstance(rid, str) or (wanted and rid not in wanted):
+                    continue
+                bucket(rid)["findings"].append({
+                    "path": finding.get("path"), "line_start": finding.get("line_start"),
+                    "line_end": finding.get("line_end"), "sink": finding.get("sink"),
+                    "finding_key": finding_key(finding)})
+    ordered = sorted(rules.values(), key=lambda r: (r["scope"] != "project", r["rule_id"]))
+    return {"accepted_results": accepted, "rules": ordered,
+            "rules_without_worker_state": sorted((wanted or set(scopes)) - set(rules)),
+            "formal_review_completed": False,
+            "notice": "僅彙整 Worker 回報的候選與證據定位；主代理須讀引用的行號區間並以正式流程裁決"}
 
 
 def blind_tasks(root: Path) -> dict:
