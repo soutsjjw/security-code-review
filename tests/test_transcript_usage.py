@@ -121,6 +121,84 @@ class TranscriptUsageTests(unittest.TestCase):
         self.assertEqual(result["codegraph_calls"], 1)
         self.assertEqual(result["warnings"], [])
 
+    def _run_log(self):
+        def event(ts, name, phase, outcome="ok"):
+            return {"timestamp": ts, "run_id": "20261108-000000-abcd1234", "event": name,
+                    "phase": phase, "outcome": outcome}
+        rows = [event("2026-11-08T10:00:00+08:00", "run_started", "initialization"),
+                event("2026-11-08T11:00:00+08:00", "stage", "first_pass"),
+                event("2026-11-08T11:05:00+08:00", "begin-second-pass", "second_pass"),
+                event("2026-11-08T13:00:00+08:00", "integrate", "second_pass"),
+                event("2026-11-08T13:10:00+08:00", "run_finished", "report", "completed")]
+        logs = self.dir / "logs"
+        _write(logs / "20261108-000000-abcd1234.jsonl", rows)
+        (logs / "latest.json").write_text(json.dumps({"run_id": "20261108-000000-abcd1234"}), "utf-8")
+        return logs
+
+    def test_run_log_splits_usage_by_review_phase_and_reports_waits(self):
+        from transcript_usage import load_run_windows
+        logs = self._run_log()
+        windows = load_run_windows(logs / "latest.json")
+
+        def at(msg_id, utc, read):
+            row = _assistant(msg_id, [_bash("cat a.cs")], _usage(read=read))
+            row["timestamp"] = utc
+            return row
+        _write(self.dir / "t" / "s6.jsonl", [
+            _skill_prompt(),
+            at("m0", "2026-11-08T01:59:00Z", 1),     # 執行開始前
+            at("m1", "2026-11-08T02:58:00Z", 100),   # 第一輪，前面等了 59 分
+            at("m2", "2026-11-08T03:06:00Z", 20),    # 第二輪
+            at("m3", "2026-11-08T04:56:00Z", 30),    # 第二輪，前面等了 110 分
+            at("m4", "2026-11-08T05:05:00Z", 5),     # 最後一批整合後到結束
+            at("m5", "2026-11-08T06:00:00Z", 2)])    # 執行結束後
+        result = summarize_session(self.dir / "t" / "s6.jsonl", windows)
+        phases = result["review_phases"]
+        self.assertEqual(list(phases), ["before_run", "setup_and_first_pass", "second_pass",
+                                        "finalize", "after_run"])
+        self.assertEqual(phases["setup_and_first_pass"]["cache_read_input_tokens"], 100)
+        self.assertEqual(phases["second_pass"]["api_calls"], 2)
+        self.assertEqual(phases["second_pass"]["wait_seconds"], 110 * 60)
+        self.assertEqual(phases["setup_and_first_pass"]["wait_seconds"], 59 * 60)
+        self.assertEqual(phases["finalize"]["wait_seconds"], 0)
+        self.assertEqual(result["run_log"]["run_id"], "20261108-000000-abcd1234")
+
+    def test_cli_run_log_keeps_only_sessions_overlapping_the_run(self):
+        logs = self._run_log()
+        inside = _assistant("m1", [], _usage())
+        inside["timestamp"] = "2026-11-08T02:30:00Z"
+        outside = _assistant("m1", [], _usage())
+        outside["timestamp"] = "2026-11-07T02:30:00Z"
+        _write(self.dir / "t" / "in.jsonl", [_skill_prompt(), inside])
+        _write(self.dir / "t" / "out.jsonl", [_skill_prompt(), outside])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main(["--transcripts", str(self.dir / "t"),
+                                   "--run-log", str(logs / "latest.json")]), 0)
+        text = out.getvalue()
+        self.assertIn("review phases (run 20261108-000000-abcd1234)", text)
+        self.assertIn("setup_and_first_pass", text)
+        self.assertTrue(text.startswith("in "))
+        self.assertNotIn("out ", text)
+
+    def test_run_log_without_second_pass_is_all_first_pass(self):
+        from transcript_usage import load_run_windows, review_phase_for
+        _write(self.dir / "r.jsonl", [
+            {"timestamp": "2026-11-08T10:00:00+08:00", "event": "run_started", "phase": "initialization"},
+            {"timestamp": "2026-11-08T12:00:00+08:00", "event": "stage", "phase": "first_pass"}])
+        windows = load_run_windows(self.dir / "r.jsonl")
+        from datetime import datetime, timezone
+        self.assertEqual(review_phase_for(datetime(2026, 11, 8, 3, tzinfo=timezone.utc), windows),
+                         "setup_and_first_pass")
+        self.assertEqual(review_phase_for(datetime(2026, 11, 8, 5, tzinfo=timezone.utc), windows),
+                         "after_run")
+
+    def test_run_log_rejects_summary_without_run_id(self):
+        from transcript_usage import load_run_windows
+        (self.dir / "latest.json").write_text('{"run_id": "../x"}', "utf-8")
+        with self.assertRaises(ValueError):
+            load_run_windows(self.dir / "latest.json")
+
     def test_directory_skips_sessions_without_skill_unless_all(self):
         _write(self.dir / "a.jsonl", [_skill_prompt(), _assistant("m", [], _usage())])
         _write(self.dir / "b.jsonl", [_assistant("m", [], _usage())])

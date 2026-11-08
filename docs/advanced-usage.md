@@ -102,6 +102,7 @@ Windows：`& "<SKILL_ROOT>\\scripts\\run-python.cmd" "<SKILL_ROOT>\\scripts\\tra
 - 預設只列出有呼叫本 Skill 的 session；`--session <ID 前綴>` 只看單一 session，`--all` 包含其他 session，`--json` 輸出完整結構，`--transcripts <目錄>` 可直接指定紀錄目錄。
 - 每個 session 列出 API 呼叫數、cache 讀寫、輸出、最大／平均 context，以及各階段（`source_read`、`authoring`、`skill:<腳本>` 等）的用量分佈；同一則訊息被拆成多行時以 message id 去重。
 - 同時統計子代理紀錄數與 CodeGraph 查詢數，並在要求多代理卻沒有子代理紀錄（`multi_agent_without_subagents`），或 CodeGraph 可用卻從未查詢（`codegraph_available_but_unused`）時發出警告。
+- 加 `--run-log latest`（搭配 `--target`，讀 `reports/security-code-review/logs/latest.json`），或 `--run-log <run_id>.jsonl／-summary.json 路徑`，會依審查執行 Log 把每次 API 呼叫歸入 `before_run`、`setup_and_first_pass`（執行開始到 `begin-second-pass`）、`second_pass`（到最後一次第二輪 stage／integrate）、`finalize`（到 `run_finished`）、`after_run`，列出各階段的呼叫數、cache 讀取占比、輸出、最大 context，並只保留與該次執行時間重疊的 session。子代理呼叫計入各階段；`wait` 是主對話相鄰兩次 API 呼叫間隔超過 10 分鐘的總和（例如中斷後等使用者回來），用來區分 Log 上的牆鐘時間與真正花 Token 的工作。
 - 只讀紀錄，不寫入受測專案；輸出只有數字與階段名稱，不含對話或程式碼內容。階段歸屬為啟發式，只供成本比較，不計入來源覆蓋，也不是安全結論。
 
 ## 審查完整性檢查與受控唯讀分工
