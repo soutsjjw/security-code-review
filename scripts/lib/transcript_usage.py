@@ -23,7 +23,9 @@ _CODEGRAPH_CLI_RE = re.compile(
     r"(^|[\s;&|\"'/\\])codegraph(\.exe)?\s+(explore|query|search|context|callers|callees|files|status)",
     re.I)
 _SOURCE_READ_RE = re.compile(r"(^|[\s;&|(])(cat|head|tail|sed|grep|rg|find|wc|awk|Get-Content|Select-String)\b")
-_CODEGRAPH_AVAILABLE_RE = re.compile(r'\\*"codegraph\\*"\s*:\s*\{[^{}]{0,80}?\\*"available\\*"\s*:\s*true')
+# 同時接受 JSON（"codegraph": {...}）與 key=value 輸出（codegraph={...}）；引號可能被跳脫。
+_CODEGRAPH_AVAILABLE_RE = re.compile(
+    r'(?<![\w.])\\*"?codegraph\\*"?\s*[:=]\s*\{[^{}]{0,80}?\\*"available\\*"\s*:\s*true')
 _READ_TOOLS = frozenset({"Read", "Grep", "Glob", "NotebookRead"})
 _WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 _AGENT_TOOLS = frozenset({"Agent", "Task"})

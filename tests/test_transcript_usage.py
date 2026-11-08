@@ -89,6 +89,24 @@ class TranscriptUsageTests(unittest.TestCase):
         self.assertTrue(result["codegraph_available"])
         self.assertEqual(result["warnings"], ["codegraph_available_but_unused"])
 
+    def test_codegraph_available_detected_in_key_value_output(self):
+        probe = {"type": "user", "message": {"content": [{"type": "tool_result", "content":
+                 'roslyn={"available": false} codegraph={"available":true,"command":"codegraph explore"}'}]}}
+        _write(self.dir / "s4.jsonl", [_skill_prompt(), probe,
+                                         _assistant("m1", [_bash("ls")], _usage())])
+        result = summarize_session(self.dir / "s4.jsonl")
+        self.assertTrue(result["codegraph_available"])
+        self.assertEqual(result["warnings"], ["codegraph_available_but_unused"])
+
+    def test_codegraph_unavailable_or_unrelated_key_does_not_warn(self):
+        probe = {"type": "user", "message": {"content": [{"type": "tool_result", "content":
+                 'codegraph={"available":false} my_codegraph={"available":true}'}]}}
+        _write(self.dir / "s5.jsonl", [_skill_prompt(), probe,
+                                         _assistant("m1", [_bash("ls")], _usage())])
+        result = summarize_session(self.dir / "s5.jsonl")
+        self.assertFalse(result["codegraph_available"])
+        self.assertEqual(result["warnings"], [])
+
     def test_multi_agent_without_subagent_transcripts_warns_and_with_them_counts(self):
         rows = [_skill_prompt("--multi-agent --agents 3"),
                 _assistant("m1", [_bash("python scripts/multi_agent.py --plan")], _usage())]
