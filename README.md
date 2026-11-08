@@ -64,6 +64,33 @@ $security-code-review --categories DP,PD,BC,SI
 
 未指定分類時，Agent 會盤點程式碼、逐條審查、保留既有進度與 Finding，直到 **70/70 項皆實際完成**，才驗證並交付正式報告。遇到缺乏部署、政策或動態證據時，須記錄已完成的靜態分析與待確認事項；不會因此清空既有結果、要求先修補弱點或提前交付部分報告。
 
+## Skill 整合與報告輸出
+
+不需手動追加指令：在受測專案開啟 Codex 後輸入 `$security-code-review`（或 `$security-code-review <專案路徑或檢核範圍>`）；Claude Code 使用 `/security-code-review`。
+
+Agent 會在受測專案的 `reports/security-code-review/` 建立本次檢核 JSON、專案資訊與選填呈現資料。完成正式審查後，從受測專案根目錄執行：
+
+```bash
+python <SKILL_ROOT>/scripts/complete_review.py --target <TARGET_ROOT>
+```
+
+這個程式只整合 JSON 驗證、報告渲染與 HTML 驗證，不會自行做原始碼資安掃描。來源檔路徑相對於 `TARGET_ROOT`，規則與工具路徑則相對於 `SKILL_ROOT`。產出為 `reports/security-code-review/CodeReview_YYYYMMDD.html` 與 `report.json`；若 Python、相依套件或足夠審查證據不存在，Agent 必須揭露未完成項目，不得回報驗證通過。
+
+## 規則集範圍與驗證
+
+- 現行規則集為 **v2.0.0（stable，2026-10-20）**，共 70 項固定規則；70 是規則數，不表示任何專案已完成審查。
+- ASVS 5.0.0 對照是相關技術要求，並非 ASVS 完整符合認證；舊版 `2.0.0-rc1` 審查資料可沿用，但新增規範焦點仍需重新確認。
+- 補充對照包括 TACERT V2 的 39 個焦點、OWASP Top 10:2025 的十類風險、資通系統防護基準 V1.3 的 80 項控制，以及 WEB 應用程式安全參考指引 V3.2 的 29 類／35 個細部技術條次、附件 1 的 55 項與附件 3 的六項 HTTP 標頭。它們不會增加核心 70 項規則數。
+
+在 Skill 根目錄執行下列命令驗證規則套件：
+
+```bash
+python scripts/validate_package.py
+python -m unittest discover -s tests -v
+```
+
+這些測試驗證規則、Schema、報告與對照資料的一致性；結構驗證不等於對個別系統完成滲透測試或取得法遵認證。
+
 ## 安裝
 
 | 使用環境 | Skill 放置路徑 |

@@ -84,6 +84,7 @@ def _evaluated_tfms(project: Path) -> list[str]:
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise ValueError(f"MSBuild 唯讀 TFM 評估無法執行（{type(exc).__name__}）") from exc
 
+    retried_with_isolated_cli_home = False
     result = run(env)
     output = ((result.stdout or "") + "\n" + (result.stderr or "")).lower()
     if result.returncode != 0 and any(code in output for code in _CLI_HOME_DENIED):
@@ -91,11 +92,24 @@ def _evaluated_tfms(project: Path) -> list[str]:
         # .dotnet 標記檔；沙箱身分的家目錄不可寫入時改用隔離暫存 CLI home 重試一次。
         with tempfile.TemporaryDirectory(prefix="security-review-dotnet-home-") as home:
             result = run(dict(env, DOTNET_CLI_HOME=home))
+            retried_with_isolated_cli_home = True
     if result.returncode != 0:
         raise ValueError(f"MSBuild TFM 評估失敗（exit {result.returncode}，可能缺少相容 SDK／匯入）")
     try:
-        document = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError) as exc:
+        raw_output = result.stdout or ""
+        if not retried_with_isolated_cli_home:
+            document = json.loads(raw_output)
+        else:
+            # dotnet 的新 CLI home 首次初始化可能在成功 JSON 前輸出本地化提示。
+            # 僅接受一份從獨立行開始、延伸到輸出結尾的頂層 Properties 文件。
+            match = re.search(r"(?m)^[ \t]*(\{)", raw_output)
+            if not match:
+                raise ValueError("MSBuild JSON Properties not found")
+            document, end = json.JSONDecoder().raw_decode(raw_output[match.start(1):])
+            if raw_output[match.start(1) + end:].strip() or not isinstance(document, dict) \
+                    or not isinstance(document.get("Properties"), dict):
+                raise ValueError("MSBuild JSON Properties not found")
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
         raise ValueError("MSBuild 未輸出可解析的屬性 JSON（需要 MSBuild 17.8+）") from exc
     props = document.get("Properties") if isinstance(document, dict) else None
     if not isinstance(props, dict):

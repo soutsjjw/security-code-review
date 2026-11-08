@@ -158,6 +158,43 @@ class MSBuildTFMTests(unittest.TestCase):
         self.assertTrue(home.name.startswith("security-review-dotnet-home-"))
         self.assertFalse(home.exists())
 
+    def test_retry_accepts_first_run_notice_before_msbuild_json(self):
+        (self.root / "Directory.Build.props").write_text(
+            "<Project><PropertyGroup><TargetFramework>net10.0</TargetFramework>"
+            "</PropertyGroup></Project>", encoding="utf-8")
+        denied = subprocess.CompletedProcess(
+            ["dotnet"], 1, stdout="",
+            stderr="System.UnauthorizedAccessException: Access to the path 'C:\\home\\.dotnet' is denied.")
+        evaluated = subprocess.CompletedProcess(
+            ["dotnet"], 0,
+            stdout="First-run notice from #!sandbox.{instance}\n" + json.dumps({
+                "Properties": {"TargetFramework": "net10.0", "TargetFrameworks": "",
+                               "TargetFrameworkVersion": ""}}), stderr="")
+        with patch("analysis_adapters.shutil.which", return_value="dotnet"), \
+                patch("analysis_adapters.subprocess.run", side_effect=[denied, evaluated]):
+            detected = ModernDotNetAdapter().detect(self.root)
+        self.assertTrue(detected["supported"], detected)
+        self.assertEqual(detected["projects"][0]["target_frameworks"], ["net10.0"])
+
+    def test_retry_rejects_nested_or_trailing_properties_json(self):
+        (self.root / "Directory.Build.props").write_text(
+            "<Project><PropertyGroup><TargetFramework>net10.0</TargetFramework>"
+            "</PropertyGroup></Project>", encoding="utf-8")
+        denied = subprocess.CompletedProcess(
+            ["dotnet"], 1, stdout="",
+            stderr="System.UnauthorizedAccessException: Access to the path 'C:\\home\\.dotnet' is denied.")
+        malformed = subprocess.CompletedProcess(
+            ["dotnet"], 0,
+            stdout="First-run notice\n" +
+                   '{"wrapper":{"Properties":{"TargetFramework":"net10.0",'
+                   '"TargetFrameworks":"","TargetFrameworkVersion":""}}}\ntrailing text',
+            stderr="")
+        with patch("analysis_adapters.shutil.which", return_value="dotnet"), \
+                patch("analysis_adapters.subprocess.run", side_effect=[denied, malformed]):
+            detected = ModernDotNetAdapter().detect(self.root)
+        self.assertFalse(detected["supported"])
+        self.assertIn("MSBuild 未輸出可解析", detected["projects"][0]["reason"])
+
     def test_other_msbuild_failures_are_not_retried(self):
         (self.root / "Directory.Build.props").write_text(
             "<Project><PropertyGroup><TargetFramework>net10.0</TargetFramework>"
