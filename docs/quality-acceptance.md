@@ -71,6 +71,8 @@ python "<SKILL_ROOT>/scripts/quality_acceptance.py" --workspace "<NEW_CASE_WORKS
 
 比較只能表示在固定 16 案例內的變化，不能將有限基準推廣為任意 .NET 專案的誤報／漏報統計。
 
+同一版 Skill 換用不同模型時，也用這個比較方式判斷候選模型是否退步，步驟見 [模型對照實驗](model-comparison-experiment.md)。
+
 ## Token 只能使用真正的執行器計數
 
 若每個隔離案例均已使用 `token_metrics.py` 的既有格式保存 `analysis/token-usage.jsonl`，可傳入同一工作執行識別：
