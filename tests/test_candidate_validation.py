@@ -258,6 +258,23 @@ class CandidateValidationTests(unittest.TestCase):
         self.assertTrue(meaningful_source_excerpt(
             "Program.cs", ["app.UseHsts();"]))
 
+    def test_expression_bodied_method_body_is_not_a_bare_signature(self):
+        # 單行 expression-bodied 方法的本體（例如 DI 註冊）是實際行為，不是純宣告。
+        for line in (
+            "public static void Register(IServiceCollection services) => "
+            "services.AddScoped<IAccessGuard, StrictAccessGuard>();",
+            "public bool CanRead(string a, string b) => Check(a, b);",
+        ):
+            self.assertTrue(meaningful_source_excerpt("Services.cs", [line]), line)
+        # 本體在下一行、或只有簽章的寫法仍是宣告。
+        for line in (
+            "public bool CanRead(string ownerId, string currentUserId) =>",
+            "public async Task<IActionResult> Get(int id)",
+            "public Task Run([FromQuery] string x = null) {",
+            "public abstract void Foo(int a);",
+        ):
+            self.assertFalse(meaningful_source_excerpt("Service.cs", [line]), line)
+
     def test_queue_shows_multiple_candidates_for_unreviewed_source(self):
         from review_queue import build_queue, load_rules
         _, rules = load_rules()

@@ -66,6 +66,17 @@
 
 `review` 的 `external_scan` 類別不變：只限已嘗試執行但失敗的掃描，須附 `attempted_command` 與 `failure_detail`。
 
+### DP-04 的目標框架已屆終止支援（只支持 `fail`）
+
+執行階段本身停止安全支援時，不需要掃描工件：專案檔的目標框架行加上審查日期即可作為 DP-04 `fail` 的完成證據。依據是 `scripts/lib/dependency_scan_evidence.py` 內建的 .NET 官方生命週期表（`DOTNET_END_OF_SUPPORT`），不接受 Agent 自行填寫的日期。條件全部成立才接受：
+
+1. **規則與判定**：只限 DP-04；`checks[].status` 與該檔 `rule_reviews[].result` 都必須是 `fail`，並已建立 Finding。DP-01 是已知弱點掃描，目標框架行不能代替掃描工件。
+2. **來源檔與片段**：`*.csproj` 或 `Directory.Build.props` 中 `<TargetFramework>`／`<TargetFrameworks>` 的字面值行，片段最多 30 行；`$(變數)` 不算，平台後綴（如 `net8.0-windows`）以主版本比對。
+3. **日期**：以 `assessment.json` 的 `assessment_date` 比對；片段中至少一個 TFM 在該日**已達或超過**終止支援日（終止支援日當天即視為已屆期）。尚未屆期、或不在生命週期表內的 TFM（含 .NET Framework、`netstandard`）一律拒絕。
+4. **Q3**：`failure_points` 指向同一目標框架行，並與 `checks[].evidence` 及 Finding evidence 行號交集；`bypass_scenarios` 至少一條 `unsupported_version`（或 `unpatched_dependency`）的 `confirmed_vulnerability`，evidence 指向同一行。
+
+這條路徑只證明「執行階段已無安全修補」。套件層級的弱點仍走上一節的掃描證實路徑；判 `pass` 仍須證明全部關鍵元件受支援並有真實的相依掃描機制。生命週期表須隨 Microsoft 公告更新，新版本發布後尚未列入的 TFM 不能用此路徑。
+
 ### 標記 `review` 前的自檢（三題皆須通過）
 
 1. 取得完整部署環境與營運文件後，結論是否可能改變？否 → 不得 `review`。

@@ -4,10 +4,15 @@
 只能支持 fail：清單內的套件版本行本身不是掃描機制，不能證明已持續掃描或已更新；
 它只有在同一檢核附上 SHA256 吻合、內文含真實命令輸出且列出同一套件與版本的
 掃描工件時，才可作為「該版本確有已知弱點」的定位證據。pass 仍須真實掃描機制。
+
+DP-04 另有「目標框架已屆終止支援」路徑：專案檔的 `<TargetFramework(s)>` 字面值行，
+依內建的 .NET 生命週期表在審查日期已達或超過終止支援日時，可作為 fail 的定位證據，
+不需掃描工件。同樣不能支持 pass／review。
 """
 from __future__ import annotations
 
 import re
+from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -18,7 +23,8 @@ SCAN_PROVEN_RULES = frozenset({"DP-01", "DP-04"})
 # 僅接受套件清單／lockfile；集中版本開關（ManagePackageVersionsCentrally）不含套件與版本，
 # 不會解析出任何套件，仍然無法作為證據。
 DEPENDENCY_MANIFEST_NAMES = frozenset({
-    "packages.lock.json", "Directory.Packages.props", "libman.json", "package-lock.json",
+    "packages.lock.json", "Directory.Packages.props", "Directory.Build.props",
+    "libman.json", "package-lock.json",
 })
 DEPENDENCY_MANIFEST_SUFFIXES = frozenset({".csproj"})
 ARTIFACT_ROOT = REPORT_ROOT / "artifacts"
@@ -44,6 +50,22 @@ _MSBUILD_ITEM = re.compile(r"<Package(?:Reference|Version)\b[^>]*>", re.IGNORECA
 _MSBUILD_NAME = re.compile(r'\b(?:Include|Update)\s*=\s*"([\w.\-]+)"', re.IGNORECASE)
 _MSBUILD_VERSION = re.compile(r'\bVersion\s*=\s*"(' + _VERSION + r')"', re.IGNORECASE)
 _LIBMAN = re.compile(r'"library"\s*:\s*"((?:@[\w.\-]+/)?[\w.\-]+)@(' + _VERSION + r')"')
+_TARGET_FRAMEWORK = re.compile(
+    r"<TargetFrameworks?\b[^>]*>\s*([^<]+?)\s*</TargetFrameworks?>", re.IGNORECASE)
+
+LIFECYCLE_RULES = frozenset({"DP-04"})
+# Microsoft .NET／.NET Core 官方生命週期的終止支援日（最後一天仍提供修補）。
+# 來源：https://dotnet.microsoft.com/platform/support/policy/dotnet-core
+# 只列已公布日期的版本；不在表內的 TFM（含 .NET Framework、netstandard）不能走此路徑。
+DOTNET_END_OF_SUPPORT = {
+    "netcoreapp1.0": "2019-06-27", "netcoreapp1.1": "2019-06-27",
+    "netcoreapp2.0": "2018-10-01", "netcoreapp2.1": "2021-08-21",
+    "netcoreapp2.2": "2019-12-23", "netcoreapp3.0": "2020-03-03",
+    "netcoreapp3.1": "2022-12-13", "net5.0": "2022-05-10",
+    "net6.0": "2024-11-12", "net7.0": "2024-05-14",
+    "net8.0": "2026-11-10", "net9.0": "2026-11-10",
+    "net10.0": "2028-11-14",
+}
 
 
 def is_dependency_manifest(path: str) -> bool:
@@ -141,9 +163,45 @@ def _listed(text: str, package: str, version: str) -> bool:
     return any(name.search(line) and ver.search(line) for line in text.splitlines())
 
 
+def excerpt_target_frameworks(path: str, lines: list[str]) -> set[str]:
+    """從 MSBuild 專案檔片段解析字面值 TFM；`$(變數)` 不算，平台後綴（-windows 等）去除。"""
+    if PurePosixPath(path).suffix.lower() != ".csproj" and PurePosixPath(path).name != "Directory.Build.props":
+        return set()
+    found: set[str] = set()
+    for value in _TARGET_FRAMEWORK.findall(" ".join(lines)):
+        if "$(" in value:
+            continue
+        found.update(item.strip().lower().split("-", 1)[0] for item in value.split(";") if item.strip())
+    return found
+
+
+def lifecycle_proven_errors(rule_id: str, frameworks: set[str], as_of: Any) -> list[str]:
+    """空清單代表片段中至少一個 TFM 在審查日期已達或超過官方終止支援日。"""
+    if rule_id not in LIFECYCLE_RULES:
+        return [f"{rule_id}: 目標框架終止支援路徑只適用 DP-04"]
+    try:
+        reviewed_on = date.fromisoformat(as_of) if isinstance(as_of, str) else None
+    except ValueError:
+        reviewed_on = None
+    if reviewed_on is None:
+        return [f"{rule_id}: 缺少有效的 assessment_date，無法比對目標框架終止支援日"]
+    ended = sorted(tfm for tfm in frameworks
+                   if tfm in DOTNET_END_OF_SUPPORT
+                   and date.fromisoformat(DOTNET_END_OF_SUPPORT[tfm]) <= reviewed_on)
+    if ended:
+        return []
+    listed = "、".join(f"{tfm}（{DOTNET_END_OF_SUPPORT.get(tfm, '不在內建生命週期表')}）"
+                      for tfm in sorted(frameworks))
+    return [f"{rule_id}: 片段的目標框架在審查日期 {reviewed_on.isoformat()} 尚未終止支援，"
+            f"或不在內建生命週期表：{listed}"]
+
+
 def scan_proven_errors(target: Path, rule_id: str, status: Any, path: str,
-                       lines: list[str], evidence: Any) -> list[str]:
-    """空清單代表此片段可作為 DP-01／DP-04 fail 的掃描證實定位證據。"""
+                       lines: list[str], evidence: Any, *, as_of: Any = None) -> list[str]:
+    """空清單代表此片段可作為 DP-01／DP-04 fail 的掃描證實或終止支援定位證據。
+
+    `as_of` 為審查日期（assessment_date），只用於 DP-04 的目標框架終止支援路徑。
+    """
     if rule_id not in SCAN_PROVEN_RULES:
         return [f"{rule_id}: 掃描證實相依弱點路徑只適用 DP-01／DP-04"]
     if status != "fail":
@@ -152,6 +210,9 @@ def scan_proven_errors(target: Path, rule_id: str, status: Any, path: str,
         return [f"{rule_id}: {path} 不是允許的套件清單或 lockfile"]
     if len(lines) > MAX_EXCERPT_LINES:
         return [f"{rule_id}: {path} 片段超過 {MAX_EXCERPT_LINES} 行，須精確定位弱點套件節點"]
+    frameworks = excerpt_target_frameworks(path, lines)
+    if rule_id in LIFECYCLE_RULES and frameworks:
+        return lifecycle_proven_errors(rule_id, frameworks, as_of)
     pairs = excerpt_packages(path, lines)
     if not pairs:
         return [f"{rule_id}: {path} 片段未含可解析的套件名稱與解析版本（集中版本開關不算）"]

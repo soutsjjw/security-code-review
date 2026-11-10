@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 
 from control_outcome_evidence import outcome_errors
-from dependency_scan_evidence import excerpt_packages, scan_proven_errors
+from dependency_scan_evidence import (excerpt_packages, excerpt_target_frameworks,
+                                      lifecycle_proven_errors, scan_proven_errors)
 from file_review_integrity import verified_file_rule_reviews
 from review_core import REPORT_ROOT, snapshot_fingerprint
 from review_fixture import make_file_review
@@ -251,6 +252,116 @@ class ScanProvenDependencyTests(unittest.TestCase):
         sealed = self.assessment()["checks"][0]
         self.write_artifact(SCAN_OUTPUT.replace("10.0.0", "9.0.0"))
         self.assertIn("SHA256", "；".join(self.q3(check=sealed, record=copy.deepcopy(record))[0]))
+
+
+PROJECT = """<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>
+"""
+TFM = (3, 3)
+
+
+class TargetFrameworkLifecycleTests(unittest.TestCase):
+    """DP-04：專案檔的目標框架在審查日期已屆官方終止支援日時，可作為 fail 定位證據。"""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / "Case.csproj").write_text(PROJECT, encoding="utf-8")
+
+    def errors(self, rid="DP-04", status="fail", as_of="2026-11-10", lines=None):
+        lines = lines or PROJECT.splitlines()[TFM[0] - 1:TFM[1]]
+        return scan_proven_errors(self.root, rid, status, "Case.csproj", lines, [], as_of=as_of)
+
+    def test_end_of_support_on_or_after_review_date_supports_fail(self):
+        self.assertEqual(self.errors(as_of="2026-11-10"), [])
+        self.assertEqual(self.errors(as_of="2027-01-01"), [])
+        self.assertEqual(excerpt_target_frameworks("Case.csproj", [
+            "<TargetFrameworks>net10.0;net8.0-windows</TargetFrameworks>"]), {"net10.0", "net8.0"})
+        self.assertEqual(self.errors(lines=["<TargetFrameworks>net10.0;net8.0</TargetFrameworks>"]), [])
+        self.assertEqual(scan_proven_errors(
+            self.root, "DP-04", "fail", "Directory.Build.props",
+            ["<TargetFramework>net6.0</TargetFramework>"], [], as_of="2026-11-10"), [])
+
+    def test_supported_unknown_or_variable_framework_is_rejected(self):
+        self.assertIn("尚未終止支援", "；".join(self.errors(as_of="2026-11-09")))
+        self.assertIn("尚未終止支援", "；".join(self.errors(
+            lines=["<TargetFramework>net10.0</TargetFramework>"])))
+        self.assertIn("不在內建生命週期表", "；".join(self.errors(
+            lines=["<TargetFramework>net48</TargetFramework>"])))
+        # 變數值解析不出 TFM，改走套件路徑而被拒絕。
+        self.assertIn("未含可解析的套件", "；".join(self.errors(
+            lines=["<TargetFramework>$(AppTfm)</TargetFramework>"])))
+
+    def test_missing_date_status_or_other_rules_are_rejected(self):
+        for as_of in (None, "", "2026/11/10"):
+            self.assertIn("assessment_date", "；".join(self.errors(as_of=as_of)))
+        for status in ("pass", "review"):
+            self.assertIn("只能支持 fail", "；".join(self.errors(status=status)))
+        # DP-01 是已知弱點掃描，目標框架行不能代替掃描工件。
+        self.assertIn("未含可解析的套件", "；".join(self.errors(rid="DP-01")))
+        self.assertIn("只適用 DP-04", "；".join(lifecycle_proven_errors("DP-01", {"net6.0"}, "2026-11-10")))
+
+    def assessment(self, status="fail", result="fail", date="2026-11-10"):
+        review = make_file_review(self.root, "Case.csproj", ("DP-04",))
+        review["rule_reviews"][0].update({
+            "result": result, "line_start": TFM[0], "line_end": TFM[1],
+            "reason": "專案目標框架 net8.0 依 .NET 官方生命週期於 2026-11-10 終止支援",
+        })
+        source = {"kind": "source", "path": "Case.csproj", "line_start": TFM[0], "line_end": TFM[1],
+                  "description": "目標框架", "collected_on": date, "source_version": "HEAD"}
+        check = {"id": "DP-04", "status": status, "finding_ids": ["F-TFM"], "evidence": [source],
+                 "execution": {"state": "completed", "inspected_paths": ["Case.csproj"]}}
+        finding = {"id": "F-TFM", "check_ids": ["DP-04"], "evidence": [dict(source)]}
+        return {"assessment_date": date, "checks": [check], "findings": [finding],
+                "file_reviews": [review]}
+
+    def test_file_review_accepts_end_of_support_fail(self):
+        verified, errors = verified_file_rule_reviews(self.assessment(), self.root, {"Case.csproj"})
+        self.assertEqual(errors, [])
+        self.assertEqual(verified["Case.csproj"], {"DP-04"})
+
+    def test_file_review_rejects_supported_framework_or_non_fail(self):
+        for assessment in (self.assessment(date="2026-11-09"),
+                           self.assessment(status="review", result="review")):
+            verified, errors = verified_file_rule_reviews(assessment, self.root, {"Case.csproj"})
+            self.assertNotIn("Case.csproj", verified)
+            self.assertTrue(errors)
+
+    def q3(self, scenario="unsupported_version", date="2026-11-10"):
+        source_hash = hashlib.sha256((self.root / "Case.csproj").read_bytes()).hexdigest()
+        snapshot = {"git_revision": "abc123", "source_hashes": {"Case.csproj": source_hash}}
+        point = {"path": "Case.csproj", "line_start": TFM[0], "line_end": TFM[1]}
+        assessment = self.assessment(date=date)
+        record = {
+            "status": "fail", "git_revision": "abc123",
+            "snapshot_fingerprint": snapshot_fingerprint(snapshot),
+            "source_hashes": {"Case.csproj": source_hash},
+            "entry_points": [point], "failure_points": [point], "protected_operations": [point],
+            "failure_mode": "unsafe_configuration",
+            "failure_reason": "專案目標框架 net8.0 已屆官方終止支援日，之後不再提供安全修補",
+            "search_summary": "核對專案檔 TargetFramework 與 .NET 官方生命週期終止支援日",
+            "bypass_scenarios": [{
+                "scenario": scenario, "outcome": "confirmed_vulnerability",
+                "reason": "net8.0 執行階段已屆終止支援日，之後公開的執行階段弱點不會再發布安全修補",
+                "evidence": [point],
+            }],
+            "open_issues": [],
+        }
+        return outcome_errors(self.root, {"control_outcome_version": 1}, snapshot,
+                              assessment["checks"], {"DP-04": record}, audits_override={},
+                              assessment_override=assessment)
+
+    def test_q3_accepts_end_of_support_failure_point(self):
+        self.assertEqual(self.q3(), [])
+
+    def test_q3_rejects_supported_framework_or_wrong_scenario(self):
+        self.assertIn("尚未終止支援", "；".join(self.q3(date="2026-11-09")))
+        self.assertIn("confirmed_vulnerability", "；".join(self.q3(scenario="alternate_entry")))
 
 
 if __name__ == "__main__":

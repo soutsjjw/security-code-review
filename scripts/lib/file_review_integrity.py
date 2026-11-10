@@ -151,16 +151,18 @@ def _semantic_relevance_verified(rr: dict, check: dict, path: str) -> bool:
 
 
 def _scan_proven_issues(root: Path, rid: str, result: Any, check: dict, path: str,
-                        excerpt: list[str]) -> list[str] | None:
+                        excerpt: list[str], as_of: Any) -> list[str] | None:
     """None：不屬於 DP-01／DP-04 掃描證實路徑；[]：符合；否則為拒絕原因。
 
-    只對套件清單片段生效，且逐檔結論與整體判定都必須是 fail。
+    只對套件清單片段生效，且逐檔結論與整體判定都必須是 fail。`as_of` 為審查日期，
+    供 DP-04 目標框架終止支援路徑比對。
     """
     if rid not in SCAN_PROVEN_RULES or not is_dependency_manifest(path):
         return None
     if result != "fail":
         return [f"{rid}: 套件清單行只能以 fail 支持掃描證實的相依弱點，不能支持 pass／review"]
-    return scan_proven_errors(root, rid, check.get("status"), path, excerpt, check.get("evidence"))
+    return scan_proven_errors(root, rid, check.get("status"), path, excerpt, check.get("evidence"),
+                              as_of=as_of)
 
 
 def verified_file_rule_reviews(
@@ -191,6 +193,7 @@ def verified_file_rule_reviews(
         if execution.get("state") == "completed":
             completed[check["id"]] = set(execution.get("inspected_paths") or [])
     check_by_id = {check["id"]: check for check in assessment.get("checks", [])}
+    as_of = assessment.get("assessment_date")
     findings_by_rule: dict[str, list[dict]] = {}
     for finding in assessment.get("findings", []):
         for rid in finding.get("check_ids", []):
@@ -312,7 +315,7 @@ def verified_file_rule_reviews(
                         and not source_relevant_to_rule(rid, path, lines[start - 1:end])
                         and not _semantic_relevance_verified(rr, check_by_id.get(rid, {}), path)):
                     scan_issues = _scan_proven_issues(root, rid, rr.get("result"), check_by_id.get(rid, {}),
-                                                      path, lines[start - 1:end])
+                                                      path, lines[start - 1:end], as_of)
                     if scan_issues is None:
                         faults.append(
                             f"{rid}: rule_reviews 第 {start}-{end} 行只有宣告／無關程式碼，"
@@ -448,7 +451,7 @@ def verified_file_rule_reviews(
                     for rr in rows_for_path.get("rule_reviews", [])
                 )
                 if not manually_linked and _scan_proven_issues(
-                        root, rid, check.get("status"), check, path, excerpt) != []:
+                        root, rid, check.get("status"), check, path, excerpt, as_of) != []:
                     errors.append(f"{rid}: {path}:{start}-{end} 引用程式碼與本規則的控制行為無關；需核對實際實作或掃描工件")
                     continue
             meaningful = True

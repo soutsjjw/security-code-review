@@ -113,8 +113,9 @@ def _scenarios(target: Path, known: set[str], inspected: set[str],
 
 
 def _scan_proven_fail_errors(target: Path, rid: str, check: dict, record: dict,
-                             failure: set[tuple[str, int, int]]) -> list[str]:
-    """DP-01／DP-04 以套件清單行為缺陷位置時，須由已保存的掃描工件證實，並有對應的確認情境。"""
+                             failure: set[tuple[str, int, int]], as_of: Any) -> list[str]:
+    """DP-01／DP-04 以套件清單行為缺陷位置時，須由已保存的掃描工件（DP-04 亦可為
+    已屆終止支援的目標框架）證實，並有對應的確認情境。"""
     points = {p for p in failure if is_dependency_manifest(p[0])}
     if not points:
         return []
@@ -127,7 +128,7 @@ def _scan_proven_fail_errors(target: Path, rid: str, check: dict, record: dict,
             continue
         errors.extend(f"{rid}: Q3 failure_points {path}:{lo}-{hi} " + issue
                       for issue in scan_proven_errors(target, rid, check.get("status"), path,
-                                                      lines, check.get("evidence")))
+                                                      lines, check.get("evidence"), as_of=as_of))
     expected = set(REQUIRED_SCENARIOS[rid])
     rows = record.get("bypass_scenarios")
     if not any(isinstance(row, dict) and row.get("outcome") == "confirmed_vulnerability"
@@ -224,7 +225,8 @@ def outcome_errors(target: Path, index: dict, snapshot: dict,
                 if not any(_overlap(p, q) for p in failure for q in evidence):
                     errors.append(f"{rid}: Q3 Fail 缺陷來源與 Finding 證據不一致")
             if rid in SCAN_PROVEN_RULES:
-                errors.extend(_scan_proven_fail_errors(target, rid, check, record, failure))
+                errors.extend(_scan_proven_fail_errors(target, rid, check, record, failure,
+                                                       assessment.get("assessment_date")))
         else:
             errors.extend(_text_errors(record, ("control_condition", "failure_behavior",
                                                  "search_summary"), rid))

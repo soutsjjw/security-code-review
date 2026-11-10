@@ -109,9 +109,12 @@ _DECLARATION = re.compile(
     r"^(?:(?:public|private|protected|internal|sealed|abstract|partial|static|record|async)\s+)*"
     r"(?:class|interface|struct|enum|record)\s+\w+"
 )
+# 參數列不可跨過 `=>`：否則單行 expression-bodied 方法
+# `Register(...) => services.AddScoped<...>();` 會被貪婪比對到最後一個 `)`，
+# 整行連同方法本體被誤當成純宣告。
 _METHOD_SIGNATURE = re.compile(
     r"^(?:(?:public|private|protected|internal|static|virtual|override|async|sealed|new|abstract|partial)\s+)+"
-    r"(?:[\w?.<>,\[\] ]+\s+)?\w+\s*\([^;{}]*\)\s*(?:\{|;|=>)?$"
+    r"(?:[\w?.<>,\[\] ]+\s+)?\w+\s*\((?:(?!=>)[^;{}])*\)\s*(?:\{|;|=>)?$"
 )
 
 
